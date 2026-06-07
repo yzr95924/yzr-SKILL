@@ -82,9 +82,9 @@ description: 通过 Outline Wiki 内置的 MCP 服务管理知识库：搜索、
    - 创建新文档前必须用 `search_documents` 搜索关键词，确认是否有类似文档
    - 若已有同类但内容过期，用 `update_document` 更新而不是新建重复
 2. **严格 Markdown 格式**
-   - Outline 是 Markdown 优先的平台，必须用合法、纯净的 Markdown
+   - Outline Wiki 是 Markdown 优先的平台，必须用合法、纯净的 Markdown
    - 用 `#` / `##` / `###` 体现逻辑层级，自动生成清晰目录
-   - 除非 Outline 明确支持，否则不引入非标准的私有扩展语法
+   - 除非 Outline Wiki 明确支持，否则不引入非标准的私有扩展语法
 3. **维护结构与层级**
    - 文档**不能孤立创建**，必须挂到合适的 Collection（`collectionId`）
    - 创建嵌套子页前先调用 `get_collection_structure` 拿到当前层级，
@@ -100,7 +100,7 @@ description: 通过 Outline Wiki 内置的 MCP 服务管理知识库：搜索、
 - **不**在 MCP 未启用时尝试操作（提示用户去 **Settings → AI** 开启）
 - **不**擅自归档 / 删除他人撰写的文档
 - **不**绕过用户确认直接执行破坏性操作
-- **不**修改 MCP 端点配置本身（OAuth / API Key 由用户在 Outline 设置中管理）
+- **不**修改 MCP 端点配置本身（OAuth / API Key 由用户在 Outline Wiki 设置中管理）
 
 ## 工作流 / 步骤
 
@@ -125,7 +125,7 @@ description: 通过 Outline Wiki 内置的 MCP 服务管理知识库：搜索、
    - API Key：检查是否过期或被撤销，让用户重新生成
    - OAuth：让用户重新走一次授权流程
 2. **MCP 未启用（连接被拒）**
-   - 提示用户到 Outline 工作区 **Settings → AI** 确认 MCP toggle 已开启
+   - 提示用户到 Outline Wiki 工作区 **Settings → AI** 确认 MCP toggle 已开启
    - 自托管实例需管理员在控制台开启
 3. **层级引用错误（`create_document` 报 collection / parent 不存在）**
    - 重新调用 `list_collections` 与 `get_collection_structure` 拉取最新 ID
@@ -135,7 +135,7 @@ description: 通过 Outline Wiki 内置的 MCP 服务管理知识库：搜索、
 
 ### 样例一：搜索现有文档
 
-**用户指令**："帮我在 Outline 里搜一下'CI 部署流程'相关的文档"
+**用户指令**："帮我在 Outline Wiki 里搜一下'CI 部署流程'相关的文档"
 
 **执行**：
 
