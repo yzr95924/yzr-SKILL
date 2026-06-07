@@ -1,0 +1,11 @@
+{
+  // 默认开启全部规则；本文件只覆盖需要放宽的项
+  "default": true,
+
+  // MD013 行宽：放宽到 120 字符，代码块与表格不计入
+  "MD013": {
+    "line_length": 120,
+    "code_blocks": false,
+    "tables": false
+  }
+}
