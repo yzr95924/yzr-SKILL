@@ -37,3 +37,4 @@ Thumbs.db
 # 通用构建 / 分发目录
 dist/
 build/
+*.pdf

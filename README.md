@@ -5,7 +5,7 @@
 ## 设计原则
 - 主要参考
   - [Claude 官方指导](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
-  - [Claude 官方生成 skill 的 skill](https://github.com/anthropics/skills/tree/main/skills/yzr-skill-creator)
+  - [Claude 官方生成 skill 的 skill](https://github.com/anthropics/skills/tree/main/skills/skill-creator)
 - 具体的实现原则，参考 `./yzr-skill-creator`
 
 ## SKILLs 分类
