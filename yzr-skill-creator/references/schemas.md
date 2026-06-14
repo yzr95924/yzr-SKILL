@@ -40,46 +40,70 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 
 Tracks version progression in Improve mode. Located at workspace root.
 
+This is the shape actually written by `scripts/run_loop.py` and consumed by
+`scripts/generate_report.py` (see `scripts/run_loop.py::main` for the producer
+side, and `scripts/generate_report.py::generate_html` for the consumer side).
+
 ```json
 {
   "started_at": "2026-01-15T10:30:00Z",
   "skill_name": "pdf",
-  "current_best": "v2",
-  "iterations": [
+  "skill_path": "/path/to/pdf",
+  "model": "claude-sonnet-4-6",
+  "iterations_run": 3,
+  "train_size": 12,
+  "test_size": 8,
+  "trigger_threshold": 0.5,
+  "best_description": "pdf skill that does X, Y, Z",
+  "history": [
     {
-      "version": "v0",
-      "parent": null,
-      "expectation_pass_rate": 0.65,
-      "grading_result": "baseline",
-      "is_current_best": false
+      "iteration": 0,
+      "description": "v0 description (the starting point)",
+      "train_passed": 6,
+      "train_total": 12,
+      "train_trigger_rate": 0.50,
+      "test_passed": 3,
+      "test_total": 8,
+      "test_trigger_rate": 0.38,
+      "train_results": [{"query": "...", "should_trigger": true, "triggered": true}, ...],
+      "test_results":  [{"query": "...", "should_trigger": true, "triggered": false}, ...],
+      "elapsed_seconds": 45.2
     },
     {
-      "version": "v1",
-      "parent": "v0",
-      "expectation_pass_rate": 0.75,
-      "grading_result": "won",
-      "is_current_best": false
-    },
-    {
-      "version": "v2",
-      "parent": "v1",
-      "expectation_pass_rate": 0.85,
-      "grading_result": "won",
-      "is_current_best": true
+      "iteration": 1,
+      "parent": 0,
+      "description": "v1 description (improved by LLM)",
+      "train_passed": 8,
+      "train_total": 12,
+      "train_trigger_rate": 0.67,
+      "test_passed": 5,
+      "test_total": 8,
+      "test_trigger_rate": 0.62,
+      "train_results": [...],
+      "test_results": [...],
+      "elapsed_seconds": 52.7
     }
   ]
 }
 ```
 
 **Fields:**
-- `started_at`: ISO timestamp of when improvement started
+- `started_at`: ISO timestamp of when the loop started
 - `skill_name`: Name of the skill being improved
-- `current_best`: Version identifier of the best performer
-- `iterations[].version`: Version identifier (v0, v1, ...)
-- `iterations[].parent`: Parent version this was derived from
-- `iterations[].expectation_pass_rate`: Pass rate from grading
-- `iterations[].grading_result`: "baseline", "won", "lost", or "tie"
-- `iterations[].is_current_best`: Whether this is the current best version
+- `skill_path`: Absolute path to the skill directory
+- `model`: Model id used for both evaluation and improvement
+- `iterations_run`: Number of iterations actually executed (may be less than `max_iterations` if early-stopped)
+- `train_size` / `test_size`: Sizes of the train/holdout split (60/40 by default)
+- `trigger_threshold`: Trigger rate below which a query is counted as "not triggered"
+- `best_description`: The description with the best test pass rate (or train pass rate as tiebreaker)
+- `history[].iteration`: 0-based iteration index
+- `history[].parent`: Parent iteration index this description was derived from (`null` for the starting point)
+- `history[].description`: The skill description text used in this iteration
+- `history[].train_passed` / `train_total` / `train_trigger_rate`: Aggregate stats over the train split
+- `history[].test_passed` / `test_total` / `test_trigger_rate`: Aggregate stats over the holdout split
+- `history[].train_results` / `test_results`: Per-query trigger results
+  (improvement model sees train only; test is intentionally withheld)
+- `history[].elapsed_seconds`: Wall-clock time for this iteration
 
 ---
 

@@ -111,8 +111,10 @@ def build_run(root: Path, run_dir: Path) -> Optional[dict]:
     prompt = ""
     eval_id = None
 
-    # Try eval_metadata.json
-    for candidate in [run_dir / "eval_metadata.json", run_dir.parent / "eval_metadata.json"]:
+    # Try eval_metadata.json — search up the tree so the standard layout
+    # `<iter>/eval-N/{config}/run-N/` can find metadata at `<iter>/eval-N/eval_metadata.json`
+    search_roots = [run_dir, run_dir.parent, run_dir.parent.parent, run_dir.parent.parent.parent]
+    for candidate in [root / "eval_metadata.json" for root in search_roots if root]:
         if candidate.exists():
             try:
                 metadata = json.loads(candidate.read_text())
@@ -150,9 +152,12 @@ def build_run(root: Path, run_dir: Path) -> Optional[dict]:
             if f.is_file() and f.name not in METADATA_FILES:
                 output_files.append(embed_file(f))
 
-    # Load grading if present
+    # Load grading if present — same upward search as eval_metadata.json
     grading = None
-    for candidate in [run_dir / "grading.json", run_dir.parent / "grading.json"]:
+    for root in [run_dir, run_dir.parent, run_dir.parent.parent, run_dir.parent.parent.parent]:
+        if not root:
+            continue
+        candidate = root / "grading.json"
         if candidate.exists():
             try:
                 grading = json.loads(candidate.read_text())

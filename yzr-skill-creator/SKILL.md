@@ -250,7 +250,7 @@ python -m scripts.aggregate_benchmark <workspace>/iteration-N --skill-name <name
 
 4. **启动 viewer**：同时展示定性输出和定量数据:
 ```bash
-nohup python <skill-creator-path>/eval-viewer/generate_review.py \
+nohup python <skill-creator-path>/scripts/generate_review.py \
   <workspace>/iteration-N \
   --skill-name "my-skill" \
   --benchmark <workspace>/iteration-N/benchmark.json \
@@ -445,7 +445,7 @@ agent 根据描述决定是否查阅该 skill，需要知道的一点是：agent
 - 起草或编辑 skill
 - 让能访问该 skill 的 agent 在测试 prompt 上跑一遍
 - 与用户一起评估输出:
-  - 创建 benchmark.json，并跑 `eval-viewer/generate_review.py` 让人类评审测试用例
+  - 创建 benchmark.json，并跑 `scripts/generate_review.py` 让人类评审测试用例
   - 跑定量评估
 - 反复迭代，直到你和用户都满意
 - 打包最终 skill 并交付给用户
