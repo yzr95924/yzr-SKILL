@@ -20,6 +20,7 @@ Python 兼容：3.6+（与 yzr-skill-creator 脚本保持一致；避开 PEP 604
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -205,7 +206,16 @@ def find_figure_caption(page, fig_num):
 def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
     # type: (object, int, bool) -> object
     """无 Gemini bbox 时按 `Figure N:` caption 自动定位，返回 fitz.Rect 或 None。
-    include_caption=True 时包含 caption，False 时只到 caption 顶。"""
+    include_caption=True 时包含 caption，False 时只到 caption 顶。
+
+    定位算法（多策略，从精确到兜底）：
+    1. **正文段落边界**：caption 上方最近的"宽+多行"正文段落底部（旧启发式，
+       处理 figure 上方紧跟段落的常见情形）。
+    2. **figure annotation 顶部**：caption 上方同栏所有非正文块（即 figure
+       annotation / label）的最上 y0。新增逻辑，专门解决 figure 上方只有
+       figure annotation、没有正文段落的情形（如 ART-ICDE'13 第 5 页）。
+    3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，
+       但可能含 page header）。"""
     cap_bbox = find_figure_caption(page, fig_num)
     if not cap_bbox:
         return None
@@ -223,43 +233,50 @@ def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
         col_left = page_mid_x + 5
         col_right = page_rect.x1 - 36
 
-    # 找同一栏内、caption 上方最近的"正文段落"（宽 + 多行）底部作为 figure 顶。
-    # 启发式：body text 跨满栏宽，figure annotation/label 都很窄。
-    # 找不到合适的正文段落时退回到 page 顶，保证 figure 一定被框入。
     col_width = col_right - col_left
+    if col_width < 100:
+        return None
 
     def is_body_text_block(block):
         line_count = len(block.get("lines", []))
         block_width = block["bbox"][2] - block["bbox"][0]
         return line_count >= 2 and block_width >= col_width * 0.6
 
-    text_above_bottom = page.rect.y0
+    # 单次遍历:分类正文块 vs annotation 块
+    body_bottom = page_rect.y0  # 正文段落底部候选
     found_body = False
+    annotation_top = None  # annotation 块最上 y0
     for block in page.get_text("dict").get("blocks", []):
         if "lines" not in block:
             continue
-        block_x_center = (block["bbox"][0] + block["bbox"][2]) / 2
+        bbox = block["bbox"]
+        block_x_center = (bbox[0] + bbox[2]) / 2
         if block_x_center < col_left or block_x_center > col_right:
             continue
-        block_bottom = block["bbox"][3]
-        if block_bottom >= cap_limit_y:
+        if bbox[3] >= cap_limit_y:
             continue
-        if not is_body_text_block(block):
-            continue
-        if block_bottom > text_above_bottom:
-            text_above_bottom = block_bottom
-            found_body = True
-    if not found_body:
-        text_above_bottom = page.rect.y0
+        if is_body_text_block(block):
+            # 正文段落:取最下的正文块底部
+            if bbox[3] > body_bottom:
+                body_bottom = bbox[3]
+                found_body = True
+        else:
+            # annotation / label 块:取最上的 y0
+            if annotation_top is None or bbox[1] < annotation_top:
+                annotation_top = bbox[1]
 
-    # 若 text_above_bottom 离 caption 太近（< 30 pt），说明紧贴的是 figure 自身的
-    # label/annotation（不算正文），退回用 page 顶
-    if cap_limit_y - text_above_bottom < 30:
-        text_above_bottom = page.rect.y0
+    # === 策略 1: 正文段落底部（紧贴 figure 上方的正文）===
+    if found_body and cap_limit_y - body_bottom >= 30:
+        return fitz.Rect(col_left, body_bottom, col_right, cap_limit_y)
 
-    if col_right - col_left < 100:
-        return None
-    return fitz.Rect(col_left, text_above_bottom, col_right, cap_limit_y)
+    # === 策略 2: annotation 顶部（figure 上方只有 annotation / label 时）===
+    # 即使策略 1 找到了正文,如果正文离 caption 太近（< 30pt）,说明"正文"其实是
+    # figure 自己的 caption label,不是真正文;这时仍用 annotation 顶部。
+    if annotation_top is not None and annotation_top > page_rect.y0:
+        return fitz.Rect(col_left, annotation_top, col_right, cap_limit_y)
+
+    # === 策略 3: page 顶兜底 ===
+    return fitz.Rect(col_left, page_rect.y0, col_right, cap_limit_y)
 
 
 def refine_bbox(page, fig_num, bbox, padding=5.0):
@@ -390,14 +407,16 @@ def render_figures_to_pngs(
     max_size_kb=None,
     make_thumbnail=False,
     thumbnail_width=400,
+    visual_bbox_map=None,
 ):
-    # type: (str, list, str, float, str, int, int, int, bool, int) -> tuple
+    # type: (str, list, str, float, str, int, int, int, bool, int, dict) -> tuple
     """对每条 (page, fig_num, bbox_or_None) 截取图本身，存为图片文件。
 
-    定位策略：caption 定位为主，bbox 仅作 hint
-    1. 优先在该页按 `Figure N:` caption 定位 → 截取 caption 上方到 caption 底（包含 caption）
-    2. 若无 caption 可用 Gemini 提供的 bbox 作为兜底
-    3. 若都没有，跳过该图
+    定位策略（优先级从高到低）：
+    1. **visual_bbox**（Stage 2 Gemini 视觉定位，PDF point）— 已紧贴 figure+caption，加 padding=2
+    2. **caption 定位**（本地算法）— 包含 caption 但不延伸到正文，加 padding=5
+    3. **Gemini bbox hint**（Stage 1 prompt 嵌入的 bbox=...）— 仅作最后兜底，去 padding
+    4. 若都没有，跳过该图并 stderr WARN
 
     渲染策略：
     - max_width：在渲染阶段钳 `effective_scale = min(dpi_scale, max_width / clip.width_pt)`
@@ -424,6 +443,7 @@ def render_figures_to_pngs(
     ext_map = {"png": "png", "webp": "webp", "jpeg": "jpg"}
     full_result = {}
     thumb_result = {}
+    visual_bbox_map = visual_bbox_map or {}
 
     doc = fitz.open(pdf_path)
     try:
@@ -439,12 +459,35 @@ def render_figures_to_pngs(
                 key = (p, f)
                 if key in full_result:
                     continue
-                # 1) 优先：caption 定位（最准，包含 caption 但不延伸到正文）
-                clip = find_figure_bbox_by_caption(page, f, include_caption=True)
+                page_rect = page.rect
+                clip = None
+                # 1) 最高优先级：Stage 2 Gemini 视觉定位结果（PDF point，已紧贴）
+                v_entry = visual_bbox_map.get((p, f))
+                if v_entry and "bbox_pt" in v_entry:
+                    x0, y0, x1, y1 = v_entry["bbox_pt"]
+                    pad = 2.0
+                    x0 = max(page_rect.x0, x0 - pad)
+                    y0 = max(page_rect.y0, y0 - pad)
+                    x1 = min(page_rect.x1, x1 + pad)
+                    y1 = min(page_rect.y1, y1 + pad)
+                    if x1 - x0 >= 20 and y1 - y0 >= 20:
+                        clip = fitz.Rect(x0, y0, x1, y1)
+                # 2) 次优先级：本地 caption 定位（包含 caption，不延伸到正文）
+                if clip is None:
+                    clip = find_figure_bbox_by_caption(page, f, include_caption=True)
+                    if clip is not None:
+                        # caption 定位用 +5 padding（更保守一点）
+                        clip = fitz.Rect(
+                            max(page_rect.x0, clip.x0 - 5),
+                            max(page_rect.y0, clip.y0 - 5),
+                            min(page_rect.x1, clip.x1 + 5),
+                            min(page_rect.y1, clip.y1 + 5),
+                        )
+                # 3) 最后兜底：Stage 1 Gemini bbox hint（精度差）
                 if clip is None and bbox is not None:
-                    # 2) 兜底：Gemini bbox（去掉 padding / 不裁剪，作为最后手段）
-                    sys.stderr.write(f"INFO: 第 {p} 页 Figure {f} 未找到 caption，回退到 Gemini bbox\n")
-                    page_rect = page.rect
+                    sys.stderr.write(
+                        f"INFO: 第 {p} 页 Figure {f} 未找到 caption/visual bbox，回退到 Gemini bbox hint\n"
+                    )
                     x0, y0, x1, y1 = bbox
                     x0 = max(page_rect.x0, min(x0, page_rect.x1))
                     x1 = min(page_rect.x1, max(x1, page_rect.x0))
@@ -455,7 +498,9 @@ def render_figures_to_pngs(
                     else:
                         clip = fitz.Rect(x0, y0, x1, y1)
                 if clip is None:
-                    sys.stderr.write(f"WARN: 第 {p} 页 Figure {f} 定位失败（既无 caption 也无有效 bbox），跳过\n")
+                    sys.stderr.write(
+                        f"WARN: 第 {p} 页 Figure {f} 定位失败（既无 visual bbox 也无 caption 也无有效 hint），跳过\n"
+                    )
                     continue
 
                 # === 渲染主体：max_width 在 scale 阶段钳 ===
@@ -527,6 +572,292 @@ def render_figures_to_pngs(
     finally:
         doc.close()
     return full_result, thumb_result
+
+
+# ----------------------------------------------------------------------------
+# Stage 2: Gemini 视觉定位 (refine bbox + 读完整 caption + 过滤装饰图)
+# ----------------------------------------------------------------------------
+
+# Gemini Robotics-ER 官方约定 + 仓库 PDF 场景的折中:
+# - 字段名 box_2d,顺序 [ymin, xmin, ymax, xmax],归一化 0-1000 整数,原点左上
+# - 1000 ↔ 页面渲染图的宽/高像素比例 = 页面 PDF point 的宽/高(渲染图未做宽高变形),
+#   所以 0-1000 直接换算为 PDF point: x_pt = x_norm * page.rect.width / 1000
+VISUAL_BBOX_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "page": {"type": "integer", "description": "PDF 页码 (1-based)"},
+        "figures": {
+            "type": "array",
+            "description": "该页所有 figure,按 fig_num 升序",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fig_num": {"type": "integer", "description": "论文里的 Figure 编号 (如 1)"},
+                    "bbox_2d": {
+                        "type": "array",
+                        "description": "[ymin, xmin, ymax, xmax],归一化 0-1000 整数,原点左上",
+                        "items": {"type": "integer"},
+                        "minItems": 4,
+                        "maxItems": 4,
+                    },
+                    "full_caption": {
+                        "type": "string",
+                        "description": "图片下方 caption 完整文本(可能跨多行,逐字合并)",
+                    },
+                    "is_key_figure": {
+                        "type": "boolean",
+                        "description": "true=整体架构/核心模块/概念流程/关键对比;false=装饰/logo/坐标轴/表格",
+                    },
+                },
+                "required": ["fig_num", "bbox_2d", "full_caption", "is_key_figure"],
+            },
+        },
+    },
+    "required": ["page", "figures"],
+}
+
+VISUAL_BBOX_PROMPT = (
+    "你将看到一张论文 PDF 页面渲染图(已用 pymupdf 渲染为 PNG)。\n\n"
+    "请识别页面中所有的 Figure(图),按论文中的出现顺序返回。每张图给:\n"
+    "- fig_num: 论文里的 Figure 编号(从 caption 中读,如 'Figure 1' → 1)\n"
+    "- bbox_2d: 该 figure 的紧致边界框(含 caption),格式 [ymin, xmin, ymax, xmax],"
+    "归一化到 0-1000 整数,原点在图像左上角。框必须紧贴 figure 主体与 caption,"
+    "不要把无关正文、页眉、页脚、栏外边距框进来。\n"
+    "- full_caption: 从图片下方 caption 完整读出(可能跨多行,逐字合并,不要截断)。"
+    "包含 'Figure N:' 前缀。\n"
+    "- is_key_figure: true=整体架构/核心模块/概念流程/关键对比示意;"
+    "false=装饰/logo/坐标轴标注/表格截图/补充材料\n\n"
+    '返回 JSON {"page": <页码>, "figures": [...]};'
+    "figures 数组按 fig_num 升序。\n"
+    '若该页没有 figure,返回 {"page": <页码>, "figures": []}。'
+)
+
+
+def render_pages_for_gemini(pdf_path, refs, dpi_scale=2.0):
+    # type: (str, list, float) -> dict
+    """Stage 2 辅助: 把含 fig 引用的页面渲染成 PNG,按 page 分组共用一次渲染。
+    输入 refs: parse_figure_refs() 的输出 [(page, fig_num, bbox_or_None), ...]
+    返回 {page_num: png_bytes};同一页只渲染一次。
+    渲染图未做宽高变形,因此 Gemini 返回的 0-1000 归一化坐标可直接换算为 PDF point。"""
+    if not _HAS_PYMUPDF:
+        sys.stderr.write(
+            "ERROR: --refine-figures 需要 pymupdf,但未安装。\n"
+            "       安装命令: pip install --user --break-system-packages pymupdf\n"
+        )
+        sys.exit(2)
+    pages_needed = sorted({p for p, _, _ in refs})
+    out = {}
+    doc = fitz.open(pdf_path)
+    try:
+        for page_num in pages_needed:
+            if page_num < 1 or page_num > len(doc):
+                sys.stderr.write(f"WARN: Stage 2 跳过越界页 {page_num}\n")
+                continue
+            page = doc[page_num - 1]
+            matrix = fitz.Matrix(dpi_scale, dpi_scale)
+            pix = page.get_pixmap(matrix=matrix)
+            out[page_num] = pix.tobytes("png")
+    finally:
+        doc.close()
+    sys.stderr.write(f"INFO: Stage 2 已渲染 {len(out)} 页 (dpi_scale={dpi_scale})\n")
+    return out
+
+
+def _parse_visual_bbox_response(response_json, page_num):
+    # type: (object, int) -> list
+    """校验 + 标准化 Gemini 返回的 JSON,返回 [(fig_num, (x0,y0,x1,y1)_pt, full_caption), ...]。
+    bbox 越界则 clamp 到 [0, 1000];若完全退化(ymin>=ymax 或 xmin>=xmax)则丢弃该条。
+    full_caption 去前后空白。"""
+    out = []
+    if not isinstance(response_json, dict):
+        return out
+    figures = response_json.get("figures", [])
+    if not isinstance(figures, list):
+        return out
+    for fig in figures:
+        if not isinstance(fig, dict):
+            continue
+        try:
+            fig_num = int(fig.get("fig_num"))
+            bbox = fig.get("bbox_2d", [])
+            if not isinstance(bbox, list) or len(bbox) != 4:
+                continue
+            # bbox_2d = [ymin, xmin, ymax, xmax]
+            ymin, xmin, ymax, xmax = [int(round(float(v))) for v in bbox]
+            # clamp 到 [0, 1000]
+            ymin = max(0, min(1000, ymin))
+            xmin = max(0, min(1000, xmin))
+            ymax = max(0, min(1000, ymax))
+            xmax = max(0, min(1000, xmax))
+            if ymax <= ymin or xmax <= xmin:
+                continue  # bbox 退化,丢弃
+            full_caption = str(fig.get("full_caption", "")).strip()
+            is_key = bool(fig.get("is_key_figure", True))
+            out.append((fig_num, (ymin, xmin, ymax, xmax), full_caption, is_key))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _call_gemini_with_retry(client, model, png_bytes, prompt, temperature, page_num, max_attempts=3):
+    # type: (object, str, bytes, str, float, int, int) -> object
+    """Stage 2 单页 Gemini 调用,带临时错误重试。
+
+    重试策略:
+    - 最多 max_attempts 次(默认 3)
+    - 临时错误 (5xx / 429) 退避 2s, 4s 后重试
+    - 永久错误 (400/401/403/404) 直接抛出(不重试)
+    - 其他异常也走重试(网络抖动等)
+
+    返回 response 对象;最终失败抛 RuntimeError。"""
+    import time  # 局部 import,避免顶层 import 副作用
+
+    # google.genai.errors.APIError 子类都有 status_code 属性
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    types.Part.from_bytes(data=png_bytes, mime_type="image/png"),
+                    prompt,
+                ],
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    response_mime_type="application/json",
+                    response_json_schema=VISUAL_BBOX_SCHEMA,
+                ),
+            )
+            return response
+        except Exception as e:
+            last_err = e
+            status = getattr(e, "status_code", None) or getattr(e, "code", None)
+            # 永久错误:直接抛(由外层 catch 报 WARN)
+            if status is not None and status in {400, 401, 403, 404}:
+                raise
+            # 临时错误或无 status_code:重试
+            if attempt + 1 < max_attempts:
+                backoff = 2 ** (attempt + 1)  # 2s, 4s
+                sys.stderr.write(
+                    f"INFO: Stage 2 第 {page_num} 页 第 {attempt + 1}/{max_attempts} 次失败"
+                    f"({type(e).__name__}: {e}),{backoff}s 后重试...\n"
+                )
+                time.sleep(backoff)
+                continue
+            # 已到 max_attempts,跑完重试
+            break
+    raise RuntimeError(f"Stage 2 Gemini 调用 {max_attempts} 次仍失败: {type(last_err).__name__}: {last_err}")
+
+
+def call_gemini_for_visual_bbox(pdf_path, page_to_png, model, temperature):
+    # type: (str, dict, str, float) -> dict
+    """Stage 2: 对每页调用 Gemini,要求返回精确 bbox + 完整 caption + 是否关键图。
+    返回 {(page, fig_num): {"bbox_pt": (x0,y0,x1,y1), "full_caption": str,
+                              "is_key_figure": bool}}
+    - bbox_pt 是 PDF point 单位(由 Gemini 0-1000 归一化 × page.rect.width/1000 换算)
+    - 失败页面(stderr WARN)返回该页空字典,不让 Stage 2 整体失败
+    - 过滤 is_key_figure=False 的图(装饰/logo/表格)
+    - 对每页 Gemini 调用做最多 3 次重试(应对 503/429 等临时错误)"""
+    if not page_to_png:
+        return {}
+    client = genai.Client()
+    result = {}
+    pages_sorted = sorted(page_to_png.keys())
+    sys.stderr.write(f"INFO: Stage 2 调用 Gemini ({model}) 视觉定位 {len(pages_sorted)} 页...\n")
+    # 读一次 page.rect 宽度/高度,用于坐标换算
+    doc = fitz.open(pdf_path)
+    try:
+        page_rects = {}
+        for page_num in pages_sorted:
+            if 1 <= page_num <= len(doc):
+                page_rects[page_num] = doc[page_num - 1].rect
+    finally:
+        doc.close()
+
+    for page_num in pages_sorted:
+        png_bytes = page_to_png[page_num]
+        page_rect = page_rects.get(page_num)
+        if page_rect is None:
+            sys.stderr.write(f"WARN: Stage 2 跳过越界页 {page_num}\n")
+            continue
+        try:
+            response = _call_gemini_with_retry(client, model, png_bytes, VISUAL_BBOX_PROMPT, temperature, page_num)
+            text = getattr(response, "text", None)
+            if not text:
+                sys.stderr.write(f"WARN: Stage 2 第 {page_num} 页 Gemini 返回为空\n")
+                continue
+            parsed = json.loads(text)
+        except Exception as e:
+            sys.stderr.write(f"WARN: Stage 2 第 {page_num} 页 Gemini 调用失败: {type(e).__name__}: {e}\n")
+            continue
+
+        figs = _parse_visual_bbox_response(parsed, page_num)
+        if not figs:
+            continue
+        for fig_num, bbox_2d, full_caption, is_key in figs:
+            if not is_key:
+                sys.stderr.write(f"INFO: Stage 2 第 {page_num} 页 Figure {fig_num} 标记为非关键图,跳过\n")
+                continue
+            ymin, xmin, ymax, xmax = bbox_2d
+            # 0-1000 归一化 → PDF point
+            x0_pt = xmin * page_rect.width / 1000.0
+            y0_pt = ymin * page_rect.height / 1000.0
+            x1_pt = xmax * page_rect.width / 1000.0
+            y1_pt = ymax * page_rect.height / 1000.0
+            result[(page_num, fig_num)] = {
+                "bbox_pt": (x0_pt, y0_pt, x1_pt, y1_pt),
+                "full_caption": full_caption,
+            }
+    sys.stderr.write(f"INFO: Stage 2 视觉定位完成,共 {len(result)} 个图\n")
+    return result
+
+
+# 抓整行 `![alt](PDF p.X fig.N ...)` 用于 alt 文本替换
+FIGURE_LINE_RE = re.compile(r"(!\[[^\]]*\])\(PDF p\.(\d+)\s+fig\.(\d+)(?:\s+bbox=\[?[\d.,]+\]?)?\)")
+
+
+def replace_alt_with_full_caption(md_text, visual_bbox_map):
+    # type: (str, dict) -> str
+    """用 Stage 2 返回的完整 caption 覆盖 Markdown 里的残缺 alt 文本。
+
+    输入 visual_bbox_map: {(page, fig_num): {"bbox_pt": ..., "full_caption": str}}
+
+    替换规则: 仅当 (page, fig_num) 在 visual_bbox_map 中且 full_caption 非空时:
+    - 把 `![图 N：<原 alt 余部>](PDF p.X fig.N ...)` 改为
+      `![图 N：<full_caption>](PDF p.X fig.N ...)`
+    - "图 N：" 前缀保留(便于按 alt 中的"图 N"对应 Markdown 行号)
+    - 若原 alt 已含"—"说明段(如"— 展示了..."),保留"—"之后部分(Stage 1 的角色说明)
+
+    未命中或 full_caption 为空时,保持原 alt 不动。"""
+    if not visual_bbox_map:
+        return md_text
+
+    def repl(m):  # type: (re.Match) -> str
+        img_tag = m.group(1)  # ![...]
+        page = int(m.group(2))
+        fig_num = int(m.group(3))
+        entry = visual_bbox_map.get((page, fig_num))
+        if not entry or not entry.get("full_caption"):
+            return m.group(0)
+        full_caption = entry["full_caption"].strip()
+        if not full_caption:
+            return m.group(0)
+        # 解析原 alt: ![图 N：<title>(— <role>)?]
+        alt_match = re.match(r"!\[(图\s*\d+\s*[：:])\s*(.*)\]", img_tag)
+        if not alt_match:
+            return m.group(0)
+        prefix = alt_match.group(1)  # "图 N："
+        rest = alt_match.group(2).strip()  # "<title>(— <role>)?"
+        # 拆 "—" 分隔符:caption 之前是 title,"—" 之后是 Stage 1 写的角色说明
+        parts = re.split(r"\s*—\s*", rest, maxsplit=1)
+        # 新 alt = "图 N：<full_caption>(— <role>)?"
+        if len(parts) == 2:
+            new_alt = f"{prefix}{full_caption} — {parts[1]}"
+        else:
+            new_alt = f"{prefix}{full_caption}"
+        return "!" + "[" + new_alt + "]" + m.group(0)[len(img_tag) :]
+
+    return FIGURE_LINE_RE.sub(repl, md_text)
 
 
 # 缩略图二次包裹：`![alt](figures/figure-pX-fY.thumb.png)` → `[![alt](thumb)](full)`
@@ -670,6 +1001,25 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         default=400,
         help="缩略图宽度（像素，默认 400）。",
     )
+    parser.add_argument(
+        "--refine-figures",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Stage 2: 用 Gemini 看图视觉定位每个 figure 的精确 bbox + 读完整 caption + "
+            "过滤装饰图（默认 True）。关闭用 --no-refine-figures，沿用 Stage 1 的 bbox hint 或 caption 定位。"
+            "需要 pymupdf + GEMINI_API_KEY。"
+        ),
+    )
+    parser.add_argument(
+        "--refine-dpi",
+        type=float,
+        default=2.0,
+        help=(
+            "Stage 2 渲染页面给 Gemini 看的 DPI 倍率（默认 2.0）。"
+            "增大可提升定位精度但增加 token 成本与延迟。仅 --refine-figures 启用时生效。"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -780,7 +1130,23 @@ def main(argv=None):  # type: (Optional[list]) -> int
         out_dir = args.output
         figures_dir_abs = os.path.join(out_dir, "figures")
         refs = parse_figure_refs(summary_md)
+        visual_bbox_map = {}
         if refs:
+            # Stage 2 (可选): 用 Gemini 看图视觉定位 + 读完整 caption + 过滤装饰图
+            if args.refine_figures:
+                if not _HAS_PYMUPDF:
+                    sys.stderr.write(
+                        "WARN: --refine-figures 需要 pymupdf,但未安装;跳过 Stage 2,沿用 caption 定位。\n"
+                        "      安装命令: pip install --user --break-system-packages pymupdf\n"
+                    )
+                elif not os.environ.get("GEMINI_API_KEY"):
+                    sys.stderr.write("WARN: --refine-figures 需要 GEMINI_API_KEY,未设置;跳过 Stage 2。\n")
+                else:
+                    page_to_png = render_pages_for_gemini(args.pdf, refs, dpi_scale=args.refine_dpi)
+                    if page_to_png:
+                        visual_bbox_map = call_gemini_for_visual_bbox(args.pdf, page_to_png, model, args.temperature)
+                        # 用 Gemini 读出的完整 caption 覆盖 Markdown alt 中可能残缺的标题
+                        summary_md = replace_alt_with_full_caption(summary_md, visual_bbox_map)
             os.makedirs(out_dir, exist_ok=True)
             ref_to_fullpath, ref_to_thumbpath = render_figures_to_pngs(
                 args.pdf,
@@ -793,6 +1159,7 @@ def main(argv=None):  # type: (Optional[list]) -> int
                 max_size_kb=args.max_size_kb,
                 make_thumbnail=args.thumbnail,
                 thumbnail_width=args.thumbnail_width,
+                visual_bbox_map=visual_bbox_map,
             )
             # 选择 Markdown 引用源：缩略图模式用 thumb，否则用 full
             if args.thumbnail and ref_to_thumbpath:
@@ -802,10 +1169,11 @@ def main(argv=None):  # type: (Optional[list]) -> int
                 ref_to_relpath = ref_to_fullpath
                 ref_to_full_for_wrap = None
             summary_md = embed_figure_refs(summary_md, ref_to_relpath, ref_to_full_for_wrap)
+            refine_note = f", Stage 2 定位 {len(visual_bbox_map)} 个" if visual_bbox_map else ""
             sys.stderr.write(
                 f"OK: 已导出 {len(ref_to_fullpath)} 张图到 {figures_dir_abs}（倍率 {args.figure_dpi}，"
                 f"{args.figure_dpi * 72:.0f} DPI，格式 {args.figure_format}"
-                f"{' + 缩略图' if args.thumbnail else ''}）\n"
+                f"{' + 缩略图' if args.thumbnail else ''}{refine_note}）\n"
             )
         else:
             sys.stderr.write("INFO: 总结里没有 `PDF p.X fig.N` 引用，无需导出图。\n")

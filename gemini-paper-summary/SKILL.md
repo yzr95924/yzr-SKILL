@@ -53,6 +53,8 @@ metadata:
 | 像素上限 | ✗ | `--max-width N`，渲染后等比缩放到 ≤ N px 宽；None 不限制 |
 | 体积上限 | ✗ | `--max-size-kb N`，超 N KB 自动降级（quality → format → scale）；None 不限制 |
 | 缩略图 | ✗ | `--thumbnail` 额外生成缩略图；`--thumbnail-width`（默认 400px）控制宽度 |
+| Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
+| Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
 
 ### 输出
 
@@ -200,23 +202,106 @@ metadata:
 - ![图 4：传统基数树对比](figures/figure-p4-f4.png) — ...
 ```
 
-**截取逻辑**（按优先级）：
+**截取逻辑**（按优先级，从高到低）：
 
-1. **Gemini 提供 bbox**：脚本用 `bbox=<x0,y0,x1,y1>` 作初值，再做后处理：
-   - 横向：与 `Figure N:` caption 的 x 区间取并集（保证 caption 不被切）
-   - 纵向：钳到 caption 底部为止（避免吃进 caption 后的正文）
-2. **Gemini 没给 bbox**：纯 caption 定位——
-   - 在该页双栏布局下，根据 caption 的 x 中心判断 figure 所在栏（左 / 右）
-   - 只在该栏内找"正文段落"作为 figure 顶部边界（启发式：≥2 行 + 宽度 ≥ 栏宽 60%）
-   - 找不到正文段落时退到 page 顶（可能含标题/作者/摘要，但保证图本身完整）
-3. **定位失败**：跳过该图并在 stderr 打印 WARN；Markdown 里的引用保持原样
+1. **Stage 2 Gemini 视觉定位**（仅在 `--refine-figures` 启用时）：把页面渲染成 PNG 送给 Gemini
+   多模态，让它**用视觉方式**给出每个 figure 的紧致 bbox + 完整 caption + 是否关键图。
+   精度最高，且能自动跳过装饰图/logo/坐标轴/表格。详见下文 §Stage 2。
+2. **caption 定位**（本地算法，多策略 fallback）：在该页按 `Figure N:` caption 反向推断 figure 区域——
+   - 双栏布局下，根据 caption 的 x 中心判断 figure 所在栏（左 / 右）
+   - figure 顶部检测按以下三策略按顺序尝试：
+     1. **正文段落底部**：caption 上方最近的"宽+多行"正文段落底部（≥2 行 + 宽度 ≥ 栏宽 60%）。
+        处理 figure 上方紧跟正文的常见情形。
+     2. **annotation 顶部**：caption 上方同一栏所有"非正文"文本块（figure annotation / label /
+        节点编号等"窄+单行"块）的最上 y0。**专门解决 figure 上方只有 annotation 没有正文**
+        的情形（如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label +
+        path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来。
+     3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，但可能含 page header）
+3. **Stage 1 Gemini bbox hint**（仅作最后兜底，精度差）：脚本直接用 Stage 1 prompt 嵌入的
+   `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验
+4. **定位失败**：跳过该图并在 stderr 打印 WARN；Markdown 里的引用保持原样
 
-**已知边界**：
+**已知边界**（无 Stage 2 时，caption 定位 fallback 兜底）：
 
-- 单栏 PDF：bbox 与 caption 定位都工作得很好
+- 单栏 PDF：caption 定位工作得很好
 - 双栏 PDF：每栏各自裁剪，不会跨栏"吃"另一栏的图
-- 同一栏上下相邻多张图：上方那张的 caption 会被识别成"正文段落"，可能导致下一张的图顶部被切
-- 图在页顶（如 page 1 标题下方）：可能把标题/作者/摘要一起裁进来
+- 同一栏上下相邻多张图：上方那张的 caption 会被识别成"正文段落"（策略 1 命中），
+  但如果上方那张**没有正文段落**，策略 2 会用 annotation 顶部避免切错
+- 图在页顶（如 page 1 标题下方）：caption 上方通常有正文段落，策略 1 命中；
+  完全没正文时策略 2 仍可能框到 page header，需要 Stage 2 精修
+
+> **推荐始终启用 `--refine-figures`**（默认开）：Stage 2 用 Gemini 看图直接给精确 bbox，
+> 上述三个边界问题基本消失；唯一代价是每张引用页多一次 Gemini 调用 + ~5-15s 延迟。
+
+#### Stage 2: Gemini 视觉定位精修（默认开启）
+
+Stage 1 拿到 `PDF p.X fig.N` 引用后,Stage 2 把对应页面渲染成 PNG 送给 Gemini,**用视觉方式**
+给出每个 figure 的精确边界 + 完整 caption,直接从源头解决三个老问题:
+
+| 老问题 | Stage 2 怎么解决 |
+| --- | --- |
+| 边界不准确 | Gemini 看渲染图直接给归一化 0-1000 bbox,按图像像素精确定位,不再是基于 PDF 内容的估算 |
+| 图片标题残缺 | Gemini 直接读出图片下方完整 caption(含多行),覆盖 Stage 1 LLM 生成的残缺 alt |
+| 上方留白过多 | Gemini 自动判断 figure 顶部边界,不会把页眉/标题/作者框进来 |
+
+**Stage 2 流程**：
+
+```text
+Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
+   ↓
+1) 把 p.3 / p.4 渲染成 PNG(默认 2x DPI;改用 --refine-dpi 调整)
+   ↓
+2) 每页一次 Gemini 调用,prompt 要求返回 JSON:
+   { "page": 3, "figures": [
+       { "fig_num": 1, "bbox_2d": [ymin,xmin,ymax,xmax],
+         "full_caption": "Figure 1: ...",
+         "is_key_figure": true }, ...
+   ]}
+   ↓
+3) 把 Gemini 返回的 0-1000 bbox 换算为 PDF point:
+   x_pt = x_norm * page.rect.width / 1000
+   ↓
+4) 用 Stage 2 bbox 替换 Stage 1 提示词里的 bbox hint,再做后续裁剪
+5) 把 Stage 2 读出的完整 caption 覆盖 Markdown 里残缺的 alt 文本
+```
+
+**坐标约定**(Gemini 官方 `gemini-robotics-er-1.6-preview` 同款):
+
+- `bbox_2d = [ymin, xmin, ymax, xmax]`(y 在前)
+- 归一化 0-1000 整数
+- 原点在图像左上角
+- 渲染图未做宽高变形 → 1000 ↔ 页面 PDF point 的宽/高
+
+**Stage 2 参数**:
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `--refine-figures` / `--no-refine-figures` | `True` | 是否启用 Stage 2。关闭后回到 Stage 1 bbox hint + 本地 caption 定位 |
+| `--refine-dpi` | `2.0` | Stage 2 渲染页面的 DPI 倍率。增大可提升定位精度但增加 token 成本 |
+
+**Stage 2 失败行为**(单页失败不影响其他页):
+
+| 现象 | 原因 | 处置 |
+| --- | --- | --- |
+| `INFO: Stage 2 第 X 页 第 N/3 次失败,2s 后重试...` | 临时错误 (503/429/500/502/504) | 自动退避重试 2s / 4s,最多 3 次 |
+| `WARN: Stage 2 第 X 页 Gemini 调用失败` | 重试 3 次仍失败 / 永久错误 (400/401/403/404) | 该页退回 caption 定位(策略 1/2/3 自动选最优),其他页继续 |
+| `WARN: Stage 2 第 X 页 Gemini 返回为空` | 模型无输出 | 同上 |
+| `INFO: Stage 2 第 X 页 Figure N 标记为非关键图,跳过` | Gemini 判断为装饰/logo/表格 | 该 fig 不裁剪,沿用 Stage 1 流程 |
+| `WARN: 第 X 页 Figure Y 未找到 caption/visual bbox` | Stage 2 失败 + caption 三策略都未命中 | 走 Stage 1 bbox hint 兜底 |
+
+**Stage 2 重试机制**(临时错误自愈):
+
+- 默认 3 次尝试,指数退避 (2s, 4s)
+- 临时错误 (`429 / 500 / 502 / 503 / 504`) 触发重试
+- 永久错误 (`400 / 401 / 403 / 404`) 立即放弃(重试也没用)
+- 网络异常 / 超时也走重试路径(无 `status_code` 时一律重试)
+
+**Stage 2 成本**:
+
+- 多 N 次 Gemini 调用(N = 引用 figure 的页面去重数,通常 2-5 页)
+- 每页输入 ~1k token(image + prompt)+ 输出 ~200 token
+- 延迟:每页 ~5-15s(串行)
+- 用 `--no-refine-figures` 可完全跳过
 
 #### 大小 / 格式 / 缩略图控制（仅在 `--extract-figures` 启用时生效）
 
@@ -260,16 +345,37 @@ metadata:
 # 1) 先装 pymupdf（一次性）
 pip install --user --break-system-packages pymupdf
 
-# 2) 一次性跑通：Gemini 总结 + bbox/caption 定位 + 截取 + 路径替换 + 写文件
+# 2) 一次性跑通：Stage 1 总结 + Stage 2 视觉定位 + 裁剪 + 路径替换 + 写文件
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/attention.pdf \
   --output ~/papers/summaries/attention \
   --extract-figures
+# --refine-figures 默认开启;想完全跳过 Stage 2 加 --no-refine-figures
 ```
 
-`--figure-dpi` 可改渲染倍率（默认 2.0 = 144 DPI；想要更清晰用 3.0 / 4.0）。
+`--figure-dpi` 可改最终输出图的渲染倍率（默认 2.0 = 144 DPI；想要更清晰用 3.0 / 4.0）；
+`--refine-dpi` 单独控制 Stage 2 喂给 Gemini 看的渲染倍率（同样默认 2.0）。
 
 > 总结里没有 `PDF p.X fig.N` 引用时，`--extract-figures` 不会报错，只是不导出图。
+
+#### Stage 2 对照实验
+
+把 Stage 2 关闭,与开启的产物做视觉对比:
+
+```bash
+# 开启 Stage 2(默认)
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/attention.pdf --output ~/out_with_stage2 \
+  --extract-figures
+
+# 关闭 Stage 2
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/attention.pdf --output ~/out_without_stage2 \
+  --extract-figures --no-refine-figures
+
+# 对比每张图
+ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
+```
 
 ### B. 批量速览
 
@@ -286,7 +392,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 | --- | --- | --- |
 | `ModuleNotFoundError: google.genai` | SDK 未装 | `pip install --user --break-system-packages google-genai` |
 | `--extract-figures` 报 "需要 pymupdf" | pymupdf 未装 | `pip install --user --break-system-packages pymupdf` |
-| `DefaultCredentialsError` / `api_key not set` | 缺 `GEMINI_API_KEY` | `export GEMINI_API_KEY=...`（或用 `.env` + `direnv`） |
+| `DefaultCredentialsError` / `api_key not set` | 缺 `GEMINI_API_KEY` | `export GEMINI_API_KEY=...` 或 `.env` + `direnv` |
 | `400 INVALID_ARGUMENT` + `mime type` 报错 | PDF 损坏 / 加密 / 非 PDF 头 | 用 `file <pdf>` 核实；解密或重新下载 |
 | `413 REQUEST_TOO_LARGE` | PDF 超 50 MB | 走 File API 上传（见 `references/api-quickstart.md` §超大 PDF） |
 | 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型 |

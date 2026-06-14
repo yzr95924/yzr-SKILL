@@ -35,3 +35,17 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 空白命中即视为 3.6 不兼容。
 
 **落地参考：** `yzr-skill-creator/scripts/` 下 8 个脚本（B1 修复时落地的合规示例）—— 含 `from typing import Optional, List, Dict, Tuple` 的导入，以及 `subprocess.run(stdout=PIPE, stderr=PIPE, universal_newlines=True)` 的标准调用形式。
+
+### gemini-paper-summary 图片提取 fallback 设计
+
+**Why：** Stage 1 让 Gemini 从 PDF 原内容估算 bbox 是基于语义而非像素的，精度差；caption 定位的旧启发式（"宽+多行正文段落"）在 figure 上方只有 annotation / label 时会退到 page 顶，造成大量上方留白（典型 case：ART-ICDE'13 第 5 页 Figure 6）。Stage 2 必须把页面渲染成 PNG 送给 Gemini 用视觉定位，caption 定位 fallback 也必须分多策略。
+
+**How to apply：**
+
+- Stage 2 坐标用 Gemini 官方归一化 0-1000 (`[ymin, xmin, ymax, xmax]`)；渲染图未做宽高变形时，`x_pt = x_norm * page.rect.width / 1000` 与 dpi_scale 无关
+- Stage 2 Gemini 调用加重试（默认 3 次，指数退避 2s/4s）：临时错误 (`429/500/502/503/504`) 重试，永久错误 (`400/401/403/404`) 立即放弃
+- caption 定位 fallback 三策略：①正文段落底部（图上方紧跟正文）→ ②annotation 顶部（用 caption 上方同栏所有"非正文"块的最上 y0，覆盖只有 annotation 的 case）→ ③page 顶兜底
+- Stage 2 返回的 `is_key_figure=false` 直接过滤（让 Gemini 顺手判断"装饰图"）
+- Stage 2 读出的完整 caption 覆盖 Markdown alt 文本中"图 N:"之后的部分，但**保留**"— <role 说明>"后段
+
+**正文：** [`gemini-paper-summary-figure-extraction-edges.md`](gemini-paper-summary-figure-extraction-edges.md)
