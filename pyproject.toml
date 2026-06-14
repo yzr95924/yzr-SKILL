@@ -1,0 +1,44 @@
+# 仓库内唯一的 Python 工具链配置。
+# 这里不发布 Python 包，仅为 ruff 提供 [tool.ruff.*] 配置入口。
+#
+# 与代码现状的对齐：
+# - CLAUDE.md 约束「全部脚本对齐到 Python 3.6 语法」（Optional/List/Tuple、
+#   stdout=PIPE+universal_newlines=True）。ruff 不支持 py36 作为最低目标，
+#   因此 target-version 选 py37——它仍然禁用 PEP 604（X | Y，3.10+）与
+#   PEP 585（list[X]，3.9+），等价地保住 3.6 风格。
+# - 行宽与 .markdownlint.jsonc MD013 对齐，120 列。
+
+[tool.ruff]
+target-version = "py37"
+line-length = 120
+src = ["yzr-skill-creator"]
+extend-exclude = [
+  ".agents",
+  ".claude",
+  "dist",
+  "build",
+]
+
+[tool.ruff.lint]
+# 启用的规则族：
+# E/W = pycodestyle，F = pyflakes（未用 import / 未定义名），
+# I = isort（import 排序），B = flake8-bugbear（常见陷阱），
+# UP = pyupgrade（受 target-version=py37 约束，不会建议 PEP 585/604）。
+select = ["E", "W", "F", "I", "B", "UP"]
+ignore = [
+  # 与 ruff format 冲突的规则；让 formatter 决定行宽相关的换行。
+  "E501",
+  # CLAUDE.md 约定 subprocess 调用保留 3.6 兼容写法
+  # （universal_newlines=True 而非 text=True、stdout/stderr=PIPE 而非 capture_output=True）。
+  # py37 target 下 ruff 默认会建议替换，这里显式禁用。
+  "UP021",
+  "UP022",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["scripts"]
+
+[tool.ruff.format]
+# 默认：双引号、自动换行、保留 trailing comma 触发 magic line。
+quote-style = "double"
+indent-style = "space"

@@ -13,11 +13,17 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
+
+# Bootstrap sys.path so `from scripts.X import Y` works under both
+# `python3 scripts/improve_description.py` (standalone) and
+# `python3 -m scripts.improve_description` (from yzr-skill-creator/). Resolves B1.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import parse_skill_md
 
 
-def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
+def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
     """Run `claude -p` with the prompt on stdin and return the text response.
 
     Prompt goes over stdin (not argv) because it embeds the full SKILL.md
@@ -35,15 +41,14 @@ def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
     result = subprocess.run(
         cmd,
         input=prompt,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
         env=env,
         timeout=timeout,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"claude -p exited {result.returncode}\nstderr: {result.stderr}"
-        )
+        raise RuntimeError(f"claude -p exited {result.returncode}\nstderr: {result.stderr}")
     return result.stdout
 
 
@@ -52,21 +57,15 @@ def improve_description(
     skill_content: str,
     current_description: str,
     eval_results: dict,
-    history: list[dict],
+    history: List[dict],
     model: str,
-    test_results: dict | None = None,
-    log_dir: Path | None = None,
-    iteration: int | None = None,
+    test_results: Optional[dict] = None,
+    log_dir: Optional[Path] = None,
+    iteration: Optional[int] = None,
 ) -> str:
     """Call Claude to improve the description based on eval results."""
-    failed_triggers = [
-        r for r in eval_results["results"]
-        if r["should_trigger"] and not r["pass"]
-    ]
-    false_triggers = [
-        r for r in eval_results["results"]
-        if not r["should_trigger"] and not r["pass"]
-    ]
+    failed_triggers = [r for r in eval_results["results"] if r["should_trigger"] and not r["pass"]]
+    false_triggers = [r for r in eval_results["results"] if not r["should_trigger"] and not r["pass"]]
 
     # Build scores summary
     train_score = f"{eval_results['summary']['passed']}/{eval_results['summary']['total']}"
@@ -104,9 +103,11 @@ Current scores ({scores_summary}):
         prompt += "PREVIOUS ATTEMPTS (do NOT repeat these — try something structurally different):\n\n"
         for h in history:
             train_s = f"{h.get('train_passed', h.get('passed', 0))}/{h.get('train_total', h.get('total', 0))}"
-            test_s = f"{h.get('test_passed', '?')}/{h.get('test_total', '?')}" if h.get('test_passed') is not None else None
+            test_s = (
+                f"{h.get('test_passed', '?')}/{h.get('test_total', '?')}" if h.get("test_passed") is not None else None
+            )
             score_str = f"train={train_s}" + (f", test={test_s}" if test_s else "")
-            prompt += f'<attempt {score_str}>\n'
+            prompt += f"<attempt {score_str}>\n"
             prompt += f'Description: "{h["description"]}"\n'
             if "results" in h:
                 prompt += "Train results:\n"
@@ -114,7 +115,7 @@ Current scores ({scores_summary}):
                     status = "PASS" if r["pass"] else "FAIL"
                     prompt += f'  [{status}] "{r["query"][:80]}" (triggered {r["triggers"]}/{r["runs"]})\n'
             if h.get("note"):
-                prompt += f'Note: {h["note"]}\n'
+                prompt += f"Note: {h['note']}\n"
             prompt += "</attempt>\n\n"
 
     prompt += f"""</scores_summary>
@@ -137,7 +138,7 @@ Here are some tips that we've found to work well in writing these descriptions:
 - The description competes with other skills for Claude's attention — make it distinctive and immediately recognizable.
 - If you're getting lots of failures after repeated attempts, change things up. Try different sentence structures or wordings.
 
-I'd encourage you to be creative and mix up the style in different iterations since you'll have multiple opportunities to try different approaches and we'll just grab the highest-scoring one at the end. 
+I'd encourage you to be creative and mix up the style in different iterations since you'll have multiple opportunities to try different approaches and we'll just grab the highest-scoring one at the end.
 
 Please respond with only the new description text in <new_description> tags, nothing else."""
 
@@ -232,13 +233,16 @@ def main():
     # Output as JSON with both the new description and updated history
     output = {
         "description": new_description,
-        "history": history + [{
-            "description": current_description,
-            "passed": eval_results["summary"]["passed"],
-            "failed": eval_results["summary"]["failed"],
-            "total": eval_results["summary"]["total"],
-            "results": eval_results["results"],
-        }],
+        "history": history
+        + [
+            {
+                "description": current_description,
+                "passed": eval_results["summary"]["passed"],
+                "failed": eval_results["summary"]["failed"],
+                "total": eval_results["summary"]["total"],
+                "results": eval_results["results"],
+            }
+        ],
     }
     print(json.dumps(output, indent=2))
 

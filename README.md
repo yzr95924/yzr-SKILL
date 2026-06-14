@@ -16,6 +16,7 @@ TODO：待后续不断补充；
 
 - 所有 SKILL 名字与起对应的文件夹名字保持一致，对应的文件夹下必须包含 `SKILL.md` 文件，其他目录结构可以先创建，后面再扩展；
 - 所以 Markdown 文件需要进行格式化和 lint 操作，确保格式统一；
+- 所有 Python 文件统一走 `ruff`（配置见根目录 `pyproject.toml`），`ruff format` + `ruff check` 双管齐下，target 锁在 `py37` 以保住 3.6 风格的类型注解；
 - 一些经验可以持久化到 `MEMORY.md`
 
 ## 依赖的 MCP 和外部的 Skills

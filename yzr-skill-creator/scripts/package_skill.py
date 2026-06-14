@@ -14,6 +14,12 @@ import fnmatch
 import sys
 import zipfile
 from pathlib import Path
+
+# Bootstrap sys.path so `from scripts.X import Y` works under both
+# `python3 scripts/package_skill.py` (standalone) and
+# `python3 -m scripts.package_skill` (from yzr-skill-creator/). Resolves B1.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.quick_validate import validate_skill
 
 # Patterns to exclude when packaging skills.
@@ -88,9 +94,9 @@ def package_skill(skill_path, output_dir=None):
 
     # Create the .skill file (zip format)
     try:
-        with zipfile.ZipFile(skill_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(skill_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
             # Walk through the skill directory, excluding build artifacts
-            for file_path in skill_path.rglob('*'):
+            for file_path in skill_path.rglob("*"):
                 if not file_path.is_file():
                     continue
                 arcname = file_path.relative_to(skill_path.parent)

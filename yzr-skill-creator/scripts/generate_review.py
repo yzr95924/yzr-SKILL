@@ -24,17 +24,41 @@ import sys
 import time
 import webbrowser
 from functools import partial
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Dict, List, Optional
 
 # Files to exclude from output listings
 METADATA_FILES = {"transcript.md", "user_notes.md", "metrics.json"}
 
 # Extensions we render as inline text
 TEXT_EXTENSIONS = {
-    ".txt", ".md", ".json", ".csv", ".py", ".js", ".ts", ".tsx", ".jsx",
-    ".yaml", ".yml", ".xml", ".html", ".css", ".sh", ".rb", ".go", ".rs",
-    ".java", ".c", ".cpp", ".h", ".hpp", ".sql", ".r", ".toml",
+    ".txt",
+    ".md",
+    ".json",
+    ".csv",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".html",
+    ".css",
+    ".sh",
+    ".rb",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".sql",
+    ".r",
+    ".toml",
 }
 
 # Extensions we render as inline images
@@ -57,15 +81,15 @@ def get_mime_type(path: Path) -> str:
     return mime or "application/octet-stream"
 
 
-def find_runs(workspace: Path) -> list[dict]:
+def find_runs(workspace: Path) -> List[dict]:
     """Recursively find directories that contain an outputs/ subdirectory."""
-    runs: list[dict] = []
+    runs: List[dict] = []
     _find_runs_recursive(workspace, workspace, runs)
     runs.sort(key=lambda r: (r.get("eval_id", float("inf")), r["id"]))
     return runs
 
 
-def _find_runs_recursive(root: Path, current: Path, runs: list[dict]) -> None:
+def _find_runs_recursive(root: Path, current: Path, runs: List[dict]) -> None:
     if not current.is_dir():
         return
 
@@ -82,7 +106,7 @@ def _find_runs_recursive(root: Path, current: Path, runs: list[dict]) -> None:
             _find_runs_recursive(root, child, runs)
 
 
-def build_run(root: Path, run_dir: Path) -> dict | None:
+def build_run(root: Path, run_dir: Path) -> Optional[dict]:
     """Build a run dict with prompt, outputs, and grading data."""
     prompt = ""
     eval_id = None
@@ -120,7 +144,7 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
 
     # Collect output files
     outputs_dir = run_dir / "outputs"
-    output_files: list[dict] = []
+    output_files: List[dict] = []
     if outputs_dir.is_dir():
         for f in sorted(outputs_dir.iterdir()):
             if f.is_file() and f.name not in METADATA_FILES:
@@ -210,23 +234,21 @@ def embed_file(path: Path) -> dict:
         }
 
 
-def load_previous_iteration(workspace: Path) -> dict[str, dict]:
+def load_previous_iteration(workspace: Path) -> Dict[str, dict]:
     """Load previous iteration's feedback and outputs.
 
-    Returns a map of run_id -> {"feedback": str, "outputs": list[dict]}.
+    Returns a map of run_id -> {"feedback": str, "outputs": List[dict]}.
     """
-    result: dict[str, dict] = {}
+    result: Dict[str, dict] = {}
 
     # Load feedback
-    feedback_map: dict[str, str] = {}
+    feedback_map: Dict[str, str] = {}
     feedback_path = workspace / "feedback.json"
     if feedback_path.exists():
         try:
             data = json.loads(feedback_path.read_text())
             feedback_map = {
-                r["run_id"]: r["feedback"]
-                for r in data.get("reviews", [])
-                if r.get("feedback", "").strip()
+                r["run_id"]: r["feedback"] for r in data.get("reviews", []) if r.get("feedback", "").strip()
             }
         except (json.JSONDecodeError, OSError, KeyError):
             pass
@@ -248,18 +270,18 @@ def load_previous_iteration(workspace: Path) -> dict[str, dict]:
 
 
 def generate_html(
-    runs: list[dict],
+    runs: List[dict],
     skill_name: str,
-    previous: dict[str, dict] | None = None,
-    benchmark: dict | None = None,
+    previous: Optional[Dict[str, dict]] = None,
+    benchmark: Optional[dict] = None,
 ) -> str:
     """Generate the complete standalone HTML page with embedded data."""
     template_path = Path(__file__).parent / "viewer.html"
     template = template_path.read_text()
 
     # Build previous_feedback and previous_outputs maps for the template
-    previous_feedback: dict[str, str] = {}
-    previous_outputs: dict[str, list[dict]] = {}
+    previous_feedback: Dict[str, str] = {}
+    previous_outputs: Dict[str, List[dict]] = {}
     if previous:
         for run_id, data in previous.items():
             if data.get("feedback"):
@@ -285,12 +307,16 @@ def generate_html(
 # HTTP server (stdlib only, zero dependencies)
 # ---------------------------------------------------------------------------
 
+
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
         result = subprocess.run(
             ["lsof", "-ti", f":{port}"],
-            capture_output=True, text=True, timeout=5,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=5,
         )
         for pid_str in result.stdout.strip().split("\n"):
             if pid_str.strip():
@@ -305,6 +331,7 @@ def _kill_port(port: int) -> None:
     except FileNotFoundError:
         print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
 
+
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
 
@@ -317,8 +344,8 @@ class ReviewHandler(BaseHTTPRequestHandler):
         workspace: Path,
         skill_name: str,
         feedback_path: Path,
-        previous: dict[str, dict],
-        benchmark_path: Path | None,
+        previous: Dict[str, dict],
+        benchmark_path: Optional[Path],
         *args,
         **kwargs,
     ):
@@ -390,15 +417,22 @@ def main() -> None:
     parser.add_argument("--port", "-p", type=int, default=3117, help="Server port (default: 3117)")
     parser.add_argument("--skill-name", "-n", type=str, default=None, help="Skill name for header")
     parser.add_argument(
-        "--previous-workspace", type=Path, default=None,
+        "--previous-workspace",
+        type=Path,
+        default=None,
         help="Path to previous iteration's workspace (shows old outputs and feedback as context)",
     )
     parser.add_argument(
-        "--benchmark", type=Path, default=None,
+        "--benchmark",
+        type=Path,
+        default=None,
         help="Path to benchmark.json to show in the Benchmark tab",
     )
     parser.add_argument(
-        "--static", "-s", type=Path, default=None,
+        "--static",
+        "-s",
+        type=Path,
+        default=None,
         help="Write standalone HTML to this path instead of starting a server",
     )
     args = parser.parse_args()
@@ -416,7 +450,7 @@ def main() -> None:
     skill_name = args.skill_name or workspace.name.replace("-workspace", "")
     feedback_path = workspace / "feedback.json"
 
-    previous: dict[str, dict] = {}
+    previous: Dict[str, dict] = {}
     if args.previous_workspace:
         previous = load_previous_iteration(args.previous_workspace.resolve())
 
@@ -447,8 +481,8 @@ def main() -> None:
         port = server.server_address[1]
 
     url = f"http://localhost:{port}"
-    print(f"\n  Eval Viewer")
-    print(f"  ─────────────────────────────────")
+    print("\n  Eval Viewer")
+    print("  ─────────────────────────────────")
     print(f"  URL:       {url}")
     print(f"  Workspace: {workspace}")
     print(f"  Feedback:  {feedback_path}")
@@ -456,7 +490,7 @@ def main() -> None:
         print(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
     if benchmark_path:
         print(f"  Benchmark: {benchmark_path}")
-    print(f"\n  Press Ctrl+C to stop.\n")
+    print("\n  Press Ctrl+C to stop.\n")
 
     webbrowser.open(url)
 

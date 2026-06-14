@@ -1,4 +1,39 @@
+# 外部工具生成的锁文件 / 配置
 package-lock.json
 skills-lock.json
+
+# Claude Code / agent 本地配置（用户级，不入库）
 .claude
 .agents
+
+# Python 构建产物
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Python 工具链缓存
+.ruff_cache/
+
+# skill 打包产物（yzr-skill-creator/scripts/package_skill.py 默认输出到 cwd）
+*.skill
+
+# 本地环境 / 密钥
+.env
+.env.*
+!.env.example
+*.local
+
+# 编辑器 / 操作系统
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 通用构建 / 分发目录
+dist/
+build/

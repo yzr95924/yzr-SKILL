@@ -15,6 +15,12 @@ import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+from typing import Dict, List, Optional
+
+# Bootstrap sys.path so `from scripts.X import Y` works under both
+# `python3 scripts/run_eval.py` (standalone) and
+# `python3 -m scripts.run_eval` (from yzr-skill-creator/). Resolves B1.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import parse_skill_md
 
@@ -38,7 +44,7 @@ def run_single_query(
     skill_description: str,
     timeout: int,
     project_root: str,
-    model: str | None = None,
+    model: Optional[str] = None,
 ) -> bool:
     """Run a single query and return whether the skill was triggered.
 
@@ -69,8 +75,10 @@ def run_single_query(
 
         cmd = [
             "claude",
-            "-p", query,
-            "--output-format", "stream-json",
+            "-p",
+            query,
+            "--output-format",
+            "stream-json",
             "--verbose",
             "--include-partial-messages",
         ]
@@ -182,7 +190,7 @@ def run_single_query(
 
 
 def run_eval(
-    eval_set: list[dict],
+    eval_set: List[dict],
     skill_name: str,
     description: str,
     num_workers: int,
@@ -190,7 +198,7 @@ def run_eval(
     project_root: Path,
     runs_per_query: int = 1,
     trigger_threshold: float = 0.5,
-    model: str | None = None,
+    model: Optional[str] = None,
 ) -> dict:
     """Run the full eval set and return results."""
     results = []
@@ -210,8 +218,8 @@ def run_eval(
                 )
                 future_to_info[future] = (item, run_idx)
 
-        query_triggers: dict[str, list[bool]] = {}
-        query_items: dict[str, dict] = {}
+        query_triggers: Dict[str, List[bool]] = {}
+        query_items: Dict[str, dict] = {}
         for future in as_completed(future_to_info):
             item, _ = future_to_info[future]
             query = item["query"]
@@ -232,14 +240,16 @@ def run_eval(
             did_pass = trigger_rate >= trigger_threshold
         else:
             did_pass = trigger_rate < trigger_threshold
-        results.append({
-            "query": query,
-            "should_trigger": should_trigger,
-            "trigger_rate": trigger_rate,
-            "triggers": sum(triggers),
-            "runs": len(triggers),
-            "pass": did_pass,
-        })
+        results.append(
+            {
+                "query": query,
+                "should_trigger": should_trigger,
+                "trigger_rate": trigger_rate,
+                "triggers": sum(triggers),
+                "runs": len(triggers),
+                "pass": did_pass,
+            }
+        )
 
     passed = sum(1 for r in results if r["pass"])
     total = len(results)
