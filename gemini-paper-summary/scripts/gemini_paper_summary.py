@@ -65,79 +65,69 @@ except ImportError:  # pragma: no cover
 DEFAULT_MODEL = "gemini-3.5-flash"
 MAX_PDF_BYTES_INLINE = 20 * 1024 * 1024  # 20 MB 走 inline Part.from_bytes；更大走 File API
 
-# 6 段 ## + 3 段 ### 的结构化 prompt；关键架构图 / 开源实现 / 局限 合并或降级处理。
-# 完整注释版见 assets/prompt-template.md。
-# 任何模板变更需要同步更新 assets/prompt-template.md 与 SKILL.md §输出。
-DEFAULT_PROMPT = (
-    "你是一位学术论文阅读助手。请基于这篇论文，用**中文**输出一份结构化总结，"
-    "严格包含以下 6 个 ## 级小节和 3 个 ### 级子小节（标题与顺序保持一致）：\n\n"
-    "# <论文标题> - 阅读总结\n\n"
-    "## 一句话速览\n"
-    "用一句话说清楚这篇论文解决了什么问题、核心贡献是什么（不超过 80 字）。\n\n"
-    "## 研究问题 / 动机\n"
-    "为什么要做这个研究？现有方法的不足是什么？论文自述的目标是什么？\n\n"
-    "## 方法\n"
-    "核心思路与技术路线。在叙述中**呼应关键架构图**"
-    '（如"如图 1 所示，..."）。本小节末尾追加子列表：\n\n'
-    "  **关键架构图 / 示意图**（若论文含关键图，2-5 张为宜）：\n"
-    "  - ![图 1：<图标题>](PDF p.3 fig.1 bbox=100,80,500,400) — <1-2 句说明它在方法中的角色>\n"
-    "  - ![图 2：<图标题>](PDF p.5 fig.2) — <1-2 句说明>\n\n"
-    '  只收"关键图"：整体架构、核心模块示意、概念流程图、关键对比示意。\n'
-    "  **URL 格式**：](PDF p.<页> fig.<N>) 中 N 是论文里的 Figure 编号（图 N）。\n"
-    "  若你能从 PDF 看到该图的边界，**强烈建议附加 bbox=x0,y0,x1,y1**（PDF point 单位，"
-    "1 point = 1/72 inch，原点在左上角；A4 ≈ 595×842，Letter ≈ 612×792），"
-    "用 4 个整数/小数逗号分隔，**不要**加方括号或尖括号。脚本会用 bbox 精确截取该图本身而非整页。\n"
-    "  若你无法给出准确 bbox，省略即可——脚本会在该页自动按 `Figure N:` caption 定位并截取 caption 上方区域。\n"
-    "  **无论是否给 bbox，都不要写 `https://`、`figure/xxx.png` 等占位 URL**——本 skill 自己管图片输出。\n\n"
-    "跳过装饰图、坐标轴标注、表格截图、附录图、补充材料中的非核心图。"
-    '页码以 PDF 实际页码为准（首页为 p.1），不要写"图 1 在第 3 页附近"。\n\n'
-    "## 关键结果\n"
-    "主要实验结论与数据。**保留具体数值**"
-    '（如"在 GLUE 上达到 91.2，比 BERT 提升 3.1"），避免"显著提升"这类空话。\n\n'
-    "## 贡献、开源与局限\n"
-    "本节包含三个 ### 子小节，按以下顺序：\n\n"
-    "### 贡献与创新点\n"
-    "用编号列出 3-5 条贡献。区分“方法创新”与“实验发现”。\n\n"
-    "### 开源实现\n"
-    "（若论文提到 prototype / source code / dataset / online demo 的可访问链接，"
-    "按下列形式列出；**只写论文中明确给出的 URL，不要编造**；若无则整个 ### 子小节省略）\n\n"
-    "- **代码仓库**：<URL> （简述：实现语言 / 仓库活跃度）\n"
-    "- **数据集**：<URL> （简述）\n"
-    "- **在线 Demo**：<URL> （简述）\n\n"
-    "  链接类型未知时（如脚注里的 project page），归到“代码仓库”那行；"
-    "若有多个相关链接，可加多行（如 paper-website、video、slides）。\n\n"
-    "### 局限与未来工作\n"
-    "作者自己承认的局限（如有），以及论文未覆盖但明显是下一步的方向。\n\n"
-    "## 高频引用 / Take-aways\n"
-    "（若论文有引言 / 相关工作章节，按下表给 3-8 条；否则整段省略）\n\n"
-    "| # | 引用次数 | 论文（作者-年份 + 标题 + 会议/期刊） | 一句话核心观点 | 论文中位置 |\n"
-    "| --- | --- | --- | --- | --- |\n"
-    "| 1 | ~10+ | Vaswani et al. 2017, Attention is All You Need, NeurIPS | 提出 Transformer 架构 | §2.1 |\n"
-    "| 2 | ~5+ | Devlin et al. 2019, BERT: Pre-training of Deep Bidirectional Transformers, NAACL | 双向预训练语言模型 | §2.2 |\n\n"
-    "  **会议/期刊命名**：用领域惯用缩写，例如 NeurIPS / ICML / SIGMOD / VLDB / ICDE / OSDI /\n"
-    "  TODS / VLDBJ；不确定时按论文 PDF 中参考文献列表里的写法。\n\n"
-    "  **表格列数**：每行必须严格 5 列（# / 引用次数 / 论文 / 一句话核心观点 / 论文中位置），\n"
-    "  不可省略“引用次数”列（即使只是估算也要填 ~3 / ~5+ 这种）。\n\n"
-    '排序按"对本文重要性"或"引用频次"降序；剔除一次性提及、自引、'
-    "与本文方法无直接关系的工作。引用次数从引言/相关工作部分数，"
-    '作为"高频"近似估计。\n\n'
-    "## 启发 / 追问\n"
-    "（仅在用户提供了关注点时输出）基于关注点延伸的 2-3 个思考点或追问。\n\n"
-    "---\n"
-    "要求：\n"
-    '1. **忠于原文**：论文未提及的内容不要编造，不确定处标注"原文未明确"。\n'
-    "2. **不强制全中文，英文该留就留**：默认中文叙述，"
-    "但学术专有名词/方法名、模型/产品/工具名、库/API/文件名、"
-    "算法/协议/标准名、度量/缩写等五类术语直接保留英文不硬译"
-    "（如 Transformer、RLHF、LoRA、Gemini、PyTorch、"
-    "`transformers`、Top-p、BLEU、perplexity）。\n"
-    '   中英混排是常态（如"训练使用 LoRA（低秩适配）"）；'
-    "表格中整项为英文术语时整项保持英文。\n"
-    '3. **引用出处**：引用关键结论时点明出自论文哪个章节（"见 4.2 实验"）。\n'
-    "4. **总字数 600-1500 字**（合并段后偏短属正常）。\n"
-    "5. **Markdown 标题分节**，使用二级标题（##）作为小节标题，"
-    "一级标题用论文标题。\n"
+# 默认 prompt 从 assets/prompt-template.md 的 `## 默认模板（academic）` 段
+# 读取，让 markdown 模板成为单一事实来源（SSOT）——避免脚本 / md 双份维护。
+#
+# 模板 markdown 内的 prompt 用 `````text` 4-backtick fence 包裹（因为 prompt
+# 内部要嵌套 markdown / mermaid 代码块示例），本函数用正则抽取该 fence 内容。
+#
+# 任何模板变更只需要改 assets/prompt-template.md，本脚本不再持有 prompt 文本。
+DEFAULT_TEMPLATE_PATH = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "assets", "prompt-template.md")
 )
+
+# 抽取 `````text ... `````（4-backtick）包裹的默认模板正文。允许前置空白。
+_DEFAULT_PROMPT_FENCE_RE = re.compile(
+    r"^````text\s*\n(.*?)^````\s*$",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def _load_default_prompt():
+    # type: () -> str
+    """从 assets/prompt-template.md 的 `## 默认模板（academic）` 段读出 prompt 正文。
+
+    失败时（文件缺失 / 段不存在 / 没有 text fence）立即报错退出——这是开发期
+    应该立刻发现的问题，不允许静默回退到老模板。"""
+    if not os.path.isfile(DEFAULT_TEMPLATE_PATH):
+        sys.stderr.write(
+            f"ERROR: 找不到 prompt 模板文件: {DEFAULT_TEMPLATE_PATH}\n"
+            "       仓库结构破坏，请检查 gemini-paper-summary/assets/ 目录。\n"
+        )
+        sys.exit(2)
+
+    with open(DEFAULT_TEMPLATE_PATH, encoding="utf-8") as f:
+        md = f.read()
+
+    # 定位 `## 默认模板（academic）` 标题位置，section 起点从这里之后开始。
+    # 注意：不能用 `(?=^##\s|\Z)` 之类前瞻去截取 section 末尾——prompt 正文里
+    # 也包含 `## 目标场景选择` / `## 团队背景介绍` 之类的独立行，会被误判。
+    # 因此直接找标题之后的第一个 `````text` fence 起止，fence 区间就是 prompt 正文。
+    head_match = re.search(
+        r"^##\s+默认模板\s*[（(]academic[)）]\s*$",
+        md,
+        re.MULTILINE,
+    )
+    if not head_match:
+        sys.stderr.write(
+            f"ERROR: {DEFAULT_TEMPLATE_PATH} 里找不到 '## 默认模板（academic）' 段。\n"
+            "       模板文件结构破坏，请补回该小节。\n"
+        )
+        sys.exit(2)
+
+    after_head = md[head_match.end() :]
+    fence_match = _DEFAULT_PROMPT_FENCE_RE.search(after_head)
+    if not fence_match:
+        sys.stderr.write(
+            f"ERROR: {DEFAULT_TEMPLATE_PATH} 的默认模板段里找不到 `````text` fence。\n"
+            "       请确认模板正文仍由 4-backtick fence 包裹。\n"
+        )
+        sys.exit(2)
+
+    return fence_match.group(1).rstrip() + "\n"
+
+
+DEFAULT_PROMPT = _load_default_prompt()
 
 
 FOCUS_INJECTION = (

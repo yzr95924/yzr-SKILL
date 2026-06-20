@@ -9,6 +9,9 @@
 - [核心原则](#核心原则)
 - [风格速查](#风格速查)
 - [Markdown ↔ ProseMirror 节点映射](#markdown--prosemirror-节点映射)
+  - §1-§11 节点映射
+  - [§12 图片附件与上传流程](#12-图片附件与上传流程)
+  - [§13 @mention 用户](#13-mention-用户)
 - [反模式](#反模式)
 - [进阶：Markdown 写不出的特性](#进阶markdown-写不出的特性)
 - [参考样例](#参考样例)
@@ -301,6 +304,56 @@ graph TD
 `mermaidjs` 对应的图类型，不要直接套用——可能识别失败而显示为代码
 块。
 
+### 12. 图片附件与上传流程
+
+图片走 attachment 通道：MCP `create_document` / `update_document` **不
+接收文件二进制**，只接受 Markdown 字符串。要把图片或文件嵌进文档，
+必须先上传到 Outline attachment API，再在 Markdown 里引用（§7 是
+Markdown 语法本身，本节是上传流程）。
+
+**完整上传流程**（3 步）：
+
+1. **预签名上传 URL**：调 MCP `create_attachment(name, contentType, size)`
+   拿到 `uploadUrl`（multipart 接收端点）+ 一组表单字段
+2. **上传二进制**：用 `curl` 或任意 HTTP multipart 客户端把本地文件
+   POST 到 `uploadUrl`，其他表单字段作为额外 part 一并提交。响应通常
+   返回 `{success: true, ...}` + attachment 元数据
+3. **插入引用**：在 Markdown 里写 `![alt](<attachment.url> "=WxH")`，
+   其中 `attachment.url` 形如 `/api/attachments.redirect?id=<uuid>`；
+   `=宽x高` 给出渲染尺寸，非图片可省略
+
+**读取附件**：调 MCP `fetch(resource="attachment", id=<id 或完整 redirect URL>)`
+返回 short-lived 签名 URL，可直接下载。
+
+**注意事项**：
+
+- `create_document` / `update_document` **不**自动上传本地图片——
+  引用一个未上传的本地路径只会在 UI 里渲染成破图
+- attachment URL 是 auth-gated：未登录用户访问返回 403，登录 session
+  返回 302 重定向到实际文件
+- 用 `update_document` + `editMode: "patch"` + `findText` 精准替换
+  某段时，可在不动其他内容（注释 / 高亮 / 表格宽度）的前提下把
+  mermaid / 占位图换成真图
+
+### 13. @mention 用户
+
+MCP server 暴露 `list_users`，配合 Markdown 语法即可在正文里 @ 到
+具体用户。
+
+**用法**：
+
+1. 调 `list_users(query=<关键字>)` 拿到 user 列表（含 `id` 与 `name`）
+2. 在 Markdown 写 `@[张三](mention://user/c9a1b2e3-...)`
+3. 在 Outline UI 里渲染成可点击的 @mention，点击跳转该用户
+
+| Markdown | ProseMirror mark |
+| --- | --- |
+| `@[Display Name](mention://user/<userId>)` | `{type: "mention", attrs: {type: "user", id: "<userId>", label: "<name>"}}` |
+
+`list_users` 也可用于"按 email / 名字搜索用户做权限查询"等场景。
+注意：**MCP 工具名以 `tools/list` 实际返回为准**——本节描述基于当前
+server 暴露的工具集，不同 self-hosted 部署可能略有差异。
+
 ## 反模式
 
 以下写法**应避免**，会导致工作区风格漂移或渲染异常：
@@ -383,6 +436,15 @@ ProseMirror JSON：
 2. 通过 REST API 写 ProseMirror JSON（绕开 MCP）——超出本 skill 覆盖范围
 3. 在 MCP `update_document` 走"非 markdown 模式"——**目前官方 MCP 文档
    未列此能力**，不建议尝试
+
+**当前 MCP 写入结论（2026-06 复测）**：
+
+- `create_document` / `update_document` 只接受 Markdown 字符串入参，
+  **不接受原始 ProseMirror JSON**
+- Markdown `==text==` 只能产生默认色高亮，无法指定颜色
+- 因此彩色高亮**无法通过 MCP 写入**——如需，走 Outline UI 工具栏，
+  或直接调 REST API `POST /api/documents.update` 时附 `proseMirrorDoc`
+  参数
 
 **实操建议**：保持 `==text==` 默认色一致；如确实需要颜色区分语义层级，
 **优先用 emoji**（⚠️ 🔑 ✅ ❌）或 `**bold**`，不依赖颜色。
