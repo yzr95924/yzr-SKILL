@@ -89,7 +89,7 @@ python3 outline-wiki-management/scripts/configure_mcp.py
 1. 归一化 endpoint、协议校验（http/https）
 2. POST `initialize` 握手测试连接
 3. 探测同名 server 是否已注册（`claude mcp get outline`）—— 幂等
-4. 未注册则调 `claude mcp add --transport http --scope user outline <url>
+4. 未注册则调 `claude mcp add --transport http --scope project outline <url>
    --header "Authorization: Bearer <key>"`
 5. 已注册则跳过 add，直接进入验证
 6. 最后再跑一次 `claude mcp get outline` 确认 `Status: ✓ Connected`
@@ -97,7 +97,7 @@ python3 outline-wiki-management/scripts/configure_mcp.py
 非交互模式下：跳过"覆盖已有配置？"与"连接测试失败仍要写入？"
 两个确认；连接测试失败直接中止，让 agent 重新提示用户。
 
-可选：`OUTLINE_MCP_SCOPE=local` 或 `project` 覆盖默认 `user`。
+可选：`OUTLINE_MCP_SCOPE=user` 或 `local` 覆盖默认 `project`。
 
 ## 手动退路
 
@@ -110,7 +110,7 @@ python3 outline-wiki-management/scripts/configure_mcp.py
 脚本的交互模式原样保留，可用于 OAuth 鉴权或重设配置。
 
 如需更换 scope：脚本交互模式里直接选；或用环境变量
-`OUTLINE_MCP_SCOPE=local`。
+`OUTLINE_MCP_SCOPE=user` 或 `local`。
 
 > 注意：`scripts/configure_mcp.py` 是**唯一**受控的客户端配置入口，agent
 > **不**直接调 `claude mcp add`、也**不**直接编辑 `~/.claude.json` 或
@@ -156,8 +156,9 @@ python3 outline-wiki-management/scripts/configure_mcp.py
 
 `claude mcp` CLI 的子命令集是固定的：
 
-- `add` / `add-from-claude-desktop` / `add-json` —— 注册到
-  `~/.claude.json#mcpServers`
+- `add` / `add-from-claude-desktop` / `add-json` —— 按 `--scope`
+  注册到 `~/.claude.json#mcpServers`（user）或
+  `~/.claude.json#projects.<projectPath>.mcpServers`（project）
 - `get` / `list` —— 查询已注册项
 - `remove` / `reset-project-choices` —— 移除
 - `serve` —— 把 Claude Code 自身作为 MCP server 暴露给其它客户端
@@ -171,7 +172,7 @@ server，但**不会**加载新 server。
 
 | 方案 | 问题 |
 | --- | --- |
-| 写项目级 `.mcp.json` | 同样在 session 启动时读，且多一层 trust prompt |
+| 写项目级 `.mcp.json` | 同样在 session 启动时读；项目级多一层 trust prompt——本 skill 默认就是项目级，已接受这个成本换取"配置不外溢到其他项目" |
 | 跑 `claude mcp serve` 转发 | 把 Claude Code 自己当 server 转发，与添加新 server 无关 |
 | 用脚本 `kill` 当前进程并重启 | 脚本拿不到用户的终端控制权，也破坏 session 状态 |
 | `mcp-remote` 代理 | 只是把 Streamable HTTP 转 STDIO，仍要 restart session |
@@ -216,15 +217,17 @@ server，但**不会**加载新 server。
 - 终端跑 `claude mcp list` 看是否真的注册上了
 - 确认启动 Claude Code 的用户与跑脚本的用户是同一个
   （`whoami` / `$HOME` 一致）
-- 极端情况：删掉 `~/.claude.json` 中 `mcpServers.outline` 段，重新跑
-  一次脚本
+- 极端情况：删掉 `~/.claude.json` 中
+  `projects.<projectPath>.mcpServers.outline` 段，重新跑一次脚本
 
 ## 旧版配置清理
 
-旧版本曾尝试写 `.claude/settings.local.json` 的项目级 `mcpServers`
-段，但 Claude Code 静默忽略（项目级需 trust prompt 才生效），
-已废弃。若该文件仍含 `mcpServers.outline` 段（已 gitignore），
-可手动删除该段或整个文件。新流程不依赖也不再写入该文件。
+旧版本曾尝试写 `.claude/settings.local.json` 的 `mcpServers` 段，
+但 Claude Code 静默忽略（项目级未走 `claude mcp add` 写入的路径不被识别），
+已废弃。现行流程走 `claude mcp add --scope project`，落到
+`~/.claude.json#projects.<projectPath>.mcpServers`，与
+`.claude/settings.local.json`（已 gitignore，仅承载本地权限白名单）
+完全分离。若旧文件仍含 `mcpServers.outline` 段，可手动删除该段或整个文件。
 
 ## 相关参考
 

@@ -1,15 +1,17 @@
 ---
 name: outline-wiki-management
-description: 通过 Outline Wiki 内置的 MCP 服务（端点形如
-  https://your-subdomain.getoutline.com/mcp，自托管改为 https://your-domain/mcp；
-  OAuth 或 API Key 鉴权）管理工作区文档。严格对齐官方 MCP 文档所列的 4 个
-  高层能力：搜索、读取、创建、编辑。所有读写动作都通过 MCP 工具完成，不直连
-  REST API。当用户在对话中提到 Outline Wiki、需要按关键词搜文档、读取 / 编辑 /
-  新建文档时使用。
+description: 通过 Outline Wiki 内置 MCP（*.getoutline.com/mcp 或自托管
+  /mcp 端点；OAuth 或 API Key）做两件事：搜 / 读 / 创建 / 编辑工作区文档；
+  以及把 Outline Wiki MCP 接入 Claude Code（收集 endpoint + 鉴权材料后调
+  scripts/configure_mcp.py 写 ~/.claude.json，再让用户重启会话）。所有读写
+  走 MCP 工具，不直连 REST。触发词：'Outline Wiki'、'outline 工作区 / 文档 /
+  MCP'、含 '/mcp' 的 endpoint URL、'配置 / 接入 outline MCP'。不用于 Notion /
+  Confluence / Obsidian / GitHub Wiki；'outline = 大纲 / 议程'同名词；归档 /
+  评论 / 删除 / 分享（官方 MCP 文档未列，走 UI 或 REST）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-06-17
+  last_modified: 2026-06-20
 ---
 
 # Outline Wiki Management
@@ -188,14 +190,16 @@ metadata:
 
 首次使用本 skill、或 outline 相关 MCP 工具在当前 session 不可用时，
 **主动**完成客户端接入（agent 驱动），而不是只让用户手动跑脚本。
-脚本的注册目标是 `~/.claude.json` 的 `mcpServers.outline` 段（**用户级**
-scope，`--scope user`），等价于 `claude mcp add --scope user`。该路径
-写一次在**所有项目下**生效，规避了项目级 `mcpServers` 需 trust prompt
-才生效的问题。
+脚本的注册目标是 `~/.claude.json` 的
+`projects.<projectPath>.mcpServers.outline` 段（**项目级** scope，
+`--scope project`），等价于 `claude mcp add --scope project`。该路径
+仅在**当前项目**下生效；首次进入项目时 Claude Code 会弹一次 trust
+prompt，按提示批准即可，后续不会再弹。
 
 受控的客户端配置入口是 **`scripts/configure_mcp.py`**：agent 收集
-endpoint + 鉴权材料后调脚本写入 `~/.claude.json#mcpServers`。agent
-**不**直接调 `claude mcp add`、也**不**直接编辑 `~/.claude.json` 或
+endpoint + 鉴权材料后调脚本写入
+`~/.claude.json#projects.<projectPath>.mcpServers`。agent **不**直接调
+`claude mcp add`、也**不**直接编辑 `~/.claude.json` 或
 `.claude/settings.local.json`。
 
 **最常用路径**（API Key 鉴权，agent 走非交互模式时）：

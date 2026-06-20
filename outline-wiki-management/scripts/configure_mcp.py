@@ -1,9 +1,9 @@
-"""配置 Outline Wiki MCP 服务到 Claude Code（一次配置全局生效）。
+"""配置 Outline Wiki MCP 服务到 Claude Code（默认项目级，一次配置仅当前项目生效）。
 
 通过调用官方 `claude mcp add` CLI，把 server 注册到 Claude Code 的
-用户级配置（`~/.claude.json#mcpServers`），无需重启时再做"项目信任"授权。
-该路径在所有项目下都可见，规避了项目级 `mcpServers` 需 trust prompt 才
-生效的问题。
+项目级配置（`~/.claude.json#projects.<projectPath>.mcpServers`），仅在
+当前项目下可见。首次进入项目时若弹出 trust prompt，按提示批准即可——
+该提示每个项目只弹一次。
 
 支持两种调用方式：
 1. 交互模式（用户手动运行，逐项 prompt）
@@ -14,7 +14,7 @@
 1. 从环境变量（交互模式）或 prompt 收集 endpoint / 鉴权方式 / API key
 2. 向 MCP 端点 POST initialize 握手，验证可达 + 鉴权可用
 3. 探测同名 server 是否已注册（`claude mcp get outline`）
-4. 调用 `claude mcp add --transport http --scope user --header ...` 完成注册
+4. 调用 `claude mcp add --transport http --scope project --header ...` 完成注册
 5. 再次 `claude mcp get outline` 确认 Connected
 6. 提示用户重启 Claude Code 当前会话以加载新工具
 
@@ -29,9 +29,9 @@
     OUTLINE_MCP_API_KEY='<key>' \
     python3 outline-wiki-management/scripts/configure_mcp.py
 
-    # 高级：自定义 scope（默认 user；可选 local）
+    # 高级：自定义 scope（默认 project；可选 user / local）
     OUTLINE_MCP_ENDPOINT='...' OUTLINE_MCP_AUTH_METHOD='apikey' \
-    OUTLINE_MCP_API_KEY='...' OUTLINE_MCP_SCOPE='user' \
+    OUTLINE_MCP_API_KEY='...' OUTLINE_MCP_SCOPE='project' \
     python3 outline-wiki-management/scripts/configure_mcp.py
 
 依赖：Python 3.6+ 标准库 + 本机已安装并登录的 `claude` CLI。
@@ -51,7 +51,7 @@ MCP_PROTOCOL_VERSION = "2024-11-05"
 HTTP_TIMEOUT_SECONDS = 10
 CLAUDE_CLI_TIMEOUT_SECONDS = 30
 ALLOWED_SCOPES = ("user", "local", "project")
-DEFAULT_SCOPE = "user"
+DEFAULT_SCOPE = "project"
 
 
 def prompt(message: str, default: Optional[str] = None) -> str:
