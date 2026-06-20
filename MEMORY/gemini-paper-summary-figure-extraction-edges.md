@@ -1,6 +1,6 @@
 # gemini-paper-summary 图片提取边界与设计决策
 
-> MEMORY 索引:见 `MEMORY.md`。本文是正文,记录 2026-06-15 「优化 PDF 图片提取」会话沉淀下来的
+> MEMORY 索引:见 [`MEMORY.md`](./MEMORY.md)。本文是正文,记录 2026-06-15 「优化 PDF 图片提取」会话沉淀下来的
 > 「为什么 + 边界规则」。代码在 `gemini-paper-summary/scripts/gemini_paper_summary.py`,文档在
 > `gemini-paper-summary/SKILL.md`。
 
@@ -117,6 +117,6 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 ## 9. 关联
 
-- `[[python-36-compat]]`(见 MEMORY.md 同名小节):3.6 兼容约束也适用于本脚本
+- `[[python-36-compat]]`(见 [`MEMORY.md`](./MEMORY.md) 同名小节):3.6 兼容约束也适用于本脚本
 - `[[repo-conventions]]`(CLAUDE.md 顶层):row width 120,Markdown 行宽检查
 - `gemini-paper-summary/SKILL.md` §A':用户面向的文档,本文件是设计决策的内部记忆

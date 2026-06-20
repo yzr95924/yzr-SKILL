@@ -1,6 +1,6 @@
-# MEMORY.md
+# MEMORY/
 
-跨会话需要持久化的"为什么"与边界规则。新条目追加在末尾。
+跨会话需要持久化的"为什么"与边界规则。新条目追加在末尾。`MEMORY.md`（本文件）只做索引，正文与本文件同级。
 
 > 本文件是项目级规则的**唯一**真源。Claude 会话级 memory（`~/.claude/projects/.../memory/`）只放指向本文件的指针，不再持有内容副本，避免跟代码仓迁移时失同步。
 
@@ -48,4 +48,4 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 - Stage 2 返回的 `is_key_figure=false` 直接过滤（让 Gemini 顺手判断"装饰图"）
 - Stage 2 读出的完整 caption 覆盖 Markdown alt 文本中"图 N:"之后的部分，但**保留**"— <role 说明>"后段
 
-**正文：** [`gemini-paper-summary-figure-extraction-edges.md`](gemini-paper-summary-figure-extraction-edges.md)
+**正文：** [`gemini-paper-summary-figure-extraction-edges.md`](./gemini-paper-summary-figure-extraction-edges.md)
