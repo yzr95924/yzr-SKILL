@@ -2,6 +2,39 @@
 
 这个仓库主要为个人常用的自定义 SKILL 合集，本身也是一个生成个人常用的 skills 的仓库
 
+## 快速开始（开发环境）
+
+首次使用本仓库前，建议跑一次依赖安装脚本，把以下工具链备齐：
+
+| 工具 | 用途 | 来源 |
+| --- | --- | --- |
+| `pyyaml` | 跑 `yzr-skill-creator/scripts/quick_validate.py` 校验 SKILL.md frontmatter | pip |
+| `ruff` | Python 格式化 + lint（`pyproject.toml` 配 py37 + 120 行宽） | pip |
+| `markdownlint-cli` | Markdown 行宽与 lint（`.markdownlint.jsonc` 配 MD013 ≤ 120） | npm |
+
+```bash
+python3 scripts/install-dev-deps.py
+```
+
+脚本特点：
+
+- **幂等**：重复跑不会重复安装
+- **跨平台**：macOS / Debian / WSL 都能跑；PEP 668 保护的环境自动加
+  `--break-system-packages`
+- **自检**：装完逐个 `verify` 并打印版本号；若某个工具不在 PATH，会用
+  `python3 -m <tool>` 回退检测并提示
+
+可选环境变量：
+
+- `PYTHON=python3.11` 指定 Python 解释器
+- `SKIP_NPM=1` 跳过 npm 包（只装 Python 工具）
+- `SKIP_PIP=1` 跳过 pip 包（只装 npm 工具）
+
+> 提示：Homebrew Python 3.12+ 默认启用 PEP 668。脚本自动加
+> `--break-system-packages`，把工具装到 `~/Library/Python/<ver>/bin/`。
+> 若 `ruff` / `markdownlint` 不在 PATH，可加：
+> `export PATH="$HOME/Library/Python/3.14/bin:$PATH"` 到 `~/.zshrc`。
+
 ## 设计原则
 - 主要参考
   - [Claude 官方指导](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)

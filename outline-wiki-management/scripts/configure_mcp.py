@@ -312,21 +312,60 @@ def test_connection(endpoint: str, auth_method: str, api_key: str) -> Tuple[bool
 
 
 def print_final_message(auth_method: str, scope: str) -> None:
-    """打印收尾提示：重启会话、验证工具、OAuth 触发方式等。"""
+    """打印收尾提示：强调"必须重启 Claude Code"，并附 4 步重启后验证清单。
+
+    重启是硬约束 —— Claude Code CLI 在 session 启动时一次性读入
+    `~/.claude.json#mcpServers`，mid-session 改文件不会被重读，
+    也没有 `claude mcp reload` 子命令。完整论证与「为什么必须重启」
+    见 references/onboarding.md 的「设计决策」小节。
+    """
+    auth_label = "API key" if auth_method == "apikey" else "OAuth"
     print("")
     print("=" * 60)
-    print(f"配置完成（scope={scope}，{'API key' if auth_method == 'apikey' else 'OAuth'}）。")
+    print("配置完成（scope={}，{}）。".format(scope, auth_label))
     print("=" * 60)
-    print("下一步:")
-    print("  1) 重新启动 Claude Code 当前会话以加载新 MCP server")
+    print("")
+    print("=" * 60)
+    print("!!  RESTART REQUIRED — 必须重启 Claude Code 当前会话  !!")
+    print("=" * 60)
+    print("  理由：Claude Code CLI 在 session 启动时一次性读入")
+    print("        `~/.claude.json#mcpServers`；mid-session 改文件不会")
+    print("        被重读，也没有 `claude mcp reload` 子命令。")
+    print("  详见：outline-wiki-management/references/onboarding.md")
+    print("        的「设计决策」小节。")
+    print("")
+    print("  续接当前 session 的推荐做法（保留对话历史）：")
+    print("    Ctrl+D 退出当前 Claude Code")
+    print("    claude --continue     # 或 claude -c，恢复最近一次会话")
+    print("=" * 60)
+    print("")
+    print("重启后验证清单（4 步，逐条执行）：")
+    print("")
+    print("  [1] 续接 session")
+    print("        claude --continue    # 恢复历史，避免任务进度丢失")
+    print("")
+    print("  [2] 检查 /mcp 状态")
     if auth_method == "oauth":
-        print("  2) 在 Claude Code 中输入 /mcp 触发 OAuth 登录")
+        print("        在 Claude Code 中输入 /mcp")
+        print("        → 应触发浏览器 OAuth 登录窗口")
+        print("        → 完成后 /mcp 列表里能看到 'outline ✓ Connected'")
     else:
-        print("  2) 重启后输入 /mcp 应能看到 'outline ✓ Connected'")
-        print("  3) 在对话中调用 outline 工具或在会话起始调 tools/list 验证")
-    print("  4) 详细用法参见 outline-wiki-management/SKILL.md")
+        print("        在 Claude Code 中输入 /mcp")
+        print("        → 应能看到 'outline ✓ Connected'")
     print("")
-    print("如需删除此 server: claude mcp remove outline -s", scope)
+    print("  [3] 试调一次 outline 工具")
+    print("        在对话里说：「调用 outline 搜索 测试」")
+    print("        → 能拿到真实工具清单并成功调用 = OK")
+    print("        → 报错：按 references/onboarding.md 的")
+    print("          「常见问题」小节排查")
+    print("")
+    print("  [4] 失败退路")
+    print("        终端跑：claude mcp get outline")
+    print("          ✓ Connected  → 配置已生效，问题在调用方")
+    print("          ⏸ Pending    → 需要 approve project-scoped server")
+    print("          未找到       → 配置没写进去，重跑本脚本")
+    print("")
+    print("如需删除此 server：claude mcp remove outline -s", scope)
 
 
 def run_noninteractive() -> int:

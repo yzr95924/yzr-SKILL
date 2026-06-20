@@ -36,6 +36,20 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 **落地参考：** `yzr-skill-creator/scripts/` 下 8 个脚本（B1 修复时落地的合规示例）—— 含 `from typing import Optional, List, Dict, Tuple` 的导入，以及 `subprocess.run(stdout=PIPE, stderr=PIPE, universal_newlines=True)` 的标准调用形式。
 
+### 后续脚本优先 Python 3
+
+**Why：** 在 2026-06-20 反馈中明确——后续脚本优先用 Python 3 而非 bash / shell 实现，**同时**在 Python 3 内部严格走 3.6 语法以保老 OS 兼容。理由是：(1) 部署目标含 CentOS 7（`python36` / SCL `rh-python36`）等只到 Python 3.6 的环境，参见上方的 "Python 3.6 兼容" 小节；(2) 脚本语言统一用 Python 3 便于在 Python 生态内统一管理（包管理、`subprocess`、`pathlib` 等），不被 bash 平台差异 / shell 解析边界问题分神。
+
+**How to apply：**
+
+- **首选 Python 3** 写新脚本，不再新写 bash / shell 脚本。唯一例外是 shell 天然更自然的场景：一行管道、纯文本流处理、`awk` / `sed` / `grep` 一句话即可
+- **Python 3 内部** 严格遵守上方 "Python 3.6 兼容" 小节的所有规则
+  - `Optional[X]` 而非 `X | None`；`List[X]` / `Dict[X, Y]` / `Tuple[X, ...]` 而非 PEP 585 内建泛型
+  - `subprocess.run(stdout=PIPE, stderr=PIPE, universal_newlines=True)` 而非 `capture_output + text`
+  - 不使用 walrus `:=`、`match` 语句、`int.bit_count`、`f"{x=}"`、`from __future__ import annotations`、`breakpoint()`、`asyncio.run` 等 3.7+ 特性
+- **已有的 bash 脚本** 不强制回溯改写，但新增脚本按本规则判断。`scripts/install-dev-deps.sh` 在 2026-06-20 已重写为 `install-dev-deps.py`，是这次转写的第一个落地例子
+- **类型注解** 完整写（`Optional[X]` / `List[X]` / `Tuple[X, ...]` / `Dict[X, Y]`），不省略
+
 ### gemini-paper-summary 图片提取 fallback 设计
 
 **Why：** Stage 1 让 Gemini 从 PDF 原内容估算 bbox 是基于语义而非像素的，精度差；caption 定位的旧启发式（"宽+多行正文段落"）在 figure 上方只有 annotation / label 时会退到 page 顶，造成大量上方留白（典型 case：ART-ICDE'13 第 5 页 Figure 6）。Stage 2 必须把页面渲染成 PNG 送给 Gemini 用视觉定位，caption 定位 fallback 也必须分多策略。

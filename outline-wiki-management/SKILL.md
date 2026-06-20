@@ -65,6 +65,19 @@ metadata:
 - **操作结果**：创建 / 编辑文档的返回值（通常含新文档 ID 与 URL）
 - **错误信息**：401 / 403 / 连接被拒 / 文档 ID 无效等，需进入故障排查流程
 
+## 设计决策
+
+> **重启 Claude Code 是硬约束**。Outline Wiki MCP server 必须在
+> `~/.claude.json#mcpServers` 中注册，且 Claude Code CLI 在 session
+> 启动时一次性读入；mid-session 改文件不会被重读，也没有
+> `claude mcp reload` 这类子命令。`/mcp` 斜杠命令能 reconnect 已注册
+> 的 server，但**不会**加载新 server。
+>
+> 因此：使用本 skill 前，**如果 outline 相关 MCP 工具尚未在当前
+> session 注册**，必须先走 [`references/onboarding.md`](references/onboarding.md)
+> 跑配置脚本，**然后重启当前会话**（推荐 `claude --continue` 续接历史）。
+> 完整流程、"为什么必须重启"以及重启后验证清单见该附录。
+
 ## MCP 工具发现（重要）
 
 **官方 MCP 文档只列了 4 个高层能力（search / read / create / edit），
@@ -156,7 +169,8 @@ metadata:
 
 1. **核实配置与工具**：会话开始时——
    - 确认 outline 相关 MCP 工具在当前 session 已注册；
-     若未注册，说明客户端未接入，**走"客户端接入"小节**让用户跑配置脚本
+     若未注册，说明客户端未接入，**走 [`references/onboarding.md`](references/onboarding.md)**
+     让用户跑配置脚本（agent 主动驱动，不要只让用户手动跑）
    - 调 MCP `tools/list` 取实际工具名（search / read / create / edit
      各自对应的真实工具名）
 2. **理解意图**：把用户的自然语言指令映射到 4 个能力之一
@@ -167,81 +181,38 @@ metadata:
 
 ### 客户端接入
 
-当用户**首次**使用本 skill、或 outline 相关 MCP 工具在当前 session
-不可用时，**主动**完成客户端接入，而不是只让用户手动跑脚本。
+> **详细内容已抽出到 [`references/onboarding.md`](references/onboarding.md)**，
+> 包括快速入口、检测当前状态、引导配置（agent 收集信息的 Q1/Q2 模板）、
+> 调用脚本、手动退路、**重启后验证清单**、**设计决策**（为什么必须
+> 重启）、常见问题与旧版配置清理。本节只留工作流中需要的骨架。
 
+首次使用本 skill、或 outline 相关 MCP 工具在当前 session 不可用时，
+**主动**完成客户端接入（agent 驱动），而不是只让用户手动跑脚本。
 脚本的注册目标是 `~/.claude.json` 的 `mcpServers.outline` 段（**用户级**
 scope，`--scope user`），等价于 `claude mcp add --scope user`。该路径
 写一次在**所有项目下**生效，规避了项目级 `mcpServers` 需 trust prompt
-才生效的问题（旧版本曾尝试写 `.claude/settings.local.json` 但被
-Claude Code 静默忽略，已废弃）。
+才生效的问题。
 
-1. **检测当前状态**：依次检查
-   - 当前 session 是否已注册 `mcp__outline__*` 系列工具；若是，
-     直接进入"标准流程"，无需任何配置动作
-   - 跑 `claude mcp get outline`；若返回 `Status: ✓ Connected`，
-     提示用户**重启当前会话**以加载 server，结束
-   - 都没有，才走下面的引导流程
+受控的客户端配置入口是 **`scripts/configure_mcp.py`**：agent 收集
+endpoint + 鉴权材料后调脚本写入 `~/.claude.json#mcpServers`。agent
+**不**直接调 `claude mcp add`、也**不**直接编辑 `~/.claude.json` 或
+`.claude/settings.local.json`。
 
-2. **按顺序收集信息**（全程用 `AskUserQuestion`，敏感字段单独处理）：
+**最常用路径**（API Key 鉴权，agent 走非交互模式时）：
 
-   - **Q1 endpoint 类型**：选项 `官方云` / `自托管` / `Other`。
-     选项本身不含密钥，安全
-   - **Q2 API key 传入方式**（仅走 API key 鉴权时问；OAuth 走手动退路）：
-     - `本机已 export OUTLINE_API_KEY`（推荐）—— agent 跑
-       `bash -lc 'test -n "$OUTLINE_API_KEY" && echo present || echo missing'`
-       探测，present 则直接走环境变量；missing 则退回 Other 让用户粘贴
-     - `直接粘贴到对话` —— 用户在 Other 里贴一次，agent 立即使用、
-       不会回写到任何 `.md` 报告
+```bash
+OUTLINE_MCP_ENDPOINT='https://<your-subdomain>.getoutline.com/mcp' \
+OUTLINE_MCP_AUTH_METHOD='apikey' \
+OUTLINE_MCP_API_KEY='<key>' \
+python3 outline-wiki-management/scripts/configure_mcp.py
+```
 
-   endpoint 的实际域名（子域名或自托管域名）单独用一句中文问
-   （`AskUserQuestion` 不适合放自由文本 URL），agent 自己拼成完整 URL
-   并交给脚本。
+OAuth 鉴权或希望手动跑：直接 `python3 outline-wiki-management/scripts/configure_mcp.py`
+走交互模式。
 
-3. **调用脚本（非交互模式）**：把上述值放到环境变量，调用：
-
-   ```bash
-   OUTLINE_MCP_ENDPOINT='<url>' \
-   OUTLINE_MCP_AUTH_METHOD='apikey' \
-   OUTLINE_MCP_API_KEY='<key>' \
-   python3 outline-wiki-management/scripts/configure_mcp.py
-   ```
-
-   脚本会：
-   - 归一化 endpoint、协议校验（http/https）
-   - POST `initialize` 握手测试连接
-   - 探测同名 server 是否已注册（`claude mcp get outline`）——幂等
-   - 未注册则调 `claude mcp add --transport http --scope user outline <url>
-     --header "Authorization: Bearer <key>"`
-   - 已注册则跳过 add，直接进入验证
-   - 最后再跑一次 `claude mcp get outline` 确认 `Status: ✓ Connected`
-
-   非交互模式下：跳过"覆盖已有配置？"与"连接测试失败仍要写入？"
-   两个确认；连接测试失败直接中止，让 agent 重新提示用户。
-
-4. **验证与后续**：脚本退出码 0 → 让用户**重启 Claude Code 当前会话**
-   以加载新 MCP server。退出码非 0 → 把 stderr 末尾几行回显给用户，
-   询问是否修正后重试。
-
-5. **手动退路**：用户在引导流程中选 `Other` / 中断 / 直接说"我自己跑"
-   时，回退到手动命令：
-
-   ```bash
-   python3 outline-wiki-management/scripts/configure_mcp.py
-   ```
-
-   脚本的交互模式原样保留，可用于 OAuth 鉴权或重设配置。如需更换 scope
-   （默认 `user`；可选 `local` / `project`），加环境变量
-   `OUTLINE_MCP_SCOPE=local`。
-
-> 注意：`scripts/configure_mcp.py` 是**唯一**受控的客户端配置入口，agent
-> **不**直接调 `claude mcp add`、也**不**直接编辑 `~/.claude.json` 或
-> `.claude/settings.local.json`。agent 只负责收集信息 + 拼环境变量 +
-> 调脚本，文件写入由脚本（透传 `claude mcp add`）完成。
->
-> 旧版配置清理：若 `.claude/settings.local.json` 仍含
-> `mcpServers.outline` 段（项目级，Claude Code 不会读取），可手动删除
-> 该段或整个文件（已 gitignore）。新流程不依赖也不再写入该文件。
+**配置完成后必须重启 Claude Code 当前会话**（推荐 `claude --continue`
+续接历史），新工具才会出现在 `mcp__outline__*` 列表中。完整验证步骤
+与"为什么必须重启"见 `references/onboarding.md`。
 
 ### 故障排查
 
