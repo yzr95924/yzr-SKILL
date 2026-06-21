@@ -20,7 +20,7 @@ from typing import List, Optional
 # `python3 -m scripts.improve_description` (from yzr-skill-creator/). Resolves B1.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import parse_skill_md
+from scripts.utils import DESCRIPTION_MAX_CHARS, parse_skill_md
 
 
 def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
@@ -50,6 +50,32 @@ def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
     if result.returncode != 0:
         raise RuntimeError(f"claude -p exited {result.returncode}\nstderr: {result.stderr}")
     return result.stdout
+
+
+def _load_description_principles() -> str:
+    """Read description-optimization principles from references/skill-writing-principles.md.
+
+    The principles live in a single SSOT markdown file so they can be extended without
+    touching code. Extracts the section under the `## description 优化原则` header (up to
+    the next `## ` header) and injects it into the improvement prompt.
+
+    Raises if the file or section is missing — the file ships with the skill, so its
+    absence means a broken install, not a state to paper over with a hardcoded fallback
+    (a fallback would re-duplicate the principles this refactor exists to consolidate).
+    """
+    path = Path(__file__).resolve().parent.parent / "references" / "skill-writing-principles.md"
+    text = path.read_text(encoding="utf-8")
+    header = "## description 优化原则"
+    start = text.find(header)
+    if start == -1:
+        raise ValueError(
+            f"Section '{header}' not found in {path}. Restore the header, or update the "
+            f"header match in improve_description.py to point at the renamed section."
+        )
+    body_start = text.find("\n", start) + 1
+    next_h2 = text.find("\n## ", body_start)
+    body = text[body_start:next_h2] if next_h2 != -1 else text[body_start:]
+    return body.strip()
 
 
 def improve_description(
@@ -125,20 +151,11 @@ Skill content (for context on what the skill does):
 {skill_content}
 </skill_content>
 
-Based on the failures, write a new and improved description that is more likely to trigger correctly. When I say "based on the failures", it's a bit of a tricky line to walk because we don't want to overfit to the specific cases you're seeing. So what I DON'T want you to do is produce an ever-expanding list of specific queries that this skill should or shouldn't trigger for. Instead, try to generalize from the failures to broader categories of user intent and situations where this skill would be useful or not useful. The reason for this is twofold:
+<description_principles>
+{_load_description_principles()}
+</description_principles>
 
-1. Avoid overfitting
-2. The list might get loooong and it's injected into ALL queries and there might be a lot of skills, so we don't want to blow too much space on any given description.
-
-Concretely, your description should not be more than about 100-200 words, even if that comes at the cost of accuracy. There is a hard limit of 1024 characters — descriptions over that will be truncated, so stay comfortably under it.
-
-Here are some tips that we've found to work well in writing these descriptions:
-- The skill should be phrased in the imperative -- "Use this skill for" rather than "this skill does"
-- The skill description should focus on the user's intent, what they are trying to achieve, vs. the implementation details of how the skill works.
-- The description competes with other skills for Claude's attention — make it distinctive and immediately recognizable.
-- If you're getting lots of failures after repeated attempts, change things up. Try different sentence structures or wordings.
-
-I'd encourage you to be creative and mix up the style in different iterations since you'll have multiple opportunities to try different approaches and we'll just grab the highest-scoring one at the end.
+Based on the failures above and these principles, write a new and improved description that is more likely to trigger correctly. Be creative — you'll have multiple attempts and we'll keep the highest-scoring one.
 
 Please respond with only the new description text in <new_description> tags, nothing else."""
 
@@ -153,22 +170,22 @@ Please respond with only the new description text in <new_description> tags, not
         "response": text,
         "parsed_description": description,
         "char_count": len(description),
-        "over_limit": len(description) > 1024,
+        "over_limit": len(description) > DESCRIPTION_MAX_CHARS,
     }
 
-    # Safety net: the prompt already states the 1024-char hard limit, but if
+    # Safety net: the injected principles state the char hard limit, but if
     # the model blew past it anyway, make one fresh single-turn call that
     # quotes the too-long version and asks for a shorter rewrite. (The old
     # SDK path did this as a true multi-turn; `claude -p` is one-shot, so we
     # inline the prior output into the new prompt instead.)
-    if len(description) > 1024:
+    if len(description) > DESCRIPTION_MAX_CHARS:
         shorten_prompt = (
             f"{prompt}\n\n"
             f"---\n\n"
             f"A previous attempt produced this description, which at "
-            f"{len(description)} characters is over the 1024-character hard limit:\n\n"
+            f"{len(description)} characters is over the {DESCRIPTION_MAX_CHARS}-character hard limit:\n\n"
             f'"{description}"\n\n'
-            f"Rewrite it to be under 1024 characters while keeping the most "
+            f"Rewrite it to be under {DESCRIPTION_MAX_CHARS} characters while keeping the most "
             f"important trigger words and intent coverage. Respond with only "
             f"the new description in <new_description> tags."
         )

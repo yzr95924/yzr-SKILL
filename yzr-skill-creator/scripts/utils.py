@@ -3,6 +3,12 @@
 from pathlib import Path
 from typing import List, Tuple
 
+# Description length hard limit, in characters. Single source of truth for this metric:
+# quick_validate.py enforces it, improve_description.py rewrites over-long descriptions
+# against it. The human-facing statement lives in references/skill-writing-principles.md
+# ("指标单一来源" 原则) — change the limit here and code updates everywhere.
+DESCRIPTION_MAX_CHARS = 1024
+
 
 def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     """Parse a SKILL.md file, returning (name, description, full_content)."""

@@ -7,7 +7,14 @@ import re
 import sys
 from pathlib import Path
 
+# Bootstrap sys.path so `from scripts.X import Y` works under both
+# `python3 scripts/quick_validate.py` (standalone) and
+# `python3 -m scripts.quick_validate` (from yzr-skill-creator/). Resolves B1.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import yaml
+
+from scripts.utils import DESCRIPTION_MAX_CHARS
 
 
 def validate_skill(skill_path):
@@ -80,9 +87,9 @@ def validate_skill(skill_path):
         # Check for angle brackets
         if "<" in description or ">" in description:
             return False, "Description cannot contain angle brackets (< or >)"
-        # Check description length (max 1024 characters per spec)
-        if len(description) > 1024:
-            return False, f"Description is too long ({len(description)} characters). Maximum is 1024 characters."
+        # Check description length (limit defined once in utils.DESCRIPTION_MAX_CHARS)
+        if len(description) > DESCRIPTION_MAX_CHARS:
+            return False, f"Description is too long ({len(description)} characters). Maximum is {DESCRIPTION_MAX_CHARS} characters."
 
     # Validate compatibility field if present (optional)
     compatibility = frontmatter.get("compatibility", "")
