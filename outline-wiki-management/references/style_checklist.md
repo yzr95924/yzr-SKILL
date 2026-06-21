@@ -75,6 +75,29 @@
       用 `editMode: "patch"` + `findText` 精准替换可在不动其他内容
       （注释 / 高亮 / 表格宽度）的前提下改写局部
 
+## 9. 论文笔记 / 设计文档：关键架构图默认必须
+
+> 适用：`论文笔记` Collection、`数据结构与算法 → 索引类`、
+> `design-doc-edit` 的产出等以展示系统 / 算法设计为核心的文档。
+> 不适用：纯理论 / 纯数据 / 个人 todo 类的文档。
+
+- [ ] ==关键架构图 / 示意图走 attachment 通道嵌入==：整体架构、核心模块
+      示意、概念流程图、关键对比示意、状态机——**有 1 张就上传 1 张**
+- [ ] 上传 3 步走通：`create_attachment(name, contentType, size)` → 用 MCP
+      配置里的 API key 走 `curl POST /api/files.create`（**带 form 字段**：
+      `Cache-Control` / `Content-Type` / `key` / `acl` / `maxUploadSize` /
+      `_csrf` + `file=@<path>`）→ Markdown 引用
+      `![图 N：<caption>](/api/attachments.redirect?id=<uuid> "=WxH")`
+- [ ] 缺图时正文**必须**显式说明"原文无图"并简述检索过程（用了
+      `pdftotext` / 多模态识别 / 人工翻页等）；仅含坐标轴 plot / 表格 /
+      实验数据柱状图**不算**关键图
+- [ ] ==**不允许**用 `*（详见原 PDF p.X fig.Y）*` 文字占位==
+      —— Outline 里点不开，读者必须自己翻 PDF，违反"原位可读"原则
+- [ ] ==**不允许**引用未上传的本地图片路径== —— 只会渲染成破图
+- [ ] 抽图用 `pdftoppm` / `pymupdf` 渲染**图本身**的 bbox，不要整页截图
+      （避免把页眉 / 标题 / 段尾段落框进来）
+- [ ] title 写 `=WxH` 给出渲染尺寸（仓库内 `=WxH` 等宽约定）
+
 ## 用法
 
 ```text

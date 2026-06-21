@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（Reference / 团队背景 / 背景 / 问题动机 / 方法 / 实验 / 业务启示&价值 / 局限）输出中文 Markdown 总结，默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaid` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法 / 实验 / 业务启示&价值 / 局限，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结，默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaid` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-20
@@ -10,8 +10,9 @@ metadata:
 # Gemini Paper Summary
 
 用 Gemini 多模态长上下文直接"读懂"PDF 论文（含图表、公式），按 **outline 风格**
-结构化模板输出**中文 Markdown 总结**。章节顺序与命名按 `# Reference` 起始的
-学术笔记惯例（团队背景 / 背景 / 动机 / 方法 / 实验 / 业务启示&价值 / 局限），
+结构化模板输出**中文 Markdown 总结**。**开篇无 `# Reference` / 无独立 `## 团队背景介绍` 章节**——元信息
+走 3 列表格（Title / Venue / Topic）+ 引用块链接 + 紧跟论文链接的团队 item，**章节骨架统一为**：
+开篇表 + 团队 item → `## 3 句话总结` → `## 背景与动机` / 方法 / 实验 / 业务启示&价值 / 局限。
 **Markdown 风格与 `outline-wiki-management` 完全对齐**（`*` bullet / `==高亮==` /
 ` ```mermaid ` block-level / 表格 / 行宽 ≤ 120），输出可直接复制到 outline-wiki
 或 Obsidian 显示。agent 可以直接调用本 skill 的脚本做单篇或批量总结，
@@ -26,7 +27,7 @@ metadata:
 ### 使用
 
 - 用户给出一篇**本地 PDF 论文**，要一份中文结构化总结
-- 用户要在多篇论文里**批量过稿**，每篇 600–1200 字的速读
+- 用户要在多篇论文里**批量过稿**，每篇**最好不超过 1000 词（≈ 500 个中文字符）**的速读
 - 论文含大量图表 / 公式，纯文本抽取（pdftotext / PyPDF2）会丢信息
 - 用户希望用 Gemini 直接读 PDF，而不是先 OCR
 
@@ -46,7 +47,7 @@ metadata:
 | --- | --- | --- |
 | PDF 路径 | ✓ | 本地 `.pdf` 文件，绝对或相对路径均可 |
 | `GEMINI_API_KEY` | ✓ | 环境变量 |
-| 模型 ID | ✗ | 默认 `gemini-3.5-flash`；可传 `--model` 覆盖 |
+| 模型 ID | ✗ | 默认 `gemini-3.5-flash`（不传 `--model` 即可）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
 | 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt |
 | 输出路径 | ✗ | `--output` 写文件；不传则打印到 stdout |
 | 模板 | ✗ | `--template academic`（默认） |
@@ -60,69 +61,115 @@ metadata:
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
 
-### 输出
+### 模型选型
 
-按 **outline 风格结构化模板** 输出 Markdown，**600–1500 字**。章节顺序与命名
-按学术笔记惯例：**Reference / 团队背景 / 背景 / 问题动机 / 方法 / 实验 /
-业务启示&价值 / 局限**，**不存在的章节可省略**。"开源实现"与"相关工作
-/ 高频引用"作为"业务启示 & 价值"的子段呈现；"启发 / 追问"仅在传
-`--focus` 时输出。**默认中文**（标题、叙述、连接词），但术语、模型名、
-产品名、库名等必要时**直接保留英文**（详见下文核心原则 #4 与 #9）。
+> **默认 = 不传 `--model`**。脚本默认值 `gemini-3.5-flash` 是经过选型的
+> （stable、无 shutdown 日期、官方作为 deprecated 2.5 系列的推荐替代），
+> **不知道选什么 / 没特殊理由 → 直接用默认**。
 
-**两种目标场景，开篇结构不同**：
+**判断流程**：
 
-- **A 变体（通用：输出到本地 Markdown 文件 / VS Code / GitHub / Obsidian）**：
-  保留 `# Reference` 作为开篇，存论文链接 / 作者主页 / 参考实现，下面接 `## 团队背景介绍`
-- **B 变体（直接上传到 outline-wiki，参考 Bigtable-OSDI'06 等论文笔记）**：
-  **省略 `# Reference`**（论文链接等信息合并进 `## 团队背景介绍` 子段），
-  因为 outline-wiki 的标题字段已经承载"论文标题 + 会议"信息，正文再写 H1/`# Reference`
-  会与 `title` 字段重复。Bigtable 文档从 3 列表格（Title / Venue / Topic）起步，然后
-  `## 团队背景介绍`，正是 B 变体的实例。
-
-A / B 变体的开篇结构如下（其余章节完全相同）：
-
-**A 变体开篇**：
-
-```markdown
-# Reference
-
-* [论文标题 - 会议/期刊 年份](URL)（一句话点出论文主旨）
-* [作者主页 / 团队主页 / 参考实现]（按需，可多行）
-
-## 团队背景介绍
-
-* 团队 / 机构 / 会议级别（best paper? tier-1?）
-* 论文链接（如 [PDF 链接](URL)）
+```text
+1. 跑 gemini_paper_summary.py（不传 --model，用默认 gemini-3.5-flash）
+2. 输出不满意？
+   ├─ 否 → 用默认就好
+   └─ 是 → 先调 prompt（--focus 或改 prompt-template.md），再考虑换模型
+3. 真要换模型 → 从下方"当前推荐"里按场景选；不要凭印象写 model 字符串
 ```
 
-**B 变体开篇**（上传 outline-wiki 时采用，参考 Bigtable-OSDI'06）：
+**当前推荐（基于 gemini-api-docs-mcp 实测，2026-06）**：
+
+| 模型 | 状态 | 定位 | 何时显式覆盖（vs 默认） |
+| --- | --- | --- | --- |
+| `gemini-3.5-flash`（**默认**） | Stable | 通用质量/成本最优 | 大多数场景下不传 `--model` 即可 |
+| `gemini-3.1-flash-lite` | Stable | 最便宜、轻量 | 批量过稿 / 简单综述 / 上下文大但要求低 |
+| `gemini-3.1-pro-preview` | Preview | 复杂推理最强 | 形式化证明 / 难数学 / 推理敏感论文 |
+
+**避免使用**：
+
+- ==`gemini-2.5-flash`==：deprecated，官方推荐替代 `gemini-3.5-flash`（**有 shutdown 日期**）
+- `gemini-2.5-pro`：deprecated，替代 `gemini-3.1-pro-preview`
+- `gemini-2.5-flash-lite`：deprecated，替代 `gemini-3.1-flash-lite`
+- 任何 `*-preview-09-2025` / `*-preview-12-2025` 等老 preview snapshot——过期，官方已弃
+
+> **deprecated 系列会随时间关停**。本表里的 shutdown 日期以
+> `mcp__gemini-api-docs-mcp__search_documentation` / `get_current_model`
+> 实测为准；agent / 用户使用前**先查一次**确认未变。**不要**把 shutdown
+> 日期 / deprecated 列表固化到月；本节每年/每季 review 一次。
+
+**反模式**（**别**这么干）：
+
+- 凭印象写 `--model "gemini-2.5-flash"` / 任何 2.5-* 字符串——已 deprecated
+- 默认值能用，却"为了稳妥"手动加 `--model <默认>`——多此一举、易写错
+- 用 preview 模型但没意识到 preview 限流更严
+- 在 prompt / SKILL 注释里**写死** `model="gemini-X.Y-Z"`——模型可用性会变，
+  应该走"默认值 / 用户显式覆盖"两路径
+
+### 输出
+
+按 **outline 风格结构化模板** 输出 Markdown，**最好不超过 1000 词（≈ 500 个中文字符）**。**统一章节顺序**：
+开篇 3 列表格 → 团队 item（紧跟论文链接） → `## 3 句话总结` → `## 背景与动机` → `## 方法设计` →
+`## 代表性实验结果` → `## 业务启示 & 价值` → `## 局限与未来工作`。
+**不存在的章节可省略**。"开源实现"与"相关工作 / 高频引用"作为
+`## 业务启示 & 价值` 的子段呈现；"启发 / 追问"仅在传 `--focus` 时输出。
+**默认中文**（标题、叙述、连接词），但术语、模型名、产品名、库名等必要时
+**直接保留英文**（详见下文核心原则 #4 与 #9）。
+
+> **精炼优先**：1000 词（≈ 500 个中文字符）是**上限**不是目标。**每一段、每一条 bullet 都
+> 应该能删则删**——能 1 句话讲清的事不要拆 3 句；能省略的铺垫 / 重复 /
+> 概念定义就省略；判断标准："删掉这段读者就理解错 / 漏掉关键信息"
+> 才是"必须留"，否则一律砍。总结的密度 > 总结的篇幅。
+
+**开篇结构**（统一，无 A / B 之分）：
 
 ```markdown
 | **Title** | **Venue** | **Topic** |
 |-------|-------|-------|
 | 论文全英文标题 | 会议'年份（如 OSDI'06） | 领域关键词 |
 
-* 论文链接（如 > <https://...>）
+* 论文链接（**留空，由用户在 Outline UI 手动填写**；Gemini 不必补）
 
-## 团队背景介绍
+  > <TODO>
 
-* 团队 / 机构 / 会议级别（best paper? tier-1?）
-* 一句话背景或上下文
+* **团队/机构**：…（如"麻省理工学院 CSAIL"）；研究背景是…（一句话上下文）
+
+## 3 句话总结
+
+1. **论文主旨一句话**：方法 + 关键 insight
+2. **核心设计 / 关键数据**：用具体数字说话
+3. **落地 / 影响**：被谁采用、超越了什么 baseline
 ```
 
-**A / B 变体共用章节**（从 `## 背景介绍` 起完全相同）：
+**关键约定**：
+
+- **不要**单独的 `## 团队背景介绍` 小节——团队信息**只一条 item** `* **团队/机构**：<机构>；<一句话研究背景>`，用分号/句号衔接，不另起 `* **背景**：…`
+- **不要**写"会议级别" / "tier-1?" / "best paper?" / "顶级会议" 这类主观评级——论文本身的会议级别由 doc 标题/3 列表格承载,正文不重复
+- `## 3 句话总结` 是开篇后的**第一个**章节（紧跟团队 item），用 3 条编号列表 1-2-3 总结论文主旨，每条 1 句话
+  - 句 1 = 论文要解决什么问题、给什么方法
+  - 句 2 = 核心设计点 / 关键数据
+  - 句 3 = 落地 / 关键 baseline 对比
+
+> **为什么不带 `# Reference` 章节 / 不录作者主页 / 不录参考实现？**
+> - 论文标题、作者主页、参考实现等元信息在 outline-wiki 由 `title` 字段
+>   承载（且 Gemini 容易**自由发挥编造**作者主页、参考仓库 URL）；
+>   再写 `# Reference` 会与 `title` 重复，**且** Gemini 编造链接是常见的
+>   错误来源
+> - 论文链接字段**保留位置**作为占位符，由用户在 Outline UI 手动填写——
+>   这样既统一了本地 Markdown / Obsidian 与 outline-wiki 场景的模板，
+>   也避免 Gemini 猜错 URL
+
+**正文章节**（从 `## 背景与动机` 起完全统一）：
 
 ```markdown
-## 背景介绍
+## 背景与动机
 
-* 论文要解决的领域问题（一句话定位）
-* 核心概念与术语（**用 ==key term== 高亮关键概念**）
-* 数据模型 / 系统组件 / 接口定义（必要时用表格展示）
+* 论文要解决的领域问题（一句话定位：什么场景、什么痛点）
+* 现有方法 / 现状的不足（**2–3 条最关键的**，避免展开成 related work）
+* 论文核心目标 / 关键约束 / 假设（一两句话）
 
-## 问题动机
-
-* 现有方法 / 现状的不足（3-5 条）
-* 论文核心目标 / 关键约束 / 假设
+> 概念 / 术语 / 数据模型 / 系统组件等细节**不在本章展开**——在
+> `## 方法设计` 节里随算法 / 协议一并介绍即可；"## 背景与动机"只
+> 负责把"问题是什么、为什么需要解决"讲清楚。
 
 ## 方法设计
 
@@ -135,14 +182,13 @@ A / B 变体的开篇结构如下（其余章节完全相同）：
 
 * 4 种节点类型按子节点数量动态选择（Node4 / 16 / 48 / 256）
 * 关键 insight：节点大小自适应 + 路径压缩 + 延迟扩展叠加
-
-**关键架构图 / 示意图**（若论文含关键图，参见核心原则 #5）：
-* ![图 N：<图标题>](PDF p.<页码> fig.<N> bbox=<x0,y0,x1,y1>) — <1-2 句说明>
+* 如图 N 所示，<在这里插入图> — <1-2 句说明这张图在方法中的角色>
 
 ## 代表性实验结果
 
-* 实验设置（简述数据集 / baseline / 评测指标）
-* 关键性能数据（**保留具体数值**）
+* 实验设置（一句话：数据集 / baseline / 评测指标，**不展开**）
+* **最关键的 2–3 条**关键性能数据（**保留具体数值**，避免"显著提升"这类空话）；
+  优先选最能说明问题的 1–2 个图 / 表，不要把全文实验都搬进来
 
 ## 业务启示 & 价值
 
@@ -170,14 +216,17 @@ A / B 变体的开篇结构如下（其余章节完全相同）：
    - 用 `Part.from_bytes(data=<bytes>, mime_type="application/pdf")` 走多模态
    - 不用 pdftotext / PyPDF2 / pdfplumber 之类先抽纯文本（会丢图表、公式）
 2. **结构化总结，不是复述**
-   - 按 outline 风格模板的**主线顺序与命名**输出（Reference → 团队背景 → 背景 →
-     问题动机 → 方法 → 实验 → 业务启示&价值 → 局限），每篇 600–1500 字
+   - 按 outline 风格模板的**主线顺序与命名**输出（开篇表 → 团队 item →
+     `## 3 句话总结` → 背景与动机 → 方法 → 实验 → 业务启示&价值 → 局限），**最好每篇不超过
+     1000 词（≈ 500 个中文字符）**（而不是"写到 1500 字"）
    - **不存在的章节可省略**（如纯理论论文无实验数据时省"代表性实验结果"）
    - 关键数据 / 数值必须保留，避免泛泛而谈
+   - **"代表性实验结果"小节：最关键的 2–3 条**——挑最能说明问题的 1–2 个
+     图 / 表 / 关键数字即可；不要把全文实验数据 / 所有 baseline 对比
+     都搬进来，那属于复述而非总结
    - **`## 方法设计` 节内：主要设计点推荐用 `###` 三级标题单独列出**（如
      `### 自适应内部节点` / `### 路径压缩与延迟扩展` / `### 二进制可比键`），
-     便于扫读；与 outline-wiki 的"团队背景介绍 / 背景介绍" 等章节里的二级子
-     小节惯例保持一致。**判定标准**：
+     便于扫读；与 outline-wiki 的二级子小节惯例保持一致。**判定标准**：
      - 单个设计点 ≥ 3 个 bullet
      - 概念独立成段（如算法、数据结构、协议各自独立）
      - 需要配 mermaid 块 / 关键图
@@ -197,19 +246,28 @@ A / B 变体的开篇结构如下（其余章节完全相同）：
    - **判定标准**：翻译反而引发歧义、丢失语义、或该英文已是该领域标准用法时，
      无条件保留。中英混排是常态（如"训练使用 LoRA（低秩适配）"）
    - 列表 / 表格中若一项本身就是英文术语，整项保持英文
-5. **关键架构图 / 概念示意图：用 (page, fig_num, bbox) 引用插入到 Markdown**
-   - 在"方法"小节末尾追加 **关键架构图 / 示意图** 子列表
-   - 格式：`![图 N：<图标题或一句话描述>](PDF p.<页码> fig.<N> [bbox=<x0,y0,x1,y1>]) — <1-2 句说明>`
+5. **关键架构图 / 概念示意图：(page, fig_num, bbox) 引用 + 内联到对应方法上下文，caption 文字不放进图片**
+   - **不**单独成"关键架构图 / 示意图"小节；每张关键图紧贴它说明的算法 /
+     协议 / 数据结构那段 bullet 放（"方法 bullet → 图 → caption 文字 → 下一个方法 bullet" 的顺序），
+     让读者扫读时不用先看文字再翻到节末找图
+   - **图片不包含 caption**（2026-06-21 优化）：caption 文字用一行 markdown 文字承载，
+     不再嵌进图片本身。原因是 caption 文字是文本信息，图片里的文字搜不到 / 不能复制 /
+     不能翻译 / 不能索引。脚本会把 Gemini 视觉读出的完整 caption 追加成单独一行；
+     Gemini 也可以自己直接写。
+   - 格式：
+     - 图片：`![图 N](PDF p.<页码> fig.<N> [bbox=<x0,y0,x1,y1>]) — <1-2 句说明>`
+     - 紧随图片的 caption 行（必写，**不**可省略）：`**图 N**：<论文 Figure N caption 原文>`
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
      单位 PDF point（1 point = 1/72 inch），原点在左上角；A4 ≈ 595×842，Letter ≈ 612×792
-   - 启用 `--extract-figures` 时，**脚本会用 bbox 精确截取该图本身**（不是整页！）
-   - 若不写 bbox：脚本会在该页按 `Figure N:` caption 自动定位，截取 caption 上方区域
+   - 启用 `--extract-figures` 时，**脚本会用 bbox 精确截取该图本身**（不含 caption，caption 由 markdown 承载）
+   - 若不写 bbox：脚本会在该页按 `Figure N:` caption 自动定位，**裁到 caption 顶部**（caption 文字保留给 markdown）
    - 只收录**关键图**：整体架构、核心模块示意、概念流程图、关键对比示意
    - **跳过**纯装饰、坐标轴标注、表格截图、附录图、补充材料中的非核心图
    - 页码以 PDF 实际页码为准（论文首页为 p.1），不要写 "图 1 在第 3 页附近"
-   - 正文叙述里要呼应这些图（如"如图 1 所示，..."）
-   - 若论文没有关键图（如纯理论论文），整段省略，**不要**写占位
+   - **图前**一句必须呼应（"如图 N 所示" / "见图 N"），把图和上下文绑死；
+     **图后**一句不要重复同样的内容
+   - 若论文没有关键图（如纯理论论文），**完全省略**——既无单独章节也无内联图
 6. **相关工作 / 高频引用：作为"业务启示 & 价值"的子段**
    - 不再是独立 `## 高频引用 / Take-aways` 段，而是 `## 业务启示 & 价值` 末尾的
      一个 bullet 子段（如有）
@@ -262,6 +320,30 @@ A / B 变体的开篇结构如下（其余章节完全相同）：
 - 不做全文翻译；不做多篇对比
 - 一次一篇论文
 - 单 PDF 大小建议 ≤ 50 MB（File API 硬上限）
+
+## 生成后自检（图片完整性 + 边界破坏）
+
+**Why：** 用户在 2026-06-21 反馈——"最终生成完的论文总结，要自检一下图片是否完整，是否存在图片边界破坏的情况"。单看 doc body 字面 ok 不代表图真的 ok（attachment 可能 0 字节 / doc body 引用的尺寸与实际 PNG 尺寸不一致 / 图片被错误裁剪）。自检是生成流程的**最后一道防线**，分 3 个层面：
+
+| 层面 | 自动化 | 检测什么 | 失败信号 |
+| --- | --- | --- | --- |
+| 1. 引用完整性 | ✓（脚本） | doc body 里的 `attachments.redirect?id=<id>` 引用 ID 是否在 `attachments.list` 返回中存在 | attachment 被删但 doc 还引用 → 破图 |
+| 2. 二进制完整性 | ✓（脚本） | 每个 in-use attachment 的 `attachments.redirect` HEAD 是否 200 + image/... + size > 0 | 0 字节 / HTML 错误页 = 上传失败未发现 |
+| 3. 边界破坏 | ✓ + 人工 | (a) 本地 `figures/*.png` 实际像素尺寸 vs markdown title `=WxH` 差 ≥ 5% → 标题尺寸字段失效；(b) 人工到 outline UI 看图是否截断 / 留白过多 / 边界切错 | 裁剪坐标错误 / 重新上传导致 title 尺寸与实际不符 |
+
+**How to apply：**
+
+- **脚本侧**（自动）：`gemini_paper_summary.py` 主流程末尾调 `self_check_figures()`，挂在 `--output` 写文件**之后**、进程退出**之前**；返回 `{ok, warnings[], failures[]}`，不抛异常（warning 继续 / failure 才抛）
+  - 阶段 1：parse markdown text 抽 `attachments.redirect?id=<id>` 引用 ID 集合
+  - 阶段 2：`attachments.list` 拉真实存在 ID 集合（用 outline API key 走 curl/MCP）→ 差集 = 失效引用
+  - 阶段 3：每个 in-use ID 走 `attachments.redirect` HEAD，验证 200 + content-type image/ + size > 0
+  - 阶段 4：本地 `figures/` 目录每个 PNG 用 pymupdf 读像素尺寸，对照 markdown 里 `=WxH` title 字段；差 ≥ 5% 警告
+  - 输出：`Self-check: 3/3 attachments OK, 0 size mismatch, 0 broken references` 或列出失败项
+- **人工侧**（必做）：agent 把生成的 doc 链接给用户后，**让用户在 outline UI 看一眼**3 张图——是否完整、是否截断、是否切到不该切的位置；用户反馈"图破了"再回查（脚本不会自动做视觉 diff）
+- **运行时**：本地 summary.md 生成时（`--extract-figures`）走 阶段 1+3+4；推到 outline 后走 阶段 1+2+3；不阻塞主流程（warning log）
+- **失败处理**：阶段 1/2/3 失败 → stderr WARNING + 返回值里 `failures[]` 列出，**不抛异常**（生成成功 ≠ 上传成功，agent 据此决定要不要重试 / 走 fallback）；阶段 4 失败 → stderr WARNING（标题尺寸字段失效，UI 仍可显示，只是尺寸不准）
+
+**Why not visual diff 自动做**：outline doc 渲染图含 outline UI chrome（背景色 / padding / 标题区），与原 figure 直接像素 diff 噪声大；可靠方案是按论文 PDF 原 page 渲染 + bbox 内裁剪后与 `figures/*.png` 对比——成本高，作为可选 Step 4b（默认不跑，agent 怀疑有问题时手动启用）。
 
 ## 工作流 / 步骤
 
@@ -479,6 +561,44 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 ```
 
+### A''. 输出目标与图片处理（跨 skill 分工）
+
+> **本 skill 只产出本地文件**——A' 节的 `--extract-figures` 截下来的
+> PNG 全部落在本地 `figures/` 目录，**不会**自动上传到 outline-wiki。
+> **上传到 outline-wiki 不归本 skill 管**，请走
+> [`outline-wiki-management`](../../outline-wiki-management/SKILL.md) 的
+> attachment 3 步流程（`create_attachment` → `curl` 上传 → Markdown 引用
+> `/api/attachments.redirect?id=...`）。
+
+**按输出目标决定本 skill 的参数**：
+
+| 输出目标 | `--extract-figures` | 理由 |
+| --- | --- | --- |
+| **本地 Markdown / VS Code / Obsidian** | 可选（按需） | 读者可在本地直接看 `figures/*.png` |
+| **直接上传到 outline-wiki** | ==**必须开**== | 关掉的话，Markdown 里的 `![图 N](PDF p.X fig.Y ...)` 引用是**破图**——outline 不识别 PDF 路径 / bbox 引用，必须有真实的 attachment URL |
+| 仅文字速读 / 不带图 | 关（默认） | 不需要 PNG，省时间 + pymupdf 依赖 |
+
+**端到端工作流（论文总结 → outline-wiki 笔记含图）**：
+
+```text
+1. 本 skill：跑 gemini_paper_summary.py --extract-figures → 产出
+   <output_dir>/summary.md + <output_dir>/figures/*.png
+2. outline-wiki-management：拿每张 figures/*.png 走 attachment 3 步
+   （create_attachment → curl 上传 → 拿到 /api/attachments.redirect?id=...）
+3. 用 update_document + editMode=patch + findText 把 summary.md 里的
+   ![图 N](figures/figure-pX-fN.png) 替换为
+   ![图 N](/api/attachments.redirect?id=<uuid> "=WxH")
+4. （可选）删本地 figures/ 目录与 summary.md 的 figures/ 引用条目
+```
+
+**反模式**（**别**这么干）：
+
+- 在 outline-wiki 文档里写 `![图 N](figures/figure-p1-f1.png)`——本地路径在
+  outline 是**破图**（除非先走 attachment 3 步拿到真 URL）
+- 在 outline-wiki 文档里写 `![图 N](PDF p.X fig.Y ...)`——同上
+- 假设 gemini-paper-summary 会**自动**把图传到 outline-wiki——**不会**，
+  本 skill 只到本地为止
+
 ### B. 批量速览
 
 ```text
@@ -497,7 +617,9 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | `DefaultCredentialsError` / `api_key not set` | 缺 `GEMINI_API_KEY` | `export GEMINI_API_KEY=...` 或 `.env` + `direnv` |
 | `400 INVALID_ARGUMENT` + `mime type` 报错 | PDF 损坏 / 加密 / 非 PDF 头 | 用 `file <pdf>` 核实；解密或重新下载 |
 | `413 REQUEST_TOO_LARGE` | PDF 超 50 MB | 走 File API 上传（见 `references/api-quickstart.md` §超大 PDF） |
-| 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型 |
+| 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型；避免用 deprecated 系列（`gemini-2.5-*` 等） |
+| 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`；见"模型选型"小节 |
+| 跑出来字数远超 1000 词（≈ 500 个中文字符） | Gemini 不严格遵守 prompt 字数约束 | 先调 prompt / `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
 | 输出空 / 截断 | 输出 token 上限（默认 65k）撞顶 | 减小 `max_output_tokens` 不会影响——缩短 prompt 或换模型 |
 
 ## 参考样例

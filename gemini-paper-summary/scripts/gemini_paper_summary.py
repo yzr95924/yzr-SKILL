@@ -178,19 +178,49 @@ def parse_figure_refs(md_text):
 
 def find_figure_caption(page, fig_num):
     # type: (object, int) -> object
-    """在该页搜 `Figure N:` caption，返回 caption 所在 line 的 bbox 或 None。
-    同一行的多 span 文本（如双栏 PDF 中 "Fig." 与 "4." 分在两个 span），
-    拼成 line 文本后再匹配。返回 line bbox 而非 block bbox，避免
-    pymupdf 把 caption 与后续正文合并到同一 block 造成 y 越界。"""
+    """在该页搜 `Figure N:` caption，返回 caption 整体 bbox 或 None。
+
+    关键细节：pymupdf 会把视觉上同一行的 caption 拆成多 line（典型：
+    "Fig. 10." 一个 line、"Single-threaded lookup throughput..." 另一个 line，
+    因为 span 之间有 x 间隔，pymupdf 不合并）。本函数找到首个匹配 line 后，
+    在**同一 block 内** union 所有 y 相同的 line，返回 union bbox——
+    这样 `cap_x_center` 反映 caption 真实横向跨度（关键用于 figure 是否
+    跨双栏的判断，详见 find_figure_bbox_by_caption）。
+
+    约束：仅在 block 内 union，不会跨 block 误吞另一栏的 Fig.N（实测 p5
+    Fig.6 的 "Fig. 6." 在 block[21] line[0]，续行 "Illustration..." 在
+    block[21] line[1]；同页 Fig.7 的 "Fig. 7. Search algorithm." 在
+    block[39]，不同 block，安全）。"""
     pat = re.compile(rf"^\s*(?:Figure|Fig\.?)\s*{fig_num}\b", re.IGNORECASE)
+    matched_block = None
+    matched_line = None
     for block in page.get_text("dict").get("blocks", []):
         if "lines" not in block:
             continue
         for line in block["lines"]:
             line_text = "".join(s.get("text", "") for s in line["spans"]).strip()
             if pat.match(line_text):
-                return line["bbox"]
-    return None
+                matched_block = block
+                matched_line = line
+                break
+        if matched_block is not None:
+            break
+    if matched_block is None or matched_line is None:
+        return None
+
+    # Union 同 block 内所有 y 与 matched line 接近（容忍 3pt）的 line
+    # 3pt 覆盖 pymupdf line 分组的微小 y 偏移；不会跨 y 跨到下一段正文
+    y_tolerance = 3.0
+    matched_y = matched_line["bbox"][1]
+    x0, y0, x1, y1 = matched_line["bbox"]
+    for line in matched_block["lines"]:
+        if abs(line["bbox"][1] - matched_y) > y_tolerance:
+            continue
+        x0 = min(x0, line["bbox"][0])
+        y0 = min(y0, line["bbox"][1])
+        x1 = max(x1, line["bbox"][2])
+        y1 = max(y1, line["bbox"][3])
+    return (x0, y0, x1, y1)
 
 
 def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
@@ -205,7 +235,14 @@ def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
        annotation / label）的最上 y0。新增逻辑，专门解决 figure 上方只有
        figure annotation、没有正文段落的情形（如 ART-ICDE'13 第 5 页）。
     3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，
-       但可能含 page header）。"""
+       但可能含 page header）。
+
+    双栏 / 跨双栏判定：
+    - 普通双栏论文：caption 在某一栏 → 只在该栏内向上找正文 + 裁剪
+    - **跨双栏 figure**（如 ART-ICDE'13 第 9 页 Figure 10，三个子图并排占
+      满整个页宽）：caption 横向跨度跨越 `page_mid_x` → 视为 wide figure，
+      使用整页文本区域宽度裁剪
+    """
     cap_bbox = find_figure_caption(page, fig_num)
     if not cap_bbox:
         return None
@@ -216,7 +253,16 @@ def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
     cap_x_center = (cap_bbox[0] + cap_bbox[2]) / 2
     page_rect = page.rect
     page_mid_x = (page_rect.x0 + page_rect.x1) / 2
-    if cap_x_center < page_mid_x:
+
+    # === 跨双栏 figure 检测 ===
+    # 判据: caption bbox 横向跨越 page_mid_x（说明 caption 本身就跨栏,
+    # 对应的 figure 必然也是跨栏宽图）
+    is_wide_figure = (cap_bbox[0] < page_mid_x) and (cap_bbox[2] > page_mid_x)
+    if is_wide_figure:
+        # 跨双栏 figure: 用整页文本区域宽度裁剪 (两侧 36pt 边距)
+        col_left = page_rect.x0 + 36
+        col_right = page_rect.x1 - 36
+    elif cap_x_center < page_mid_x:
         col_left = page_rect.x0 + 36
         col_right = page_mid_x - 5
     else:
@@ -271,16 +317,20 @@ def find_figure_bbox_by_caption(page, fig_num, include_caption=True):
 
 def refine_bbox(page, fig_num, bbox, padding=5.0):
     # type: (object, int, tuple, float) -> object
-    """对 Gemini 给的 bbox 做后处理：加 padding；用 caption 位置裁剪 y1
-    （包含 caption 但不延伸到 caption 后的正文）。"""
+    """对 Gemini 给的 bbox 做后处理：加 padding；用 caption 顶部裁剪 y1
+    （**不**包含 caption —— caption 由 Markdown 文本承载，图片只保留 figure 主体）。
+
+    关键：原设计把 `y1` 扩展到 caption 底部（`cap_bbox[3]`）让图片含 caption，
+    但 caption 文字本身是文本信息，搜不到、不能选、不能索引。新设计把 caption
+    移到 Markdown body（用 `replace_alt_with_full_caption` 在图片后插入
+    `**图 N**：<caption>` 单独一行），图片只裁 figure 主体。
+    """
     x0, y0, x1, y1 = bbox
     page_rect = page.rect
     cap_bbox = find_figure_caption(page, fig_num)
     if cap_bbox is not None:
-        x0 = min(x0, cap_bbox[0])
-        x1 = max(x1, cap_bbox[2])
-        y1 = min(y1, cap_bbox[3])
-        y0 = min(y0, cap_bbox[1])
+        # y1 钳到 caption 顶部（cap_bbox[1]）—— 裁掉 caption 文字
+        y1 = min(y1, cap_bbox[1])
     x0 = max(page_rect.x0, x0 - padding)
     y0 = max(page_rect.y0, y0 - padding)
     x1 = min(page_rect.x1, x1 + padding)
@@ -455,23 +505,32 @@ def render_figures_to_pngs(
                 v_entry = visual_bbox_map.get((p, f))
                 if v_entry and "bbox_pt" in v_entry:
                     x0, y0, x1, y1 = v_entry["bbox_pt"]
+                    # 用 caption 顶部 **减去 2pt 安全边距** 钳 y1——caption 文字不放进图片
+                    # 直接 cap_bbox[1] 不够,Stage 2 的 y1 可能略低于 caption top(几像素),
+                    # 加 2pt 还会推进 caption 内;先 -2 留 buffer,再不加 y1 padding
+                    cap_bbox = find_figure_caption(page, f)
+                    if cap_bbox is not None:
+                        y1 = min(y1, cap_bbox[1] - 2.0)
                     pad = 2.0
                     x0 = max(page_rect.x0, x0 - pad)
                     y0 = max(page_rect.y0, y0 - pad)
                     x1 = min(page_rect.x1, x1 + pad)
-                    y1 = min(page_rect.y1, y1 + pad)
+                    # y1 钳完 caption 顶后, **不再加 padding**——加 padding 会把 caption 重新框进来
+                    y1 = min(page_rect.y1, y1)
                     if x1 - x0 >= 20 and y1 - y0 >= 20:
                         clip = fitz.Rect(x0, y0, x1, y1)
-                # 2) 次优先级：本地 caption 定位（包含 caption，不延伸到正文）
+                # 2) 次优先级：本地 caption 定位（**不**包含 caption，caption 由 Markdown 文本承载）
                 if clip is None:
-                    clip = find_figure_bbox_by_caption(page, f, include_caption=True)
+                    clip = find_figure_bbox_by_caption(page, f, include_caption=False)
                     if clip is not None:
-                        # caption 定位用 +5 padding（更保守一点）
+                        # caption 定位用 +5 padding 在左/上/右;**y1 不加 padding**——
+                        # find_figure_bbox_by_caption(include_caption=False) 返回的 y1
+                        # 已经是 caption 顶,加 padding 会把 caption 框回来
                         clip = fitz.Rect(
                             max(page_rect.x0, clip.x0 - 5),
                             max(page_rect.y0, clip.y0 - 5),
                             min(page_rect.x1, clip.x1 + 5),
-                            min(page_rect.y1, clip.y1 + 5),
+                            min(page_rect.y1, clip.y1),  # 不加 y1 padding
                         )
                 # 3) 最后兜底：Stage 1 Gemini bbox hint（精度差）
                 if clip is None and bbox is not None:
@@ -802,52 +861,39 @@ def call_gemini_for_visual_bbox(pdf_path, page_to_png, model, temperature):
     return result
 
 
-# 抓整行 `![alt](PDF p.X fig.N ...)` 用于 alt 文本替换
+# 抓整行 `![alt](PDF p.X fig.N ...)` 用于在图后追加 caption 行
 FIGURE_LINE_RE = re.compile(r"(!\[[^\]]*\])\(PDF p\.(\d+)\s+fig\.(\d+)(?:\s+bbox=\[?[\d.,]+\]?)?\)")
+# 抓已插入的 `**图 N**：<caption>` 行,防止重复插入
+CAPTION_LINE_RE = re.compile(r"^\s*\*\*图\s*\d+\s*[：:]\*\*\s*", re.MULTILINE)
 
 
-def replace_alt_with_full_caption(md_text, visual_bbox_map):
+def insert_caption_after_figure(md_text, visual_bbox_map):
     # type: (str, dict) -> str
-    """用 Stage 2 返回的完整 caption 覆盖 Markdown 里的残缺 alt 文本。
+    """已弃用（2026-06-21 反转）：caption 不再注入 markdown body。
 
-    输入 visual_bbox_map: {(page, fig_num): {"bbox_pt": ..., "full_caption": str}}
+    历史设计：在每个 `![alt](PDF p.X fig.N ...)` 引用行后追加一行 `**图 N**：<caption>`。
+    现设计：caption 由 outline-wiki attachment 的 `name` 字段承载（用户在图片下方
+    直接看到 paper 原文标题），markdown body **不**写 caption 行——避免与 outline
+    内置 caption 重复、避免 outline-wiki 把单 `\n` 渲染成软空格导致 caption 紧贴
+    图片底部看不到。
 
-    替换规则: 仅当 (page, fig_num) 在 visual_bbox_map 中且 full_caption 非空时:
-    - 把 `![图 N：<原 alt 余部>](PDF p.X fig.N ...)` 改为
-      `![图 N：<full_caption>](PDF p.X fig.N ...)`
-    - "图 N：" 前缀保留(便于按 alt 中的"图 N"对应 Markdown 行号)
-    - 若原 alt 已含"—"说明段(如"— 展示了..."),保留"—"之后部分(Stage 1 的角色说明)
+    本函数保留为 no-op（只剥已存在的 caption 行，不再插入新行），让旧脚本调用点
+    不会报错。**新代码不应再调用本函数**——caption 走 attachment 元数据通道：
+    上传 attachment 时把 `name` 字段设为论文 Figure 标题原文。详见
+    `MEMORY/gemini-paper-summary-figure-extraction-edges.md` §8。
 
-    未命中或 full_caption 为空时,保持原 alt 不动。"""
-    if not visual_bbox_map:
-        return md_text
-
-    def repl(m):  # type: (re.Match) -> str
-        img_tag = m.group(1)  # ![...]
-        page = int(m.group(2))
-        fig_num = int(m.group(3))
-        entry = visual_bbox_map.get((page, fig_num))
-        if not entry or not entry.get("full_caption"):
-            return m.group(0)
-        full_caption = entry["full_caption"].strip()
-        if not full_caption:
-            return m.group(0)
-        # 解析原 alt: ![图 N：<title>(— <role>)?]
-        alt_match = re.match(r"!\[(图\s*\d+\s*[：:])\s*(.*)\]", img_tag)
-        if not alt_match:
-            return m.group(0)
-        prefix = alt_match.group(1)  # "图 N："
-        rest = alt_match.group(2).strip()  # "<title>(— <role>)?"
-        # 拆 "—" 分隔符:caption 之前是 title,"—" 之后是 Stage 1 写的角色说明
-        parts = re.split(r"\s*—\s*", rest, maxsplit=1)
-        # 新 alt = "图 N：<full_caption>(— <role>)?"
-        if len(parts) == 2:
-            new_alt = f"{prefix}{full_caption} — {parts[1]}"
-        else:
-            new_alt = f"{prefix}{full_caption}"
-        return "!" + "[" + new_alt + "]" + m.group(0)[len(img_tag) :]
-
-    return FIGURE_LINE_RE.sub(repl, md_text)
+    输入 visual_bbox_map: 保留参数签名兼容旧调用,但完全忽略
+    - 仍执行:去除已注入的 `**图 N**：<caption>` 行(防遗留脚本残留)
+    - 不再执行:在图片行后插入 caption 行
+    """
+    # 防御性清理:去掉旧版注入的 caption 行(`**` 在冒号之前)
+    # 匹配 `\n**图 N**：<caption 文字>` 整行
+    cleaned = re.sub(
+        r"\n+\*\*图\s*\d+\s*\*\*\s*[：:][^\n]*",
+        "",
+        md_text,
+    )
+    return cleaned
 
 
 # 缩略图二次包裹：`![alt](figures/figure-pX-fY.thumb.png)` → `[![alt](thumb)](full)`
@@ -1135,8 +1181,8 @@ def main(argv=None):  # type: (Optional[list]) -> int
                     page_to_png = render_pages_for_gemini(args.pdf, refs, dpi_scale=args.refine_dpi)
                     if page_to_png:
                         visual_bbox_map = call_gemini_for_visual_bbox(args.pdf, page_to_png, model, args.temperature)
-                        # 用 Gemini 读出的完整 caption 覆盖 Markdown alt 中可能残缺的标题
-                        summary_md = replace_alt_with_full_caption(summary_md, visual_bbox_map)
+                        # 在每张图引用行后追加 `**图 N**：<caption>` 行（caption 不再塞进图片或 alt）
+                        summary_md = insert_caption_after_figure(summary_md, visual_bbox_map)
             os.makedirs(out_dir, exist_ok=True)
             ref_to_fullpath, ref_to_thumbpath = render_figures_to_pngs(
                 args.pdf,
@@ -1185,7 +1231,224 @@ def main(argv=None):  # type: (Optional[list]) -> int
         sys.stdout.write(summary_md)
         if not summary_md.endswith("\n"):
             sys.stdout.write("\n")
+
+    # ---- 生成后自检(2026-06-21):图片完整性 + 边界破坏 ----
+    # 阶段 1/3/4 必跑(本地);阶段 2(outline attachment)只在环境变量指定时跑
+    figures_dir = ""
+    if args.extract_figures and args.output:
+        figures_dir = os.path.join(args.output, "figures")
+    outline_endpoint = os.environ.get("OUTLINE_ENDPOINT", "")
+    outline_api_key = os.environ.get("OUTLINE_API_KEY", "")
+    try:
+        check_result = self_check_figures(
+            summary_md,
+            figures_dir,
+            outline_check=bool(outline_endpoint and outline_api_key),
+            outline_endpoint=outline_endpoint or None,
+            outline_api_key=outline_api_key or None,
+        )
+        # 报告到 stderr(不阻塞)
+        sys.stderr.write("INFO: " + str(check_result["report"]) + "\n")
+        for w in check_result.get("warnings", []):
+            sys.stderr.write("WARN: " + w + "\n")
+        for fl in check_result.get("failures", []):
+            sys.stderr.write("FAIL: " + fl + "\n")
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"WARN: self_check_figures 异常: {e}(自检未跑全,不影响主流程)\n")
+
     return 0
+
+
+# -----------------------------------------------------------------------------
+# 自检:图片完整性与边界(2026-06-21)
+# -----------------------------------------------------------------------------
+
+
+def self_check_figures(md_text, figures_dir, outline_check=False, outline_endpoint=None, outline_api_key=None):  # type: (str, str, bool, Optional[str], Optional[str]) -> Dict[str, object]
+    """生成后自检:校验 doc body 里的图片引用是否完整、本地 PNG 尺寸是否与 markdown title 一致、可选 outline attachment 二进制完整性。
+
+    Args:
+        md_text: 已生成的 summary.md 全文(本地产物)
+        figures_dir: 本地 figures 目录绝对路径(用于阶段 3/4 校验本地 PNG 尺寸)
+        outline_check: 是否额外做 outline attachment 二进制校验(阶段 1/2)
+        outline_endpoint: outline-wiki endpoint, 例 https://myoutline.ddnsto.com
+        outline_api_key: outline API key(Authorization: Bearer ...)
+
+    Returns:
+        {
+          "ok": bool,                # True = 0 失败;False = 至少 1 项失败
+          "warnings": [str, ...],    # 警告项(尺寸不匹配 / 缺本地 PNG 等)
+          "failures": [str, ...],    # 失败项(失效引用 / 0 字节 attachment / 缺 markdown 引用)
+          "report": str,             # 单行摘要,例 "Self-check: 3/3 OK"
+        }
+    """
+    import re  # 局部 import,避免污染模块级命名空间
+
+    result = {"ok": True, "warnings": [], "failures": [], "report": ""}  # type: Dict[str, object]
+
+    # ---- 阶段 1: 解析 doc body 里的图片引用 ----
+    # 形如: ![alt](/api/attachments.redirect?id=<id> "=WxH")  或  ![alt](figures/figure-pX-fY.png "=WxH")
+    md_refs = re.findall(
+        r'!\[(?P<alt>[^\]]*)\]\((?P<url>[^)\s]+)(?:\s+"(?P<title>[^"]*)")?\)',
+        md_text,
+    )
+    # (url, title) 列表
+    md_pairs = [(m[1], m[2] or "") for m in md_refs]
+
+    # outline attachment ID 集合
+    outline_ref_ids = set()
+    for url, _ in md_pairs:
+        m = re.search(r"attachments\.redirect\?id=([0-9a-f-]{36})", url)
+        if m:
+            outline_ref_ids.add(m.group(1))
+
+    # 本地相对路径列表(用于阶段 4 校验)
+    local_paths = []
+    for url, _ in md_pairs:
+        if url.startswith("http") or url.startswith("/api/"):
+            continue
+        # url 形如 "figures/figure-p4-f5.png"
+        local_paths.append(url)
+
+    # ---- 阶段 2: outline attachment 完整性(可选) ----
+    if outline_check and outline_endpoint and outline_api_key and outline_ref_ids:
+        # 2a) attachments.list 拉 in-use ID 集合
+        try:
+            list_resp = _outline_api_request(
+                outline_endpoint,
+                outline_api_key,
+                "attachments.list",
+                {"limit": 100},
+            )
+            existing_ids = set()
+            for a in list_resp.get("data", []):
+                if a.get("id"):
+                    existing_ids.add(a["id"])
+            # 差集 = 失效引用
+            missing = outline_ref_ids - existing_ids
+            for mid in sorted(missing):
+                result["failures"].append(f"outline attachment 失效引用: id={mid} 在 attachments.list 不存在")
+        except Exception as e:  # noqa: BLE001
+            result["warnings"].append(f"attachments.list 调用失败: {e}")
+
+        # 2b) 每个 in-use attachment HEAD 校验
+        for aid in sorted(outline_ref_ids):
+            try:
+                status, ctype, size = _outline_attachment_head(outline_endpoint, outline_api_key, aid)
+                if status != 200:
+                    result["failures"].append(f"attachment {aid} HEAD 状态码 {status}(非 200)")
+                elif not ctype or not ctype.startswith("image/"):
+                    result["failures"].append(f"attachment {aid} content-type 异常: {ctype!r}(非 image/...)")
+                elif size <= 0:
+                    result["failures"].append(f"attachment {aid} size=0(0 字节破图)")
+            except Exception as e:  # noqa: BLE001
+                result["warnings"].append(f"attachment {aid} HEAD 失败: {e}")
+
+    # ---- 阶段 3: 本地 PNG 存在性 ----
+    if not _HAS_PYMUPDF:
+        if local_paths:
+            result["warnings"].append("本地 figures 校验需要 pymupdf,但未安装;pip install -U pymupdf 后重跑")
+    elif figures_dir and os.path.isdir(figures_dir):
+        for rel in local_paths:
+            abs_path = os.path.join(figures_dir, os.path.basename(rel))
+            if not os.path.isfile(abs_path):
+                result["failures"].append(f"本地 PNG 缺失: {abs_path}")
+    elif local_paths:
+        result["warnings"].append(
+            f"本地 figures 目录不存在: {figures_dir}(doc 引用了 {len(local_paths)} 张本地图,无法做尺寸校验)"
+        )
+
+    # ---- 阶段 4: 本地 PNG 尺寸 vs markdown title "=WxH" ----
+    if _HAS_PYMUPDF and figures_dir and os.path.isdir(figures_dir):
+        import fitz  # type: ignore  # pymupdf
+
+        for rel, title in [(p[0], p[1]) for p in zip(local_paths, [t for _, t in md_pairs])]:
+            if not title:
+                continue
+            # title 形如 "=506x548" 或 "=506X548"
+            m = re.match(r"=(\d+)[xX](\d+)", title)
+            if not m:
+                continue
+            claimed_w, claimed_h = int(m.group(1)), int(m.group(2))
+            abs_path = os.path.join(figures_dir, os.path.basename(rel))
+            if not os.path.isfile(abs_path):
+                continue  # 阶段 3 已报告
+            try:
+                doc = fitz.open(abs_path)
+                if doc.page_count < 1:
+                    doc.close()
+                    result["warnings"].append(f"本地 PNG 0 页: {abs_path}")
+                    continue
+                page = doc[0]
+                actual_w = int(round(page.rect.width))
+                actual_h = int(round(page.rect.height))
+                doc.close()
+            except Exception as e:  # noqa: BLE001
+                result["warnings"].append(f"本地 PNG 读尺寸失败 {abs_path}: {e}")
+                continue
+            # 差 ≥ 5% 视为不匹配
+            if claimed_w <= 0 or claimed_h <= 0:
+                continue
+            dw = abs(actual_w - claimed_w) / float(claimed_w)
+            dh = abs(actual_h - claimed_h) / float(claimed_h)
+            if dw >= 0.05 or dh >= 0.05:
+                result["warnings"].append(
+                    f"本地 PNG 尺寸与 title 不一致: {abs_path} 实际 {actual_w}x{actual_h} "
+                    f"vs 标题 {claimed_w}x{claimed_h} (差 {dw * 100:.1f}% / {dh * 100:.1f}%)"
+                )
+
+    # ---- 收尾 ----
+    if result["failures"]:
+        result["ok"] = False
+    summary_line = (
+        f"Self-check: {len(outline_ref_ids) + len(local_paths) - len(result['failures'])} ok, "
+        f"{len(result['warnings'])} warnings, {len(result['failures'])} failures"
+    )
+    result["report"] = summary_line
+    return result
+
+
+def _outline_api_request(endpoint, api_key, path, payload):  # type: (str, str, str, dict) -> dict
+    """outline-wiki REST API POST 调用,返 data 字段。失败抛 RuntimeError。"""
+    import json as _json
+    import urllib.request
+
+    url = endpoint.rstrip("/") + "/api/" + path
+    req = urllib.request.Request(
+        url,
+        data=_json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": "Bearer " + api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        body = resp.read().decode("utf-8")
+    d = _json.loads(body)
+    if not d.get("ok"):
+        raise RuntimeError("outline API {} 失败: {}".format(path, d.get("error") or d))
+    return d
+
+
+def _outline_attachment_head(endpoint, api_key, attachment_id):  # type: (str, str, str) -> Tuple[int, Optional[str], int]
+    """attachments.redirect HEAD 校验,返 (status, content_type, size)。"""
+    import urllib.request
+
+    url = endpoint.rstrip("/") + "/api/attachments.redirect?id=" + attachment_id
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": "Bearer " + api_key},
+        method="HEAD",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            ctype = resp.headers.get("Content-Type")
+            cl = resp.headers.get("Content-Length")
+            size = int(cl) if cl and cl.isdigit() else 0
+            return (resp.status, ctype, size)
+    except urllib.error.HTTPError as e:
+        return (e.code, e.headers.get("Content-Type") if e.headers else None, 0)
 
 
 if __name__ == "__main__":

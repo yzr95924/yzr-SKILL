@@ -71,6 +71,51 @@ pymupdf 渲染就是),归一化 0-1000 ↔ PDF point 是最简洁的桥梁。
 
 实现位置:`gemini-paper-summary/scripts/gemini_paper_summary.py` 的 `find_figure_bbox_by_caption`。
 
+### 4.1 caption 跨 span 时的 bbox union(2026-06-21 修复)
+
+**Why:** pymupdf 会把视觉上同一行的 caption 拆成多个 line(典型:"Fig. 10." 一个
+line、"Single-threaded lookup throughput..." 另一个 line,span 之间有 x 间隔
+pymupdf 不合并)。`find_figure_caption` 旧实现只返回首个匹配 line 的 bbox——
+`cap_x_center` 反映的是 "Fig. 10." 那个 ~25pt 宽的小 bbox,不是真实 caption 横向
+跨度。这会导致 `find_figure_bbox_by_caption` 的"按 cap_x_center 判断单/双栏"
+逻辑误判:跨双栏的 figure(如 3 subplot 并排占满页宽)会被当成单栏图,只裁左/右半。
+
+**典型 case:** ART-ICDE'13 第 9 页 Figure 10 是 3 subplot 并排的宽图,caption
+"Fig. 10. Single-threaded lookup throughput..." 横跨 page_mid_x(x: 157 → 455)。
+旧实现 cap_x_center=170("Fig. 10." 的中心),被判为左栏图,clip 被裁到只含
+左侧 65K subplot + 半个 16M subplot(550×344px,半截图)。新实现 union 后
+cap_x_center=306 ≈ page_mid_x,被识别为跨双栏 figure,clip 用整页文本区宽
+度裁剪(1080×324px,3 subplot + 完整 caption 全在)。
+
+**How to apply:**
+
+- `find_figure_caption` 找到首个匹配 line 后,**同 block 内** union 所有 y 相同
+  (±3pt)的 line;3pt 覆盖 pymupdf line 分组的微小 y 偏移,不会跨 y 跨到下段正文
+- **只在 block 内 union**,不会跨 block 误吞另一栏的 Fig.N(实测 p5 Fig.6 的
+  "Fig. 6." 在 block[21] line[0],续行 "Illustration..." 在 block[21] line[1];
+  同页 Fig.7 的 "Fig. 7. Search algorithm." 在 block[39],不同 block,安全)
+
+### 4.2 跨双栏 figure 识别(2026-06-21 修复)
+
+**Why:** 4.1 修复让 caption bbox 反映真实横向跨度后,还要在 `find_figure_bbox_by_caption`
+里识别"caption 跨 page_mid_x → figure 必跨双栏",把裁剪宽度从单栏 (~265pt) 扩到
+整页文本区 (~540pt)。否则 4.1 的 union 修了 cap_x_center,但 column decision 仍
+按 cap_x_center < page_mid_x 走单栏逻辑(300pt+ 的 caption 中心在 page_mid_x 附近
+时被分到某一栏)。
+
+**判据:** `cap_bbox[0] < page_mid_x and cap_bbox[2] > page_mid_x`(caption
+横向跨度本身横跨页面中线)→ 视为跨双栏 figure,col_left=page_x0+36、
+col_right=page_x1-36。
+
+**典型 case:** 仍以 ART-ICDE'13 p9 Fig.10 为代表。修复后 clip 宽度
+540pt(vs 旧 265pt 单栏),1080×324 px,3 subplot + 完整 caption "Fig. 10.
+Single-threaded lookup throughput in an index with 65K, 16M, and 256M keys." 全在。
+
+**How to apply:** 实现位置同上 — `find_figure_bbox_by_caption` 的 column
+decision 段。**注意:** 这是 caption-only 路径的 fallback;Stage 2 视觉定位
+默认开启时会优先用 Gemini 视觉 bbox,不受本逻辑影响。Stage 2 失败的 page 才
+会落到这里。
+
 ## 5. 为什么让 Gemini 同时判断 `is_key_figure`
 
 **Why:** Stage 1 prompt 已经要求 LLM "跳过装饰图",但 LLM 不一定守约,经常会列 logo /
@@ -97,7 +142,132 @@ pymupdf 渲染就是),归一化 0-1000 ↔ PDF point 是最简洁的桥梁。
 - **不引入新 pip 依赖**:Stage 2 复用现有 `pymupdf` + `google-genai`
 - **双栏 / 单栏通用**:caption x 中心判断栏,只在该栏内做边界检测,避免跨栏"吃"另一栏的图
 
-## 8. 验证方法(端到端 smoke test)
+## 8. 图片 caption 写到 markdown image 的 alt 字段(中文翻译+总结,2026-06-21 最终, v3.2)
+
+> **演进历程**:本节经过 6 个版本的迭代才到最终设计。前 5 版都已弃用,留作
+> "为什么是这样"的设计决策上下文:
+>
+> | 版本 | 阶段 | caption 怎么承载 | 问题 |
+> | --- | --- | --- | --- |
+> | v1 | 上午 | 塞进图片内 | 图片里文字不可搜索 / 复制 |
+> | v2 | 中午 | markdown body `**图 N**:...` 行,图片行 + 单 `\n` | outline-wiki 把单 `\n` 渲染成软空格,caption 视觉紧贴图片底部 |
+> | v3 | 中午再试 | v2 + 图片行 + `\n\n` 分段 | markdown body 与 attachment name 都显示 caption,**重复** |
+> | v4 | 下午(已弃) | 仅 attachment `name` 字段,markdown body 完全不写 | **outline UI 实际用 markdown alt 渲染 caption,不用 attachment.name**;name 字段只当文件名,UI 看不到 caption 文字 |
+> | v3.1 | 晚(已弃) | markdown image alt = **论文英文 caption 原文** | caption 是面向中文读者的,英文原文含术语细节(partial key 0/2/3/255)不好懂;且 inline element 配 ` — <role>` 后段撑成"长句" |
+> | **v3.2** | **最终** | **markdown image alt = 中文翻译+总结**," — <role>" 后段删除 | **中文读者扫读快,inline element 短而独立,无重复** |
+>
+> **关键事实**:
+> - outline-wiki `attachments.list` 返回字段只有 `id / name / url / contentType / size / userId / documentId`,**没有 caption / alt / description 字段**
+> - `attachments.update` / `attachments.get` / `attachments.view` / `attachments.info` 全部 404 或 `{}`
+> - outline UI 实际渲染 caption 文字的来源 = markdown image 的 alt 文本(`![alt](url)`)
+> - 唯一改 caption 的途径 = 改 markdown body(attachment 端改不了,只能改 body)
+>
+> 以下是 v3.2 详细 How to apply:**
+
+**Why:** 旧设计把 "Fig. 10. Single-threaded lookup throughput..." 这类 caption 文字
+截进图片。caption 是文本信息,**图片里的文字搜不到 / 不能复制 / 不能翻译 / 不能
+被 outline-wiki 索引**。同时图片偏大(多 30-50pt 高度纯文本),扫读时还要"先看
+图再读 caption",与论文"图在上、caption 在下"的物理排版相反。
+
+新设计:图片只裁 figure 主体(不含 caption),**caption 写成"中文翻译+总结"形式
+写到 markdown image 的 alt 字段**——这是 outline UI 实际渲染为图片下方 caption
+文字的通道。
+`![图 N: <中文翻译+总结>](<url> "=WxH")`,alt = 中文翻译+总结(含 `图 N: ` 前缀,
+冒号允许保留),**不再带 ` — <role>` 后段**——信息全收进 alt,inline element
+保持短而独立。
+caption 文字**可被搜索 / 复制 / 翻译 / 索引**;中文翻译+总结比英文原文更易扫读。
+
+**How to apply:**
+
+- 裁剪边界 `y1`:`y1 = min(y1, cap_bbox[1] - 2)`(caption 顶上方 2pt 安全边距),
+  **y1 不再加 padding**——否则会把 caption 顶重新框进来(实测 +2pt padding 会
+  把 caption 顶部 1-2px 的笔画重新框进来,看到 "Fig. N." 的残影)
+- markdown image 行格式 (v3.2):
+  `![图 N: <中文翻译+总结>](<url> "=WxH")`
+  - alt 字段 = **中文**翻译+总结(不是英文原文)
+  - alt **必须**以 `图 N: ` 开头(中文版,不是 v3.1 的 `Figure N: `)
+  - **不要** ` — <role>` 后段——信息全收进 alt,inline element 短而独立
+  - 中文 caption 通常 ≤ 100 字符;如个别仍超 120,markdown 链接不能拆行,**接受超长**
+  - 实测示例 (ART-ICDE'13 doc 900f3b2b rev 34):
+    - `![图 5: ART 四种内部节点的数据结构（以 partial key 0/2/3/255 → 子树 a/b/c/d 为例）](...)`
+    - `![图 6: 延迟扩展（Lazy Expansion）与路径压缩（Path Compression）示意图](...)`
+    - `![图 10: 单线程下 ART 在 65K / 16M / 256M 键规模上的查找吞吐量](...)`
+- prompt 模板**不要**再要求 Gemini 写 `**图 N**:...` 段落行(独立 caption 段会
+  与 alt 渲染重复)
+- 脚本侧:`insert_caption_after_figure` 已退化为 no-op + 清理旧 caption 段落行
+  的函数(**新代码不应再调用**);**Stage 2 `full_caption`(英文)→ Stage 3 译成中文 → 写到 image alt**——
+  v3.2 新增的 Stage 3 翻译步骤,可以是 Gemini 再次调用,或规则化中英术语对照
+- **修已发布的 outline doc 改 alt**:用 `mcp__outline__update_document` 的
+  `editMode: "patch"`,**逐行 patch 单个 image 行**——image 行之间被 `### 二级标题`
+  隔开,**不能**多行一起 patch 整段(实测 "text not found" 失败)
+- 行宽 120 限制(`.markdownlint.jsonc` MD013):中文版通常不超 120;英文版 v3.1
+  可能超长(如 Figure 5 的 205 字符)——**接受超长**(markdown 链接不能拆行,
+  换行会断 URL 解析);本地 `ART-ICDE'13.v4/summary.md` 不在仓库 lint 范围
+- **attachment `name` 字段**建议仍设为**英文 caption 原文**(虽然 UI 不显示,
+  纯文件名;但同一图附件在 outline 其他 doc 复用时,从 attachment 浏览器能保留
+  原始论文语义信息;中文版留给 alt 字段,因为 alt 是用户面向的展示)
+- 实测: ART-ICDE'13 p4 f5 (506×548,4 节点全在)、p5 f6 (464×247,path compression +
+  lazy expansion 全在)、p9 f10 (1023×310,3 subplot + "(GPT and CSB crashed)" 标注全在,
+  caption 文字已剥离);doc 900f3b2b rev 34 = 3 个 image alt = 中文翻译+总结,
+  body 0 个独立 caption 段落行
+
+## 10. [已弃用] outline-wiki 分段：图片与 caption 之间必须空行(2026-06-21,被 v3.2 反转)
+
+> **本节已被 §8 v3.2 设计取代**——v3.2 把 caption 写到 markdown image alt
+> 字段(单 inline element,无独立段落),本节的"图片行 + caption 行之间用
+> `\n\n` 分段"规则**不再适用**。本节保留作为演进历史(避免重蹈覆辙)。
+
+**Why (历史):** 本地 markdown 用单个 `\n` 换行没问题,但 outline-wiki 把单个 `\n`
+渲染成**软空格**(同段落内换行),只有 `\n\n` 才会切到新段落(ProseMirror 切
+paragraph node)。v2 / v3 设计的 `insert_caption_after_figure` 输出
+`![图 N](...) — <role>\n**图 N**:<caption>`(图片行 + 单换行 + caption 行)推到
+outline-wiki 后,**图片行与 caption 行在同一段落**,caption 视觉紧贴图片底部,
+扫读时像"只有图 5 这个标签,没有原文 caption 文字"——这就是用户当时反馈"图片
+标题只有图 5"的真正原因。v3 临时加 `\n\n` 修复,但又引入"body 与 attachment
+name 重复显示 caption"的新问题,所以最终推翻到 v3.1。
+
+**How to apply (历史,已不再用):**
+
+- v3 输出模板:`\n\n` 分段(本地规则 `\n`,推送 outline-wiki 规则 `\n\n`):
+  ```python
+  block = "![图 N](...) — <role>\n\n**图 N**:<caption>"
+  ```
+- v3 的本地实测: ART-ICDE'13 doc 900f3b2b-... rev 24 用此规则,3 张图 + 3 段
+  caption 全部独立成段,outline-wiki 渲染正常。但 v3.1 推翻了此设计。
+
+**为何被 v3.1 取代**:v3 仍把 caption 写在 markdown body 独立段落,会和
+outline UI 用 markdown alt 渲染的 caption **重复显示**;v3.1 直接把 caption
+塞到 image alt 字段(单 inline element,不构成独立段落),body 不再写
+` **图N**:... ` 行,根本消除了重复与分段问题。
+
+## 11. outline-wiki attachment 能力边界(2026-06-21 实测)
+
+**Why:** v3.1 设计需要知道 outline 端 attachment 字段的真实情况,避免凭
+"印象"反复试错(前面 v4 误判就是凭印象)。
+
+**实测清单**(基于 `https://myoutline.ddnsto.com` 实例,2026-06-21):
+
+| 端点 / 字段 | 是否暴露 | 备注 |
+| --- | --- | --- |
+| `attachments.list` `GET/POST` | ✓ | 返 `{id, name, url, contentType, size, userId, documentId}`——**无 caption / alt / description 字段** |
+| `attachments.list` `documentId` 字段 | 部分 | **只对"其它 doc 引用的 attachment" 返回 docId**;当前 doc 引用的 attachment 返 `null`(不能用于判 orphan) |
+| `attachments.list` `limit` | 上限 100 | 超过返 `400 Pagination limit is too large (max 100)`,需分页 |
+| `attachments.create` | ✓ | 接 `name` / `contentType` / `size`(MCP `create_attachment` 工具暴露的就是这 3 个);二进制走 `curl /api/files.create` |
+| `attachments.info` | ✗ | 返 `{}`(端点不存在) |
+| `attachments.get` | ✗ | 404 |
+| `attachments.view` | ✗ | 404 |
+| `attachments.update` | ✗ | 404;**不能改 attachment 的 name / contentType**——只能删除重建(但 delete 也 404) |
+| `attachments.delete` | ✗ | 404;**orphan attachment 无法通过 API 清理**,只能在 outline UI 手动删 |
+| `attachments.redirect` | ✓ | `curl /api/attachments.redirect?id=<id>` 拿二进制,需带 API key |
+
+**How to apply:**
+
+- 改 attachment 的 name / contentType:删不掉、改不了,只能重新 `create_attachment` + 重新 `curl /api/files.create`——但旧 attachment 会**永远 orphan**(`attachments.delete` 404,没法清理)
+- 改 doc body 里图片的 caption:用 `mcp__outline__update_document` 的 `editMode: "patch"`,**逐行 patch 单个 image 行**(image 行之间被 `### 二级标题` 隔开,**不能**多行一起 patch 整段)
+- 判 attachment 是否 orphan:不要信 `attachments.list` 的 `documentId` 字段(对当前 doc 永远返 null);只能**信 doc body 里的 markdown 引用**——脚本用 `grep '/api/attachments.redirect?id=<id>' <doc-text>` 倒推 in-use 集合
+- 想看 attachment 关联 doc:实测 `attachments.list` 拿不到完整信息,可能要走 outline DB 直接查(超出本 skill 范围)
+
+## 9. 验证方法(端到端 smoke test)
 
 ```bash
 export GEMINI_API_KEY="..."

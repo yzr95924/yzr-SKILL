@@ -168,8 +168,10 @@ metadata:
 #### 5. Image / 文件附件（create_attachment + fetch attachment）
 
 MCP `create_document` / `update_document` 只接受 Markdown 字符串，**不
-接收文件二进制**。要把图片或文件嵌进文档，必须先走 attachment 通道，
-再在 Markdown 里引用。3 步流程详见下文"文档风格 / 图片与文件附件"。
+接收文件二进制**。要把图片或文件嵌进文档，必须先走 attachment 通道
+（`create_attachment` → `curl` 上传 → Markdown 引用 attachment URL），
+3 步流程 + curl 模板详见下方"工作流 / 步骤 / 图片插入 / 文件附件工作流"
+小节（line ~395 之后）。
 
 #### 6. @mention 用户（list_users）
 
@@ -268,6 +270,50 @@ Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_
 [`references/doc_style.md`](references/doc_style.md)；写前的最后一道
 防线是 [`references/style_checklist.md`](references/style_checklist.md)。
 
+### 论文笔记 / 设计文档：关键架构图 / 示意图默认必须
+
+仓库内 `论文笔记` Collection、`数据结构与算法 → 索引类` 这类
+**以展示系统 / 算法设计为核心**的文档（也包括 `design-doc-edit` 的产出），
+**关键架构图 / 示意图是默认要求**——而**不是**可选项。理由：
+
+- 图是"组件 + 关系"信息密度最高的载体；纯文字描述会大幅降低扫读效率
+- Outline Wiki 通过 attachment 通道原生支持图片（详见
+  [`references/doc_style.md`](references/doc_style.md) §12）
+- 工作区里已有的论文笔记（`Bigtable-OSDI'06`、`Dynamo-SOSP'07`、
+  `Haystack-OSDI'10`、`Lakehouse-CIDR'21` 等）都带图，缺图的新文档会
+  与工作区风格脱节
+
+**判定标准**（按优先级）：
+
+1. ==必须上传==：论文 / 设计稿含 1 张或以上可识别的关键架构 / 示意图
+   （整体架构、核心模块示意、概念流程图、关键对比示意、状态机）
+2. ==可缺省==：原文是**纯理论推导 / 形式化证明 / 全文字实验报告**，
+   确实**没有任何**架构 / 流程 / 概念类图（仅含坐标轴 plot、表格、
+   实验数据柱状图不算关键图）
+3. =="找不到"不算缺省理由==：用 `pdftotext` / 简单 OCR 容易漏掉嵌入
+   图元；务必**人工 / 多模态识别**确认无关键图，才标"原文无图"并简述
+   检索过程
+
+**操作流程**（每张图严格 3 步）：
+
+1. ==取图==：用 `pdftoppm` / `pymupdf` 从 PDF 抽取对应页面 / bbox
+   渲染为 PNG（推荐 144 DPI / 2×），存到本地临时文件；只裁**图本身**，
+   不要整页截图，避免把页眉 / 标题框进来
+2. ==上传到 Outline==：先 `create_attachment(name, contentType, size)`
+   拿预签名 `uploadUrl` → `curl` multipart 上传 → 拿到 `attachment.url`
+   （形如 `/api/attachments.redirect?id=<uuid>`）
+3. ==嵌入 Markdown==：在合适位置写
+   `![图 N：<caption>](<attachment.url> "=WxH")`，title 给宽 × 高提示
+   （仓库内 `=WxH` 约定详见 [`references/doc_style.md`](references/doc_style.md) §7）
+
+**反模式**（"装作有图"的常见偷懒写法）：
+
+- 只写 `*（详见原 PDF p.X fig.Y）*` 文字占位 —— Outline 里点不开，
+  读者必须自己翻 PDF，违反"原位可读"原则
+- 引用未上传的本地路径（只会渲染成破图，详见上节"反模式"）
+- 上传整页截图 / 含无关边距 / 头部白边 —— 必须裁到图本身的 bbox
+- 把多张图拼成一张大图上传 —— 失去单图可单独引用的能力
+
 ## 执行原则 / 边界
 
 ### 核心原则
@@ -320,10 +366,114 @@ Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_
 3. **先搜后写**：涉及"创建 / 编辑"前，先 search 查重 / 定位目标文档；
    涉及"图片"前先确认 attachment 通道（`create_attachment`）可用
 4. **执行操作**：调用对应工具；图片场景走"create_attachment → curl 上传
-   → Markdown 引用 attachment URL"3 步；评论场景先 `list_comments` 看
-   现有讨论再决定新建还是回复
+   → Markdown 引用 attachment URL"3 步（详见下方"图片插入 / 文件附件工作流"
+   小节）；评论场景先 `list_comments` 看现有讨论再决定新建还是回复。
+   ==写论文笔记 / 设计文档时，**关键架构图默认就要走这 3 步嵌入**，
+   不要写文字占位（参见"文档风格 / 论文笔记 / 设计文档"小节）==
 5. **验证结果**：检查返回是否成功；失败时按故障排查流程定位
 6. **报告**：把做了什么、结果如何、是否需要后续动作告诉用户
+
+### 图片插入 / 文件附件工作流
+
+> **本 skill 的图片能力 = 上传 + 引用**——只解决"把本地文件变成 outline
+> 里能渲染的图片"。**不**管图片怎么来：
+> - 截图 / 配图 / logo 等任意本地图片：直接走下面 3 步
+> - **论文关键架构图**：先走 [`gemini-paper-summary`](../../gemini-paper-summary/SKILL.md)
+>   的 `--extract-figures` 抽到本地 `figures/*.png`，**再**走本 skill 的
+>   attachment 3 步
+
+**完整 3 步流程**（每张图独立走一遍）：
+
+1. **预签名上传 URL**：调 `create_attachment(name, contentType, size)`
+   ```text
+   name: <filename>（如 figure-p1-f1.png）
+   contentType: image/png（或 image/jpeg / image/webp）
+   size: 文件字节数
+   ```
+   返回 `uploadUrl`（multipart 接收端点）+ 一组表单字段
+
+2. **上传二进制**：用 `curl` 把本地文件 POST 到 `uploadUrl`（即 `/api/files.create`）。
+   `attachments.create` 返回的 `form` 字段必须**逐字**回传（`Cache-Control` /
+   `Content-Type` / `key` / `acl` / `maxUploadSize` / `_csrf`），再附 `file=@<path>`：
+   ```bash
+   $> KEY=$(jq -r '.data.form.key' <(curl -sS -X POST \
+         -H "Authorization: Bearer $OUTLINE_API_KEY" \
+         -H "Content-Type: application/json" \
+         -d '{"name":"figure-p1-f1.png","contentType":"image/png","size":12345}' \
+         "$OUTLINE_BASE/api/attachments.create"))
+   $> curl -X POST "$OUTLINE_BASE/api/files.create" \
+        -F 'Cache-Control=max-age=31557600' \
+        -F 'Content-Type=image/png' \
+        -F "key=$KEY" \
+        -F 'acl=private' \
+        -F 'maxUploadSize=26214400' \
+        -F '_csrf=' \
+        -F "file=@<本地文件路径>" \
+        -H "Authorization: Bearer $OUTLINE_API_KEY"
+   ```
+   响应 `{"success":true, ...}` 才算上传成功（仅 metadata 返回但 `success=false`
+   仍意味着文件未落盘，必须重试）
+
+> **⚠️ create_attachment 只注册元数据，二进制必须自己 curl**
+>
+> 上一行 `create_attachment` 成功 ≠ 文件已上传。MCP 工具只接收
+> `name / contentType / size` 三个参数，**不会**接收二进制内容。
+> 缺了 step 2 的 curl，attachment 记录存在但内容是 0 字节，文档
+> 嵌进去后浏览器加载图片失败 → **空白 / 破图**。**特别坑**：当时
+> 不报错，事后才发现图都没显示。
+>
+> **认证**：用 outline MCP 配置里的 API key
+> （`<endpoint 域名>/mcp` 对应的 `Authorization: Bearer <key>` 头，
+> 已在 `~/.claude.json#mcpServers.outline.headers` 或
+> `.claude/settings.local.json` 注册时填入）。**agent 可以直接拿来用**
+> —— 跟 MCP server 用同一把 key，curl `/api/attachments.create` 和
+> `/api/files.create` 都能过。不需要用户手动抓 cookie。
+> **拿 key 的安全姿势**：先看 `tools/list` 里 attachment 工具能用 → 说明
+> key 已在 MCP 端生效 → 直接用同一份 key 走 curl。
+>
+> **API key 拿不到 / curl 401 时的退路**（按优先级）：
+> 1. 检查 `.claude/settings.local.json#mcpServers.outline.headers.Authorization`
+>    是否真的填了 key；空 key 是 silent failure
+> 2. 重跑 `outline-wiki-management/scripts/configure_mcp.py` 重新写 key
+> 3. 用户在 Outline UI 拖拽图片进编辑器（编辑器自带 session auth）
+
+3. **插入引用**：在 Markdown 里写
+   ```markdown
+   ![图 N：<caption>](<attachment.url> "=WxH")
+   ```
+   - `attachment.url` 形如 `/api/attachments.redirect?id=<uuid>`
+   - `=宽x高` 给渲染尺寸（仓库内 `=WxH` 等宽约定，参见 `references/doc_style.md` §7）
+   - 非图片附件可省略 `=WxH`
+
+4. **必做验证**：写完 Markdown 引用**必须**核验 attachment 真有内容
+   ```text
+   mcp__outline__fetch attachment id=<attachment.id>
+   → 拿到 signedUrl
+   → 用 WebFetch / 浏览器访问 signedUrl
+   → 必须返回 200 + 实际图片字节；404 / 0 字节 / HTML 错误页都算失败
+   ```
+   失败则**不能**写入文档，先解决 upload 再继续
+
+**写入 / 替换方式**（视场景选）：
+
+- **新建文档时**：直接把第 3 步的 `![...](...)` 嵌进 `create_document` 的 `text` 参数
+- **替换已有文档中的图引用**：用 `update_document` + `editMode: "patch"` + `findText` 精准替换
+  ```text
+  findText: ![图 1：xxx](figures/figure-p1-f1.png)
+  text: ![图 1：xxx](/api/attachments.redirect?id=<uuid> "=WxH")
+  ```
+  这样可保留其他内容（评论 / 高亮 / 表格宽度）不被破坏
+
+**反模式**（**别**这么干）：
+
+- 引用未上传的本地路径（`![x](figures/figure-p1-f1.png)` 或 `![x](PDF p.X ...)`）——
+  outline 渲染成**破图**，读者看不到
+- 把整页 PDF 截图 / 包含页眉 / 段尾段落上传——必须只截**图本身**的 bbox
+- 在 `create_document` / `update_document` 的 `text` 参数里**直接传图片二进制**——
+  这两个工具**不**接收文件，只接受 Markdown 字符串
+
+**读取已上传附件**：调 `fetch(resource="attachment", id=<id 或完整 redirect URL>)`
+返回 short-lived 签名 URL，可直接下载。
 
 ### 客户端接入
 
