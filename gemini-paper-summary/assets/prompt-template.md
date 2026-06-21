@@ -5,7 +5,7 @@
 > 维护规则：模板变更需要同步更新 SKILL.md "输出"小节里的章节骨架。
 >
 > 风格基线与 outline-wiki-management 保持一致：`*` bullet / `==高亮==` /
-> ` ```mermaid ` block-level / 表格 / 行宽 ≤ 120。详细约定见 SKILL.md 核心原则 #9。
+> ` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120。详细约定见 SKILL.md 核心原则 #9。
 
 ## 默认模板（academic）
 

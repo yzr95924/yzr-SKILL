@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法 / 实验 / 业务启示&价值 / 局限，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结，默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaid` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结，默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-20
@@ -12,9 +12,9 @@ metadata:
 用 Gemini 多模态长上下文直接"读懂"PDF 论文（含图表、公式），按 **outline 风格**
 结构化模板输出**中文 Markdown 总结**。**开篇无 `# Reference` / 无独立 `## 团队背景介绍` 章节**——元信息
 走 3 列表格（Title / Venue / Topic）+ 引用块链接 + 紧跟论文链接的团队 item，**章节骨架统一为**：
-开篇表 + 团队 item → `## 3 句话总结` → `## 背景与动机` / 方法 / 实验 / 业务启示&价值 / 局限。
+开篇表 + 团队 item → `## 3 句话总结` → `## 背景与动机` / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作。
 **Markdown 风格与 `outline-wiki-management` 完全对齐**（`*` bullet / `==高亮==` /
-` ```mermaid ` block-level / 表格 / 行宽 ≤ 120），输出可直接复制到 outline-wiki
+` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120），输出可直接复制到 outline-wiki
 或 Obsidian 显示。agent 可以直接调用本 skill 的脚本做单篇或批量总结，
 也可以按 `references/api-quickstart.md` 在会话内自行调用 SDK。
 
@@ -70,7 +70,7 @@ metadata:
 **判断流程**：
 
 ```text
-1. 跑 gemini_paper_summary.py（不传 --model，用默认 gemini-3.5-flash）
+1. 跑 gemini_paper_summary.py（不传 --model，用默认）
 2. 输出不满意？
    ├─ 否 → 用默认就好
    └─ 是 → 先调 prompt（--focus 或改 prompt-template.md），再考虑换模型
@@ -220,7 +220,7 @@ metadata:
    - 不用 pdftotext / PyPDF2 / pdfplumber 之类先抽纯文本（会丢图表、公式）
 2. **结构化总结，不是复述**
    - 按 outline 风格模板的**主线顺序与命名**输出（开篇表 → 团队 item →
-     `## 3 句话总结` → 背景与动机 → 方法 → 实验 → 业务启示&价值 → 局限），**最好每篇不超过
+     `## 3 句话总结` → 背景与动机 → 方法设计 → 代表性实验结果 → 业务启示 & 价值 → 局限与未来工作），**最好每篇不超过
      **（不是"写到 1500 字"——具体数值见 `assets/prompt-template.md`）
    - **不存在的章节可省略**（如纯理论论文无实验数据时省"代表性实验结果"）
    - 关键数据 / 数值必须保留，避免泛泛而谈
@@ -250,6 +250,8 @@ metadata:
      无条件保留。中英混排是常态（如"训练使用 LoRA（低秩适配）"）
    - 列表 / 表格中若一项本身就是英文术语，整项保持英文
 5. **关键架构图 / 概念示意图：(page, fig_num, bbox) 引用 + 内联到对应方法上下文，caption 写到 image alt 字段（v3.2 终版）**
+
+   > **Stage 2（`--refine-figures`）默认开**——除非用户明确说"不要用 Gemini 视觉定位 / 嫌慢 / 不想花 token"，否则**不要**加 `--no-refine-figures`。Stage 2 用 Gemini 看图直接给精确 bbox，能解决边界不准确 / 标题残缺 / 上方留白三个老问题，详细规范见 [`references/figure-processing.md`](references/figure-processing.md)。
 
    > **图片选择 / 排版 / alt 写法 / 处理不了的图兜底**——这些是给 Gemini 看的真权威规则，
    > 统一收在 `assets/prompt-template.md` §图引用约定。本节只讲 Gemini 看不到的 meta / 流程约束。
@@ -291,11 +293,7 @@ metadata:
    - 链接类型不明确时（如脚注里的 project page）归到"代码仓库"那行
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
    - 论文**完全未提**任何 prototype 链接时，**整段省略**（不要写"无开源"或占位文本）
-8. **模型选择**
-   - 默认 `gemini-3.5-flash`（2026-05 稳定版，质量与成本平衡，支持 PDF + 1M 上下文）
-   - 复杂论文可换 `gemini-3.1-pro-preview`（preview，质量更高但成本高）
-   - 速览批量过稿可换 `gemini-3.1-flash-lite`（更便宜）
-   - 实际可用模型以当前 Gemini 文档为准：用 `gemini-api-docs-mcp` 的 `get_current_model` 核实
+8. **模型选择**：默认见 §模型选型小节（脚本 `DEFAULT_MODEL` 常量，`scripts/gemini_paper_summary.py:65`）。复杂论文换 `gemini-3.1-pro-preview`，批量速览换 `gemini-3.1-flash-lite`。实际可用模型以当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。**为什么不在本条重列默认值**：模型选型表是 SSOT，列在 §模型选型小节里
    - **无自动 fallback**（2026-06-21 决策）：默认模型遇到 503 UNAVAILABLE /
      429 RESOURCE_EXHAUSTED 等高并发 / 限流错误时，脚本**直接抛错**给上层，
      不静默降级。理由：不同模型对 v3.2 prompt 模板的输出质量差异显著
@@ -351,27 +349,9 @@ metadata:
 
 ## 生成后自检（图片完整性 + 边界破坏）
 
-**Why：** 用户在 2026-06-21 反馈——"最终生成完的论文总结，要自检一下图片是否完整，是否存在图片边界破坏的情况"。单看 doc body 字面 ok 不代表图真的 ok（attachment 可能 0 字节 / doc body 引用的尺寸与实际 PNG 尺寸不一致 / 图片被错误裁剪）。自检是生成流程的**最后一道防线**，分 3 个层面：
+**Why：** 用户在 2026-06-21 反馈——图片完整性、attachment 上传失败、边界破坏常被遗漏。自检是生成流程的最后一道防线，分 3 层面（引用完整性 / 二进制完整性 / 边界破坏）。
 
-| 层面 | 自动化 | 检测什么 | 失败信号 |
-| --- | --- | --- | --- |
-| 1. 引用完整性 | ✓（脚本） | doc body 里的 `attachments.redirect?id=<id>` 引用 ID 是否在 `attachments.list` 返回中存在 | attachment 被删但 doc 还引用 → 破图 |
-| 2. 二进制完整性 | ✓（脚本） | 每个 in-use attachment 的 `attachments.redirect` HEAD 是否 200 + image/... + size > 0 | 0 字节 / HTML 错误页 = 上传失败未发现 |
-| 3. 边界破坏 | ✓ + 人工 | (a) 本地 `figures/*.png` 实际像素尺寸 vs markdown title `=WxH` 差 ≥ 5% → 标题尺寸字段失效；(b) 人工到 outline UI 看图是否截断 / 留白过多 / 边界切错 | 裁剪坐标错误 / 重新上传导致 title 尺寸与实际不符 |
-
-**How to apply：**
-
-- **脚本侧**（自动）：`gemini_paper_summary.py` 主流程末尾调 `self_check_figures()`，挂在 `--output` 写文件**之后**、进程退出**之前**；返回 `{ok, warnings[], failures[]}`，不抛异常（warning 继续 / failure 才抛）
-  - 阶段 1：parse markdown text 抽 `attachments.redirect?id=<id>` 引用 ID 集合
-  - 阶段 2：`attachments.list` 拉真实存在 ID 集合（用 outline API key 走 curl/MCP）→ 差集 = 失效引用
-  - 阶段 3：每个 in-use ID 走 `attachments.redirect` HEAD，验证 200 + content-type image/ + size > 0
-  - 阶段 4：本地 `figures/` 目录每个 PNG 用 pymupdf 读像素尺寸，对照 markdown 里 `=WxH` title 字段；差 ≥ 5% 警告
-  - 输出：`Self-check: 3/3 attachments OK, 0 size mismatch, 0 broken references` 或列出失败项
-- **人工侧**（必做）：agent 把生成的 doc 链接给用户后，**让用户在 outline UI 看一眼**3 张图——是否完整、是否截断、是否切到不该切的位置；用户反馈"图破了"再回查（脚本不会自动做视觉 diff）
-- **运行时**：本地 summary.md 生成时（`--extract-figures`）走 阶段 1+3+4；推到 outline 后走 阶段 1+2+3；不阻塞主流程（warning log）
-- **失败处理**：阶段 1/2/3 失败 → stderr WARNING + 返回值里 `failures[]` 列出，**不抛异常**（生成成功 ≠ 上传成功，agent 据此决定要不要重试 / 走 fallback）；阶段 4 失败 → stderr WARNING（标题尺寸字段失效，UI 仍可显示，只是尺寸不准）
-
-**Why not visual diff 自动做**：outline doc 渲染图含 outline UI chrome（背景色 / padding / 标题区），与原 figure 直接像素 diff 噪声大；可靠方案是按论文 PDF 原 page 渲染 + bbox 内裁剪后与 `figures/*.png` 对比——成本高，作为可选 Step 4b（默认不跑，agent 怀疑有问题时手动启用）。
+**完整规范见 [`references/post-generation-self-check.md`](references/post-generation-self-check.md)：** 自动化分层、运行时策略、失败处理、visual diff 不自动做的原因。
 
 ## 工作流 / 步骤
 
@@ -385,6 +365,8 @@ metadata:
    python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
      --pdf <path> \
      --output <path-to-md>  # 可省，省略则打印到 stdout
+   # 默认值护栏：Stage 2 视觉定位（`--refine-figures`）默认开，
+   # 仅在用户明确要求"完全跳过 Gemini 视觉定位"时才加 `--no-refine-figures`
 5. 把生成的 Markdown 总结呈现给用户
 6. 标注所用模型与论文文件名
 ```
@@ -445,130 +427,25 @@ metadata:
 > **推荐始终启用 `--refine-figures`**（默认开）：Stage 2 用 Gemini 看图直接给精确 bbox，
 > 上述三个边界问题基本消失；唯一代价是每张引用页多一次 Gemini 调用 + ~5-15s 延迟。
 
-#### Stage 2: Gemini 视觉定位精修（默认开启）
+#### Stage 2 / 大小格式 / 缩略图参数
 
-Stage 1 拿到 `PDF p.X fig.N` 引用后,Stage 2 把对应页面渲染成 PNG 送给 Gemini,**用视觉方式**
-给出每个 figure 的精确边界 + 完整 caption,直接从源头解决三个老问题:
+**何时必须读 [`references/figure-processing.md`](references/figure-processing.md)（默认值护栏外的任何情况）：**
 
-| 老问题 | Stage 2 怎么解决 |
-| --- | --- |
-| 边界不准确 | Gemini 看渲染图直接给归一化 0-1000 bbox,按图像像素精确定位,不再是基于 PDF 内容的估算 |
-| 图片标题残缺 | Gemini 直接读出图片下方完整 caption(含多行),覆盖 Stage 1 LLM 生成的残缺 alt |
-| 上方留白过多 | Gemini 自动判断 figure 顶部边界,不会把页眉/标题/作者框进来 |
+- 用户问 Stage 2 / `--refine-figures` 的具体行为、为什么失败、失败如何兜底
+- 用户传 `--no-refine-figures` 或要求"不用 Gemini 视觉定位"
+- 用户改 DPI / `--figure-format` / `--thumbnail` / `--max-size-kb` 的预期效果
+- 用户问"图被裁错了 / 留白过多 / caption 残缺"等具体故障
+- 用户问对照实验 / Stage 2 成本估算
 
-**Stage 2 流程**：
+**何时**不**需要读**：日常调脚本（默认值已护栏）→ 直接 `python3 gemini_paper_summary.py --extract-figures` 即可。
 
-```text
-Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
-   ↓
-1) 把 p.3 / p.4 渲染成 PNG(默认 2x DPI;改用 --refine-dpi 调整)
-   ↓
-2) 每页一次 Gemini 调用,prompt 要求返回 JSON:
-   { "page": 3, "figures": [
-       { "fig_num": 1, "bbox_2d": [ymin,xmin,ymax,xmax],
-         "full_caption": "Figure 1: ...",
-         "is_key_figure": true }, ...
-   ]}
-   ↓
-3) 把 Gemini 返回的 0-1000 bbox 换算为 PDF point:
-   x_pt = x_norm * page.rect.width / 1000
-   ↓
-4) 用 Stage 2 bbox 替换 Stage 1 提示词里的 bbox hint,再做后续裁剪
-5) 把 Stage 2 读出的完整 caption 覆盖 Markdown 里残缺的 alt 文本
-```
+**关键摘要**（避免漏读导致错误决策）：
 
-**坐标约定**(Gemini 官方 `gemini-robotics-er-1.6-preview` 同款):
-
-- `bbox_2d = [ymin, xmin, ymax, xmax]`(y 在前)
-- 归一化 0-1000 整数
-- 原点在图像左上角
-- 渲染图未做宽高变形 → 1000 ↔ 页面 PDF point 的宽/高
-
-**Stage 2 参数**:
-
-| 参数 | 默认 | 说明 |
-| --- | --- | --- |
-| `--refine-figures` / `--no-refine-figures` | `True` | 是否启用 Stage 2。关闭后回到 Stage 1 bbox hint + 本地 caption 定位 |
-| `--refine-dpi` | `2.0` | Stage 2 渲染页面的 DPI 倍率。增大可提升定位精度但增加 token 成本 |
-
-**Stage 2 失败行为**(单页失败不影响其他页):
-
-| 现象 | 原因 | 处置 |
-| --- | --- | --- |
-| `INFO: Stage 2 第 X 页 第 N/3 次失败,2s 后重试...` | 临时错误 (503/429/500/502/504) | 自动退避重试 2s / 4s,最多 3 次 |
-| `WARN: Stage 2 第 X 页 Gemini 调用失败` | 重试 3 次仍失败 / 永久错误 (400/401/403/404) | 该页退回 caption 定位(策略 1/2/3 自动选最优),其他页继续 |
-| `WARN: Stage 2 第 X 页 Gemini 返回为空` | 模型无输出 | 同上 |
-| `INFO: Stage 2 第 X 页 Figure N 标记为非关键图,跳过` | Gemini 判断为装饰/logo/表格 | 该 fig 不裁剪,沿用 Stage 1 流程 |
-| `WARN: 第 X 页 Figure Y 未找到 caption/visual bbox` | Stage 2 失败 + caption 三策略都未命中 | 走 Stage 1 bbox hint 兜底 |
-
-**Stage 2 重试机制**(临时错误自愈):
-
-- 默认 3 次尝试,指数退避 (2s, 4s)
-- 临时错误 (`429 / 500 / 502 / 503 / 504`) 触发重试
-- 永久错误 (`400 / 401 / 403 / 404`) 立即放弃(重试也没用)
-- 网络异常 / 超时也走重试路径(无 `status_code` 时一律重试)
-
-**Stage 2 成本**:
-
-- 多 N 次 Gemini 调用(N = 引用 figure 的页面去重数,通常 2-5 页)
-- 每页输入 ~1k token(image + prompt)+ 输出 ~200 token
-- 延迟:每页 ~5-15s(串行)
-- 用 `--no-refine-figures` 可完全跳过
-
-#### 大小 / 格式 / 缩略图控制（仅在 `--extract-figures` 启用时生效）
-
-| 参数 | 类型 | 默认 | 说明 |
-| --- | --- | --- | --- |
-| `--figure-format` | `{png,webp,jpeg}` | `png` | 输出格式。WebP/JPEG 有损压缩，体积更小 |
-| `--figure-quality` | int 1-100 | `85` | WebP/JPEG 质量（pymupdf 内部用 `jpg_quality`），PNG 无效 |
-| `--max-width` | int | None | 最大宽度（像素）。超过则等比缩放；None 不限制 |
-| `--max-size-kb` | int | None | 最大体积（KB）。超限自动降级：先降 quality → 再换格式（PNG→WebP）→ 再降 scale |
-| `--thumbnail` | flag | 关 | 同时生成缩略图，Markdown 引用缩略图、点击跳原图 |
-| `--thumbnail-width` | int | `400` | 缩略图宽度（像素） |
-
-**自动 fallback**：
-
-- `--figure-format=jpeg` 但图含 alpha 通道（`pix.alpha=1`）→ 自动改用 WebP 并 stderr 提示
-- `--max-size-kb` 降级到最低规格仍超限 → 保留当前结果，stderr 打 WARN（不无限循环）
-
-**缩略图目录结构**：
-
-```text
-<--output 指定的目录>/
-├── summary.md
-└── figures/
-    ├── figure-p1-f1.png         # 原图（与 --figure-format 对应）
-    ├── figure-p1-f1.thumb.png   # 缩略图
-    └── ...
-```
-
-注意：缩略图**不**走 `figures/thumbnails/` 子目录，而是与原图并列 + `.thumb` 后缀，
-方便一对图片保持目录一致。缩略图**不**应用 `--max-width`（`thumbnail-width` 自带尺寸上限），
-但仍受 `--max-size-kb` 约束（缩略图也可能意外偏大）。
-
-**Markdown 引用形式**：
-
-- 默认模式：`![图 1：xxx](figures/figure-p1-f1.png)`
-- 缩略图模式：`[![图 1：xxx](figures/figure-p1-f1.thumb.png)](figures/figure-p1-f1.png)`
-
-完整调用：
-
-```bash
-# 1) 先装 pymupdf（一次性）
-pip install --user --break-system-packages pymupdf
-
-# 2) 一次性跑通：Stage 1 总结 + Stage 2 视觉定位 + 裁剪 + 路径替换 + 写文件
-python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
-  --pdf ~/papers/attention.pdf \
-  --output ~/papers/summaries/attention \
-  --extract-figures
-# --refine-figures 默认开启;想完全跳过 Stage 2 加 --no-refine-figures
-```
-
-`--figure-dpi` 可改最终输出图的渲染倍率（默认 2.0 = 144 DPI；想要更清晰用 3.0 / 4.0）；
-`--refine-dpi` 单独控制 Stage 2 喂给 Gemini 看的渲染倍率（同样默认 2.0）。
-
-> 总结里没有 `PDF p.X fig.N` 引用时，`--extract-figures` 不会报错，只是不导出图。
+- **Stage 2 默认开**（`--refine-figures`），必须显式 `--no-refine-figures` 才关闭——别凭印象加 `--no-refine-figures` "为了快"
+- **算法原理、caption 甄别、bbox sanity check** 见 [`references/figure-extraction.md`](references/figure-extraction.md)
+- **默认参数真源**：`scripts/gemini_paper_summary.py` argparse（`--refine-dpi` @ line 1191、`--figure-format` @ line 1146、`--figure-quality` @ line 1152、`--thumbnail-width` @ line 1175、`--figure-dpi` @ line 1140）—— 改默认值先改脚本，再同步本文档表
+- **DPI**：Stage 2 与最终输出图各自独立（`--refine-dpi` / `--figure-dpi`）
+- **失败兜底**：单页 Stage 2 失败不影响其他页，自动退 caption locator
 
 #### Stage 2 对照实验
 
@@ -664,7 +541,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --output ~/papers/attention_is_all_you_need.summary.md
 ```
 
-把生成的 `.summary.md` 内容呈现给用户，注明 `模型=gemini-3.5-flash`。
+把生成的 `.summary.md` 内容呈现给用户，注明所用模型（默认见 §模型选型小节）。
 
 ### 样例二：带关注点
 

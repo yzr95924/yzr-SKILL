@@ -1,200 +1,75 @@
-# 把关键架构图导出为图片
+# Figure 引用与导出规范
 
-> 本文件是 `SKILL.md` 核心原则 #5 的延伸。默认总结里的图引用是
-> `![图 1：xxx](PDF p.3)` 这种 page reference 形式——它能让读者回到原 PDF 对应页看图，
-> 但不会真的把图嵌到 Markdown 里。本文件说明三种把"真实图片"嵌回去的方案。
+> 本文是 `SKILL.md` §输入/输出 + §执行原则 #5 + §工作流 A' 的深度规范。
+> 聚焦 **算法原理、边界情况、引用形态对照表**——不重复 SKILL.md 已有的"截取逻辑三优先级"决策树与"何时启用 `--extract-figures`"工作流。
+> 详细 Stage 2 / 大小格式 / 缩略图参数见 [`references/figure-processing.md`](./figure-processing.md)。
 
-## 方案对比
+## 1. 三阶段定位原理
 
-| 方案 | 依赖 | 输出质量 | 自动化程度 | 适用场景 |
-| --- | --- | --- | --- | --- |
-| 整页截图 | 无（系统 PDF 阅读器） | 包含页边距、页眉页脚 | 半自动（手动） | 偶尔几张图 |
-| `pymupdf` 抽嵌入图片 | `pymupdf`（pip 安装） | 仅嵌入图片（不含坐标轴） | 全自动 | 矢量图、嵌入位图 |
-| `pymupdf` 渲染指定页/区域 | `pymupdf` | 整页或裁剪区域的高质量位图 | 全自动 | 任意 PDF（兜底） |
+按精度从高到低，脚本 `render_figures_to_pngs` 的 fallback 链：
 
-> 推荐顺序：先试"嵌入图片"（图 1），再不行就"渲染指定页区域"（图 2）。
+### Stage 2（默认开启）：Gemini 视觉定位
 
-## 方案 1：整页截图（最简单）
+- 把 p.X 渲染成 PNG（默认 `--refine-dpi 2.0`）送 Gemini 多模态
+- 返回归一化 0-1000 bbox `[ymin, xmin, ymax, xmax]`，换算到 PDF point
+- 同时返回 `is_key_figure`（过滤 logo/表格/装饰图）
+- 临时错误 `429/500/502/503/504` 走指数退避（2s/4s，最多 3 次）
+- 永久错误 `400/401/403/404` 立即放弃，退 caption locator
 
-用任何 PDF 阅读器（macOS Preview、Adobe Reader、浏览器）打开 PDF，
-翻到目标页，`Cmd+Shift+4`（macOS）或截图工具截屏，保存为 PNG。
+### Stage 3a：caption locator（本地算法，三策略 fallback）
 
-适合"一两张图就行"的轻量场景。缺点是分辨率受显示器限制，
-且带页眉页脚、页码、左右边距。
+- 双栏布局按 caption 中心 x 判断 figure 所在栏（左 / 右）
+- figure 顶部三策略按顺序尝试：
+  1. **正文段落底部**：caption 上方最近的"宽+多行"正文段落底部（≥ 2 行 + 宽度 ≥ 栏宽 60%）
+  2. **annotation 顶部**：caption 上方同一栏所有"非正文"文本块（figure annotation / label / 节点编号等"窄+单行"块）的最上 y0。**专门解决 figure 上方只有 annotation 没有正文**的情形（如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label + path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来
+  3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，但可能含 page header）
 
-## 方案 2：抽取嵌入图片（高质量）
+### Stage 3b：bbox hint fallback（精度差，最后兜底）
 
-`pymupdf` 可以枚举 PDF 中所有嵌入的位图 / 矢量图，单独导出：
+- 直接用 Stage 1 prompt 嵌入的 `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验
+- **bbox sanity check**（2026-06-21）：Stage 1 Gemini 自由发挥写 `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11 Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度：超过 250pt 且 caption locator 能算出更紧的 bbox（≥ 50pt）时，用 caption locator 替掉 hint
 
-```bash
-pip install --user --break-system-packages pymupdf
-```
+### 三层全失败的处置
 
-最小脚本（`extract_figures.py`）：
+- 整张图从 markdown 删除 + 剥掉前一句"如图 N 所示"/"见图 N"/"Figure N 展示了..."等独立呼应句的图编号引用（保留描述文字）
+- **不**保留 `![图 N: ...](PDF p.X fig.N ...)` 这种没替换的 PDF reference 字符串——outline 渲染会成**破图**（`![]()` 协议 outline 不识别）
+- 脚本日志：`INFO: 跳过 N 张图（视觉定位 + caption locator + bbox hint 三层均失败），已从 markdown 删除对应行 + 呼应句`
 
-```python
-import sys
-from pathlib import Path
+## 2. caption 甄别 vs 正文引用
 
-import fitz  # pymupdf
+正文常出现 `Figure 16 shows that...` 这类引用，line 文本以 `Figure N` 开头。
+原 `find_figure_caption` 简单正则会被这种正文引用命中，返回正文 block 的 bbox（而非真 caption），导致 caption locator 把整段正文当成 figure 区域。
 
+**判定规则**：line 文本必须以 `Figure N[.:]` + 描述形式才算 caption（`Figure 16 shows...` 中数字后是空格+动词，会被过滤掉）。
+**辅助判定**：line 长度 ≤ 120 字符。
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: python3 extract_figures.py <pdf>", file=sys.stderr)
-        sys.exit(2)
-    pdf_path = Path(sys.argv[1])
-    out_dir = pdf_path.with_suffix("")  # paper.pdf -> paper/
-    out_dir.mkdir(exist_ok=True)
+## 3. alt 字段写法（v3.2 终版）
 
-    doc = fitz.open(pdf_path)
-    for page_idx, page in enumerate(doc, start=1):
-        images = page.get_images(full=True)
-        for img_idx, img in enumerate(images, start=1):
-            xref = img[0]
-            pix = fitz.Pixmap(doc, xref)
-            # 透明图转白底，避免部分 Markdown 渲染器显示成黑块
-            if pix.n - pix.alpha >= 4:
-                pix = fitz.Pixmap(fitz.csRGB, pix)
-            out_path = out_dir / f"page{page_idx:02d}-img{img_idx}.png"
-            pix.save(out_path)
-            print(f"saved {out_path}")
-    print(f"all done -> {out_dir}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-跑完后在 Markdown 总结里把
+**图片不包含 caption**（v3.2 终版）：caption 写到 markdown image 的 alt 字段——
 
 ```markdown
-![图 1：整体架构](PDF p.3)
+![图 N: <中文翻译+总结>](<url> "=WxH")
 ```
 
-替换成
+是 outline UI 唯一渲染为图片下方 caption 文字的通道。
 
-```markdown
-![图 1：整体架构](paper/page03-img1.png)
-```
+`=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入。
 
-`paper/` 与 `paper.pdf` 同目录，Markdown 相对路径引用即可。
+## 4. 三阶段 image 引用形态对照
 
-> 局限：如果论文的图是用矢量指令画出来的（很多会议论文都是这样），
-> `get_images()` 找不到 entry，会得到空结果——这时改用方案 3。
+同一 image 引用在 3 个阶段的不同形态：
 
-## 方案 3：渲染指定页 / 指定矩形（兜底）
+| 阶段 | 形态 |
+| --- | --- |
+| Gemini 输出 | `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)` |
+| 脚本 `--extract-figures` 处理后 | `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")` |
+| 推到 outline 后 | `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")` |
 
-直接用 `pymupdf` 把整页（或其中一块矩形区域）按 2-3 倍 DPI 渲染成 PNG：
+`fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应。
 
-```python
-import sys
-from pathlib import Path
+## 5. bbox 单位约定
 
-import fitz
-
-
-def main():
-    pdf_path = Path(sys.argv[1])
-    page_num = int(sys.argv[2])  # 1-based
-    out_path = Path(sys.argv[3])  # 输出 PNG 路径
-
-    doc = fitz.open(pdf_path)
-    page = doc[page_num - 1]
-    # 2x DPI
-    matrix = fitz.Matrix(2.0, 2.0)
-    pix = page.get_pixmap(matrix=matrix)
-    pix.save(out_path)
-    print(f"saved {out_path} ({pix.width}x{pix.height})")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-调用：
-
-```bash
-python3 extract_page.py paper.pdf 3 paper-figure-1.png   # 第 3 页整页
-```
-
-如果只想截图中某个区域，传入 clip：
-
-```python
-clip = fitz.Rect(x0, y0, x1, y1)  # 单位是 PDF point（1 point = 1/72 inch）
-pix = page.get_pixmap(matrix=matrix, clip=clip)
-```
-
-> 单位换算：A4 是 595×842 points，Letter 是 612×792 points。
-> PDF 阅读器显示坐标时也是用 point，但通常原点是左上角（与 `fitz.Rect` 一致）。
-
-## 方案 4（批处理）：根据总结里"关键架构图"段批量导出
-
-如果你已经跑过 `gemini_paper_summary.py`，得到了带 `PDF p.X` 引用的 Markdown，
-可以用正则批量抓出页码，再循环调方案 3：
-
-```python
-import re
-import subprocess
-import sys
-from pathlib import Path
-
-import fitz
-
-
-def main():
-    md_path = Path(sys.argv[1])  # paper.summary.md
-    pdf_path = Path(sys.argv[2])  # paper.pdf
-    out_dir = pdf_path.with_suffix("") / "figures"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    text = md_path.read_text()
-    pages = sorted({int(m) for m in re.findall(r"PDF p\.(\d+)", text)})
-    print(f"found page references: {pages}")
-
-    doc = fitz.open(pdf_path)
-    for i, page_num in enumerate(pages, start=1):
-        page = doc[page_num - 1]
-        out_path = out_dir / f"figure-{i}-p{page_num}.png"
-        page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0)).save(out_path)
-        print(f"saved {out_path}")
-
-    # 把 Markdown 里的 (PDF p.X) 替换为 (paper/figures/figure-N-pX.png)
-    # N 是 pages 列表中的索引
-    def repl(match):
-        page_num = int(match.group(1))
-        idx = pages.index(page_num) + 1
-        return f"({pdf_path.stem}/figures/figure-{idx}-p{page_num}.png)"
-
-    new_md = re.sub(r"\(PDF p\.(\d+)\)", repl, text)
-    md_path.write_text(new_md)
-    print(f"updated {md_path}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-调用：
-
-```bash
-python3 embed_figures.py paper.summary.md paper.pdf
-```
-
-跑完之后，Markdown 里的所有 `PDF p.X` 都会被替换成对应 PNG 的相对路径，
-可以直接被任何 Markdown 渲染器（VS Code、Obsidian、GitHub）正常显示。
-
-## 注意事项
-
-1. **版权 / 公开性**：把论文里的图直接嵌到二次创作的总结里，注意目标受众与发布渠道，
-   学术笔记自用一般没问题；公开发布（如博客、知乎）请确认目标出版方的图复用政策。
-2. **文件大小**：高 DPI 渲染单页可能 1-3 MB，10+ 张图会让 Markdown 文件臃肿。
-   本 skill 的脚本提供内置体积控制（无需手动 convert）：
-   - `--figure-format webp` / `jpeg`：直接把图存为压缩格式，体积比 PNG 小 30-70%
-   - `--figure-quality 1-100`：控制 WebP/JPEG 压缩质量（默认 85）
-   - `--max-width N`：等比缩放到 ≤ N px 宽
-   - `--max-size-kb N`：超 N KB 自动降级（quality → format → scale）
-   - `--thumbnail` + `--thumbnail-width 400`：导出缩略图，Markdown 只引缩略图，
-     点击跳原图——适合长博客 / README 列表等"小图预览 + 大图查看"场景
-3. **pymupdf 不是默认依赖**：本 skill 的 `google-genai` 流水线不依赖 `pymupdf`，
-   需要导出图时按上面 `pip install pymupdf` 自行安装。
+- `bbox=x0,y0,x1,y1` 单位 PDF point（1 point = 1/72 inch）
+- 原点在 PDF 左上角
+- A4 ≈ 595×842，Letter ≈ 612×792
+- 页码以 PDF 实际页码为准（论文首页为 p.1），不要写"图 1 在第 3 页附近"

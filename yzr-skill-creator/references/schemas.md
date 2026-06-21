@@ -2,6 +2,17 @@
 
 This document defines the JSON schemas used by yzr-skill-creator.
 
+## 目录
+
+- [evals.json](#evalsjson) — 评估集
+- [history.json](#historyjson) — 评估运行历史
+- [grading.json](#gradingjson) — 单次运行的断言评分
+- [metrics.json](#metricsjson) — 评估指标
+- [timing.json](#timingjson) — 单次运行的时序数据
+- [benchmark.json](#benchmarkjson) — 跨运行的聚合基准
+- [comparison.json](#comparisonjson) — 两份输出的盲测 A/B
+- [analysis.json](#analysisjson) — 基准分析观察
+
 ---
 
 ## evals.json

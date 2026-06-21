@@ -74,7 +74,7 @@ Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_
 | 自动链接 | `<https://...>` 偶尔用 | 习惯 |
 | `<image: ...>` 占位符 | 旧版用法，**已停用**（用 `![alt](/api/attachments.redirect?id=...)`） | 历史遗留 |
 | 语言 | 中文叙述 + 英文术语 | 习惯 |
-| 行宽 | ≤ 120 字符 | 仓库规定 |
+| 行宽 | 遵守 `.markdownlint.jsonc` MD013（见 §3） | 仓库规定 |
 
 ## Markdown ↔ ProseMirror 节点映射
 

@@ -46,7 +46,7 @@
 
 ## 5. 行宽与 lint
 
-- [ ] 行宽 ≤ 120 字符（`.markdownlint.jsonc` MD013）
+- [ ] 行宽遵守 `.markdownlint.jsonc` MD013（阈值见 [`doc_style.md`](doc_style.md) §3）
 - [ ] 整篇跑 `markdownlint <file>` 0 错误
 - [ ] 不引入仓库 `.markdownlint.jsonc` 禁掉的语法（`!!!`、HTML、
       MathJax、`:::tip` 等）
