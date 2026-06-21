@@ -464,6 +464,28 @@ Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_
   ```
   这样可保留其他内容（评论 / 高亮 / 表格宽度）不被破坏
 
+**整篇重写**（replace 模式 + 大文档）**改用 REST API**（2026-06-21 经验）：
+
+- **踩坑**：`mcp__outline__update_document` 的 `text` 字段在某些场景下会**吞掉换行符**——
+  实测 3K 字符 markdown 经 tool 调用后，**首行表格的 3 个 row 之间的 `\n` 全部丢失**，
+  三行被压成一行，表格渲染成单行 inline 元素。其他位置（list / 章节标题）换行正常，
+  但首行表格三行是**必杀**。patch 模式更糟：`findText` 短匹配会**追加**而不是替换，
+  导致 "3 句话总结" list 变成 5 条 1-2-3-4-5。
+- **退路**：整篇重写时**不要**用 mcp tool，**改用** `POST /api/documents.update` 走
+  curl + API key（key 同 MCP server 配置），payload 用文件传避免命令行转义：
+  ```bash
+  python3 -c "import json; json.dump({'id': '<doc-id>', 'text': open('summary.md').read()}, open('payload.json', 'w'), ensure_ascii=False)"
+  curl -sS -X POST https://<endpoint>/api/documents.update \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer <api-key>" \
+    --data-binary @payload.json
+  ```
+  REST API 正确保留所有换行；返回 `{"data": {...}, "status": 200, "ok": true}`。
+- **校验必做**：写完立刻 `mcp__outline__fetch` 看返回的 markdown body 是否有损坏
+  （首行表格 / 列表 / 章节标题），如发现 → 重发。tool 返回 success 不代表存盘 OK
+- **patch 模式坑**：`findText` 一定要**足够长**（至少含相邻 2-3 行），否则会被误追加；
+  实测只匹配 1 行 list item 时，patch 行为是"在该 item 后追加"而不是"替换整段"
+
 **反模式**（**别**这么干）：
 
 - 引用未上传的本地路径（`![x](figures/figure-p1-f1.png)` 或 `![x](PDF p.X ...)`）——

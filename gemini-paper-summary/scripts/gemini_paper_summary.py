@@ -63,6 +63,10 @@ except ImportError:  # pragma: no cover
 # ----------------------------------------------------------------------------
 
 DEFAULT_MODEL = "gemini-3.5-flash"
+# 无自动 fallback 链：503/429 等高并发 / 限流错误**直接抛**给用户，不静默降级。
+# 理由：不同模型的输出质量差异显著，silent fallback 容易引入质量问题（漏掉章节、
+# alt 字段偏差、表格行数错位等），用户感知不到是模型降级导致的——只看到结果怪。
+# 用户如要换模型，用 `--model gemini-3.1-flash-lite` 显式指定。
 MAX_PDF_BYTES_INLINE = 20 * 1024 * 1024  # 20 MB 走 inline Part.from_bytes；更大走 File API
 
 # 默认 prompt 从 assets/prompt-template.md 的 `## 默认模板（academic）` 段
@@ -178,7 +182,7 @@ def parse_figure_refs(md_text):
 
 def find_figure_caption(page, fig_num):
     # type: (object, int) -> object
-    """在该页搜 `Figure N:` caption，返回 caption 整体 bbox 或 None。
+    r"""在该页搜 `Figure N:` caption，返回 caption 整体 bbox 或 None。
 
     关键细节：pymupdf 会把视觉上同一行的 caption 拆成多 line（典型：
     "Fig. 10." 一个 line、"Single-threaded lookup throughput..." 另一个 line，
@@ -190,23 +194,50 @@ def find_figure_caption(page, fig_num):
     约束：仅在 block 内 union，不会跨 block 误吞另一栏的 Fig.N（实测 p5
     Fig.6 的 "Fig. 6." 在 block[21] line[0]，续行 "Illustration..." 在
     block[21] line[1]；同页 Fig.7 的 "Fig. 7. Search algorithm." 在
-    block[39]，不同 block，安全）。"""
+    block[39]，不同 block，安全）。
+
+    **正/误匹配甄别**（2026-06-21 修复，ART-ICDE'13 p.11 Fig 16 case）：
+    正文里常出现 "Figure 16 shows that..." 这类引用，line 文本以
+    "Figure N" 起头 + 数字后是字母，被原正则命中，返回正文 block 的
+    bbox（y=692），与真正的 caption（y=209.9）相距甚远，后续 caption
+    locator 会算出错误的 figure 区域（把"D. End-to-End Evaluation" +
+    整段正文当成 figure 16）。修复：line 文本总长（同行同 block line
+    合并后）超过 120 字符时视为正文引用，跳过；caption 一般 < 80 字符。
+    备选：用正则锚定 `[.]\s*$`（line 末尾以句号结束，类似 "Fig. 16."）
+    来区分 caption 标签 vs 正文引用（"Figure 16 shows" 末尾是 s）。两者
+    结合：长度 ≤ 120 字符 **且** 句号结尾（caption 行通常是
+    "Fig. N. <caption text>." 形式）。
+    """
     pat = re.compile(rf"^\s*(?:Figure|Fig\.?)\s*{fig_num}\b", re.IGNORECASE)
-    matched_block = None
-    matched_line = None
+    candidates = []  # (block, line, line_text)
     for block in page.get_text("dict").get("blocks", []):
         if "lines" not in block:
             continue
         for line in block["lines"]:
             line_text = "".join(s.get("text", "") for s in line["spans"]).strip()
             if pat.match(line_text):
-                matched_block = block
-                matched_line = line
-                break
-        if matched_block is not None:
-            break
-    if matched_block is None or matched_line is None:
+                candidates.append((block, line, line_text))
+    if not candidates:
         return None
+
+    # 过滤掉正文引用,留下真 caption
+    # 判定:line 文本在 "Figure N" / "Fig. N" 之后必须紧跟 `[.:]` + 空白 + 描述
+    # caption 形式: "Fig. 16. TPC-C performance." / "Figure 16: ..." / "Figure 16. ..."
+    # 正文引用形式: "Figure 16 shows that..." / "Figure 16 illustrates..."(数字后是空格+动词)
+    # 长度 ≤ 120 字符是辅助判定(caption 第一行典型 < 60 字符;pymupdf 单行截断
+    # 可能让正文引用也变短,如 "Figure 16 shows that the index structure choice
+    # is critical for" — 仍 63 字符;靠主判定区分)
+    cap_pat = re.compile(
+        rf"^\s*(?:Figure|Fig\.?)\s*{fig_num}\s*[.:]\s*\S",
+        re.IGNORECASE,
+    )
+    real_captions = [
+        c for c in candidates if cap_pat.match(c[2]) and len(c[2]) <= 120
+    ]
+    if not real_captions:
+        # 没找到匹配的真 caption 形式,退而求其次用最短的
+        real_captions = [min(candidates, key=lambda c: len(c[2]))]
+    matched_block, matched_line, _ = real_captions[0]
 
     # Union 同 block 内所有 y 与 matched line 接近（容忍 3pt）的 line
     # 3pt 覆盖 pymupdf line 分组的微小 y 偏移；不会跨 y 跨到下一段正文
@@ -218,7 +249,7 @@ def find_figure_caption(page, fig_num):
             continue
         x0 = min(x0, line["bbox"][0])
         y0 = min(y0, line["bbox"][1])
-        x1 = max(x1, line["bbox"][2])
+        x1 = max(max(x1, line["bbox"][2]), line["bbox"][2])
         y1 = max(y1, line["bbox"][3])
     return (x0, y0, x1, y1)
 
@@ -466,9 +497,12 @@ def render_figures_to_pngs(
     - make_thumbnail：额外生成 figures/<name>.thumb.<ext>，受 --max-size-kb 约束
       （--max-width 不约束缩略图；thumbnail_width 自带尺寸上限）
 
-    返回 (full_map, thumb_map)：
+    返回 (full_map, thumb_map, dim_map)：
       - full_map: {(page, fig_num): "figures/figure-pX-fY.<ext>"}
-      - thumb_map: {(page, fig_num): "figures/figure-pX-fY.thumb.<ext>"}（无缩略图时为空）"""
+      - thumb_map: {(page, fig_num): "figures/figure-pX-fY.thumb.<ext>"}（无缩略图时为空）
+      - dim_map: {(page, fig_num): (width_px, height_px)}——full 图的实际像素尺寸,
+        给 embed_figure_refs 用来在 markdown image title 字段写 `=WxH` 提示
+        （缩略图也共用同图尺寸——点缩略图跳原图看到的也是这张的尺寸）"""
     if not _HAS_PYMUPDF:
         sys.stderr.write(
             "ERROR: --extract-figures 需要 pymupdf，但未安装。\n"
@@ -476,13 +510,14 @@ def render_figures_to_pngs(
         )
         sys.exit(2)
     if not refs:
-        return {}, {}
+        return {}, {}, {}
 
     os.makedirs(out_dir, exist_ok=True)
 
     ext_map = {"png": "png", "webp": "webp", "jpeg": "jpg"}
     full_result = {}
     thumb_result = {}
+    dim_result = {}  # v3.2+: (page, fig_num) → (width_px, height_px)，给 embed_figure_refs 加 =WxH
     visual_bbox_map = visual_bbox_map or {}
 
     doc = fitz.open(pdf_path)
@@ -534,17 +569,32 @@ def render_figures_to_pngs(
                         )
                 # 3) 最后兜底：Stage 1 Gemini bbox hint（精度差）
                 if clip is None and bbox is not None:
-                    sys.stderr.write(
-                        f"INFO: 第 {p} 页 Figure {f} 未找到 caption/visual bbox，回退到 Gemini bbox hint\n"
-                    )
                     x0, y0, x1, y1 = bbox
                     x0 = max(page_rect.x0, min(x0, page_rect.x1))
                     x1 = min(page_rect.x1, max(x1, page_rect.x0))
                     y0 = max(page_rect.y0, min(y0, page_rect.y1))
                     y1 = min(page_rect.y1, max(y1, page_rect.y0))
+                    hint_h = y1 - y0
+                    # sanity check:Gemini Stage 1 自由发挥写 bbox 时,容易把 figure
+                    # 下面紧跟的整段正文都框进去(典型 case:ART-ICDE'13 p.11 Fig 16,
+                    # Gemini 给的 hint bbox 高 ~375pt,实际图只有 ~150pt)。
+                    # 若 hint 高度超过 250pt 且 caption locator 能算出更紧的 bbox,
+                    # 用 caption locator 替掉 hint——避免整段正文被框进图。
+                    if hint_h > 250:
+                        caption_clip = find_figure_bbox_by_caption(page, f, include_caption=False)
+                        if caption_clip is not None and (caption_clip.y1 - caption_clip.y0) >= 50:
+                            sys.stderr.write(
+                                f"INFO: 第 {p} 页 Figure {f} Gemini bbox hint 高度 {hint_h:.0f}pt 过大,"
+                                f"改用 caption locator 算出 {caption_clip.y1 - caption_clip.y0:.0f}pt\n"
+                            )
+                            x0, y0, x1, y1 = caption_clip.x0, caption_clip.y0, caption_clip.x1, caption_clip.y1
                     if x1 - x0 < 50 or y1 - y0 < 50:
                         clip = None
                     else:
+                        sys.stderr.write(
+                            f"INFO: 第 {p} 页 Figure {f} 回退到 Gemini bbox hint "
+                            f"({x1-x0:.0f}x{y1-y0:.0f}pt)\n"
+                        )
                         clip = fitz.Rect(x0, y0, x1, y1)
                 if clip is None:
                     sys.stderr.write(
@@ -590,6 +640,7 @@ def render_figures_to_pngs(
                 # 用 fmt_used 重算最终文件名（覆盖降级的情况）
                 final_full_name = f"figure-p{p}-f{f}.{ext_map[fmt_used]}"
                 full_result[key] = "figures/" + final_full_name
+                dim_result[key] = (pix.width, pix.height)  # v3.2+: 供 embed_figure_refs 写 =WxH
                 sys.stderr.write(
                     f"OK: p{p}.f{f} → {final_full_name} "
                     f"({pix.width}x{pix.height}, {size_kb:.0f} KB, "
@@ -620,7 +671,7 @@ def render_figures_to_pngs(
                     )
     finally:
         doc.close()
-    return full_result, thumb_result
+    return full_result, thumb_result, dim_result
 
 
 # ----------------------------------------------------------------------------
@@ -844,9 +895,16 @@ def call_gemini_for_visual_bbox(pdf_path, page_to_png, model, temperature):
         if not figs:
             continue
         for fig_num, bbox_2d, full_caption, is_key in figs:
+            # 注意：不再因为 is_key_figure=False 就跳过 — 视觉上 Gemini 在混排页
+            # （如 Fig 15/Fig 16/Table IV 同页）容易把关键图误判为非关键图，丢掉
+            # bbox 后上层只能回退到精度差的 bbox hint / caption locator,导致整段
+            # 正文被框进图。is_key 只用来打日志,决定"是否在 summary 中引用这张图"
+            # 由 prompt 端（用户提供的 fig 引用列表）控制,Stage 2 不越权。
             if not is_key:
-                sys.stderr.write(f"INFO: Stage 2 第 {page_num} 页 Figure {fig_num} 标记为非关键图,跳过\n")
-                continue
+                sys.stderr.write(
+                    f"INFO: Stage 2 第 {page_num} 页 Figure {fig_num} 标记为非关键图,"
+                    f"仍保留 bbox(由调用方决定是否引用)\n"
+                )
             ymin, xmin, ymax, xmax = bbox_2d
             # 0-1000 归一化 → PDF point
             x0_pt = xmin * page_rect.width / 1000.0
@@ -869,18 +927,19 @@ CAPTION_LINE_RE = re.compile(r"^\s*\*\*图\s*\d+\s*[：:]\*\*\s*", re.MULTILINE)
 
 def insert_caption_after_figure(md_text, visual_bbox_map):
     # type: (str, dict) -> str
-    """已弃用（2026-06-21 反转）：caption 不再注入 markdown body。
+    """已弃用（v3.2, 2026-06-21）：caption 写在 image alt 字段,不再注入 markdown body。
 
-    历史设计：在每个 `![alt](PDF p.X fig.N ...)` 引用行后追加一行 `**图 N**：<caption>`。
-    现设计：caption 由 outline-wiki attachment 的 `name` 字段承载（用户在图片下方
-    直接看到 paper 原文标题），markdown body **不**写 caption 行——避免与 outline
-    内置 caption 重复、避免 outline-wiki 把单 `\n` 渲染成软空格导致 caption 紧贴
-    图片底部看不到。
+    历史设计（v3.1 及更早）:在每个 `![alt](PDF p.X fig.N ...)` 引用行后追加
+    一行 `**图 N**：<caption>`。但 outline-wiki 把单 `\n` 渲染成软空格,caption
+    视觉紧贴图片底部;且 image alt 已经渲染了 caption,body 重复显示。
 
-    本函数保留为 no-op（只剥已存在的 caption 行，不再插入新行），让旧脚本调用点
-    不会报错。**新代码不应再调用本函数**——caption 走 attachment 元数据通道：
-    上传 attachment 时把 `name` 字段设为论文 Figure 标题原文。详见
-    `MEMORY/gemini-paper-summary-figure-extraction-edges.md` §8。
+    现设计（v3.2 终版）:caption 写到 markdown image 的 alt 字段
+    (`![图 N: <中文翻译+总结>](<url> "=WxH")`)——这是 outline UI 唯一渲染
+    为图片下方 caption 文字的通道。markdown body **不**写独立 caption 行,
+    也不带 `— <role>` 后段。详见 `MEMORY/gemini-paper-summary-figure-extraction-edges.md` §8。
+
+    本函数保留为 **no-op + 清理**(只剥已存在的 `**图 N**：...` 行,不再插入新行),
+    让旧调用点不会报错。**新代码不应再调用本函数**——caption 走 image alt 通道。
 
     输入 visual_bbox_map: 保留参数签名兼容旧调用,但完全忽略
     - 仍执行:去除已注入的 `**图 N**：<caption>` 行(防遗留脚本残留)
@@ -900,22 +959,44 @@ def insert_caption_after_figure(md_text, visual_bbox_map):
 THUMB_IMG_RE = re.compile(r"(!\[[^\]]*\])\((figures/figure-[^\)]+\.thumb\.[a-z]+)\)")
 
 
-def embed_figure_refs(md_text, ref_to_relpath, ref_to_fullpath=None):
-    # type: (str, dict, dict) -> str
-    """把 Markdown 里的 `(PDF p.X fig.N [bbox=...])` 替换为 `(相对路径)`。
+def embed_figure_refs(md_text, ref_to_relpath, ref_to_fullpath=None, ref_to_dim=None):
+    # type: (str, dict, dict, dict) -> str
+    """把 Markdown 里的 `(PDF p.X fig.N [bbox=...])` 替换为 `(相对路径 "=WxH")`。
     key 用 (page, fig_num)，忽略 bbox 差异（同图号应指向同一文件）。
 
     缩略图模式（--thumbnail）：`ref_to_fullpath` 是按 (page, fig_num) 的全图路径映射
     （与 ref_to_relpath 同 key 体系，只是 value 是 full_path 而非 thumb_path）。
     函数会先把 ref_to_fullpath 反向成 `{thumb_path: full_path}`，再把 Markdown 里的
-    `![alt](thumb)` 二次包裹为 `[![alt](thumb)](full)`，实现点击缩略图跳原图。"""
+    `![alt](thumb)` 二次包裹为 `[![alt](thumb)](full)`，实现点击缩略图跳原图。
+
+    尺寸提示（v3.2+）：`ref_to_dim` 是按 (page, fig_num) 的 (width_px, height_px)
+    映射，由 `render_figures_to_pngs` 在保存 PNG 后填入。函数会把 title 字段
+    自动补成 `=WxH` 格式（仓库内 `=WxH` 等宽约定），让 outline-wiki 渲染时
+    按正确比例显示图片——Gemini 在 prompt 阶段不知道精确像素，本步骤是
+    渲染后用本地 pymupdf 读到的真值反填。
+
+    **失败兜底**（2026-06-21，回应用户"实在处理不了不入总结"）：
+    如果 (page, fig_num) 不在 `ref_to_relpath` 中（即 `render_figures_to_pngs`
+    三层定位都失败、被跳过的图），把整行 `![alt](PDF p.X fig.N ...)` 删除，
+    并去掉前一行"如图 N 所示" / "见图 N" / "Figure N 展示了..."等独立呼应句
+    中的图编号引用（保留描述文字）。避免 outline 出现破图 + 死引用。
+    """
     ref_to_fullpath = ref_to_fullpath or {}
+    ref_to_dim = ref_to_dim or {}
+
+    failed_figs = set()  # 收集失败的 (page, fig_num) 集合
 
     def repl(m):  # type: (re.Match) -> str
         page = int(m.group(1))
         fig_num = int(m.group(2))
         rel = ref_to_relpath.get((page, fig_num))
-        return f"({rel})" if rel else m.group(0)
+        if not rel:
+            failed_figs.add((page, fig_num))
+            return m.group(0)  # 保留原 match,行级删除在下面做
+        # v3.2+: 补 =WxH title 字段（仓库内 =WxH 等宽约定）
+        dim = ref_to_dim.get((page, fig_num))
+        title = ' "={}x{}"'.format(dim[0], dim[1]) if dim else ""
+        return f"({rel}{title})"
 
     md_text = FIGURE_REF_RE.sub(repl, md_text)
 
@@ -937,6 +1018,63 @@ def embed_figure_refs(md_text, ref_to_relpath, ref_to_fullpath=None):
             return f"[{img_tag}({thumb_path})]({full_path})"
 
         md_text = THUMB_IMG_RE.sub(wrap_repl, md_text)
+
+    # === 失败图行处理 ===
+    # 先做替换,把 `![...](PDF p.X fig.N ...)` 整行删除
+    lines = md_text.split("\n")
+    new_lines = []
+    fig_ref_line_re = re.compile(r"!\[.*?\]\(PDF p\.\d+\s+fig\.\d+")
+    for line in lines:
+        if fig_ref_line_re.search(line):
+            # 检查是否有失败的 (p, f) 在该行
+            line_failed = False
+            for m in FIGURE_REF_RE.finditer(line):
+                p_, f_ = int(m.group(1)), int(m.group(2))
+                if (p_, f_) in failed_figs:
+                    line_failed = True
+                    break
+            if line_failed:
+                # 整行丢弃（图行）
+                continue
+        new_lines.append(line)
+    md_text = "\n".join(new_lines)
+
+    # 清理"如图 N 所示" / "如图 N 所示，" / "见图 N" / "Figure N 展示了..."等
+    # 独立呼应句：去掉"图 N"字样 + 标点 + 引导词（"如图 N 所示，"→"，"）
+    # 但若同一句还含其他实质内容则保守处理，只剥"图 N"引用
+    if failed_figs:
+        all_fig_nums = {f for (_, f) in failed_figs}
+
+        def strip_fig_ref(text, fnum):
+            # "如图 16 所示" / "如图16所示" / "图 16 展示了" / "见图 16" / "(图 16)"
+            patterns = [
+                rf"如?\s*图\s*{fnum}\s*所示[，,。\s]*",
+                rf"如?\s*图\s*{fnum}\s*展示[了]?[，,。\s]*",
+                rf"如?\s*图\s*{fnum}\s*所示，",
+                rf"见\s*图\s*{fnum}\s*[，,。\s]*",
+                rf"图\s*{fnum}\s*[：:]?\s*",
+            ]
+            for pat in patterns:
+                text = re.sub(pat, "", text)
+            return text
+
+        lines = md_text.split("\n")
+        cleaned = []
+        for line in lines:
+            orig = line
+            for fnum in all_fig_nums:
+                line = strip_fig_ref(line, fnum)
+            # 清理掉"如上文" / "如下图" 这类因剥掉图号而失去指代的孤立引导词
+            line = re.sub(r"如\s*[，,。；;]\s*", "如，", line)
+            line = re.sub(r"^\s*[,，;；]\s*", "", line)
+            line = re.sub(r"[,，;；]\s*[,，;；]\s*", "，", line)
+            if line.strip():
+                cleaned.append(line)
+        md_text = "\n".join(cleaned)
+        sys.stderr.write(
+            f"INFO: 跳过 {len(failed_figs)} 张图（视觉定位 + caption locator + "
+            f"bbox hint 三层均失败），已从 markdown 删除对应行 + 呼应句\n"
+        )
 
     return md_text
 
@@ -1108,10 +1246,15 @@ def build_prompt(focus):  # type: (str) -> str
 
 
 def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, str, float) -> str
-    """调用 Gemini，返回 Markdown 文本。短 PDF 走 inline；长 PDF 走 File API。"""
-    client = genai.Client()  # 自动读 GEMINI_API_KEY
+    """调用 Gemini，返回 Markdown 文本。短 PDF 走 inline；长 PDF 走 File API。
 
-    config = types.GenerateContentConfig(temperature=temperature)
+    **无自动 fallback**（2026-06-21 决策）：503/429/500 等高并发 / 限流错误
+    **直接抛**给上层——silent 降级到便宜模型容易引入质量问题（不同模型对
+    v3.2 prompt 模板的输出质量差异显著，比如 alt 字段偏差、表格行数错位），
+    用户感知不到是模型降级导致的，只看到结果怪。换模型用 `--model <id>`
+    显式指定。
+    """
+    client = genai.Client()  # 自动读 GEMINI_API_KEY
 
     if len(pdf_bytes) <= MAX_PDF_BYTES_INLINE:
         # 走 inline Part：单请求延迟最低
@@ -1136,8 +1279,13 @@ def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, st
     response = client.models.generate_content(
         model=model,
         contents=contents,
-        config=config,
+        config=types.GenerateContentConfig(temperature=temperature),
     )
+    text = getattr(response, "text", None)
+    if not text:
+        sys.stderr.write(f"ERROR: Gemini 返回为空。原始 response: {response}\n")
+        sys.exit(3)
+    return text
 
     # response.text 在出错时可能为 None，做一次防御
     text = getattr(response, "text", None)
@@ -1184,7 +1332,7 @@ def main(argv=None):  # type: (Optional[list]) -> int
                         # 在每张图引用行后追加 `**图 N**：<caption>` 行（caption 不再塞进图片或 alt）
                         summary_md = insert_caption_after_figure(summary_md, visual_bbox_map)
             os.makedirs(out_dir, exist_ok=True)
-            ref_to_fullpath, ref_to_thumbpath = render_figures_to_pngs(
+            ref_to_fullpath, ref_to_thumbpath, ref_to_dim = render_figures_to_pngs(
                 args.pdf,
                 refs,
                 figures_dir_abs,
@@ -1204,7 +1352,9 @@ def main(argv=None):  # type: (Optional[list]) -> int
             else:
                 ref_to_relpath = ref_to_fullpath
                 ref_to_full_for_wrap = None
-            summary_md = embed_figure_refs(summary_md, ref_to_relpath, ref_to_full_for_wrap)
+            summary_md = embed_figure_refs(
+                summary_md, ref_to_relpath, ref_to_full_for_wrap, ref_to_dim=ref_to_dim
+            )
             refine_note = f", Stage 2 定位 {len(visual_bbox_map)} 个" if visual_bbox_map else ""
             sys.stderr.write(
                 f"OK: 已导出 {len(ref_to_fullpath)} 张图到 {figures_dir_abs}（倍率 {args.figure_dpi}，"
@@ -1374,15 +1524,12 @@ def self_check_figures(md_text, figures_dir, outline_check=False, outline_endpoi
             if not os.path.isfile(abs_path):
                 continue  # 阶段 3 已报告
             try:
-                doc = fitz.open(abs_path)
-                if doc.page_count < 1:
-                    doc.close()
-                    result["warnings"].append(f"本地 PNG 0 页: {abs_path}")
-                    continue
-                page = doc[0]
-                actual_w = int(round(page.rect.width))
-                actual_h = int(round(page.rect.height))
-                doc.close()
+                # 与 embed_figure_refs 写入 title 时的口径一致：直接读 PNG 像素数
+                # （不能用 fitz.open(...).page.rect.width——pymupdf 默认按 96 DPI 把
+                # 像素数换算成 PDF points，结果会比真实像素数小 25% 触发误报）
+                pix = fitz.Pixmap(abs_path)
+                actual_w, actual_h = pix.width, pix.height
+                pix = None
             except Exception as e:  # noqa: BLE001
                 result["warnings"].append(f"本地 PNG 读尺寸失败 {abs_path}: {e}")
                 continue

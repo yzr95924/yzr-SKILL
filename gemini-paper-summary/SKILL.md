@@ -27,7 +27,7 @@ metadata:
 ### 使用
 
 - 用户给出一篇**本地 PDF 论文**，要一份中文结构化总结
-- 用户要在多篇论文里**批量过稿**，每篇**最好不超过 1000 词（≈ 500 个中文字符）**的速读
+- 用户要在多篇论文里**批量过稿**，每篇**精炼速读**（字符数目标单一来源在 `assets/prompt-template.md`）
 - 论文含大量图表 / 公式，纯文本抽取（pdftotext / PyPDF2）会丢信息
 - 用户希望用 Gemini 直接读 PDF，而不是先 OCR
 
@@ -107,7 +107,7 @@ metadata:
 
 ### 输出
 
-按 **outline 风格结构化模板** 输出 Markdown，**最好不超过 1000 词（≈ 500 个中文字符）**。**统一章节顺序**：
+按 **outline 风格结构化模板** 输出 Markdown（**字符数目标单一来源**：`assets/prompt-template.md` 头部声明 + §基础要求 #4，**不要**在这里再写具体数值——避免双份维护漂移）。**统一章节顺序**：
 开篇 3 列表格 → 团队 item（紧跟论文链接） → `## 3 句话总结` → `## 背景与动机` → `## 方法设计` →
 `## 代表性实验结果` → `## 业务启示 & 价值` → `## 局限与未来工作`。
 **不存在的章节可省略**。"开源实现"与"相关工作 / 高频引用"作为
@@ -115,7 +115,7 @@ metadata:
 **默认中文**（标题、叙述、连接词），但术语、模型名、产品名、库名等必要时
 **直接保留英文**（详见下文核心原则 #4 与 #9）。
 
-> **精炼优先**：1000 词（≈ 500 个中文字符）是**上限**不是目标。**每一段、每一条 bullet 都
+> **精炼优先**（具体字符数见 `assets/prompt-template.md` 头部，**单一来源**）：**每一段、每一条 bullet 都
 > 应该能删则删**——能 1 句话讲清的事不要拆 3 句；能省略的铺垫 / 重复 /
 > 概念定义就省略；判断标准："删掉这段读者就理解错 / 漏掉关键信息"
 > 才是"必须留"，否则一律砍。总结的密度 > 总结的篇幅。
@@ -218,7 +218,7 @@ metadata:
 2. **结构化总结，不是复述**
    - 按 outline 风格模板的**主线顺序与命名**输出（开篇表 → 团队 item →
      `## 3 句话总结` → 背景与动机 → 方法 → 实验 → 业务启示&价值 → 局限），**最好每篇不超过
-     1000 词（≈ 500 个中文字符）**（而不是"写到 1500 字"）
+     **（不是"写到 1500 字"——具体数值见 `assets/prompt-template.md`）
    - **不存在的章节可省略**（如纯理论论文无实验数据时省"代表性实验结果"）
    - 关键数据 / 数值必须保留，避免泛泛而谈
    - **"代表性实验结果"小节：最关键的 2–3 条**——挑最能说明问题的 1–2 个
@@ -246,17 +246,25 @@ metadata:
    - **判定标准**：翻译反而引发歧义、丢失语义、或该英文已是该领域标准用法时，
      无条件保留。中英混排是常态（如"训练使用 LoRA（低秩适配）"）
    - 列表 / 表格中若一项本身就是英文术语，整项保持英文
-5. **关键架构图 / 概念示意图：(page, fig_num, bbox) 引用 + 内联到对应方法上下文，caption 文字不放进图片**
+5. **关键架构图 / 概念示意图：(page, fig_num, bbox) 引用 + 内联到对应方法上下文，caption 写到 image alt 字段（v3.2 终版）**
    - **不**单独成"关键架构图 / 示意图"小节；每张关键图紧贴它说明的算法 /
      协议 / 数据结构那段 bullet 放（"方法 bullet → 图 → caption 文字 → 下一个方法 bullet" 的顺序），
      让读者扫读时不用先看文字再翻到节末找图
-   - **图片不包含 caption**（2026-06-21 优化）：caption 文字用一行 markdown 文字承载，
-     不再嵌进图片本身。原因是 caption 文字是文本信息，图片里的文字搜不到 / 不能复制 /
-     不能翻译 / 不能索引。脚本会把 Gemini 视觉读出的完整 caption 追加成单独一行；
-     Gemini 也可以自己直接写。
-   - 格式：
-     - 图片：`![图 N](PDF p.<页码> fig.<N> [bbox=<x0,y0,x1,y1>]) — <1-2 句说明>`
-     - 紧随图片的 caption 行（必写，**不**可省略）：`**图 N**：<论文 Figure N caption 原文>`
+   - **图片不包含 caption**（v3.2 终版，2026-06-21）：caption 文字**写到 markdown
+     image 的 alt 字段**（`![图 N: <中文翻译+总结>](<url> "=WxH")`）——这是 outline UI
+     唯一渲染为图片下方 caption 文字的通道。markdown body **不**写独立的
+     `**图 N**：<caption>` 行，也**不**加 `— <role>` 后段（避免与 alt 重复 +
+     inline element 短而独立）
+   - alt 字段规则：
+     - 中文翻译+总结（不是论文英文 caption 原文——面向中文读者，含术语细节的
+       英文原文不易扫读）
+     - 必须以 `图 N: ` 开头（中文版, 不是 `Figure N: `）
+     - 中文 caption 通常 ≤ 100 字符; 个别超 120 也可, markdown 链接不能拆行
+   - 格式（v3.2 终版）：
+     - Gemini 输出: `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)`
+     - 脚本 `--extract-figures` 处理后: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
+     - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`
+     - `=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
      单位 PDF point（1 point = 1/72 inch），原点在左上角；A4 ≈ 595×842，Letter ≈ 612×792
@@ -267,6 +275,12 @@ metadata:
    - 页码以 PDF 实际页码为准（论文首页为 p.1），不要写 "图 1 在第 3 页附近"
    - **图前**一句必须呼应（"如图 N 所示" / "见图 N"），把图和上下文绑死；
      **图后**一句不要重复同样的内容
+   - **实在处理不了的图宁可不引**（2026-06-21 用户要求）：如果某张图
+     你**自己都没把握准确定位**（figure 跨页 / 编号混乱 / 在附录但正文
+     引用），**不要**硬写 `![图 N: ...](PDF p.X fig.N)`——脚本三层定位全失败
+     时会**整行删除**该图引用 + 剥掉"如图 N 所示"等呼应句的图编号。**为了
+     凑数硬引**会留下"如图 N 所示，xxx" 但图缺失的死引用，比"完全不提"
+     还糟。如果**完全不提**这张图，反而更干净。
    - 若论文没有关键图（如纯理论论文），**完全省略**——既无单独章节也无内联图
 6. **相关工作 / 高频引用：作为"业务启示 & 价值"的子段**
    - 不再是独立 `## 高频引用 / Take-aways` 段，而是 `## 业务启示 & 价值` 末尾的
@@ -296,6 +310,12 @@ metadata:
    - 复杂论文可换 `gemini-3.1-pro-preview`（preview，质量更高但成本高）
    - 速览批量过稿可换 `gemini-3.1-flash-lite`（更便宜）
    - 实际可用模型以当前 Gemini 文档为准：用 `gemini-api-docs-mcp` 的 `get_current_model` 核实
+   - **无自动 fallback**（2026-06-21 决策）：默认模型遇到 503 UNAVAILABLE /
+     429 RESOURCE_EXHAUSTED 等高并发 / 限流错误时，脚本**直接抛错**给上层，
+     不静默降级。理由：不同模型对 v3.2 prompt 模板的输出质量差异显著
+     （alt 字段偏差、表格行数错位、章节遗漏等），silent fallback 用户感知不到
+     是模型降级导致的，只看到"结果怪"——质量风险大于便利。换模型用
+     `--model <id>` 显式指定。
 9. **Markdown 风格约定（与 `outline-wiki-management` 完全对齐）**
    - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`（与 `outline-wiki-management`
      的 doc_style.md 基线一致；本仓库其他 skill 也按此约定）
@@ -320,6 +340,28 @@ metadata:
 - 不做全文翻译；不做多篇对比
 - 一次一篇论文
 - 单 PDF 大小建议 ≤ 50 MB（File API 硬上限）
+- **实在处理不了的图不入总结**（2026-06-21 用户要求）：
+  `render_figures_to_pngs` 的三层定位（Stage 2 visual_bbox → caption locator → bbox hint）
+  **全失败**时，整张图从 markdown 里**整行删除**，**且**前一句"如图 N 所示" /
+  "见图 N" / "Figure N 展示了..." 等独立呼应句的图编号引用也剥掉（保留描述文字）。
+  - 触发场景：Stage 2 视觉定位返回的 bbox 越界 / Gemini 整页调用失败 /
+    caption locator 找不到 caption / bbox hint 宽度 < 50pt 等
+  - 反模式：**不要**保留 `![图 N: ...](PDF p.X fig.N ...)` 这种没替换的 PDF
+    reference 字符串——outline 渲染会成**破图**（`![]()` 协议 outline 不识别）
+  - 脚本日志：`INFO: 跳过 N 张图（视觉定位 + caption locator + bbox hint 三层
+    均失败），已从 markdown 删除对应行 + 呼应句`
+- **正文里的图引用 vs 真 caption 甄别**（2026-06-21 ART-ICDE'13 p.11 Fig 16 case）：
+  论文正文常出现 "Figure 16 shows that..." 这类引用，line 文本以
+  `Figure N` 开头。原 `find_figure_caption` 简单正则会被这种正文引用命中，
+  返回正文 block 的 bbox（而非真 caption），导致 caption locator 把整段正文
+  当成 figure 区域。修复：line 文本必须以 `Figure N[.:]` + 描述形式才算 caption
+  （`Figure 16 shows...` 中数字后是空格+动词，会被过滤掉）。同时 line 长度
+  ≤ 120 字符作为辅助判定。
+- **bbox hint sanity check**（2026-06-21）：Stage 1 Gemini 自由发挥写
+  `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11
+  Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在
+  走 bbox hint fallback 前先检查高度：超过 250pt 且 caption locator 能算出更
+  紧的 bbox（≥ 50pt）时，用 caption locator 替掉 hint。
 
 ## 生成后自检（图片完整性 + 边界破坏）
 
@@ -619,7 +661,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | `413 REQUEST_TOO_LARGE` | PDF 超 50 MB | 走 File API 上传（见 `references/api-quickstart.md` §超大 PDF） |
 | 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型；避免用 deprecated 系列（`gemini-2.5-*` 等） |
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`；见"模型选型"小节 |
-| 跑出来字数远超 1000 词（≈ 500 个中文字符） | Gemini 不严格遵守 prompt 字数约束 | 先调 prompt / `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
+| 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/prompt-template.md`）/ `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
 | 输出空 / 截断 | 输出 token 上限（默认 65k）撞顶 | 减小 `max_output_tokens` 不会影响——缩短 prompt 或换模型 |
 
 ## 参考样例
