@@ -471,7 +471,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 > **本 skill 只产出本地文件**——A' 节的 `--extract-figures` 截下来的
 > PNG 全部落在本地 `figures/` 目录，**不会**自动上传到 outline-wiki。
 > **上传到 outline-wiki 不归本 skill 管**，请走
-> [`outline-wiki-management`](../../outline-wiki-management/SKILL.md) 的
+> [`outline-wiki-management`](../outline-wiki-management/SKILL.md) 的
 > attachment 3 步流程（`create_attachment` → `curl` 上传 → Markdown 引用
 > `/api/attachments.redirect?id=...`）。
 
