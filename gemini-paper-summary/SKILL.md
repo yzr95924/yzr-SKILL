@@ -1,9 +1,9 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结，默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-06-20
+  modify time: 2026-06-24
   category: paper-reading
 ---
 
@@ -110,6 +110,9 @@ metadata:
 按 **outline 风格结构化模板** 输出 Markdown（**字符数目标单一来源**：`assets/prompt-template.md` 头部声明 + §基础要求 #4，**不要**在这里再写具体数值——避免双份维护漂移）。**统一章节顺序**：
 开篇 3 列表格 → 团队 item（紧跟论文链接） → `## 3 句话总结` → `## 背景与动机` → `## 方法设计` →
 `## 代表性实验结果` → `## 业务启示 & 价值` → `## 局限与未来工作`。
+**评测 / benchmark 类论文**（评测本身是贡献，如 HELM / MMLU / Chatbot Arena）自动把
+`## 方法设计` + `## 代表性实验结果` 替换为 `## 评测设计` + `## 评测发现`，其余章节
+不变；两类论文**二选一**不重复输出。判定口径与两节 bullet 见 `assets/prompt-template.md`（**单一来源**）。
 **不存在的章节可省略**。"开源实现"与"相关工作 / 高频引用"作为
 `## 业务启示 & 价值` 的子段呈现；"启发 / 追问"仅在传 `--focus` 时输出。
 **默认中文**（标题、叙述、连接词），但术语、模型名、产品名、库名等必要时
@@ -223,6 +226,11 @@ metadata:
      `## 3 句话总结` → 背景与动机 → 方法设计 → 代表性实验结果 → 业务启示 & 价值 → 局限与未来工作），**最好每篇不超过
      **（不是"写到 1500 字"——具体数值见 `assets/prompt-template.md`）
    - **不存在的章节可省略**（如纯理论论文无实验数据时省"代表性实验结果"）
+   - **评测论文分支**：论文主要贡献是评测 / benchmark（即评测本身是贡献，而非提出新方法后再用实验验证）时，
+     `## 方法设计` + `## 代表性实验结果` 自动切到 `## 评测设计` + `## 评测发现`——
+     评测论文**不**输出 `## 方法设计` / `## 代表性实验结果`，非评测论文**不**输出
+     `## 评测设计` / `## 评测发现`，二选一。判定由 prompt 内条件完成，无需 flag
+     （口径与两节 bullet 见 `assets/prompt-template.md`）
    - 关键数据 / 数值必须保留，避免泛泛而谈
    - **"代表性实验结果"小节：最关键的 2–3 条**——挑最能说明问题的 1–2 个
      图 / 表 / 关键数字即可；不要把全文实验数据 / 所有 baseline 对比
@@ -313,10 +321,12 @@ metadata:
    - **表格 vs bullet**：数据示例 / 概念对比 / 字段定义用 table；其他场景优先 bullet
    - **引用块** 行首 > 加空格 仅在引用原始资料原话时使用，**不要**当容器用
    - **行宽 ≤ 120 字符**（与 `.markdownlint.jsonc` MD013 对齐）
-   - **不写 H1**：文档标题由文件名 / 上层目录承载，正文从 `##` 起步
-   - **不写私造语法**：`!!! warning` / `:::tip` / MathJax / `<mark>` / `<details>` /
+   - **章节标题用 `##`**：每个章节标题一律 `##`（二级），**不要**降级成 `###`；正文不写 H1（`#`），标题由文件名 / 上层目录承载
+   - **不写私造语法**：`!!! warning` / `:::tip` / `<mark>` / `<details>` /
      装饰性 emoji 占位（🎉🎉🎉）等**不要**出现（Outline 不支持，仓库
      `.markdownlint.jsonc` 也会拒）
+   - **数学 / 范围 / 公式禁用 MathJax**：`$...$` / `$$...$$` outline-wiki 不渲染——
+     改纯文本 / Unicode：范围 `[1, 2^64)`、上标 `2^64` / `2⁶⁴`、运算 `≥` `≤` `×` `→` `≈`
 
 ### 边界
 
@@ -601,6 +611,23 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 `summary.md` 中的图引用全部变为相对路径（`figures/figure-01-p1.png`），
 在 VS Code / Obsidian / GitHub 等任何 Markdown 预览器里都能直接看到图。
+
+### 样例五：评测 / benchmark 类论文（自动走评测分支）
+
+**用户**：“总结这篇 HELM 的 PDF：`~/papers/helm.pdf`”
+
+**执行**（与普通论文完全一样，无需任何额外参数）：
+
+```bash
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/helm.pdf \
+  --output ~/papers/helm.summary.md
+```
+
+**预期**：Gemini 依据模板判定这是评测类论文，自动把默认的「方法设计 +
+代表性实验结果」两节替换为「评测设计（评测对象 / benchmark 构造 / 评测协议 /
+规模）+ 评测发现（leaderboard 结论 / 跨维度发现 / insight / 评测方法有效性）」，
+其余章节不变。判定口径与两节 bullet 的真权威定义见 `assets/prompt-template.md`。
 
 ## 前置条件
 
