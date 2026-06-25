@@ -109,6 +109,14 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
 
 ## 四、frontmatter 字段参考（source 页）
 
+> **与 [`page-templates.md#source`](page-templates.md#source) 对齐**——本节只是精简示例，
+> 字段全集与"必填 / 推荐"分级以 `page-templates.md §3` 为准。
+
+**必填**：`title` / `type=source` / `created` / `updated` / `tags` / `sources`（至少 1 个 raw 路径）
+
+**推荐**：`description`（一句话摘要，`index.md` 条目从此取）/ `authors` / `published` / `url` /
+`venue`（会议 / 期刊名）
+
 ```yaml
 ---
 title: "Attention Is All You Need"
@@ -121,6 +129,7 @@ sources:
   - raw/articles/attention-is-all-you-need.md
 authors: [Vaswani, Shazeer, Parmar, et al.]
 published: 2017-06-12
+venue: NeurIPS 2017
 url: https://arxiv.org/abs/1706.03762
 ---
 ```

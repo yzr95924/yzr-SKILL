@@ -79,7 +79,9 @@ metadata:
 三层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。所有 wiki 内容都从 raw 推导而来；raw 被用户更新后，在重新 ingest 之前
+   对 LLM 只读。`raw/` 下子目录自由组织——setup 脚本默认建 `articles/` + `assets/`，但
+   `podcasts/` / `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵
+   `raw/`。所有 wiki 内容都从 raw 推导而来；raw 被用户更新后，在重新 ingest 之前
    wiki 会与真相暂时脱节（`ingest_diff.py --check-stale` 负责发现这种情况）。
 2. **`wiki/` 复利资产**——LLM 拥有这一层。人类**不写** wiki，只读 + 提问题。每次
    摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
@@ -123,12 +125,16 @@ metadata:
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 CLAUDE.md 除外，那是 schema）
 3. **CLAUDE.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
-4. **每次写入必更 log.md**——格式 `## [YYYY-MM-DD] <op> | <title>`，三选一前缀
-   `ingest` / `query` / `lint`（setup 阶段除外，setup 单独走 `## [YYYY-MM-DD] setup`）
+4. **每次写入必更 log.md**——格式 `## [YYYY-MM-DD] <op> | <title>`，op 取值四选一：
+   `ingest` / `query` / `lint` / `setup`（`scripts/lint_wiki.py:34` 与 `scripts/setup_wiki.py:81` 以
+   此为准；其它取值会被 lint 报格式错乱）
 5. **每页必带 YAML frontmatter**——共有必填 `type` / `title` / `created` / `updated` /
-   `tags`；推荐 `description`（一句话，`index.md` 条目摘要从它来）。`sources`（raw/ 路径）**非
-   共有**：`source` / `synthesis` 必填、`entity` / `concept` 可选、`comparison` 不用。字段权威
-   清单见 [`references/page-templates.md`](references/page-templates.md)（与 `lint_wiki.py` 同步）
+   `tags`；推荐 `description`（一句话，`index.md` 条目摘要从它来）。`type` 取值仅 5 类内容页
+   （`entity` / `concept` / `source` / `comparison` / `synthesis`）；`index.md` / `log.md` 是
+   reserved 文件，自带 `type: index` / `type: log`，lint 跳过它们——不算概念页 `type`。
+   `sources`（raw/ 路径）**非共有**：`source` / `synthesis` 必填、`entity` / `concept` 可选、
+   `comparison` 不用。字段权威清单见 [`references/page-templates.md`](references/page-templates.md)
+   （与 `lint_wiki.py` 同步）
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
 7. **index.md 是 wiki 单一入口**——所有非 log 页必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里

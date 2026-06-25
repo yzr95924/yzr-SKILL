@@ -2,13 +2,18 @@
 
 按 `type` 分 5 种。**所有页面**共有 frontmatter 段（见下）+ 类型特定字段 + 自由正文。
 
+> **frontmatter 写法约束**（与 `scripts/ingest_diff.py` 的轻量 YAML 解析器对齐）：仅支持单行
+> `key: value`、inline 数组 `[a, b, c]`、`- item` 列表项三种形式。**不要**使用多行折叠 `>` /
+> `|`、YAML 锚点 `&` / `*`、嵌套 map——脚本会静默解析失败、返回空 dict、后续 ingest 与 lint
+> 行为未定义。
+
 ## 一、共有 frontmatter 段
 
 ```yaml
 ---
 title: <string, 必填>
-description: <一句话摘要, 推荐>
-type: <entity|concept|source|comparison|synthesis, 必填>
+description: <一句话摘要, 推荐>  # 推荐（OKF v0.1 推荐字段）；index.md 条目摘要从它来，避免漂移
+type: <entity|concept|source|comparison|synthesis, 必填>  # 5 类内容页；index/log 是 reserved（见 §6 / §7）
 tags: [<string array>, 必填但可空数组]
 created: <YYYY-MM-DD, 必填>
 updated: <YYYY-MM-DD, 必填>
@@ -41,7 +46,7 @@ type: entity
 tags: [model, llama, meta]
 created: 2026-06-24
 updated: 2026-06-24
-aliases: [Llama-3, Llama 3.1, Meta-Llama-3]
+aliases: [Llama-3, Llama 3.1, Meta-Llama-3]  # 字段值，不受 §8 kebab-case 文件名规则约束
 ---
 ```
 
@@ -85,7 +90,7 @@ type: concept
 tags: [attention, transformer, mechanism]
 created: 2026-06-24
 updated: 2026-06-24
-related: [transformer, multi-head-attention, scaled-dot-product-attention]
+related: [transformer.md, multi-head-attention.md, scaled-dot-product-attention.md]
 ---
 ```
 

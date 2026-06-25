@@ -42,7 +42,8 @@
 - 路径：`<wiki-root>/wiki/log.md`
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
-  - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`}）
+  - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
+    `setup` 由 `scripts/setup_wiki.py` 在初始化时写入）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
   - **不删不改**——只 append
 
@@ -62,7 +63,7 @@
 | 概念页 | `concepts/` | `concept` | `related`（相关概念路径数组） |
 | 资料页 | `sources/` | `source` | `sources`（必填，raw/ 路径） |
 | 对比页 | `comparisons/` | `comparison` | `compared`（被对比对象路径数组） |
-| 综合页 | `syntheses/` | `synthesis` | `threads`（线索标题数组） |
+| 综合页 | `syntheses/` | `synthesis` | `threads`（线索标题数组）+ `sources`（必填，wiki 内其它页路径） |
 
 **所有页面共有 frontmatter**：
 
