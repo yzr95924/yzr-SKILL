@@ -1,3 +1,0 @@
-[submodule "llm_workspace_cli"]
-	path = llm_workspace_cli
-	url = git@github.com:yzr95924/llm_workspace_cli.git
