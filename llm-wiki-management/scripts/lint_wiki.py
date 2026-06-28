@@ -33,6 +33,7 @@ from log_format import LOG_LINE_RE  # noqa: E402
 
 VALID_TYPES = {"entity", "concept", "source", "comparison", "synthesis"}
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
+MEMORY_SUBDIR = "MEMORY"
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
 
@@ -45,7 +46,10 @@ def is_external_url(url: str) -> bool:
 
 
 def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
-    """收集所有 wiki/**/*.md，按 type 分类（用子目录名判定）"""
+    """收集所有 wiki/**/*.md，按 type 分类（用子目录名判定）
+
+    MEMORY 子目录扫到独立的 'memory' 桶：走 frontmatter 校验但**不**强制 index 覆盖。
+    """
     out = {
         "index": [],  # type: List[Path]
         "log": [],
@@ -54,6 +58,7 @@ def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
         "sources": [],
         "comparisons": [],
         "syntheses": [],
+        "memory": [],
     }  # type: Dict[str, List[Path]]
     wiki_dir = wiki_root / "wiki"
     if not wiki_dir.is_dir():
@@ -63,6 +68,11 @@ def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
         if d.is_dir():
             for p in sorted(d.glob("*.md")):
                 out[sub].append(p)
+    # MEMORY/ 单独扫：含 README.md + 其它 .md
+    mem_dir = wiki_dir / MEMORY_SUBDIR
+    if mem_dir.is_dir():
+        for p in sorted(mem_dir.glob("*.md")):
+            out["memory"].append(p)
     out["index"].append(wiki_dir / "index.md")
     out["log"].append(wiki_dir / "log.md")
     return out
@@ -98,10 +108,15 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
     """2. frontmatter 完整性 + 3. source/synthesis 的 sources 字段"""
     findings = []  # type: List[str]
     pages = find_md_files(wiki_root)
-    # 合并所有非 index / log 页
+    # 合并所有非 index / log / MEMORY/README.md 页（MEMORY/README.md 是 reserved，不走 5 字段校验）
     content_pages = []
     for sub in WIKI_SUBDIRS:
         content_pages.extend(pages[sub])
+    for p in pages["memory"]:
+        # 跳过 MEMORY/README.md（reserved；只校验 type=memory 即可，字段不全不报错）
+        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+            continue
+        content_pages.append(p)
     # 跳过不存在的 index / log
     for p in content_pages:
         if not p.is_file():
@@ -160,7 +175,7 @@ def check_link_integrity(wiki_root: Path) -> List[str]:
     findings = []  # type: List[str]
     pages = find_md_files(wiki_root)
     all_pages = []
-    for sub in WIKI_SUBDIRS + ("index", "log"):
+    for sub in WIKI_SUBDIRS + ("index", "log", "memory"):
         all_pages.extend(pages[sub])
     for p in all_pages:
         if not p.is_file():
@@ -278,6 +293,16 @@ def check_filename_kebab(wiki_root: Path) -> List[str]:
                 findings.append(
                     f"filename-not-kebab: {rel} 文件名 '{p.name}' 应使用 kebab-case（小写字母 + 数字 + 短横线）"
                 )
+    # MEMORY/* 走同一规则，但排除 README.md（reserved，大写不报错）
+    for p in pages["memory"]:
+        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+            continue
+        stem = p.stem
+        if not re.match(r"^[a-z0-9][a-z0-9-]*$", stem):
+            rel = p.relative_to(wiki_root).as_posix()
+            findings.append(
+                f"filename-not-kebab: {rel} 文件名 '{p.name}' 应使用 kebab-case（小写字母 + 数字 + 短横线）"
+            )
     return findings
 
 

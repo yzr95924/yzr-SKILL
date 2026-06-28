@@ -2,6 +2,19 @@
 
 按 `type` 分 5 种。**所有页面**共有 frontmatter 段（见下）+ 类型特定字段 + 自由正文。
 
+## 目录
+
+- [一、共有 frontmatter 段](#一共有-frontmatter-段)
+- [二、各类型模板](#二各类型模板)
+  - [1. `entity`（实体页）](#1-entity实体页)
+  - [2. `concept`（概念页）](#2-concept概念页)
+  - [3. `source`（资料页）](#3-source资料页)
+  - [4. `comparison`（对比页）](#4-comparison对比页)
+  - [5. `synthesis`（综合页）](#5-synthesis综合页)
+  - [6. `index`（index.md）](#6-indexindexmd)
+  - [7. `log.md`（log）](#7-logmdlog)
+- [三、模板使用规则](#三模板使用规则)
+
 > **frontmatter 写法约束**（与 `scripts/ingest_diff.py` 的轻量 YAML 解析器对齐）：仅支持单行
 > `key: value`、inline 数组 `[a, b, c]`、`- item` 列表项三种形式。**不要**使用多行折叠 `>` /
 > `|`、YAML 锚点 `&` / `*`、嵌套 map——脚本会静默解析失败、返回空 dict、后续 ingest 与 lint

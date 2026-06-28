@@ -3,8 +3,8 @@
 > 这是本 wiki 的**纪律配置**——给维护本 wiki 的 LLM 看的"工作守则"。你（即 LLM）
 > 必须在每次操作前先读这份文件；任何对 wiki 的写入都必须符合这里规定的边界。
 >
-> 本文件由 `llm-wiki-management` skill 的 `setup_wiki.py` 初始化时生成；后续
-> 可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改都视为"非标准配置"，
+> 本文件由 workspace CLI 在初始化时按 [`llm-wiki-management/references/wiki-spec.md`](wiki-spec.md) §2
+> 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改都视为"非标准配置"，
 > skill 行为不再保证一致。
 >
 > **读取机制**：当你在 wiki 根目录内工作时，Claude Code 会自动加载根目录的
@@ -43,8 +43,8 @@
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
   - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
-    `setup` 由 `scripts/setup_wiki.py` 在初始化时写入；权威正则见
-    [`../page-templates.md`](../page-templates.md) §7）
+    `setup` 由 workspace CLI 在初始化时按 [`../wiki-spec.md`](../wiki-spec.md) §4 写入首条；
+    权威正则见 [`../page-templates.md`](../page-templates.md) §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
   - **不删不改**——只 append
 
@@ -55,6 +55,19 @@
   - 按类别分组列出所有非 log 页面（entities / concepts / sources / comparisons / syntheses）
   - 每条带链接 + 一句话摘要
   - 每次 wiki 内容变更后**必须**同步（宁可多改）
+
+### `wiki/MEMORY/` —— LLM agent 的持久化记忆
+
+- 路径：`<wiki-root>/wiki/MEMORY/`
+- 性质：LLM agent 在 ingest / query / lint 过程中沉淀的**经验、踩坑、用户偏好**——
+  不是 wiki 内容、不是操作时间线，而是 agent 私有记忆
+- 纪律：
+  - 用户**不**直接编辑 MEMORY/（这是 agent 私有记录）
+  - 任何 MEMORY/ 下的 `.md` 文件**必须**含 frontmatter 5 必填（title / type / created / updated / tags），
+    与 wiki 内容页规则一致；README.md 例外（与 index.md / log.md 同级别 reserved 标记）
+  - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
+  - **不**要求 inbound 链接
+  - 目录结构与契约详见 [`../wiki-spec.md`](../wiki-spec.md) §5
 
 ## 二、页面类型与 frontmatter 约定
 
@@ -129,5 +142,6 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 | --- | --- |
 | 主题 | {{TOPIC_NAME}} |
 | 创建日期 | {{SETUP_DATE}} |
-| Wiki 根 | <由 LLM_WIKI_ROOT 环境变量或 setup 时确定> |
-| Skill 版本 | 来自 `llm-wiki-management/SKILL.md` 的 `last_modified` 字段 |
+| Wiki 根 | <由 LLM_WIKI_ROOT 环境变量或 init 时确定> |
+| Wiki Spec 版本 | {{WIKI_SPEC_VERSION}} |
+| CLI 版本 | {{CLI_VERSION}} |
