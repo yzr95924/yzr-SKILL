@@ -500,4 +500,4 @@ agent 根据描述决定是否查阅该 skill，需要知道的一点是：agent
   - 创建 benchmark.json，并跑 `scripts/generate_review.py` 让人类评审测试用例
   - 跑定量评估
 - 反复迭代，直到你和用户都满意
-- 打包最终 skill 并交付给用户
+- 把改动提交到 git（`git add` + `git commit`）

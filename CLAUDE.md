@@ -16,25 +16,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用命令
 
-### 校验与打包 skill
+### 校验 skill
 
 `yzr-skill-creator/scripts/` 下的脚本顶部都注入了 `sys.path` 引导，**两种调用形式都可用**：
 
 ```bash
 # 形式 A：独立脚本（README 的原写法）
 python3 yzr-skill-creator/scripts/quick_validate.py <skill-dir>
-python3 yzr-skill-creator/scripts/package_skill.py <skill-dir> [output-dir]
 
 # 形式 B：作为模块（cwd 必须在 yzr-skill-creator/）
 cd yzr-skill-creator && python3 -m scripts.quick_validate <skill-dir>
-cd yzr-skill-creator && python3 -m scripts.package_skill <skill-dir> [output-dir]
 
 # 评估 / 描述优化 等其他脚本同理
 python3 yzr-skill-creator/scripts/run_eval.py --eval-set ... --skill-path ...
 python3 yzr-skill-creator/scripts/run_loop.py --eval-set ... --skill-path ... --model <id>
 ```
 
-- `package_skill.py` 不带 `output_dir` 时默认写到 cwd，产物 `*.skill` 已被 `.gitignore`。
 - 全部脚本已对齐到 **Python 3.6 语法**（`Optional` / `List` / `Dict` / `Tuple` 而非 PEP 604 / 585；`stdout=PIPE + universal_newlines=True` 而非 `capture_output + text`）。
 
 ### Markdown 格式 / lint
@@ -92,7 +89,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── outline-wiki-management/ # 通过 Outline Wiki MCP 管理文档（搜索/读/写/评论/归档）
 └── yzr-skill-creator/     # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
-    ├── scripts/           # quick_validate / package_skill / run_loop / generate_review / improve_description …
+    ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …
     ├── references/        # schemas.md（evals/history 等 JSON 结构）+ agents/{grader,comparator,analyzer}.md
     └── assets/eval_review.html  # 描述优化的查询评审页模板
 ```
@@ -102,7 +99,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - 外部工具产物：`package-lock.json`、`skills-lock.json`
 - 用户级配置：`.claude/`（含 `settings.local.json`、commands 缓存）、`.agents/`（npx skills install 出来的 vendored 副本，软链到 `.claude/skills/`）
 - Python 构建产物：`__pycache__/`、`*.pyc|pyo|pyd`、`*.egg-info/`
-- 打包产物：`*.skill`（`package_skill.py` 默认输出到 cwd）
 - 本地环境 / 密钥：`.env*`、`*.local`（保留 `!.env.example`）
 - 编辑器 / 系统垃圾：`.DS_Store`、`.vscode/`、`.idea/`、swap 文件等
 - 通用构建目录：`dist/`、`build/`
@@ -122,7 +118,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | 脚本 | 作用 |
 | --- | --- |
 | `scripts/quick_validate.py` | frontmatter 合法性校验（可单独调用） |
-| `scripts/package_skill.py` | 打包为 `.skill`（zip）分发 |
 | `scripts/run_eval.py` / `aggregate_benchmark.py` / `generate_report.py` | 跑评估用例、聚合结果、生成报告 |
 | `scripts/run_loop.py` | 描述优化的后台循环（60% 训练 / 40% 保留评估） |
 | `scripts/improve_description.py` | 单轮描述优化 |
@@ -139,5 +134,5 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ## 注意事项
 
 - `.claude/settings.local.json` 已预批准一组 MCP / Bash 权限（Gemini Docs MCP、`pip install *`、`python3 *` 等），新增依赖工具时若需新权限需走 `update-config` skill。该文件本身已被 `.gitignore` 覆盖，仅本机生效。
-- 新增 skill 时优先复用 `yzr-skill-creator/scripts/quick_validate.py` 做预检，再决定是否走打包 / 评估 / 描述优化流程。
+- 新增 skill 时优先复用 `yzr-skill-creator/scripts/quick_validate.py` 做预检，再决定是否走评估 / 描述优化流程。
 - `yzr-skill-creator` 内部的 `run_eval` / `improve_description` 会调用 `claude` CLI（`claude -p` 子进程），需要本机已安装并登录 Claude Code。

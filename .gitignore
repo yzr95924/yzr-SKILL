@@ -18,9 +18,6 @@ __pycache__/
 # Python 工具链缓存
 .ruff_cache/
 
-# skill 打包产物（yzr-skill-creator/scripts/package_skill.py 默认输出到 cwd）
-*.skill
-
 # 本地环境 / 密钥
 .env
 .env.*

@@ -43,7 +43,8 @@
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
   - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
-    `setup` 由 `scripts/setup_wiki.py` 在初始化时写入）
+    `setup` 由 `scripts/setup_wiki.py` 在初始化时写入；权威正则见
+    [`../page-templates.md`](../page-templates.md) §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
   - **不删不改**——只 append
 
@@ -57,15 +58,19 @@
 
 ## 二、页面类型与 frontmatter 约定
 
+> **权威定义在 [`../page-templates.md`](../page-templates.md) §二（页面模板 + 字段定义）**——
+> 本表只是 setup 后在 wiki 内的速查。顺序与该处保持字母序一致（comparison → concept →
+> entity → source → synthesis）。
+
 | 类型 | 目录 | `type` 字段 | 关键字段 |
 | --- | --- | --- | --- |
-| 实体页 | `entities/` | `entity` | `aliases`（别名数组，方便搜索） |
-| 概念页 | `concepts/` | `concept` | `related`（相关概念路径数组） |
-| 资料页 | `sources/` | `source` | `sources`（必填，raw/ 路径） |
 | 对比页 | `comparisons/` | `comparison` | `compared`（被对比对象路径数组） |
+| 概念页 | `concepts/` | `concept` | `related`（相关概念路径数组） |
+| 实体页 | `entities/` | `entity` | `aliases`（别名数组，方便搜索） |
+| 资料页 | `sources/` | `source` | `sources`（必填，raw/ 路径） |
 | 综合页 | `syntheses/` | `synthesis` | `threads`（线索标题数组）+ `sources`（必填，wiki 内其它页路径） |
 
-**所有页面共有 frontmatter**：
+**所有页面共有 frontmatter**（完整定义 + 类型特化字段见 [`../page-templates.md`](../page-templates.md) §一）：
 
 ```yaml
 ---
@@ -78,8 +83,6 @@ updated: YYYY-MM-DD
 sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / concept 可选
 ---
 ```
-
-详细模板见 `llm-wiki-management/references/page-templates.md`。
 
 ## 三、写入纪律
 

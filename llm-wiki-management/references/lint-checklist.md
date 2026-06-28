@@ -29,7 +29,8 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 ### 2. frontmatter 完整性
 
 - 扫所有 `wiki/**/*.md`（排除 `index.md` 和 `log.md`）
-- 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段（与 `lint_wiki.py` 一致）
+- 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
+  （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
 - `type` 必须是 `entity` / `concept` / `source` / `comparison` / `synthesis` 之一
 - **严重性：error**——缺字段或 type 非法
 
@@ -55,7 +56,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 ### 6. log.md 格式
 
-- 每行匹配 `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$`
+- 每行匹配正则（见 [page-templates.md §7](page-templates.md#7-logmdlog)）
 - **严重性：warning**——格式错乱会破坏 `grep "^## \[" log.md` 的可用性
 
 ### 7. 过期摘要

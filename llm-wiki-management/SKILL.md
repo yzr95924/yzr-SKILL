@@ -1,13 +1,12 @@
 ---
 name: llm-wiki-management
-description: 在独立的本地 git 仓中维护 LLM 驱动的个人知识库——遵循 Karpathy
-  "LLM 拥有 wiki、人类只读" 的模式：三层架构（raw/ 不可变原始资料 + wiki/
-  LLM 生成的相互链接 Markdown + CLAUDE.md schema 宪法）、三核心操作（ingest 摄取
-  资料并写摘要页 / query 跨页综合出可归档的答案 / lint 健康检查找矛盾与孤儿页）、
-  与 index.md 目录 + log.md 时间线双轨。触发词：'摄取/归档到 wiki'、'wiki 里有...'、
-  'lint wiki / wiki 健康检查'、'把 X 整理成 wiki'、提到 raw/ 与 wiki/ 双目录
-  结构、维护 CLAUDE.md schema。**不用于**云端协作 wiki（Notion / Confluence /
-  Outline / GitHub Wiki）；云端场景走 outline-wiki-management skill。
+description: 当你需要维护本地、单用户的复利型知识库时使用本 skill（遵循 Karpathy
+  "LLM 拥有 wiki、人类只读" 模式）：你负责在 raw/ 投放原始资料并提问题，LLM 把
+  资料消化为 wiki/ 下的交叉链接页面、跨页综合答案、并 lint 找矛盾与孤儿页。触发
+  于"把 X 归档到 wiki / 整理进 wiki"、"wiki 里有没有 X"、"lint wiki"、"我想搭一
+  个 wiki 跟踪 Y 的研究"等表述。遵循 raw/ + wiki/ + CLAUDE.md 三层纪律，知识
+  越用越厚。**不用于**云端协作 wiki（Notion / Confluence / Outline / GitHub
+  Wiki）；这些场景走 outline-wiki-management。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -79,10 +78,10 @@ metadata:
 三层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。`raw/` 下子目录自由组织——setup 脚本默认建 `articles/` + `assets/`，但
-   `podcasts/` / `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵
-   `raw/`。所有 wiki 内容都从 raw 推导而来；raw 被用户更新后，在重新 ingest 之前
-   wiki 会与真相暂时脱节（`ingest_diff.py --check-stale` 负责发现这种情况）。
+   对 LLM 只读。**纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
+   raw 为准 4 条）见 `<wiki-root>/CLAUDE.md` §一（被 `setup_wiki.py` 拷到每个 wiki）。
+   `raw/` 下子目录自由组织——setup 脚本默认建 `articles/` + `assets/`，但 `podcasts/` /
+   `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
 2. **`wiki/` 复利资产**——LLM 拥有这一层。人类**不写** wiki，只读 + 提问题。每次
    摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
 3. **`CLAUDE.md` 纪律配置**——把"wiki 怎么写 / 写什么 / 不写什么"的约定集中到
@@ -120,21 +119,19 @@ metadata:
 > `Read <$LLM_WIKI_ROOT>/CLAUDE.md` 拿到本 wiki 的主题名与边界配置。在 wiki 根目录内
 > 工作时它会被 Claude Code 自动加载；别处由 skill 按需读取——**不依赖 symlink**。
 
-1. **raw/ 由用户掌控，LLM 只读**——LLM 从不写/删/移 `raw/` 下文件；用户可随时新增/更新
-   raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
+1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/CLAUDE.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
+   用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 CLAUDE.md 除外，那是 schema）
 3. **CLAUDE.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
-4. **每次写入必更 log.md**——格式 `## [YYYY-MM-DD] <op> | <title>`，op 取值四选一：
-   `ingest` / `query` / `lint` / `setup`（`scripts/lint_wiki.py:34` 与 `scripts/setup_wiki.py:81` 以
-   此为准；其它取值会被 lint 报格式错乱）
-5. **每页必带 YAML frontmatter**——共有必填 `type` / `title` / `created` / `updated` /
-   `tags`；推荐 `description`（一句话，`index.md` 条目摘要从它来）。`type` 取值仅 5 类内容页
-   （`entity` / `concept` / `source` / `comparison` / `synthesis`）；`index.md` / `log.md` 是
-   reserved 文件，自带 `type: index` / `type: log`，lint 跳过它们——不算概念页 `type`。
-   `sources`（raw/ 路径）**非共有**：`source` / `synthesis` 必填、`entity` / `concept` 可选、
-   `comparison` 不用。字段权威清单见 [`references/page-templates.md`](references/page-templates.md)
-   （与 `lint_wiki.py` 同步）
+4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/CLAUDE.md` §一（正则见
+   [`references/page-templates.md`](references/page-templates.md) §7；脚本以
+   `scripts/lint_wiki.py` 为准）
+5. **每页必带 YAML frontmatter**——共有必填 5 字段（`title` / `type` / `created` /
+   `updated` / `tags`），推荐 `description`（一句话，`index.md` 条目摘要从它来）。
+   **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
+   见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
+   同步以该处为准。
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
 7. **index.md 是 wiki 单一入口**——所有非 log 页必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
@@ -223,7 +220,7 @@ setup 脚本做的事：
 
 ### 3. Lint（健康检查）
 
-**触发**："lint wiki" / 定期（如每月一次）/ wiki 规模超过 ~50 页时主动建议。
+**触发**："lint wiki" / 定期（频率阈值见 [lint-checklist.md §六](references/lint-checklist.md#六lint-频率)）/ 大型 wiki 主动建议。
 
 **流程**：
 
@@ -235,7 +232,7 @@ setup 脚本做的事：
    - `wiki/index.md` 没列出的非 log 页面（孤儿）
    - 失效的相对路径引用（`[link](sources/missing.md)` 之类的断链）
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`）
-   - 过期摘要（`updated` 距今 > 90 天且 `type: source`）
+   - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
 3. 脚本输出报告后，**agent 还要做半定性检查**：
    - 矛盾主张（同一概念在两个 page 中说法冲突）
    - 缺失的交叉引用（页 A 提到 B 概念但没链到 `concepts/b.md`）

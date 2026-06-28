@@ -37,6 +37,10 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Set
 
+# log 行格式正则 SSOT 来自 log_format 模块（与 references/page-templates.md §7 同步）
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from log_format import LOG_INGEST_RE  # noqa: E402
+
 # 简易 YAML frontmatter 解析（不依赖 pyyaml，避免 setup 阶段的依赖膨胀）
 # 支持最常见的 key: value 形式（含数组、字符串）
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
@@ -125,7 +129,7 @@ def collect_ingested_from_log(log_path: Path) -> Set[str]:
     if not log_path.is_file():
         return ingested
     for line in log_path.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^## \[\d{4}-\d{2}-\d{2}\] ingest \| (.+)$", line)
+        m = LOG_INGEST_RE.match(line)
         if m:
             ingested.add(m.group(1).strip())
     return ingested

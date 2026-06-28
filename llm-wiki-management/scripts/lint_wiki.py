@@ -29,9 +29,9 @@ from typing import Dict, List, Optional
 # 复用 ingest_diff 的轻量 frontmatter 解析
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ingest_diff import parse_frontmatter_simple  # noqa: E402
+from log_format import LOG_LINE_RE  # noqa: E402
 
 VALID_TYPES = {"entity", "concept", "source", "comparison", "synthesis"}
-LOG_LINE_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$")
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")

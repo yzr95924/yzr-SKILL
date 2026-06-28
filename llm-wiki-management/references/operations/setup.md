@@ -45,10 +45,10 @@ LLM_WIKI_ROOT=~/wiki/llm-systems \
    └── wiki/
        ├── index.md
        ├── log.md
-       ├── entities/
+       ├── comparisons/   # 字母序（与 page-templates.md §二 一致）
        ├── concepts/
+       ├── entities/
        ├── sources/
-       ├── comparisons/
        └── syntheses/
    ```
 

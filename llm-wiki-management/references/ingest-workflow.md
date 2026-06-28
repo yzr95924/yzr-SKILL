@@ -109,13 +109,16 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
 
 ## 四、frontmatter 字段参考（source 页）
 
-> **与 [`page-templates.md#source`](page-templates.md#source) 对齐**——本节只是精简示例，
-> 字段全集与"必填 / 推荐"分级以 `page-templates.md §3` 为准。
+> **权威定义在 [`page-templates.md §一`](page-templates.md#一共有-frontmatter-段) +
+> [`§二.3`](page-templates.md#3-source资料页)**——本节只列 source 页的特化字段注意事项，
+> 不重抄字段全集。
 
-**必填**：`title` / `type=source` / `created` / `updated` / `tags` / `sources`（至少 1 个 raw 路径）
+**source 页特有字段**：
 
-**推荐**：`description`（一句话摘要，`index.md` 条目从此取）/ `authors` / `published` / `url` /
-`venue`（会议 / 期刊名）
+- `sources` 必填——`raw/` 下相对路径数组，至少 1 条
+- 推荐 `authors` / `published` / `url` / `venue`——便于 index 摘要 + 反向溯源
+
+**示例**（完整字段定义见 page-templates.md §二.3）：
 
 ```yaml
 ---
