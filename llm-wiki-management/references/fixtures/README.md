@@ -5,19 +5,26 @@ CLI 实现 wiki 仓时落盘的 `wiki/index.md` / `wiki/log.md` / `wiki/MEMORY/R
 
 ## 用法
 
-CLI 实现时，把 fixture 视为"必须 1:1 复现的目标"——CLI 用自己的 render 函数生成产物，写盘后做字节级比对（`cmp -s`）：
+CLI 实现时,把 fixtures 视为**带占位符的字节模板**,把 `references/canonical/` 视为
+**字节金标准**——CLI 用自己的 render 函数生成产物,写盘后做字节级比对（`cmp -s`）：
 
 ```bash
 # 假设 CLI 把产物写到 $TMP/wiki/
-# fixture 路径 = my_SKILL/llm-wiki-management/references/fixtures/
+# canonical 路径 = my_SKILL/llm-wiki-management/references/canonical/
+# fixture 路径  = my_SKILL/llm-wiki-management/references/fixtures/
 
-cmp -s $TMP/wiki/index.md       <fixture>/index.md.txt
-cmp -s $TMP/wiki/log.md          <fixture>/log.md.txt
-cmp -s $TMP/wiki/MEMORY/README.md <fixture>/memory-readme.txt
-cmp -s $TMP/.gitignore           <fixture>/gitignore.txt
+cmp -s $TMP/wiki/index.md         canonical/index.md
+cmp -s $TMP/wiki/log.md            canonical/log.md
+cmp -s $TMP/wiki/MEMORY/README.md  canonical/memory-readme.md
+cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占位符,直接 fixture 比对
 ```
 
-任何一个不一致 → CLI 实现有 bug，应 fail 退出。
+任何一个不一致 → CLI 实现有 bug,应 fail 退出。
+
+> **术语**：fixtures 是**模板**(带 `{{TOPIC_NAME}}` / `{{SETUP_DATE}}` 占位符),
+> canonical 是**渲染后字面量**(用锚点 mapping `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28"}`
+> 把 fixtures 跑一遍的产物,作为 SKILL 仓字节金标准)。CLI 升级 / fixture 变更时,SKILL 仓 owner
+> 重新生成 canonical/。
 
 ## fixture 与 spec 的关系
 
@@ -43,10 +50,13 @@ cmp -s $TMP/.gitignore           <fixture>/gitignore.txt
 
 ## fixture 取值约定
 
-- 主题名：`Test`
-- 日期：`2026-06-28`
-- 这两个值是**验证占位符替换正确性**的固定锚点；CLI 实现时按用户传入值替换即可，
-  替换后字节级比对应继续成立
+fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
+- 主题名占位符：`{{TOPIC_NAME}}`
+- 日期占位符：`{{SETUP_DATE}}`
+- `.gitignore` 无占位符,直接落盘
+
+CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD>}` 做替换，
+**不**做替换的占位符会在落盘后被 lint 立即报错(spec §11)。
 
 ## CLAUDE.md 占位符（不在 fixture 范围）
 
@@ -65,27 +75,15 @@ CLI 替换后做内容级验证（不能用 fixture 字节比对）：
 1. 4 个 `{{...}}` 占位符**全部被替换**——`grep -c '{{' CLAUDE.md` 应为 0
 2. 生成的 CLAUDE.md §八 "Wiki Spec 版本" 与 SKILL 仓 `metadata.wiki_spec_version` 一致
 
-## 字节级一致性证据
+## 字节级一致性证据(渲染后)
 
-本目录的 index.md.txt / log.md.txt / gitignore.txt 三个 fixture 与原 `scripts/setup_wiki.py`
-（已删除，2026-06-28）的 `render_index_md()` / `render_log_md()` / `render_gitignore()` 函数的
-落盘产物**字节级一致**。memory-readme.txt 是 0.2.0 新增的（spec §5），无历史对照，
-但由 spec §5.1 的字段定义作为权威字面量来源。
+fixtures 是**模板**;CLI 渲染后产物与 `references/canonical/` 下的字面量文件**字节级一致**。
+canonical/ 下的字面量文件是把 mapping 喂 `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28"}` 后
+渲染产物的副本,作为 SKILL 仓字节金标准。
 
-验证脚本（已跑过）：
-
-```python
-from setup_wiki import render_index_md, render_log_md, render_gitignore
-Path("wiki/index.md").write_text(render_index_md("Test", "2026-06-28"), encoding="utf-8")
-Path("wiki/log.md").write_text(render_log_md("Test", "2026-06-28"), encoding="utf-8")
-Path(".gitignore").write_text(render_gitignore(), encoding="utf-8")
-# 三个产物与本目录下同名 .txt 文件 cmp -s 通过
-```
-
-（脚本里 `from setup_wiki import ...` 在 setup_wiki.py 删除后不可用；这条历史证据保留供 review。
-memory-readme.txt 来自 spec §5.1 + 后续手动定稿，无需历史对照。）
+CLI 升级 / fixture 变更时,跑附录 A 自检:用锚点 mapping render → cmp canonical → 不一致 = CLI / fixture 有 bug。
 
 ## 清理时机
 
-`scripts/setup_wiki.py` 已删除，本目录是 CLI 实现唯一能参照的字节标准。**不要删除本目录**——
-这是"出生形态"的最后一道防线。
+`canonical/` 下的字面量文件是 SKILL 仓的**字节金标准**,`fixtures/` 是**带占位符的字节模板**。
+**不要删除**任一目录——前者是字节防线的最后一道,后者是占位符替换的源材料。

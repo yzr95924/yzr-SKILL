@@ -2,8 +2,8 @@
 title: "MEMORY"
 type: memory
 tags: [memory]
-created: {{SETUP_DATE}}
-updated: {{SETUP_DATE}}
+created: 2026-06-28
+updated: 2026-06-28
 ---
 
 # MEMORY

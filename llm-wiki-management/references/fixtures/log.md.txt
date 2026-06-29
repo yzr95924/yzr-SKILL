@@ -1,9 +1,9 @@
 ---
-title: "Test Log"
+title: "{{TOPIC_NAME}} Log"
 type: log
 tags: [log]
-created: 2026-06-28
-updated: 2026-06-28
+created: {{SETUP_DATE}}
+updated: {{SETUP_DATE}}
 ---
 
-## [2026-06-28] setup | Initial scaffold by llm-wiki-management
+## [{{SETUP_DATE}}] setup | Initial scaffold by llm-wiki-management

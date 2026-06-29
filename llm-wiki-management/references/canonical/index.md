@@ -1,13 +1,13 @@
 ---
-title: "{{TOPIC_NAME}} Index"
+title: "Test Index"
 type: index
 okf_version: "0.1"
 tags: [index]
-created: {{SETUP_DATE}}
-updated: {{SETUP_DATE}}
+created: 2026-06-28
+updated: 2026-06-28
 ---
 
-# {{TOPIC_NAME}} Wiki
+# Test Wiki
 
 > 本 wiki 由 LLM 维护，用户只读 + 提供 raw 资料 + 提问题。
 > Schema 见 [`../CLAUDE.md`](../CLAUDE.md)。

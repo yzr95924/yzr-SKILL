@@ -138,6 +138,8 @@ metadata:
    `updated` / `tags`），推荐 `description`（一句话，`index.md` 条目摘要从它来）。
    **5 字段是 OKF §9 "字段齐全性" 与 lint 校验一致性的最小交集**——少于 5 字段会让
    "抓腐烂"判定（stale / orphan）失效，多于 5 字段 OK 但不强制。
+   **例外**：`wiki/index.md` / `wiki/log.md` / `wiki/MEMORY/README.md` 是 **4 字段必填**
+   （省 `description`）——权威定义见 [spec §3 / §4 / §5.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
    同步以该处为准。

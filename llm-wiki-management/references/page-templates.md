@@ -2,6 +2,10 @@
 
 按 `type` 分 5 种。**所有页面**共有 frontmatter 段（见下）+ 类型特定字段 + 自由正文。
 
+> **本章顺序说明**：下面按**教学序**列出（基础 → 综合：entity → concept → source
+> → comparison → synthesis）。spec 强制**字母序**用于目录结构与 `type` 取值表——
+> 见 [wiki-spec.md §1 / §9](wiki-spec.md)。
+
 ## 目录
 
 - [一、共有 frontmatter 段](#一共有-frontmatter-段)
