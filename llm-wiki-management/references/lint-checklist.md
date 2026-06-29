@@ -25,6 +25,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 - 在 `<wiki-root>/` 跑 `git status raw/`；有改动 → 报告
 - **严重性：error**——任何 raw/ 改动都是违反 skill 纪律
+- **前提**：仅 wiki 启用 git 时执行；未启用时脚本自动跳过——没有 git 就没有"未提交改动"概念
 
 ### 2. frontmatter 完整性
 
@@ -136,7 +137,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 1. 整理报告（按严重性排序：error > warn > info）
 2. **询问用户先修哪些**——不要一次全修（容易回退或引入新问题）
 3. 修完后**重新跑 lint 验证**——不要带着 fix 没验过的状态前进
-4. 重大修复 commit 时建议加 `lint: <summary>` 前缀
+4. 若启用 git，重大修复 commit 时建议加 `lint: <summary>` 前缀
 
 ## 六、lint 频率
 

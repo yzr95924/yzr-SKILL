@@ -159,3 +159,18 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 - [[memory-synced-to-skill-source]]——本规则的"前情提要"版（旧版只说"同步"，没强调优先级 + 没解释 npx 分发根因）
 - [[skill-source-vs-runtime-vendor]]——vendor 副本的物理结构
+
+
+
+### paper-wiki 整合：llm-wiki-management 只管本地，远端发布独立成 skill
+
+**Why：** 2026-06-29 分析"llm-wiki-management 管理 paper-wiki（参考 gemini-paper-summary）"得出。llm-wiki-management 的 description 自己声明"不用于云端 wiki，走 outline-wiki-management"——把发布塞进它会违反自己的触发边界，糊掉"本地复利"身份。发布是跨 skill 编排胶水（读本地 + 驱动 outline MCP + 跟 outline_id + 图上传），通用性也超出 paper-wiki，该独立。
+
+**How to apply（后续真要动手时）：**
+
+- **llm-wiki-management 永远不碰远端**——加 paper 支持时只做本地：raw 放 gemini"全量抽取"（非 PDF、非压缩 summary）、source 页是多轮对话蒸馏出的成熟总结、两阶段（处理 PDF → 多轮蒸馏）
+- **gemini-paper-summary 扩 `--full` 模式**（复用图片抽取机制、去字数压缩）产出全量抽取当 raw 底座
+- **远端发布 / outline 同步 / outline_id 跟踪 / 图上传 → 独立 publish skill**，别塞进 llm-wiki-management；**别现在建**，先在 paper-wiki profile 里跑稳再抽
+- 这条是设计决策记录，**尚未落地**；落地时必须写进对应 SKILL 源（npx 分发不带 MEMORY）
+
+**正文：** [`paper-wiki-integration-design.md`](./paper-wiki-integration-design.md)

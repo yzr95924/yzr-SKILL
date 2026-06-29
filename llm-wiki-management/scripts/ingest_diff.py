@@ -97,21 +97,43 @@ def parse_frontmatter_simple(text: str) -> Dict:
     return result
 
 
+# ingest 单元：raw/ 下被视为"可摄取素材"的扩展名白名单。
+# 文本素材（md / txt / markdown）走 raw/{articles,clippings,papers,...}/
+# 等任意子目录，rglob 递归扫；raw/assets/ 整棵子树跳过（用户放图片 / 二进制附件的地方，
+# LLM 不该管它们是否"已摄取"——它们本身就是 raw 终态，不应被 source 页引用）。
+INGEST_GLOBS = ("*.md", "*.markdown", "*.txt")
+
+
 def collect_raw_files(raw_root: Path) -> List[Path]:
-    """递归收集 raw/ 下所有文件（排除 .git / .DS_Store / 隐藏文件）"""
+    """递归收集 raw/ 下可摄取的文本素材（排除 assets/ 子树与隐藏 / 系统文件）。
+
+    为什么不收 raw/assets/：assets/ 是用户放图片 / 附件 / 二进制 PDF 的地方，
+    引用关系走 raw/{articles,...} 下的 .md（md 内用相对路径链图）。把 png
+    报为 untracked 会污染 ingest_diff 的信号。
+    """
     if not raw_root.is_dir():
         return []
     files = []  # type: List[Path]
-    for p in raw_root.rglob("*"):
-        if not p.is_file():
-            continue
-        # 排除隐藏文件 / 系统文件
-        name = p.name
-        if name.startswith("."):
-            continue
-        if name in (".DS_Store", "Thumbs.db"):
-            continue
-        files.append(p)
+    seen = set()  # type: Set[str]
+    # assets/ 子树直接跳过（不去 glob 它）
+    skip_dirs = {raw_root / "assets"}
+    for pattern in INGEST_GLOBS:
+        for p in raw_root.rglob(pattern):
+            if not p.is_file():
+                continue
+            # 任一祖先在 skip_dirs 集合里就跳过
+            if any(parent in skip_dirs for parent in p.parents):
+                continue
+            name = p.name
+            if name.startswith("."):
+                continue
+            if name in (".DS_Store", "Thumbs.db"):
+                continue
+            key = str(p)
+            if key in seen:
+                continue
+            seen.add(key)
+            files.append(p)
     return files
 
 

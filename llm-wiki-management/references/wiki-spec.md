@@ -56,7 +56,8 @@
 - `raw/articles/` 与 `raw/assets/` 是默认占位；用户在 wiki 仓内可自由新增其他子目录
   （如 `podcasts/` / `papers/` / `clippings/`），CLI 不必预创建
 - `index.md` / `log.md` / `MEMORY/README.md` 是 `wiki/` 下的文件，不是子目录
-- `comparisons/` 等 5 个内容页子目录在初始化时为空目录（保留 `git add` 以便后续可提交）
+- `comparisons/` 等 5 个内容页子目录在初始化时为空目录——空目录对纯目录树 wiki 无副作用；
+  仅当用户 `--git` opt-in 时，CLI 在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7）
 
 ## §2 CLAUDE.md
 
@@ -199,15 +200,27 @@ CLI 必须生成一份最小 `.gitignore`，至少包含以下忽略规则：
 
 **必须不**忽略：`wiki/`、`raw/`、`CLAUDE.md`、`.gitignore` 自身。
 
-## §7 Git 初始化
+- `.gitignore` **无论是否 opt-in git 都生成**：无 git 时它是无害的空操作，且便于后续补 git；
+  不因"未启用 git"而省略本文件。
 
-- 若 `<wiki-root>/.git` 不存在：CLI 顺序执行：
+## §7 Git 初始化（opt-in，默认跳过）
+
+> **立场**：wiki **不依赖 git 即可工作**——默认落盘为**纯目录树**。git 仅在用户显式 opt-in
+> （`--git`）时启用，用于版本控制 / history / diff。即便不启用 git，后续所有 ingest / query /
+> lint 仍正常运行（lint 的 raw/ 不可变性检查在无 git 时自动跳过——没有 git 就没有"未提交改动"概念）。
+
+- **默认（无 `--git`）**：CLI **完全不碰 git**——不 init、不 add、不 commit。wiki 作为纯目录树落盘。
+- **opt-in（`--git`）**：CLI 先做前置检查，**任一**不满足即**跳过 git 并打印提示（不报错，不阻断落盘）**：
+  1. `git` 二进制可用——不可用时提示"未找到 git，已跳过；wiki 仍可用"
+  2. `<wiki-root>` **不在**已有 git 仓内——已在仓内时提示"已在 git 仓内，跳过 init；如需提交请自行 add+commit"
+- 前置检查通过后，CLI 顺序执行：
   1. `git init`
   2. `git symbolic-ref HEAD refs/heads/main`（默认 main 分支）
   3. 检查全局 `git config user.email` / `user.name`，未配则 local 配占位值（`wiki@local` / `LLM Wiki`）
-  4. `git add .`
-  5. `git commit -m "Initial wiki scaffold"`
-- 若已是 git 仓：**跳过** init 步骤，打印提示让用户手动 add + commit；**不得**误调 `git init`
+  4. 为 5 个空内容页子目录放 `.gitkeep`（空目录才能被 `git add`，见 §1）
+  5. `git add .`
+  6. `git commit -m "Initial wiki scaffold"`
+- **不得**对已存在的 git 仓误调 `git init`。
 
 ## §8 拒绝条件（强约束）
 
@@ -321,5 +334,6 @@ CLI 在生成完成后，可执行以下验证：
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| 0.3.0 | 2026-06-29 | git 初始化改为 opt-in（§7）：默认落盘纯目录树，仅 `--git` 时才 init + commit；§1 空目录 `.gitkeep` 仅 opt-in 时放；§6 `.gitignore` 无条件生成 |
 | 0.2.0 | 2026-06-28 | 新增 §5 `wiki/MEMORY/` 目录（agent 持久化记忆）；type 取值新增 reserved `memory`；fixtures 新增 `memory-readme.txt` |
 | 0.1.0 | 2026-06-28 | 初始版本：原 `setup_wiki.py` 行为字面量化为 spec |

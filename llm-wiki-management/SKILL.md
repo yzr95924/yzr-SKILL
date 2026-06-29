@@ -10,8 +10,8 @@ description: 用本 skill 维护本地、单用户的复利型知识库（遵循
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-06-28
-  wiki_spec_version: 0.2.0
+  last_modified: 2026-06-29
+  wiki_spec_version: 0.3.0
 ---
 
 # LLM Wiki Management
@@ -48,7 +48,7 @@ metadata:
 - **没有 raw/ 资料 + 没有累积需求**——skill 的价值在"复利"，一次性整理用不上
 - **需强结构化数据库**（带 schema / SQL / 全文检索后端）——wiki 规模 ≤ 数百页时
   index.md 足够；超过该规模再考虑迁移到专用工具
-- **多人实时协作**——本 skill 假设单人使用（git commit 节奏就是节奏）
+- **多人实时协作**——本 skill 假设单人使用（多账号实时协同走云端 wiki）
 
 ## 输入 / 输出
 
@@ -107,12 +107,16 @@ metadata:
 ### 为什么不用云端
 
 `outline-wiki-management` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
-权限管理。本 skill 走**本地 + git**，原因：
+权限管理。本 skill 走**本地文件**（git 为可选 opt-in），原因：
 
 - **隐私**——研究 / 读书 / 个人思考不需要上云
-- **版本控制**——git 自带 history、diff、branch
 - **可移植**——纯 Markdown + 文件，不绑任何平台
 - **无外部依赖**——不需要 OAuth / API key / 网络
+- **版本控制可选**——git（setup 时 `--git` 启用）提供 history / diff；不启用也不影响
+  ingest / query / lint（详见 [`wiki-spec.md` §7](references/wiki-spec.md)）
+
+> **立场**：wiki **不依赖 git 即可工作**——默认落盘为纯目录树，git 仅在 setup 时
+> 用户显式 opt-in（`--git`）才启用。
 
 两套 skill **不冲突**：本地研究沉淀 → 云端分享，方向是单向的。
 
@@ -149,11 +153,11 @@ metadata:
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件（LLM 只读；用户可改，改后由 ingest 重新消化）
-- **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删走 git
+- **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时 `git rm`）
 - **不**绕过 `CLAUDE.md` 自创约定——若 CLAUDE.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
 - **不**忽略 lint 报告——长期不 lint 的 wiki 一定会腐烂
-- **不**用 git 操作破坏 raw/ 不可变性（不要 `git clean` / `git checkout -- raw/`）
+- **不**用 git 操作破坏 raw/ 不可变性（不要 `git clean` / `git checkout -- raw/`；仅 wiki 启用 git 时适用）
 - **不**对 wiki 内文件用 Read 之外的工具做"自动"修改——所有修改走 Edit / Write 并
   走 schema 约定
 
@@ -188,7 +192,7 @@ workspace wiki init "LLM Systems"
 #   - wiki/index.md（5 段空类别占位 + okf_version: "0.1"）
 #   - wiki/log.md（首条 setup 条目）
 #   - .gitignore（忽略 OS / Obsidian / 临时文件）
-#   - git init + 首次 commit
+#   - git：默认跳过；用户 --git opt-in 时才 git init + 首次 commit（见 wiki-spec §7）
 #   - 拒绝已存在的 wiki 仓（防误覆盖）
 
 # 2. 把原始资料放进 raw/（用户手动 / Obsidian Web Clipper / 浏览器下载）
@@ -230,7 +234,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 同步相关 `entities/` / `concepts/` 页面（追加"参考资料"段，不重写）
    - 同步 `wiki/index.md`（追加 source 条目 + 视情况更新 entity/concept 条目）
    - 追加 `log.md` 条目：`## [YYYY-MM-DD] ingest | <source title>`
-3. **commit**（建议但非必须）——用户 / agent 决定 commit 节奏
+3. **commit**（建议但非必须）——仅当 wiki 启用了 git 时；用户 / agent 决定 commit 节奏
 
 详细模板与 frontmatter 字段见 [`references/ingest-workflow.md`](references/ingest-workflow.md)
 + [`references/page-templates.md`](references/page-templates.md)。
@@ -260,7 +264,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 1. 跑 `scripts/lint_wiki.py <wiki-root>` 做 deterministic 检查
 2. 脚本覆盖（详见 [`references/lint-checklist.md`](references/lint-checklist.md)）：
-   - `raw/` 是否被改（`git status raw/`）
+   - `raw/` 是否被改（启用 git 时 `git status raw/`；未启用时脚本自动跳过——没有 git 就没有"未提交改动"概念）
    - 缺 frontmatter 的页面
    - 缺 `type` / `sources` / `updated` 字段的页面
    - `wiki/index.md` 没列出的非 log 页面（孤儿）
@@ -315,7 +319,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 2. 用户调 workspace CLI（具体命令以 CLI 文档为准）：
    workspace wiki init "LLM Systems" --root ~/wiki/llm-systems
    → CLI 按 wiki-spec.md 落盘目录 + CLAUDE.md + index.md + log.md + .gitignore
-   → CLI git init + 首次 commit
+   → CLI 默认不建 git（用户 --git opt-in 时才 init + commit）
 3. LLM agent 接管后：
    → 读 ~/wiki/llm-systems/CLAUDE.md 确认主题名替换正确
    → 验证 wiki/index.md / wiki/log.md 存在且 frontmatter 完整
@@ -341,7 +345,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 存在：追加"参考来源"段
 5. 更新 wiki/index.md：sources/ 段加一条；concepts/ 段同步
 6. 追加 log.md：## [2026-06-24] ingest | Attention Is All You Need
-7. 建议 git commit
+7. 若启用 git，建议 commit
 ```
 
 ### 样例三：query 一个跨实体问题
@@ -373,7 +377,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 ```text
 1. python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems
 2. 脚本报告：
-   - raw/ 干净（git status clean）
+   - raw/ 干净（启用 git 时 git status clean；未启用时此项自动跳过）
    - 3 个页面缺 updated 字段
    - 1 个失效引用：concepts/transformer.md 链到 sources/bigtable.md 但后者不存在
    - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist §二.7](references/lint-checklist.md#7-过期摘要)），建议复查
@@ -416,9 +420,28 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 | Skill | 场景 | 介质 |
 | --- | --- | --- |
-| **本 skill（llm-wiki-management）** | 个人 / 研究的本地复利型知识库 | 本地 Markdown + git |
+| **本 skill（llm-wiki-management）** | 个人 / 研究的本地复利型知识库 | 本地 Markdown（git 可选 opt-in） |
 | `outline-wiki-management` | 团队 / 协作 / 外部分享的云端 wiki | Outline Wiki MCP |
 | `design-doc-edit` | 单篇设计文档写作（含强制章节骨架） | 单文件 Markdown |
 | `gemini-paper-summary` | 单篇论文的结构化摘要（含视觉抽图） | 单文件 Markdown + 图片 |
 
-可串行：**gemini-paper-summary** 抽图 → 本 skill **ingest** 归档到 wiki → `outline-wiki-management` 分享对外
+可串行：**gemini-paper-summary** 抽图 → 本 skill **ingest** 归档到 wiki →（未来独立 publish skill）→ `outline-wiki-management` 分享对外
+
+### Paper 域：论文主题 wiki 的本地工作流
+
+> **本 skill 永远不推远端**。本节只规定**本地**的论文域约定；把论文发布到云端
+> / Outline 走**未来独立的 publish skill**（与本 skill 解耦，跨 skill 编排胶水
+> 不归本 skill 负责）。
+
+**触发条件**：用户想把一批论文沉淀到本地 wiki——`gemini-paper-summary` 抽 PDF
+是上游、本 skill 做归档 + 多轮蒸馏；不愿入 wiki 的临时读论文不适用本节。
+
+**权威定义**：[`references/paper-wiki-profile.md`](references/paper-wiki-profile.md)——
+含 raw 身份（gemini "全量抽取"，非 PDF / 非压缩 summary）、source 页生命周期
+（quick 初稿 → 多轮 refine 成熟）、新增 `refine` log op、与 `gemini-paper-summary`
+的职责切分、若干反模式。**本节不重抄**——profile 是 SSOT，profile 变时 SKILL.md
+同步引链接即可。
+
+**为什么单独成 profile 不污染通用 SKILL.md**：论文域的"raw = 全量抽取（贵读
+一次、文本层反复榨取）"是 Karpathy "复利"在单篇论文内部的重演，不该绑到通用
+wiki 规则上；profile 在通用规则上做变体，SSOT 仍干净。
