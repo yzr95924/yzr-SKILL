@@ -20,9 +20,9 @@ metadata:
 搜 / 读 / 写 / 编辑的具体文档操作，分别由 [`outline-wiki-search`](../outline-wiki-search/SKILL.md)
 和 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 负责。
 
-完成本 skill 的工作后，配置信息写到
-`~/.claude.json#projects.<projectPath>.mcpServers.outline`，agent 在当前项目
-内就能调 outline MCP 工具；之后所有 outline 文档操作都由另外两个 skill 接管。
+完成本 skill 的工作后，配置信息按所选 scope 落盘（`project` 默认 → 仓库根
+`.mcp.json`；`user` / `local` → `~/.claude.json`），agent 在当前项目内就能调
+outline MCP 工具；之后所有 outline 文档操作都由另外两个 skill 接管。
 
 ## 何时使用 / 不使用
 
@@ -65,8 +65,10 @@ metadata:
 
 ### 输出
 
-- **配置写入**：`~/.claude.json#projects.<projectPath>.mcpServers.outline`
-  （项目级 scope，`claude mcp add --scope project` 等价命令）
+- **配置写入**（按 scope 落盘）：
+  - `project`（默认）→ 仓库根 `.mcp.json`（可随 git 共享给团队）
+  - `user` → `~/.claude.json#mcpServers`（本机所有项目）
+  - `local` → `~/.claude.json#projects.<projectPath>.mcpServers`（仅本机本项目）
 - **首次进入项目**：Claude Code 弹一次 trust prompt，按提示批准即可——每个
   项目只弹一次
 - **重启 Claude Code 当前会话**（硬约束）后，`/mcp` 列表里能看到
@@ -108,6 +110,8 @@ metadata:
    - endpoint 类型（官方云 / 自托管）
    - endpoint 实际域名（子域名或自托管域名）
    - 鉴权材料（API key 或 OAuth）
+   - 配置范围 scope（`project` 默认 / `user` / `local`；详见
+     [`references/onboarding.md`](references/onboarding.md) 的 Q3）
 3. **调用配置脚本**：把收集到的值放到环境变量，调 `scripts/configure_mcp.py`
 4. **验证注册**：脚本内部跑 `claude mcp get outline` 确认 `Status: ✓ Connected`
 5. **提示用户重启**：打印重启后验证清单，**不要**让脚本自己重启（会破坏 session）
@@ -132,14 +136,16 @@ python3 outline-wiki-setup/scripts/configure_mcp.py
 OAuth 鉴权或希望手动跑：直接 `python3 outline-wiki-setup/scripts/configure_mcp.py`
 走交互模式，脚本会逐项提示。
 
-### Scope 切换（可选）
+### Scope 选择
 
-默认 `project` scope（仅当前项目生效）；可选：
+配置范围（scope）决定配置写到哪里、对谁可见。交互模式用脚本的
+`choose_scope()` 三选一；agent 驱动通过 Q3（见
+[`references/onboarding.md`](references/onboarding.md)）收集后用
+`OUTLINE_MCP_SCOPE` 传入；非交互模式直接设 `OUTLINE_MCP_SCOPE`：
 
-- `user`：用户级，所有项目共享
-- `local`：项目级 + 不进 git（个人偏好）
-
-通过环境变量切换：`OUTLINE_MCP_SCOPE=user` 或 `OUTLINE_MCP_SCOPE=local`。
+- `project`（默认）：仅当前项目，落仓库根 `.mcp.json`，可随 git 共享给团队
+- `user`：本机所有项目共享，落 `~/.claude.json#mcpServers`
+- `local`：仅本机 + 当前项目，落 `~/.claude.json#projects.<projectPath>.mcpServers`，不进 git
 
 ### 受控入口约束
 

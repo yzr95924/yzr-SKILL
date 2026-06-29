@@ -1,8 +1,13 @@
-"""配置 Outline Wiki MCP 服务到 Claude Code（默认项目级，一次配置仅当前项目生效）。
+"""配置 Outline Wiki MCP 服务到 Claude Code（默认 project scope）。
 
-通过调用官方 `claude mcp add` CLI，把 server 注册到 Claude Code 的
-项目级配置（`~/.claude.json#projects.<projectPath>.mcpServers`），仅在
-当前项目下可见。首次进入项目时若弹出 trust prompt，按提示批准即可——
+通过调用官方 `claude mcp add` CLI，按所选 scope 注册 server：
+
+- project（默认）→ 仓库根 `.mcp.json`，可随 git 共享给团队
+- user           → `~/.claude.json#mcpServers`，本机所有项目可见
+- local          → `~/.claude.json#projects.<projectPath>.mcpServers`，仅本机本项目
+
+交互模式下用 `choose_scope()` 三选一；非交互模式从 `OUTLINE_MCP_SCOPE`
+取，默认 project。首次进入项目时若弹出 trust prompt，按提示批准即可——
 该提示每个项目只弹一次。
 
 支持两种调用方式：
@@ -90,6 +95,31 @@ def choose_auth_method() -> str:
             return "oauth"
         if choice in ("2", "apikey", "api_key"):
             return "apikey"
+        print("无效选择，请重试。")
+
+
+def choose_scope() -> str:
+    """让用户在 project / user / local 三个 scope 之间选，默认 project。
+
+    三者落盘位置与可见范围（对应 `claude mcp add --scope`）：
+
+    - project → 仓库根 `.mcp.json`，可随 git 共享给团队（本脚本默认）
+    - user    → `~/.claude.json#mcpServers`，本机所有项目可见，不落盘到项目
+    - local   → `~/.claude.json#projects.<projectPath>.mcpServers`，仅本机本项目
+    """
+    print("")
+    print("配置范围 (Scope):")
+    print("  1) project —— 仅当前项目，落仓库根 .mcp.json（默认，可随 git 共享）")
+    print("  2) user    —— 本机所有项目共享，写 ~/.claude.json（不落盘到项目）")
+    print("  3) local   —— 仅本机 + 当前项目，写 ~/.claude.json 项目段（不进 git）")
+    while True:
+        choice = prompt("选择 [1/2/3]", "1").lower()
+        if choice in ("1", "project"):
+            return "project"
+        if choice in ("2", "user"):
+            return "user"
+        if choice in ("3", "local"):
+            return "local"
         print("无效选择，请重试。")
 
 
@@ -475,10 +505,7 @@ def run_interactive() -> int:
             print("错误: API key 鉴权方式下 key 必填。", file=sys.stderr)
             return 1
 
-    scope = prompt("Scope [user/local/project]", DEFAULT_SCOPE).lower()
-    if scope not in ALLOWED_SCOPES:
-        print(f"错误: Scope 必须是 {ALLOWED_SCOPES} 之一。", file=sys.stderr)
-        return 1
+    scope = choose_scope()
 
     print("")
     print("正在测试连接...")
