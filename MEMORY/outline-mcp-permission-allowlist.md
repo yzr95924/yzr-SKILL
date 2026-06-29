@@ -21,7 +21,7 @@ metadata:
   - `move_document` / `delete_document`
   - `update_collection` / `delete_collection`
 - 加完后用 `python3 -c "import json; json.load(open('.../settings.local.json'))"` 验 JSON 没坏
-- **退路**：被拦时改用 outline REST API 走 curl + API key，POST `/api/documents.update`（见 `outline-wiki-management/SKILL.md` §图片插入 工作流）
+- **退路**：被拦时改用 outline REST API 走 curl + API key，POST `/api/documents.update`（见 `outline-wiki-upload/SKILL.md` §工作流/步骤/图片插入/文件附件工作流）
 - 修改 `settings.local.json` 是 mid-session 即时生效（不像 `~/.claude/settings.json` 那种系统级配置需要重启）；本次 session 加完后立即生效，`update_document` 后续调用未再被拦
 - 关联：[[skill-source-vs-runtime-vendor]]——MCP 工具白名单属于"运行时 vendor 副本的另一类配置"，同样是 SSOT 思维：白名单只该写在 `settings.local.json` 一处，不要散落在多处
 

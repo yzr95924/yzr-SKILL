@@ -4,7 +4,7 @@
 > 也可直接复制到 `google-genai` SDK 调用中。
 > 维护规则：模板变更需要同步更新 SKILL.md "输出"小节里的章节骨架。
 >
-> 风格基线与 outline-wiki-management 保持一致：`*` bullet / `==高亮==` /
+> 风格基线与 outline-wiki-upload 保持一致：`*` bullet / `==高亮==` /
 > ` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120。详细约定见 SKILL.md 核心原则 #9。
 
 ## 默认模板（academic）
@@ -171,7 +171,7 @@ inline element 撑成"长句"不易扫读。
   删除**该图引用 + 剥掉"如图 N 所示"等呼应句里的图编号。如果你的总结里
   完全不提这张图，反而更干净。**不要**为了凑数硬引不把握的图。
 
-### 风格约定（与 outline-wiki-management / Obsidian 保持一致）
+### 风格约定（与 outline-wiki-upload / Obsidian 保持一致）
 
 1. **bullet marker**: 一律用 `*`，**不要**用 `-` 或 `+`
 2. **高亮术语**: 关键概念 / 参数 / 状态用 `==text==`（默认色）

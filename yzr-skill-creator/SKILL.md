@@ -5,7 +5,7 @@ description: |
     从头创建新 skill、改进/迭代现有 skill、评估 skill 性能、优化某个已有 skill 的 description（触发描述），以及校验某个已有 skill 是否满足写作原则
   when to use:
     创建 skill（"帮我做一个 X 的 skill"、"把这段流程沉淀成 skill"）
-    改进或迭代现有 skill（"改进 outline-wiki-management 这个 skill"）
+    改进或迭代现有 skill（"改进 outline-wiki-upload 这个 skill"）
     单独优化某个已有 skill 的 description / 触发准确率（“帮我优化 XX 的描述，让它该触发时触发、不该触发时不触发”）——这是独立入口，不需要先创建或改进那个 skill
     单独校验某个已有 skill 是否满足写作原则（“帮我检查 XX skill 写得规不规范 / 有没有散弹式散落、口径冲突”）——把写作原则当 checklist 逐条审计，只报告不改
     运行评估 / 基准测试
@@ -24,7 +24,7 @@ metadata:
 用户进入本 skill 通常属于以下四种之一。先判断用户属于哪一种，再介入：
 
 1. **创建新 skill** —— 从零做一个 skill（“帮我做一个关于 X 的 skill” / “把这段流程沉淀成 skill”）
-2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（“改进 outline-wiki-management 这个 skill”）
+2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（“改进 outline-wiki-upload 这个 skill”）
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description / 触发准确率，不动 skill 正文（“帮我优化 XX 的描述，让它该触发时触发”）。**这是独立入口，不需要先创建或改进那个 skill**；脚本 `run_loop.py` / `improve_description.py` 原生支持指向任意 skill 目录，详见文末「描述优化（独立入口）」一节
 4. **校验某个 skill 的写作原则（独立入口）** —— 不动手改，拿写作原则当 checklist 审计某个已有 skill 符合多少、违反哪些（“帮我检查 XX skill 写得规不规范 / 有没有散弹式散落、口径冲突”）。**只报告、不改写**；要修让用户点头。详见文末「原则校验（独立入口）」一节
 

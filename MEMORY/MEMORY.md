@@ -54,7 +54,7 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 ### SKILL 描述类修改：默认同步仓库源
 
-**Why：** 本仓库是 SKILL 的"源 / 描述"载体（`outline-wiki-management/`、`gemini-paper-summary/`、`yzr-skill-creator/`、`design-doc-edit/` 等顶层子目录即各 skill 源），而 Claude Code 加载的是 `.claude/skills/<name> -> ../../.agents/skills/<name>` 的软链（vendored 副本，被 `.gitignore` 排除）。两套文件**不同 inode**——`Edit` 默认改的是 vendored 副本，不在 git 跟踪范围内，会随下次 `npx skills` 同步被覆盖。
+**Why：** 本仓库是 SKILL 的"源 / 描述"载体（`outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `gemini-paper-summary/` / `yzr-skill-creator/` / `design-doc-edit/` 等顶层子目录即各 skill 源），而 Claude Code 加载的是 `.claude/skills/<name> -> ../../.agents/skills/<name>` 的软链（vendored 副本，被 `.gitignore` 排除）。两套文件**不同 inode**——`Edit` 默认改的是 vendored 副本，不在 git 跟踪范围内，会随下次 `npx skills` 同步被覆盖。
 
 **How to apply：**
 
@@ -62,7 +62,7 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 - 默认是前者（持续维护的代码），改完后**必须**同步到仓库源——通常用 `cp` 把 vendored 副本拷回源（`cp .claude/skills/<name>/SKILL.md <name>/SKILL.md`），用 `git status` / `git diff --stat` 确认
 - 一次只改一个 skill，不要顺手把 vendored 里其他无关改动一起带回去——`cp` 之前先 `diff` 一遍
 - 涉及仓库源里 `Edit` 不到的字符（如大段重写、含特殊符号的）也可以走 `cp`，但**只覆盖源里未改的部分**；源已被别处修改时必须 `Edit` 走精准 patch，否则会丢别人的改动
-- 反例：上次的 SKILL 修改我只在 `.claude/skills/outline-wiki-management/` 改了，没主动同步到 `outline-wiki-management/`，被用户提醒才补；这就是这条规则要堵的洞
+- 反例：上次的 SKILL 修改我只在 `.claude/skills/outline-wiki-management/` 改了，没主动同步到源仓库，被用户提醒才补；这就是这条规则要堵的洞（2026-06-29 拆 3 skill 后该路径已不存在，仅作历史反例保留）
 
 
 
@@ -132,11 +132,11 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 1. "本代码仓是一个管理 SKILL 的代码仓，MEMORY 和 vendor 目录下的内容，原没有实际对应 SKILL 目录的内容重要，优先保证对 SKILL 效果影响的内容都同步到了对应文件夹"
 2. **"这些 SKILL 的目录后面用户会通过 npx skills 安装，安装时不会携带 MEMORY 的记录信息，所以需要确保 MEMORY 中影响 SKILL 效果的内容，都已经同步到了对应文件夹"**
 
-**根因**：用户最终通过 `npx skills add` 把 `gemini-paper-summary/` / `outline-wiki-management/` 等子目录分发出去，**分发包只含 SKILL 目录内容**（`SKILL.md` + `assets/` + `scripts/` + `references/`），**不含** `MEMORY/` 也不含仓库的"为什么"记录。**所以 MEMORY 里的"影响 SKILL 效果"的内容如果不显式落到 SKILL 目录，npx 装出去的版本就会丢这些规则。**
+**根因**：用户最终通过 `npx skills add` 把 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` 等子目录分发出去，**分发包只含 SKILL 目录内容**（`SKILL.md` + `assets/` + `scripts/` + `references/`），**不含** `MEMORY/` 也不含仓库的"为什么"记录。**所以 MEMORY 里的"影响 SKILL 效果"的内容如果不显式落到 SKILL 目录，npx 装出去的版本就会丢这些规则。**
 
 **优先级排序**（从高到低）：
 
-1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `outline-wiki-management/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，Claude Code 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
+1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，Claude Code 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
 2. **MEMORY**（`MEMORY/MEMORY.md` + 正文同级）—— 索引 + "为什么 + 边界规则"，**没有**实际运行效果，**也不会被 npx 分发**；只承载"为什么"注解，正文必须落到 SKILL 源
 3. **vendor**（`.agents/skills/<name>/` + `.claude/skills/<name>` 软链）—— 当前 session 加载副本，**派生**于 SKILL 源；同样**不被 npx 分发**（仅本机 session 用）
 
@@ -164,7 +164,7 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 ### paper-wiki 整合：llm-wiki-management 只管本地，远端发布独立成 skill（2026-06-29 decoupling refactor 后重写）
 
-**Why：** 2026-06-29 分析"llm-wiki-management 管理 paper-wiki（参考 gemini-paper-summary）"得出。llm-wiki-management 的 description 自己声明"不用于云端 wiki，走 outline-wiki-management"——把发布塞进它会违反自己的触发边界，糊掉"本地复利"身份。发布是跨 skill 编排胶水（读本地 + 驱动 outline MCP + 跟 outline_id + 图上传），通用性也超出 paper-wiki，该独立。**2026-06-29 decoupling refactor 后**：耦合方向归零——`llm-wiki-management → gemini-paper-summary`，producer 不假设有 consumer。
+**Why：** 2026-06-29 分析"llm-wiki-management 管理 paper-wiki（参考 gemini-paper-summary）"得出。llm-wiki-management 的 description 自己声明"不用于云端 wiki，走 outline-wiki-upload / outline-wiki-search"——把发布塞进它会违反自己的触发边界，糊掉"本地复利"身份。发布是跨 skill 编排胶水（读本地 + 驱动 outline MCP + 跟 outline_id + 图上传），通用性也超出 paper-wiki，该独立。**2026-06-29 decoupling refactor 后**：耦合方向归零——`llm-wiki-management → gemini-paper-summary`，producer 不假设有 consumer。
 
 **How to apply：**
 

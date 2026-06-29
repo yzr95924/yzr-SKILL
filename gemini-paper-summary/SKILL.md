@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到 raw 端目录布局的场景（产物路径：`raw/papers/SLUG.quick.md` + `raw/papers/SLUG.full.md` + `raw/assets/SLUG/fig-NN.png`，其中 SLUG 是 kebab-case 论文标识），单次调用结束 raw 端就绪。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-upload 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到 raw 端目录布局的场景（产物路径：`raw/papers/SLUG.quick.md` + `raw/papers/SLUG.full.md` + `raw/assets/SLUG/fig-NN.png`，其中 SLUG 是 kebab-case 论文标识），单次调用结束 raw 端就绪。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -12,7 +12,7 @@ metadata:
 走 3 列表格（Title / Venue / Topic）+ 引用块链接 + 紧跟论文链接的团队 item，**章节骨架统一为**：
 开篇表 + 团队 item → `## 3 句话总结` → `## 背景与动机` / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作。
 评测 / benchmark 类论文会把「方法设计 + 代表性实验结果」替换为「评测设计 + 评测发现」（详见下文"输出"节）。
-**Markdown 风格与 `outline-wiki-management` 完全对齐**（`*` bullet / `==高亮==` /
+**Markdown 风格与 `outline-wiki-upload` 完全对齐**（`*` bullet / `==高亮==` /
 ` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120），输出可直接复制到 outline-wiki
 或 Obsidian 显示。agent 可以直接调用本 skill 的脚本做单篇或批量总结，
 也可以按 `references/api-quickstart.md` 在会话内自行调用 SDK。
@@ -243,7 +243,7 @@ metadata:
      都搬进来，那属于复述而非总结
    - **`## 方法设计` 节内：主要设计点推荐用 `###` 三级标题单独列出**（如
      `### 自适应内部节点` / `### 路径压缩与延迟扩展` / `### 二进制可比键`），
-     便于扫读；与 outline-wiki 的二级子小节惯例保持一致。**判定标准**：
+     便于扫读；与 outline-wiki-upload 文档风格的二级子小节惯例保持一致。**判定标准**：
      - 单个设计点 ≥ 3 个 bullet
      - 概念独立成段（如算法、数据结构、协议各自独立）
      - 需要配 mermaid 块 / 关键图
@@ -275,7 +275,7 @@ metadata:
    - **三阶段格式**（同一 image 引用在 3 个阶段的不同形态）：
      - Gemini 输出: `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)`
      - 脚本 `--extract-figures` 处理后: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
-     - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`
+     - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`（走 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的 attachment 3 步）
    - `=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
@@ -314,8 +314,8 @@ metadata:
      （alt 字段偏差、表格行数错位、章节遗漏等），silent fallback 用户感知不到
      是模型降级导致的，只看到"结果怪"——质量风险大于便利。换模型用
      `--model <id>` 显式指定。
-9. **Markdown 风格约定（与 `outline-wiki-management` 完全对齐）**
-   - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`（与 `outline-wiki-management`
+9. **Markdown 风格约定（与 `outline-wiki-upload` 完全对齐）**
+   - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`（与 `outline-wiki-upload`
      的 doc_style.md 基线一致；本仓库其他 skill 也按此约定）
    - **关键术语用 `==text==` 高亮**（默认色），不要硬造彩色语法（Markdown 写不出来）
    - **Mermaid 块 block-level**：` ```mermaidjs ` 放在 bullet 之外，不要嵌在 bullet
@@ -488,7 +488,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 > **本 skill 只产出本地文件**——A' 节的 `--extract-figures` 截下来的
 > PNG 全部落在本地 `figures/` 目录，**不会**自动上传到 outline-wiki。
 > **上传到 outline-wiki 不归本 skill 管**，请走
-> [`outline-wiki-management`](../outline-wiki-management/SKILL.md) 的
+> [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的
 > attachment 3 步流程（`create_attachment` → `curl` 上传 → Markdown 引用
 > `/api/attachments.redirect?id=...`）。
 
@@ -505,7 +505,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 ```text
 1. 本 skill：跑 gemini_paper_summary.py --extract-figures → 产出
    <output_dir>/summary.md + <output_dir>/figures/*.png
-2. outline-wiki-management：拿每张 figures/*.png 走 attachment 3 步
+2. outline-wiki-upload：拿每张 figures/*.png 走 attachment 3 步
    （create_attachment → curl 上传 → 拿到 /api/attachments.redirect?id=...）
 3. 用 update_document + editMode=patch + findText 把 summary.md 里的
    ![图 N](figures/figure-pX-fN.png) 替换为

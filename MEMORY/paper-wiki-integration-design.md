@@ -13,7 +13,7 @@
 **Why：**
 
 - llm-wiki-management 的 description 白纸黑字写着"**不用于**云端协作 wiki…走
-  outline-wiki-management"。把发布塞进它 = 违反它自己的触发声明（description 是触发判定唯一信号），
+  outline-wiki-upload / outline-wiki-search"。把发布塞进它 = 违反它自己的触发声明（description 是触发判定唯一信号），
   糊掉"本地复利"身份。
 - 发布是跨 skill 的编排胶水（读本地页 + 驱动 outline MCP + 跟 outline_id + 图上传），不是任一现有
   skill 的本职；图的 attachment 3 步上传正是"跨用例重复 → 该捆绑"的信号。

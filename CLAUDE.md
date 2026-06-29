@@ -86,7 +86,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引，正文同级）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── design-doc-edit/       # 设计文档写作 skill（强制骨架 + 场景/方案分析）
-├── outline-wiki-management/ # 通过 Outline Wiki MCP 管理文档（搜索/读/写/评论/归档）
+├── outline-wiki-setup/    # Outline Wiki MCP 接入 + 重启验证（一次性配置）
+├── outline-wiki-search/   # Outline Wiki 搜 / 读文档（核心 2 个能力）
+├── outline-wiki-upload/   # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection + 移动 / 删除
 └── yzr-skill-creator/     # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …
@@ -127,7 +129,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ### 跨 skill 协作约定
 
-- `outline-wiki-management` 完全依赖 MCP 工具（不直连 REST）；破坏性操作（归档 / 删除）必须先在会话内显式确认，对他人文档用 `create_comment` 提议而非直接覆盖。
+- `outline-wiki-*` 三个 skill（`outline-wiki-setup` / `outline-wiki-search` / `outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 `~/.claude.json` + 重启验证；`search` 只读 search / read；`upload` 写 / 编辑 + 图片附件 3 步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。三者均完全依赖 MCP 工具（不直连 REST，唯一例外是 `upload` 在大文档整篇重写时走 REST API 绕开 update_document 的换行吞字 bug）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
 - `design-doc-edit` 输出**有强制章节骨架**（概述 → 场景分析 → 方案选择 → 核心设计 → 文件归属），章节可增删但顺序不可打乱；行宽同样受 `.markdownlint.jsonc` MD013 约束。
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级（`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须在同一轮并行启动，不要串行。
 

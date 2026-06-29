@@ -4,7 +4,7 @@ description: 用本 skill 维护本地、单用户的复利型知识库（遵循
   "LLM 拥有 wiki、人类只读" 模式）。触发场景：把参考资料摄入个人 wiki、对已
   摄入资料做跨页综合查询、对 wiki 做矛盾 / 孤儿 lint、或围绕一个新主题搭建
   wiki。知识越用越厚，不越用越乱。不用于云端协作 wiki（Notion / Confluence
-  / Outline / GitHub Wiki）—— 那些场景走 outline-wiki-management。
+  / Outline / GitHub Wiki）—— 那些场景走 outline-wiki-upload（写）/ outline-wiki-search（搜读）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -16,7 +16,7 @@ metadata:
 
 按 Karpathy [LLM Wiki 设计哲学](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 维护一个**本地**、**复利累积**的知识库：用户只管读 + 提供资料 + 提问题，LLM 负责摘要、
-交叉引用、归档、簿记这些"无聊的部分"。和 `outline-wiki-management` 的关键区别是
+交叉引用、归档、簿记这些"无聊的部分"。和 `outline-wiki-upload` 等云端 skill 的关键区别是
 **本地文件 + 三层纪律**——vs 云端 MCP 单层文档。
 
 本 skill 提供三块交付物：
@@ -41,7 +41,7 @@ metadata:
 ### 不使用
 
 - **云端协作 wiki**（Notion / Confluence / Outline Wiki / GitHub Wiki）——走
-  `outline-wiki-management` skill
+  `outline-wiki-upload`（写 / 编辑）/ `outline-wiki-search`（搜 / 读）
 - **一次性文档生成**（不是累积型）——直接用普通文件写入流程
 - **没有 raw/ 资料 + 没有累积需求**——skill 的价值在"复利"，一次性整理用不上
 - **需强结构化数据库**（带 schema / SQL / 全文检索后端）——wiki 规模 ≤ 数百页时
@@ -104,7 +104,7 @@ metadata:
 
 ### 为什么不用云端
 
-`outline-wiki-management` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
+`outline-wiki-upload` / `outline-wiki-search` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
 权限管理。本 skill 走**本地文件**（git 为可选 opt-in），原因：
 
 - **隐私**——研究 / 读书 / 个人思考不需要上云
@@ -429,11 +429,12 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 | Skill | 场景 | 介质 |
 | --- | --- | --- |
 | **本 skill（llm-wiki-management）** | 个人 / 研究的本地复利型知识库 | 本地 Markdown（git 可选 opt-in） |
-| `outline-wiki-management` | 团队 / 协作 / 外部分享的云端 wiki | Outline Wiki MCP |
+| `outline-wiki-upload` | 团队 / 协作：写 / 编辑 / 推图到 Outline | Outline Wiki MCP |
+| `outline-wiki-search` | 团队 / 协作：搜 / 读 Outline 文档 | Outline Wiki MCP |
 | `design-doc-edit` | 单篇设计文档写作（含强制章节骨架） | 单文件 Markdown |
 | `gemini-paper-summary` | 单篇论文的结构化摘要（含视觉抽图） | 单文件 Markdown + 图片 |
 
-可串行：**gemini-paper-summary** 抽图 → 本 skill **ingest** 归档到 wiki →（未来独立 publish skill）→ `outline-wiki-management` 分享对外
+可串行：**gemini-paper-summary** 抽图 → 本 skill **ingest** 归档到 wiki →（未来独立 publish skill）→ `outline-wiki-upload` 分享对外
 
 ### Paper 域：论文主题 wiki 的本地工作流
 

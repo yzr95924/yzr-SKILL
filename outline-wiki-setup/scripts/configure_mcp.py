@@ -7,7 +7,7 @@
 
 支持两种调用方式：
 1. 交互模式（用户手动运行，逐项 prompt）
-2. 非交互模式（由 outline-wiki-management skill 驱动）——通过环境变量
+2. 非交互模式（由 outline-wiki-setup skill 驱动）——通过环境变量
    传入 endpoint / 鉴权方式 / API key，跳过所有 prompt
 
 执行流程：
@@ -21,18 +21,18 @@
 调用方式：
 
     # 交互模式
-    python3 outline-wiki-management/scripts/configure_mcp.py
+    python3 outline-wiki-setup/scripts/configure_mcp.py
 
     # 非交互模式（OUTLINE_MCP_ENDPOINT 一旦设置即启用）
     OUTLINE_MCP_ENDPOINT='https://acme.getoutline.com/mcp' \
     OUTLINE_MCP_AUTH_METHOD='apikey' \
     OUTLINE_MCP_API_KEY='<key>' \
-    python3 outline-wiki-management/scripts/configure_mcp.py
+    python3 outline-wiki-setup/scripts/configure_mcp.py
 
     # 高级：自定义 scope（默认 project；可选 user / local）
     OUTLINE_MCP_ENDPOINT='...' OUTLINE_MCP_AUTH_METHOD='apikey' \
     OUTLINE_MCP_API_KEY='...' OUTLINE_MCP_SCOPE='project' \
-    python3 outline-wiki-management/scripts/configure_mcp.py
+    python3 outline-wiki-setup/scripts/configure_mcp.py
 
 依赖：Python 3.6+ 标准库 + 本机已安装并登录的 `claude` CLI。
 """
@@ -262,7 +262,7 @@ def test_connection(endpoint: str, auth_method: str, api_key: str) -> Tuple[bool
                 "protocolVersion": MCP_PROTOCOL_VERSION,
                 "capabilities": {},
                 "clientInfo": {
-                    "name": "outline-wiki-management-setup",
+                    "name": "outline-wiki-setup-config",
                     "version": "1.0.0",
                 },
             },
@@ -322,7 +322,7 @@ def print_final_message(auth_method: str, scope: str) -> None:
     auth_label = "API key" if auth_method == "apikey" else "OAuth"
     print("")
     print("=" * 60)
-    print("配置完成（scope={}，{}）。".format(scope, auth_label))
+    print(f"配置完成（scope={scope}，{auth_label}）。")
     print("=" * 60)
     print("")
     print("=" * 60)
@@ -331,7 +331,7 @@ def print_final_message(auth_method: str, scope: str) -> None:
     print("  理由：Claude Code CLI 在 session 启动时一次性读入")
     print("        `~/.claude.json#mcpServers`；mid-session 改文件不会")
     print("        被重读，也没有 `claude mcp reload` 子命令。")
-    print("  详见：outline-wiki-management/references/onboarding.md")
+    print("  详见：outline-wiki-setup/references/onboarding.md")
     print("        的「设计决策」小节。")
     print("")
     print("  续接当前 session 的推荐做法（保留对话历史）：")
