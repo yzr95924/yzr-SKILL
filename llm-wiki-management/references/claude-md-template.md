@@ -108,7 +108,8 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 4. **重写时保留 frontmatter**——不要因为改写丢失 `type` / `tags` / `sources` 字段
 5. **交叉引用走相对路径**——`[link](../concepts/transformer.md)`，**不要**用 wikilink
    `[[transformer]]`、**不要**用绝对路径
-6. **路径稳定**——文件名一旦确定就是永久 ID；想改名时重命名文件 + 更新所有引用（启用 git 时用 `git mv`）
+6. **路径稳定**——文件名一旦确定就是永久 ID；想改名时重命名文件 + 更新所有引用（启用
+   git 时用 `git mv` 保留 history；未启用 git 时用普通 `mv` + 全量更新引用）
 
 ## 四、阅读纪律
 
@@ -134,7 +135,7 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 
 - 本文件是 schema，**不是 wiki 内容**——不要往里塞 wiki 主题相关的笔记
 - 改本文件 = 改 skill 行为 = 大事；先和用户确认
-- 若 wiki 启用 git，每次改建议 commit 并加清晰的 commit message
+- 若 wiki 启用 git，每次改建议 commit 并加清晰的 commit message；未启用 git 跳过此步
 
 ## 八、当前配置
 

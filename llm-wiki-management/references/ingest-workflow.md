@@ -102,7 +102,8 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
 
 ### Step 7：建议 commit（启用 git 时）
 
-> **前提**：本步仅在 wiki 启用了 git 时执行；纯目录树 wiki 直接跳过。
+> **前提**：本步仅在 wiki 启用了 git 时执行；裸目录树 wiki 直接跳过（无版本控制，
+> 由用户决定是否后续手动 `git init` + 回填 history）。
 
 - 不是必须，但强烈建议——wiki 改动可追溯
 - commit message 格式：`ingest: <title>` 或 `ingest: <N> files from raw/articles/`

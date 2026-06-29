@@ -9,7 +9,9 @@ lint_wiki.py — deterministic 健康检查
   python3 lint_wiki.py [<WIKI_ROOT>] [--severity <LEVEL>] [--no-git]
 
 --severity 过滤：error | warn | info | all（默认 all）
---no-git 跳过 raw/ 的 git status 检查（CI 或裸仓场景）
+--no-git 跳过 raw/ 的 git status 检查（CI 或裸仓场景）。默认**自动检测**：
+  仅当 wiki 根目录在 git 仓内且 raw/ 被 git 跟踪时才跑 raw 不可变性检查；
+  裸目录树 / 无 git / raw 未纳入 git → 自动跳过并打印提示（不报错，不阻断）。
 
 退出码：
 - 0 = 全部指定严重性级别内无 finding
@@ -78,13 +80,41 @@ def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
     return out
 
 
+def is_git_repo(path: Path) -> bool:
+    """判定 path 是否在 git 仓内（`.git/` 子目录存在即可，不依赖 git CLI）。
+
+    wiki 默认是裸目录树，git 仅 setup 时 `--git` opt-in；本函数用于自动跳过
+    无 git 场景下的 raw/ 不可变性检查，避免无脑报"raw 已被改"（无 git 时
+    本来就没有"未提交改动"概念）。"""
+    if not path.is_dir():
+        return False
+    cur = path.resolve()
+    while True:
+        if (cur / ".git").exists():
+            return True
+        parent = cur.parent
+        if parent == cur:
+            return False
+        cur = parent
+
+
 def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
-    """1. raw/ 是否被改"""
+    """1. raw/ 是否被改（仅在 wiki 是 git 仓时跑；否则跳过）
+
+    返回元组 (findings, skipped_reason)：
+    - findings：原始改动列表（可能为空）
+    - skipped_reason：跳过时的提示文本；未跳过时为空字符串。
+      调用方决定怎么展示（lint 输出 / 退出码 / 副作用）。
+    """
     if not use_git:
-        return []
+        return ([], "")
     raw_dir = wiki_root / "raw"
     if not raw_dir.is_dir():
-        return []
+        return ([], "")
+    # 自动检测：不在 git 仓内就直接跳过，不依赖 git CLI；这是"裸目录树
+    # wiki 默认支持"的关键路径——强假设 wiki 是 git 仓会让裸目录树误报。
+    if not is_git_repo(wiki_root):
+        return ([], "raw-immutable-skipped: 未启用 git（无 .git/），跳过 raw/ 不可变性检查")
     try:
         result = subprocess.run(
             ["git", "status", "--porcelain", "raw/"],
@@ -93,15 +123,20 @@ def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
             stderr=subprocess.PIPE,
             universal_newlines=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return []
+    except FileNotFoundError:
+        # git CLI 不在 PATH（极少见，.git/ 存在但 git 没装）——同样跳过
+        return ([], "raw-immutable-skipped: 未找到 git CLI，跳过 raw/ 不可变性检查")
     if result.returncode != 0:
-        # 不是 git 仓 / 没 raw/ 在 git 里——跳过
-        return []
+        # 是 git 仓但 raw/ 没被 git 跟踪（`.gitignore` 忽略或从未 add）——
+        # 这种情况没有"未提交改动"概念（git 一无所知），跳过
+        return ([], "raw-immutable-skipped: raw/ 未纳入 git 跟踪，跳过 raw/ 不可变性检查")
     lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
     if not lines:
-        return []
-    return [f"raw-modified: raw/ 有 {len(lines)} 处未提交改动：{lines[0]}{' ...' if len(lines) > 1 else ''}"]
+        return ([], "")
+    findings = [
+        f"raw-modified: raw/ 有 {len(lines)} 处未提交改动：{lines[0]}{' ...' if len(lines) > 1 else ''}"
+    ]
+    return (findings, "")
 
 
 def check_frontmatter(wiki_root: Path) -> List[str]:
@@ -358,6 +393,11 @@ def main() -> int:
     parser.add_argument("--no-git", action="store_true", help="跳过 raw/ 的 git status 检查")
     args = parser.parse_args()
 
+    # `--no-git` 与"自动检测"叠加：传了 `--no-git` 就完全不检测；不传时
+    # 脚本自动按 `.git/` 存在与否决定跑 / 跳。两种路径都允许，不强制用户
+    # 必须装 git 或必须 init 仓——保留"裸目录树 wiki 默认支持"立场。
+    effective_use_git = not args.no_git
+
     if args.wiki_root:
         wiki_root = Path(args.wiki_root).expanduser().resolve()
     elif os.environ.get("LLM_WIKI_ROOT"):
@@ -372,7 +412,11 @@ def main() -> int:
 
     # 跑所有检查
     all_findings = []  # type: List[str]
-    all_findings.extend(check_raw_immutable(wiki_root, not args.no_git))
+    info_notes = []  # type: List[str]  # 不计入 severity 过滤的"说明性输出"（如 raw-immutable 跳过原因）
+    raw_findings, raw_skip = check_raw_immutable(wiki_root, effective_use_git)
+    all_findings.extend(raw_findings)
+    if raw_skip:
+        info_notes.append(raw_skip)
     all_findings.extend(check_frontmatter(wiki_root))
     all_findings.extend(check_link_integrity(wiki_root))
     all_findings.extend(check_index_coverage(wiki_root))
@@ -385,6 +429,12 @@ def main() -> int:
     if args.severity != "all":
         threshold = SEV_RANK[args.severity]
         all_findings = [f for f in all_findings if SEV_RANK[severity_of(f)] <= threshold]
+
+    # 输出：跳过提示（INFO 级别但不受 --severity 过滤；让用户始终能看到）
+    if info_notes:
+        print("\n[NOTES]")
+        for n in info_notes:
+            print(f"  {n}")
 
     # 输出
     if not all_findings:

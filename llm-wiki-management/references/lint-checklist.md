@@ -25,7 +25,12 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 - 在 `<wiki-root>/` 跑 `git status raw/`；有改动 → 报告
 - **严重性：error**——任何 raw/ 改动都是违反 skill 纪律
-- **前提**：仅 wiki 启用 git 时执行；未启用时脚本自动跳过——没有 git 就没有"未提交改动"概念
+- **前提**：脚本**自动检测** wiki 根目录是否在 git 仓内（`.git/` 子目录存在与否）：
+  - `.git/` 不存在 → 跳过 + 输出顶部 `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）`
+  - `.git/` 存在但 `raw/` 未纳入 git 跟踪 → 跳过 + `[NOTES] raw-immutable-skipped: raw/ 未纳入 git 跟踪`
+  - 真 git 仓 + raw 被改 → 报 `raw-modified` finding
+- 强制跳过：传 `--no-git` 时完全静默跳过（不打 note）——给 CI / 裸仓场景
+- **不要**在裸目录树 wiki 上"强假设 git"——`wiki-spec.md §7` 默认就是裸目录树
 
 ### 2. frontmatter 完整性
 
@@ -137,7 +142,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 1. 整理报告（按严重性排序：error > warn > info）
 2. **询问用户先修哪些**——不要一次全修（容易回退或引入新问题）
 3. 修完后**重新跑 lint 验证**——不要带着 fix 没验过的状态前进
-4. 若启用 git，重大修复 commit 时建议加 `lint: <summary>` 前缀
+4. 若启用 git，重大修复 commit 时建议加 `lint: <summary>` 前缀；裸目录树 wiki 跳过 commit 步骤
 
 ## 六、lint 频率
 

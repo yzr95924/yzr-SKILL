@@ -47,8 +47,8 @@
 | `wiki/sources/<slug>.md` | 蒸馏总结；slug 与 raw 同名 | `wiki/sources/attention-is-all-you-need.md` |
 | `wiki/concepts/<concept>.md` | 跨论文概念，**不**带论文后缀 | `wiki/concepts/self-attention.md` |
 
-`slug` 一旦确定就是永久 ID（与 wiki 通则一致）——重命名走 `git rename` + 全量更新
-所有引用，包括 raw / wiki / log。
+`slug` 一旦确定就是永久 ID（与 wiki 通则一致）——重命名走 `git rename`（启用 git
+时保留 history）或普通 `mv`（裸目录树）+ 全量更新所有引用，包括 raw / wiki / log。
 
 ## 4. 两阶段工作流
 

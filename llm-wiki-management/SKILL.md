@@ -1,12 +1,10 @@
 ---
 name: llm-wiki-management
 description: 用本 skill 维护本地、单用户的复利型知识库（遵循 Karpathy
-  "LLM 拥有 wiki、人类只读" 模式）：在 raw/ 投放原始资料并提问题，LLM 把
-  资料消化为 wiki/ 下的交叉链接页面、跨页综合答案、并 lint 找矛盾与孤儿页。触发
-  于"把 X 归档到 wiki / 整理进 wiki"、"wiki 里有没有 X"、"lint wiki"、"我想搭一
-  个 wiki 跟踪 Y 的研究"等表述。遵循 raw/ + wiki/ + CLAUDE.md 三层纪律，知识
-  越用越厚。**不用于**云端协作 wiki（Notion / Confluence / Outline / GitHub
-  Wiki）；这些场景走 outline-wiki-management。
+  "LLM 拥有 wiki、人类只读" 模式）。触发场景：把参考资料摄入个人 wiki、对已
+  摄入资料做跨页综合查询、对 wiki 做矛盾 / 孤儿 lint、或围绕一个新主题搭建
+  wiki。知识越用越厚，不越用越乱。不用于云端协作 wiki（Notion / Confluence
+  / Outline / GitHub Wiki）—— 那些场景走 outline-wiki-management。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -153,11 +151,12 @@ metadata:
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件（LLM 只读；用户可改，改后由 ingest 重新消化）
-- **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时 `git rm`）
+- **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `CLAUDE.md` 自创约定——若 CLAUDE.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
 - **不**忽略 lint 报告——长期不 lint 的 wiki 一定会腐烂
-- **不**用 git 操作破坏 raw/ 不可变性（不要 `git clean` / `git checkout -- raw/`；仅 wiki 启用 git 时适用）
+- **不**用 git 操作破坏 raw/ 不可变性——`git clean` / `git checkout -- raw/` 仅在启用 git
+  时适用；未启用 git 时没有"未提交改动"概念（lint 自动跳过此项）
 - **不**对 wiki 内文件用 Read 之外的工具做"自动"修改——所有修改走 Edit / Write 并
   走 schema 约定
 
@@ -234,7 +233,9 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 同步相关 `entities/` / `concepts/` 页面（追加"参考资料"段，不重写）
    - 同步 `wiki/index.md`（追加 source 条目 + 视情况更新 entity/concept 条目）
    - 追加 `log.md` 条目：`## [YYYY-MM-DD] ingest | <source title>`
-3. **commit**（建议但非必须）——仅当 wiki 启用了 git 时；用户 / agent 决定 commit 节奏
+3. **commit**（建议但非必须）——仅当 wiki 启用了 git 时；未启用 git 跳过此步
+   （裸目录树无版本控制，由用户自行决定是否后续手动 init / 回填）。commit 节奏由
+   用户 / agent 决定
 
 详细模板与 frontmatter 字段见 [`references/ingest-workflow.md`](references/ingest-workflow.md)
 + [`references/page-templates.md`](references/page-templates.md)。
@@ -264,7 +265,11 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 1. 跑 `scripts/lint_wiki.py <wiki-root>` 做 deterministic 检查
 2. 脚本覆盖（详见 [`references/lint-checklist.md`](references/lint-checklist.md)）：
-   - `raw/` 是否被改（启用 git 时 `git status raw/`；未启用时脚本自动跳过——没有 git 就没有"未提交改动"概念）
+   - `raw/` 是否被改（脚本**自动检测** wiki 根目录是否在 git 仓内：
+     - `.git/` 不存在 → 跳过 + 在输出顶部 `[NOTES]` 提示"未启用 git"
+     - `.git/` 存在但 `raw/` 未纳入 git → 跳过 + 提示"raw/ 未纳入 git"
+     - 真 git 仓 + raw 被改 → 报 `raw-modified`
+     强制 `--no-git` 则完全静默跳过，不打 note）
    - 缺 frontmatter 的页面
    - 缺 `type` / `sources` / `updated` 字段的页面
    - `wiki/index.md` 没列出的非 log 页面（孤儿）
@@ -345,7 +350,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 存在：追加"参考来源"段
 5. 更新 wiki/index.md：sources/ 段加一条；concepts/ 段同步
 6. 追加 log.md：## [2026-06-24] ingest | Attention Is All You Need
-7. 若启用 git，建议 commit
+7. 若启用 git，建议 commit；裸目录树 wiki 跳过此步
 ```
 
 ### 样例三：query 一个跨实体问题
@@ -377,7 +382,8 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 ```text
 1. python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems
 2. 脚本报告：
-   - raw/ 干净（启用 git 时 git status clean；未启用时此项自动跳过）
+   - raw/ 干净（启用 git 时 git status clean；未启用时此项自动跳过 + 输出顶部
+     `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）` 提示）
    - 3 个页面缺 updated 字段
    - 1 个失效引用：concepts/transformer.md 链到 sources/bigtable.md 但后者不存在
    - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist §二.7](references/lint-checklist.md#7-过期摘要)），建议复查
