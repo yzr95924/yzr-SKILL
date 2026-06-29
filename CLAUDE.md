@@ -120,6 +120,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | 脚本 | 作用 |
 | --- | --- |
 | `scripts/quick_validate.py` | frontmatter 合法性校验（可单独调用） |
+| `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
 | `scripts/run_eval.py` / `aggregate_benchmark.py` / `generate_report.py` | 跑评估用例、聚合结果、生成报告 |
 | `scripts/run_loop.py` | 描述优化的后台循环（60% 训练 / 40% 保留评估） |
 | `scripts/improve_description.py` | 单轮描述优化 |

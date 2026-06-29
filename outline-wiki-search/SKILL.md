@@ -1,14 +1,12 @@
 ---
 name: outline-wiki-search
-description: 通过 Outline Wiki MCP 在工作区内**搜**和**读**文档——按关键词全文
-  搜索、按文档 ID 拉 Markdown 原文与元数据。所有读操作走 MCP 工具，不直连 REST。
-  触发词：'搜 outline'、'找 outline 文档'、'读 outline 文档'、'outline 里搜
-  / 查 / 找'、'outline 工作区搜一下'、'打开 outline 文档 / 取 outline 内容'。
-  **不**用于写 / 编辑 / 上传 outline 文档（包含图片附件、@mention、评论、
-  Collection 管理、移动 / 删除 / 归档）——那些走 outline-wiki-upload；**不**
-  用于配置 outline MCP —— 走 outline-wiki-setup；**不**用于 Notion / Confluence /
-  Obsidian / GitHub Wiki；'outline = 大纲 / 议程'同名词；分享 / 导出 / 权限调整
-  （官方 MCP 文档未列且 server 通常也未暴露，走 UI 或 REST）。
+description: 用户要在 Outline Wiki 工作区里搜文档或读文档时使用——按关键词全文
+  搜索匹配文档列表，或按文档 ID 拉 Markdown 原文与元数据。**不**用于写 / 编辑 /
+  上传 outline 文档（含图片附件、@mention、评论、Collection 管理、移动 / 删除 /
+  归档，走 outline-wiki-upload）；**不**用于配置 outline MCP（走 outline-wiki-setup）；
+  **不**用于 Notion / Confluence / Obsidian / GitHub Wiki。'outline' 若指大纲 /
+  议程同名词则无关；分享 / 导出 / 权限调整官方 MCP 未列、server 通常也未暴露，
+  走 UI 或 REST。
 metadata:
   author: Zuoru YANG
   category: knowledge-base

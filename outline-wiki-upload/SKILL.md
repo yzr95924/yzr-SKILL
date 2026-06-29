@@ -1,18 +1,12 @@
 ---
 name: outline-wiki-upload
-description: 通过 Outline Wiki MCP **写** outline 工作区——核心写能力：创建 / 编辑文档；
-  扩展写能力（server 实际暴露但官方文档未明列）：图片附件（create_attachment + curl +
-  Markdown 引用 attachment URL）、@mention、评论、Collection 管理、移动 / 删除 / 归档文档。
-  配套 Markdown 写作风格基线与 ProseMirror 节点映射（`*` bullet / `==高亮==` / `mermaidjs` /
-  `=WxH` 图片尺寸等仓库指纹），以及写前必跑的 9 大类风格 checklist。**含图 / 长 markdown**
-  走 create_attachment 3 步流程，**整篇重写**走 REST API 绕开 update_document 的换行
-  吞字 bug。所有写操作走 MCP 工具（特殊情况除外），不直连 REST。触发词：'上传 outline'、
-  '推到 outline'、'publish to outline'、'编辑 / 创建 / 写 outline 文档'、'outline 文档含
-  图'、'@mention / 评论 outline'、'移动 / 删除 / 归档 outline 文档'、'outline collection
-  管理'。**不**用于搜 / 读 outline 文档（走 outline-wiki-search）；**不**用于配置
-  outline MCP（走 outline-wiki-setup）；**不**用于 Notion / Confluence / Obsidian /
-  GitHub Wiki；'outline = 大纲 / 议程'同名词；分享 / 导出 / 权限调整（官方 MCP 文档未列
-  且 server 通常也未暴露，走 UI 或 REST）。
+description: 用户要往 Outline Wiki 工作区写内容时使用——创建 / 编辑文档，以及扩展写
+  操作：图片附件（论文笔记、架构图等含图文档）、@mention、评论、Collection 管理、
+  移动 / 删除 / 归档文档。产出遵守仓库既有的 Markdown 风格指纹（`*` bullet /
+  `==高亮==` / mermaid 等）。**不**用于搜 / 读 outline 文档（走 outline-wiki-search）；
+  **不**用于配置 outline MCP（走 outline-wiki-setup）；**不**用于 Notion / Confluence /
+  Obsidian / GitHub Wiki。'outline' 若指大纲 / 议程同名词则无关；分享 / 导出 /
+  权限调整官方 MCP 未列、server 通常也未暴露，走 UI 或 REST。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -291,9 +285,8 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 > **本 skill 的图片能力 = 上传 + 引用**——只解决"把本地文件变成 outline 里
 > 能渲染的图片"。**不**管图片怎么来：
 > - 截图 / 配图 / logo 等任意本地图片：直接走下面 3 步
-> - **论文关键架构图**：先走 [`gemini-paper-summary`](../../gemini-paper-summary/SKILL.md)
->   的 `--extract-figures` 抽到本地 `figures/*.png`，**再**走本 skill 的
->   attachment 3 步
+> - **论文关键架构图**：图源不归本 skill——用 [`gemini-paper-summary`](../../gemini-paper-summary/SKILL.md)
+>   的 `--extract-figures` 抽到本地 `figures/*.png` 后，再走本 skill 的 attachment 3 步
 
 **完整 3 步流程**（每张图独立走一遍）：
 

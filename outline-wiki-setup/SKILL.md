@@ -1,13 +1,11 @@
 ---
 name: outline-wiki-setup
-description: 首次接入 Outline Wiki MCP 到 Claude Code——收集 endpoint + 鉴权材料后调
-  scripts/configure_mcp.py 写 `~/.claude.json` 的 `projects.{projectPath}.mcpServers.outline` 段，
-  然后让用户重启会话（硬约束：Claude Code 在 session 启动时一次性读入 MCP 列表，
-  mid-session 改文件不会重读，也没有 claude mcp reload 子命令）。配套排查
-  MCP 未启用、API key 无效、重启后看不到 server 等配置问题。触发词：'配置 / 接
-  入 outline MCP'、含 '/mcp' 的 endpoint URL、'outline 连不上 / 401 / 403 / 重启后
-  还看不到 outline'。**不**用于搜 / 读 / 上传 / 编辑 outline 文档——这些走
-  outline-wiki-search / outline-wiki-upload；也不用于 Notion / Confluence /
+description: 用户要把 Outline Wiki 接入 Claude Code 时使用——outline MCP 工具未
+  注册 / 工具列里看不到、首次配置 outline MCP、或已拿到 endpoint + API key /
+  OAuth 想连上。配置写完后用户必须重启一次会话才会生效（Claude Code 的硬约束，
+  无法 mid-session 重载）。也覆盖配置阶段排查：MCP 未启用、401 / 403、重启后
+  仍看不到 server。**不**用于搜 / 读 / 写 / 编辑 outline 文档（走
+  outline-wiki-search / outline-wiki-upload）；**不**用于 Notion / Confluence /
   Obsidian / GitHub Wiki。
 metadata:
   author: Zuoru YANG

@@ -476,10 +476,11 @@ agent 根据描述决定是否查阅该 skill，需要知道的一点是：agent
    - frontmatter 合法性：跑 `scripts/quick_validate.py <skill-dir>`（已有）。
    - 指标散弹式散落：grep 同一个数字 / 阈值是否散在多处（参见“指标单一来源”原则）。
    - 正文长度：粗估是否贴近 5000 词上限。
+   - 跨 skill 双向依赖：跑 `python -m scripts.check_skill_dependencies <repo-root>`（新增），列出互相提及的 skill 对并给证据；“互提”不等于“互依”（分工转交、风格对齐是良性的），是否成环靠 agent 读正文确认。
    其余原则（“解释为什么而非 MUST”、“正文描述一致性”的语义判断等）靠 agent 判断。
 4. 产出报告：每条原则 pass / fail + 证据 + 建议修法。**只审计、不改写**；要修让用户点头再动（或转入口 2 的改进流程）。
 
-> 写作原则的权威清单在 `references/skill-writing-principles.md`；新增原则后，本入口自动覆盖到，无需改这里。
+> 写作**原则**的权威清单在 `references/skill-writing-principles.md`；新增原则后本入口的 checklist 自动覆盖到，无需改这里。但上面“能程序化查的就程序化查”列出的**检查工具**（quick_validate / check_skill_dependencies 等）需手动维护——新增或改动工具时同步更新这条清单。
 
 ## 参考文件
 
