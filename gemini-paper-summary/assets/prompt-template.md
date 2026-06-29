@@ -391,7 +391,7 @@ inline element 撑成"长句"不易扫读。
 6. **禁止**省略数字精度——`95.2 ± 0.3` 不四舍五入到 `95`;`2^64` 不写成
    `18 quintillion`
 7. **禁止**在 wiki 化框架下"应该合并 / 应该省略"的本能 academic 行为——
-   full 模式的下游是 llm-wiki-management 反复蒸馏,raw 越全越好
+   full 模式的下游是反复的廉价文本层 query / 蒸馏,raw 越全越好
 
 ### 风格约定(与 academic 模板的差异)
 
@@ -401,8 +401,8 @@ block / 行宽 ≤ 120 / 不写 H1 等),**额外**:
   full 模板要求每个 Section 至少 1 个 bullet,缺数据时**显式**标"原文未明确"
 - **公式 / 数字 / 缩写保留原文形式**——不要为可读性做翻译,这是 raw 底座
 - **支持 `$$...$$` 公式**——academic 模板禁用 MathJax 是 outline 不支持;
-  full 模式可走支持 LaTeX 渲染的下游(llm-wiki-management 当前不支持,但
-  raw 端保留 `$...$` 不丢信息)
+  full 模式可走支持 LaTeX 渲染的下游（当前大多数本地 Markdown / wiki 渲染器
+  不直接支持 MathJax,但 raw 端保留 `$...$` 不丢信息, 未来消费端可解析）
 
 > 全文级抽取完成后,产物路径由 `--output <wiki-root>` 决定:
 > `<wiki-root>/raw/papers/<slug>.full.md` 与 `<wiki-root>/raw/assets/<slug>/fig-NN.png`

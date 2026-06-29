@@ -134,21 +134,77 @@
 > skill 的 frontmatter 增项**，本 skill 与本 profile 都**不**关心。publish skill 可以
 > 在 source 页的 frontmatter 上加自己的字段，本 profile 不阻挡也不解析。
 
-## 7. 与 gemini-paper-summary 的边界
+## 7. 与上游抽 PDF 工具的边界与集成（gemini-paper-summary 是推荐实现）
+
+> **核心立场**：本 profile 只规定"wiki 端需要的契约"——raw 文件长什么样、
+> source 页怎么写、log 怎么记。raw 端的"全量抽取"是**任意满足该契约的工具**
+> 的输出；`gemini-paper-summary --full` 是当前**推荐实现**（已经能产出
+> raw-compatible layout + Stage 2 视觉定位），但本 profile **不绑死**该实现。
+> 任何工具产出的 `<root>/raw/papers/<slug>.quick.md` + `<slug>.full.md` +
+> `<root>/raw/assets/<slug>/fig-NN.png` 三件套，都可被本 profile 的 ingest
+> 流程消费。
+
+### 7.1 raw 端契约（本 profile 强制，任意上游工具必须满足）
+
+| 路径 | 性质 | 必选 |
+| --- | --- | --- |
+| `<root>/raw/papers/<slug>.quick.md` | 精炼摘要（academic 模板即可） | 是 |
+| `<root>/raw/papers/<slug>.full.md` | 全文级结构化转储 | 是 |
+| `<root>/raw/assets/<slug>/fig-NN.png` | 关键图（PNG） | 否（论文无图可空） |
+
+`<slug>` 必须是 kebab-case（与 wiki/sources/ 命名同源）。
+
+### 7.2 推荐实现：gemini-paper-summary --full
+
+调用形式：
+
+```bash
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf <path-to.pdf> \
+  --output <root> \
+  --full
+```
+
+产物（一次调用结束 raw 端就绪）：
+
+```text
+<root>/raw/papers/<slug>.quick.md
+<root>/raw/papers/<slug>.full.md
+<root>/raw/assets/<slug>/fig-NN.png
+```
+
+特性：
+
+* 单次调用两份产物（quick + full），不拆两次
+* 隐式启用 Stage 2 视觉定位（`--refine-figures`），raw 端图被多次引用时 bbox 准确
+* 默认拒绝覆盖已存在的 `<slug>.full.md`（full 是"贵读一次"产物，意外重写
+  会丢下游引用）；显式覆盖加 `--force-full`
+* `<slug>` 默认从 PDF 文件名推断（kebab-case 化）；不依赖文件名时用
+  `--slug <kebab>` 显式指定
+
+> **可选降级**：若 gemini-paper-summary 未装或不愿用 `--full`，可走 quick
+> summary → 手工 / 其他工具做全文级抽取到 `<slug>.full.md`，再被
+> ingest_diff.py 识别。
+
+### 7.3 职责切分
 
 | 职责 | 谁做 | 备注 |
 | --- | --- | --- |
-| 读 PDF + 抽图 | `gemini-paper-summary` | 多模态；调用 Gemini API |
-| 出 quick summary | `gemini-paper-summary` | 精炼压缩；可走"早期远端发布"路径 |
-| 出全量抽取 | `gemini-paper-summary`（若支持 `--full`，或独立脚本） | 现阶段 gemini-paper-summary **不**原生支持全量抽取——这属于**待补能力** |
-| 归档到 `raw/` 与 `wiki/sources/` | `llm-wiki-management` ingest | **本 profile** |
-| 跨多轮对话蒸馏 | `llm-wiki-management` refine | **本 profile**（新增 op） |
-| 推送到 outline-wiki | **未来 publish skill** | **本 skill 与本 profile 都不做** |
+| 读 PDF + 抽图 | 上游抽 PDF 工具 | 任意满足 §7.1 契约者；gemini-paper-summary 是推荐 |
+| 出 quick summary | 上游抽 PDF 工具 | 精炼压缩；可走"早期远端发布"路径 |
+| 出全量抽取（`<slug>.full.md` + 图） | 上游抽 PDF 工具 | gemini-paper-summary 通过 `--full` 提供；其他工具产出的等价文件同样可被消费 |
+| 归档到 `raw/` 与 `wiki/sources/` | **本 skill** ingest | **本 profile** |
+| 跨多轮对话蒸馏 | **本 skill** refine | **本 profile**（新增 op） |
+| 推送到 outline-wiki | 未来 publish skill | **本 skill 与本 profile 都不做** |
 
-> gemini-paper-summary 的具体 prompt / 输出模板**不在本 profile 引用**——
-> 它是独立 skill（`gemini-paper-summary/SKILL.md` 自身权威），不在 npx 分发包内
-> 重复维护。**本 profile 只规定 wiki 端的契约**：raw 文件长什么样、source 页
-> 怎么写、log 怎么记。
+### 7.4 失败兜底 / 降级
+
+* 上游只产 quick summary（无 full）：把 quick 同时作为 `<slug>.full.md`
+  （acceptable degradation，缺点是后续多轮 query 没有完整 raw 底座）
+* 上游产 full 但无图：raw/assets/<slug>/ 可空；source 页用文字描述代替
+* 上游产出的 `<slug>.full.md` 不符合 outline 风格：仍可被 ingest——ingest
+  关注的是 frontmatter + 章节是否存在，不强求风格对齐（仅 wiki 端 source
+  页走 outline 风格；raw 是原文，**不**做风格改写）
 
 ## 8. 反模式（paper 域特别禁忌）
 

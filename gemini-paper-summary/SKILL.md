@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到本地 wiki 仓 raw/ 端的场景（如 llm-wiki-management 的 paper-wiki 域，单次调用结束 raw 端就绪、后续多轮对话蒸馏）。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到 raw 端目录布局的场景（产物路径：`raw/papers/SLUG.quick.md` + `raw/papers/SLUG.full.md` + `raw/assets/SLUG/fig-NN.png`，其中 SLUG 是 kebab-case 论文标识），单次调用结束 raw 端就绪。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -66,7 +66,7 @@ metadata:
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
 | 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md` + `<wiki_root>/raw/assets/<slug>/fig-NN.png`；设计意图见 [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) 与本文 D 段 |
-| 论文 slug | ✗ | `--slug <kebab-case>`，仅 `--full` 生效；不传则从 PDF 文件名推断（kebab-case 化）。命名与 llm-wiki-management paper-wiki profile §3 对齐 |
+| 论文 slug | ✗ | `--slug <kebab-case>`，仅 `--full` 生效；不传则从 PDF 文件名推断（kebab-case 化）；与 raw/papers + raw/assets 布局同源 |
 | 强制覆盖 | ✗ | `--force-full`，仅 `--full` 生效；raw 端 `<slug>.quick.md` / `.full.md` 已存在时默认拒绝覆盖以防丢失下游引用；加此 flag 显式覆盖 |
 
 ### 模型选型
@@ -637,7 +637,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 规模）+ 评测发现（leaderboard 结论 / 跨维度发现 / insight / 评测方法有效性）」，
 其余章节不变。判定口径与两节 bullet 的真权威定义见 `assets/prompt-template.md`。
 
-### D. `--full` 全文级抽取模式（与 llm-wiki-management paper-wiki 协同）
+### D. `--full` 全文级抽取模式（raw-compatible layout）
 
 > **设计决策 SSOT**：本节的全部边界 / 调用契约在
 > [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md)
@@ -686,29 +686,21 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
         └── ...
 ```
 
-`wiki/sources/<slug>.md` **不是本 skill 的产物**——其占位写入是
-llm-wiki-management `ingest` 操作的职责（见 `llm-wiki-management/references/paper-wiki-profile.md` §4 阶段 1）。
+`wiki/sources/<slug>.md` **不是本 skill 的产物**——raw 端的 quick + full
+抽取只到 `<root>/raw/...`；任何"占位 source 页"或后续蒸馏由消费端 skill
+自行处理，本 skill 不碰 `wiki/` 目录。
 
-**与 paper-wiki 的协同序列**：
-
-```text
-1. 本 skill:跑 --full (本节)
-                       → <wiki_root>/raw/papers/<slug>.quick.md + .full.md + assets/
-2. llm-wiki-management: ingest_diff.py 看 raw/papers/<slug>.full.md "未摄取"
-   → 调 agent 生成 wiki/sources/<slug>.md(以 .quick.md 为初稿，frontmatter sources
-     字段指向 raw/papers/<slug>.full.md + raw/assets/<slug>/fig-NN.png)
-   → log.md 写 ingest 条目
-3. llm-wiki-management: 后续多轮对话 → 触发 refine op（Edit 追加 / 修订）
-   → wiki/sources/<slug>.md frontmatter.distill_state: draft → refining → final
-4. (未来独立 publish skill) quick summary + wiki/sources/<slug>.md → outline-wiki
-   → 本 skill 不做
-```
+**Raw 端就绪后**——本 skill 退出。任何后续 ingest / refine / publish 编排
+属于消费端的工作流；本 skill 不引用、不编排、不假设存在具体消费 skill。
+详见本节"产物"小节的目录契约（`raw/papers/<slug>.quick.md` + `.full.md` +
+`raw/assets/<slug>/fig-NN.png`）。
 
 **关键纪律**：
 
 - **不要**用 `--full` 模式只产 full —— 即使只要 raw 端，本 skill 也**必须**
-  一次调用两份产物（quick summary 给未来 publish skill,full 给 llm-wiki-management
-  蒸馏）；拆两次调用反而破坏单次成型的产品形态
+  一次调用两份产物（quick summary 作为后续可选 publish 流程的输入，full
+  作为后续多轮文本层 query / 蒸馏的输入；本 skill 不规定下游消费方）；
+  拆两次调用反而破坏单次成型的产品形态
 - **`raw/papers/<slug>.full.md` 不重写**：默认拒绝覆盖；下游已多次引用 full 抽取，
   意外重写会丢下游状态。若要重新抽取，先 `rm <wiki-root>/raw/papers/<slug>.full.md`
   再跑
@@ -721,10 +713,10 @@ llm-wiki-management `ingest` 操作的职责（见 `llm-wiki-management/referenc
   强制 raw-compatible；想落任意目录就**不**加 `--full`，改用 `--extract-figures`
 - 跑两次 `--full` 然后手动把两份产物拼一起——要"一次调两份"是设计本意；
   拆两次会因 quick summary 与 full 模板的 prompt 不一致导致两份对不上
-- 用 `--full --no-refine-figures` 加速且不在意 bbox 准确度——raw 端图被
-  llm-wiki-management 在 `wiki/sources/<slug>.md` 里反复引用，bbox 不准一次 =
-  整个 wiki 仓的多次引用都歪；Stage 2 的 5-15s/页 + token 成本是值得的
-- 在本 skill 里写"占位 source 页" —— 那是 llm-wiki-management ingest 的职责；
+- 用 `--full --no-refine-figures` 加速且不在意 bbox 准确度——raw 端图被任何后续
+  消费方（如 source 页）反复引用，bbox 不准一次 = 后续每次引用都歪；Stage 2
+  的 5-15s/页 + token 成本是值得的
+- 在本 skill 里写"占位 source 页" —— 写 `wiki/sources/<slug>.md` 属消费端职责；
   本 skill 只到 raw 端为止
 
 ### C'. `--full` 模式专属故障排查

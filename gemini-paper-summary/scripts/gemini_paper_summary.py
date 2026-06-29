@@ -1198,8 +1198,7 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         "--slug",
         default=None,
         help=(
-            "论文 slug（kebab-case，与 llm-wiki-management paper-wiki profile §3 "
-            "命名契约对齐；如 'attention-is-all-you-need'）。"
+            "论文 slug（kebab-case；如 'attention-is-all-you-need'）。"
             "默认从 PDF 文件名去后缀后再 kebab-case 化推断。"
             "仅在 --full 模式下有意义；否则忽略。"
         ),
@@ -1404,7 +1403,7 @@ def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, st
 # --full 模式 helpers：slug 推断 + raw 端冲突检测
 # ----------------------------------------------------------------------------
 
-# 与 llm-wiki-management/references/paper-wiki-profile.md §3 命名契约对齐
+# 沿用 Karpathy LLM Wiki 约定的 kebab-case slug，与 raw/papers/<slug>.* 路径布局同源
 _SLUG_NON_KEBAB_RE = re.compile(r"[^a-z0-9-]+")
 _SLUG_RUN_DASH_RE = re.compile(r"-+")
 
@@ -1555,7 +1554,7 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
                     )
                     full_md = insert_caption_after_figure(full_md, visual_bbox_map)
 
-        # 4) 渲图到 raw/assets/<slug>/  (与 paper-wiki-profile §3 / SKILL.md § 命名对齐)
+        # 4) 渲图到 raw/assets/<slug>/  (沿用 Karpathy LLM Wiki raw/assets 布局)
         if full_refs:
             os.makedirs(assets_dir, exist_ok=True)
             ref_to_fullpath, ref_to_thumbpath, ref_to_dim = render_figures_to_pngs(
