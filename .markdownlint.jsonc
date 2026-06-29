@@ -7,5 +7,13 @@
     "line_length": 120,
     "code_blocks": false,
     "tables": false
-  }
+  },
+
+  // MD041 关闭 first-line-heading 检查：
+  // 仓库内 4 个 SKILL.md（gemini-paper-summary / outline-wiki-management /
+  // yzr-skill-creator / design-doc-edit）全部不写 H1，标题由目录名 + frontmatter
+  // `name:` 承载（见 gemini-paper-summary/SKILL.md §执行原则 #9）。README / MEMORY
+  // 这类非 SKILL 文档保留 H1 不受影响。2026-06-29 audit 把 gemini-paper-summary 拉回
+  // 主流时触发 MD041，于是显式禁掉。
+  "MD041": false
 }
