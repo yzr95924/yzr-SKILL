@@ -7,8 +7,6 @@ metadata:
   category: paper-reading
 ---
 
-# Gemini Paper Summary
-
 用 Gemini 多模态长上下文直接"读懂"PDF 论文（含图表、公式），按 **outline 风格**
 结构化模板输出**中文 Markdown 总结**。**开篇无 `# Reference` / 无独立 `## 团队背景介绍` 章节**——元信息
 走 3 列表格（Title / Venue / Topic）+ 引用块链接 + 紧跟论文链接的团队 item，**章节骨架统一为**：
@@ -65,7 +63,7 @@ metadata:
 | 缩略图 | ✗ | `--thumbnail` 额外生成缩略图；`--thumbnail-width`（默认 400px）控制宽度 |
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
-| 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md` + `<wiki_root>/raw/assets/<slug>/fig-NN.png`；设计意图见 [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) 与本文 D 段 |
+| 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md` + `<wiki_root>/raw/assets/<slug>/fig-NN.png`；设计意图见本文 D 段 |
 | 论文 slug | ✗ | `--slug <kebab-case>`，仅 `--full` 生效；不传则从 PDF 文件名推断（kebab-case 化）；与 raw/papers + raw/assets 布局同源 |
 | 强制覆盖 | ✗ | `--force-full`，仅 `--full` 生效；raw 端 `<slug>.quick.md` / `.full.md` 已存在时默认拒绝覆盖以防丢失下游引用；加此 flag 显式覆盖 |
 
@@ -309,7 +307,7 @@ metadata:
    - 链接类型不明确时（如脚注里的 project page）归到"代码仓库"那行
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
    - 论文**完全未提**任何 prototype 链接时，**整段省略**（不要写"无开源"或占位文本）
-8. **模型选择**：默认见 §模型选型小节（脚本 `DEFAULT_MODEL` 常量，`scripts/gemini_paper_summary.py:65`）。复杂论文换 `gemini-3.1-pro-preview`，批量速览换 `gemini-3.1-flash-lite`。实际可用模型以当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。**为什么不在本条重列默认值**：模型选型表是 SSOT，列在 §模型选型小节里
+8. **模型选择**：默认与"何时显式覆盖"指南见 §模型选型小节（脚本 `DEFAULT_MODEL` 常量在 `scripts/gemini_paper_summary.py:65`）。实际可用模型以当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。**为什么不在本条重列模型名**：模型选型表是 SSOT，列在 §模型选型小节里
    - **无自动 fallback**（2026-06-21 决策）：默认模型遇到 503 UNAVAILABLE /
      429 RESOURCE_EXHAUSTED 等高并发 / 限流错误时，脚本**直接抛错**给上层，
      不静默降级。理由：不同模型对 v3.2 prompt 模板的输出质量差异显著
@@ -359,11 +357,11 @@ metadata:
   当成 figure 区域。修复：line 文本必须以 `Figure N[.:]` + 描述形式才算 caption
   （`Figure 16 shows...` 中数字后是空格+动词，会被过滤掉）。同时 line 长度
   ≤ 120 字符作为辅助判定。
-- **bbox hint sanity check**（2026-06-21）：Stage 1 Gemini 自由发挥写
-  `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11
-  Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在
-  走 bbox hint fallback 前先检查高度：超过 250pt 且 caption locator 能算出更
-  紧的 bbox（≥ 50pt）时，用 caption locator 替掉 hint。
+- **bbox hint sanity check**（2026-06-21，**阈值 SSOT** 在 `references/figure-extraction.md` §1）：
+  Stage 1 Gemini 自由发挥写 `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去
+  （典型 case：p.11 Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。
+  `render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度（**250pt** 阈值 +
+  **≥ 50pt** 才接受 caption locator 替掉 hint）。具体实现见上述 references 文件。
 
 ## 生成后自检（图片完整性 + 边界破坏）
 
@@ -414,12 +412,12 @@ metadata:
 - ![图 4：传统基数树对比](figures/figure-p4-f4.png) — ...
 ```
 
-**截取逻辑**（按优先级，从高到低）：
+**截取逻辑**（按优先级，从高到低；**Stage 编号 SSOT** 在 `references/figure-extraction.md` §1）：
 
-1. **Stage 2 Gemini 视觉定位**（仅在 `--refine-figures` 启用时）：把页面渲染成 PNG 送给 Gemini
+1. **Stage 2 (Gemini 视觉定位)**（仅在 `--refine-figures` 启用时）：把页面渲染成 PNG 送给 Gemini
    多模态，让它**用视觉方式**给出每个 figure 的紧致 bbox + 完整 caption + 是否关键图。
    精度最高，且能自动跳过装饰图/logo/坐标轴/表格。详见下文 §Stage 2。
-2. **caption 定位**（本地算法，多策略 fallback）：在该页按 `Figure N:` caption 反向推断 figure 区域——
+2. **caption locator**（本地算法，多策略 fallback）：在该页按 `Figure N:` caption 反向推断 figure 区域——
    - 双栏布局下，根据 caption 的 x 中心判断 figure 所在栏（左 / 右）
    - figure 顶部检测按以下三策略按顺序尝试：
      1. **正文段落底部**：caption 上方最近的"宽+多行"正文段落底部（≥2 行 + 宽度 ≥ 栏宽 60%）。
@@ -429,8 +427,8 @@ metadata:
         的情形（如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label +
         path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来。
      3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，但可能含 page header）
-3. **Stage 1 Gemini bbox hint**（仅作最后兜底，精度差）：脚本直接用 Stage 1 prompt 嵌入的
-   `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验
+3. **bbox hint fallback**（仅作最后兜底，精度差）：脚本直接用 Stage 1 prompt 嵌入的
+   `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验。**阈值与 sanity check 规则**见 `references/figure-extraction.md` §1
 4. **定位失败**：跳过该图并在 stderr 打印 WARN；Markdown 里的引用保持原样
 
 **已知边界**（无 Stage 2 时，caption 定位 fallback 兜底）：
@@ -443,7 +441,8 @@ metadata:
   完全没正文时策略 2 仍可能框到 page header，需要 Stage 2 精修
 
 > **推荐始终启用 `--refine-figures`**（默认开）：Stage 2 用 Gemini 看图直接给精确 bbox，
-> 上述三个边界问题基本消失；唯一代价是每张引用页多一次 Gemini 调用 + ~5-15s 延迟。
+> 上述三个边界问题基本消失；唯一代价是每张引用页多一次 Gemini 调用 + ~5-15s 延迟
+> （**代价 SSOT** 见 §D 关键纪律 #3）。
 
 #### Stage 2 / 大小格式 / 缩略图参数
 
@@ -639,9 +638,8 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 ### D. `--full` 全文级抽取模式（raw-compatible layout）
 
-> **设计决策 SSOT**：本节的全部边界 / 调用契约在
-> [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md)
-> 里——本文档只讲"agent 在哪一步怎么做"，决策 why 链回该文件。
+> **设计决策 SSOT**：本节是 `--full` 模式边界 / 调用契约的权威实现规范（npx 分发后唯一可见的设计文档）。
+> 本文档只讲"agent 在哪一步怎么做"，决策 why 在 D 段正文内嵌——不依赖任何外部 MEMORY 文件。
 >
 > **接口约定核心**：单次调用同时产 **quick summary** + **全量结构化转储**
 > 两份产物；产物 layout **强制 raw-compatible**——`--output` 视为 wiki 仓根，
@@ -715,7 +713,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   拆两次会因 quick summary 与 full 模板的 prompt 不一致导致两份对不上
 - 用 `--full --no-refine-figures` 加速且不在意 bbox 准确度——raw 端图被任何后续
   消费方（如 source 页）反复引用，bbox 不准一次 = 后续每次引用都歪；Stage 2
-  的 5-15s/页 + token 成本是值得的
+  的 5-15s/页 + token 成本是值得的（**单论文 + Stage 2 全跑 ≈ 1-3 分钟**）
 - 在本 skill 里写"占位 source 页" —— 写 `wiki/sources/<slug>.md` 属消费端职责；
   本 skill 只到 raw 端为止
 

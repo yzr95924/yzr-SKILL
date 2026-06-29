@@ -6,7 +6,9 @@
 
 ## 1. 三阶段定位原理
 
-按精度从高到低，脚本 `render_figures_to_pngs` 的 fallback 链：
+> **本节是 Stage 编号 + bbox 阈值的唯一真源（SSOT）**。SKILL.md §工作流 A' / §边界 / §执行原则 #5 引用本节。
+> 按精度从高到低，脚本 `render_figures_to_pngs` 的 fallback 链——三个名字在文档全文统一：
+> **Stage 2** (Gemini 视觉定位) / **caption locator** / **bbox hint fallback**。
 
 ### Stage 2（默认开启）：Gemini 视觉定位
 
@@ -16,7 +18,7 @@
 - 临时错误 `429/500/502/503/504` 走指数退避（2s/4s，最多 3 次）
 - 永久错误 `400/401/403/404` 立即放弃，退 caption locator
 
-### Stage 3a：caption locator（本地算法，三策略 fallback）
+### caption locator（本地算法，三策略 fallback）
 
 - 双栏布局按 caption 中心 x 判断 figure 所在栏（左 / 右）
 - figure 顶部三策略按顺序尝试：
@@ -24,16 +26,16 @@
   2. **annotation 顶部**：caption 上方同一栏所有"非正文"文本块（figure annotation / label / 节点编号等"窄+单行"块）的最上 y0。**专门解决 figure 上方只有 annotation 没有正文**的情形（如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label + path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来
   3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，但可能含 page header）
 
-### Stage 3b：bbox hint fallback（精度差，最后兜底）
+### bbox hint fallback（精度差，最后兜底）
 
 - 直接用 Stage 1 prompt 嵌入的 `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验
-- **bbox sanity check**（2026-06-21）：Stage 1 Gemini 自由发挥写 `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11 Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度：超过 250pt 且 caption locator 能算出更紧的 bbox（≥ 50pt）时，用 caption locator 替掉 hint
+- **bbox sanity check**（2026-06-21，**SSOT**）：Stage 1 Gemini 自由发挥写 `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11 Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度：超过 **250pt** 且 caption locator 能算出更紧的 bbox（**≥ 50pt**）时，用 caption locator 替掉 hint
 
 ### 三层全失败的处置
 
 - 整张图从 markdown 删除 + 剥掉前一句"如图 N 所示"/"见图 N"/"Figure N 展示了..."等独立呼应句的图编号引用（保留描述文字）
 - **不**保留 `![图 N: ...](PDF p.X fig.N ...)` 这种没替换的 PDF reference 字符串——outline 渲染会成**破图**（`![]()` 协议 outline 不识别）
-- 脚本日志：`INFO: 跳过 N 张图（视觉定位 + caption locator + bbox hint 三层均失败），已从 markdown 删除对应行 + 呼应句`
+- 脚本日志：`INFO: 跳过 N 张图（Stage 2 + caption locator + bbox hint 三层均失败），已从 markdown 删除对应行 + 呼应句`
 
 ## 2. caption 甄别 vs 正文引用
 

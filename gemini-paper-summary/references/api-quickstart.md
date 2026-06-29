@@ -98,11 +98,8 @@ response = client.models.generate_content(
 
 ## 5. 模型选择
 
-| 模型 | 何时用 |
-| --- | --- |
-| `gemini-3.5-flash` | **默认**，质量与成本平衡，支持 PDF + 1M 上下文 |
-| `gemini-3.1-pro-preview` | 复杂论文（理论性强、含大量数学推导） |
-| `gemini-3.1-flash-lite` | 批量速览、单篇简短总结 |
+**模型选型表 SSOT 在 `../SKILL.md` §模型选型**——本文件不重复。调用 SDK 时直接用
+默认（`gemini-3.5-flash`），需要换模型时从 SKILL.md §模型选型 查"何时显式覆盖"。
 
 实际可用模型以当前文档为准：
 - `mcp__gemini-api-docs-mcp__get_current_model`
