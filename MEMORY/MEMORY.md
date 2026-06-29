@@ -174,3 +174,11 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 - 这条是设计决策记录，**尚未落地**；落地时必须写进对应 SKILL 源（npx 分发不带 MEMORY）
 
 **正文：** [`paper-wiki-integration-design.md`](./paper-wiki-integration-design.md)
+
+### gemini-paper-summary --full 模式 4 个设计决策（2026-06-29）
+
+**Why：** 用户授权进入 yzr-skill-creator 入口 2，为 gemini-paper-summary 补 `--full` 模式（产出"全量结构化转储"给 paper-wiki raw/）。决策点：(D1) 与 default 关系 = 单次调用两份产物 / (D2) layout = raw-compatible 直接落 `<wiki-root>/raw/` / (D3) 骨架 = 沿用同 H2 + 解除 ≤2500 字符 + 按 `Section X.Y` 全文级展开 / (D4) Stage 2 视觉定位必须带；冲突检测默认拒绝覆盖（`--force-full`）。
+
+**How to apply：** 实施时以本文为 SSOT 引用源，**prompt-template.md / gemini_paper_summary.py / SKILL.md** 改动都指回本文件，避免口径漂移；具体 why 详见正文。
+
+**正文：** [`gemini-paper-summary-full-mode-design.md`](./gemini-paper-summary-full-mode-design.md)

@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
+description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格与 outline-wiki-management 一致（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到本地 wiki 仓 raw/ 端的场景（如 llm-wiki-management 的 paper-wiki 域，单次调用结束 raw 端就绪、后续多轮对话蒸馏）。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -39,6 +39,10 @@ metadata:
 - 需要**对比多篇论文**——本 skill 一次一篇，多篇请调用多次再人工拼接
 - 只想抽关键句、抽取式摘要——本 skill 是生成式结构化总结
 - 用户不愿或不能提供 `GEMINI_API_KEY`
+- **不要用 `--full` 模式 + 任意 <dir>**——`--full` 强制 `--output <wiki_root>`，产物
+  必须直接落 raw 端（`raw/papers/<slug>.quick.md` + `.full.md` + `raw/assets/<slug>/fig-NN.png`）。
+  想落任意目录用 `--extract-figures` 即可，那是与 quick summary / single summary 配套的
+  任意目录 layout
 
 ## 输入 / 输出
 
@@ -61,6 +65,9 @@ metadata:
 | 缩略图 | ✗ | `--thumbnail` 额外生成缩略图；`--thumbnail-width`（默认 400px）控制宽度 |
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
+| 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md` + `<wiki_root>/raw/assets/<slug>/fig-NN.png`；设计意图见 [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) 与本文 D 段 |
+| 论文 slug | ✗ | `--slug <kebab-case>`，仅 `--full` 生效；不传则从 PDF 文件名推断（kebab-case 化）。命名与 llm-wiki-management paper-wiki profile §3 对齐 |
+| 强制覆盖 | ✗ | `--force-full`，仅 `--full` 生效；raw 端 `<slug>.quick.md` / `.full.md` 已存在时默认拒绝覆盖以防丢失下游引用；加此 flag 显式覆盖 |
 
 ### 模型选型
 
@@ -629,6 +636,105 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 代表性实验结果」两节替换为「评测设计（评测对象 / benchmark 构造 / 评测协议 /
 规模）+ 评测发现（leaderboard 结论 / 跨维度发现 / insight / 评测方法有效性）」，
 其余章节不变。判定口径与两节 bullet 的真权威定义见 `assets/prompt-template.md`。
+
+### D. `--full` 全文级抽取模式（与 llm-wiki-management paper-wiki 协同）
+
+> **设计决策 SSOT**：本节的全部边界 / 调用契约在
+> [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md)
+> 里——本文档只讲"agent 在哪一步怎么做"，决策 why 链回该文件。
+>
+> **接口约定核心**：单次调用同时产 **quick summary** + **全量结构化转储**
+> 两份产物；产物 layout **强制 raw-compatible**——`--output` 视为 wiki 仓根，
+> 直接落到 `<wiki_root>/raw/papers/<slug>.{quick,full}.md` +
+> `<wiki_root>/raw/assets/<slug>/fig-NN.png`。**不要**用 `--full` 把产物落
+> 任意目录——那是 `--extract-figures` 的职责。
+>
+> Stage 2 视觉定位默认开启（隐式 `--refine-figures`）；raw 端图会被
+> `wiki/sources/<slug>.md` 反复引用，bbox 准确度比 token 代价重要。
+
+**调用形式**：
+
+```bash
+# 推荐（默认从 PDF 文件名推断 slug；这里是 "attention-is-all-you-need"）
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/Attention\ Is\ All\ You\ Need.pdf \
+  --output ~/wiki/llm/ \
+  --full
+
+# 显式 slug（不依赖文件名）
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/attn.pdf \
+  --output ~/wiki/llm/ \
+  --full --slug attention-is-all-you-need
+
+# 覆盖已存在 raw（默认拒绝）
+python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
+  --pdf ~/papers/attn.pdf --output ~/wiki/llm/ --full --force-full
+```
+
+**产物**（一次调用结束 raw 端就绪）：
+
+```text
+<wiki_root>/raw/
+├── papers/
+│   ├── attention-is-all-you-need.quick.md   # academic 模板（≤2500 字符）
+│   └── attention-is-all-you-need.full.md    # full 模板（全文级，不限字符）
+└── assets/
+    └── attention-is-all-you-need/
+        ├── fig-01.png                       # Stage 2 裁剪的图
+        ├── fig-02.png
+        └── ...
+```
+
+`wiki/sources/<slug>.md` **不是本 skill 的产物**——其占位写入是
+llm-wiki-management `ingest` 操作的职责（见 `llm-wiki-management/references/paper-wiki-profile.md` §4 阶段 1）。
+
+**与 paper-wiki 的协同序列**：
+
+```text
+1. 本 skill:跑 --full (本节)
+                       → <wiki_root>/raw/papers/<slug>.quick.md + .full.md + assets/
+2. llm-wiki-management: ingest_diff.py 看 raw/papers/<slug>.full.md "未摄取"
+   → 调 agent 生成 wiki/sources/<slug>.md(以 .quick.md 为初稿，frontmatter sources
+     字段指向 raw/papers/<slug>.full.md + raw/assets/<slug>/fig-NN.png)
+   → log.md 写 ingest 条目
+3. llm-wiki-management: 后续多轮对话 → 触发 refine op（Edit 追加 / 修订）
+   → wiki/sources/<slug>.md frontmatter.distill_state: draft → refining → final
+4. (未来独立 publish skill) quick summary + wiki/sources/<slug>.md → outline-wiki
+   → 本 skill 不做
+```
+
+**关键纪律**：
+
+- **不要**用 `--full` 模式只产 full —— 即使只要 raw 端，本 skill 也**必须**
+  一次调用两份产物（quick summary 给未来 publish skill,full 给 llm-wiki-management
+  蒸馏）；拆两次调用反而破坏单次成型的产品形态
+- **`raw/papers/<slug>.full.md` 不重写**：默认拒绝覆盖；下游已多次引用 full 抽取，
+  意外重写会丢下游状态。若要重新抽取，先 `rm <wiki-root>/raw/papers/<slug>.full.md`
+  再跑
+- **`--full` 与 `--extract-figures` 互斥（隐式）**：full 模式的产物 layout 是
+  raw-compatible，不走 `<output>/figures/`；混用两者是反模式
+
+**反模式**（**别**这么干）：
+
+- 跑 `--full` 但希望产物落 `<dir>/papers/<slug>.full.md`——**不会发生**，`--full`
+  强制 raw-compatible；想落任意目录就**不**加 `--full`，改用 `--extract-figures`
+- 跑两次 `--full` 然后手动把两份产物拼一起——要"一次调两份"是设计本意；
+  拆两次会因 quick summary 与 full 模板的 prompt 不一致导致两份对不上
+- 用 `--full --no-refine-figures` 加速且不在意 bbox 准确度——raw 端图被
+  llm-wiki-management 在 `wiki/sources/<slug>.md` 里反复引用，bbox 不准一次 =
+  整个 wiki 仓的多次引用都歪；Stage 2 的 5-15s/页 + token 成本是值得的
+- 在本 skill 里写"占位 source 页" —— 那是 llm-wiki-management ingest 的职责；
+  本 skill 只到 raw 端为止
+
+### C'. `--full` 模式专属故障排查
+
+| 现象 | 原因 | 处置 |
+| --- | --- | --- |
+| 跑出 `<wiki_root>/raw/papers/<slug>.quick.md` 与 `.full.md` 但 assets/ 目录为空 | Gemini 在 `.full.md` 里没生成 `![图 N](PDF p.X ...)` 引用 | 检查 full 模板是否有图；论文无关键图时符合预期；否则改 prompt |
+| `ERROR: .../raw/papers/<slug>.full.md 已存在;full 抽取默认拒绝覆盖` | 之前跑过 `--full` 该 PDF | 先 `rm <wiki_root>/raw/papers/<slug>.full.md` 再跑；或加 `--force-full` 显式覆盖 |
+| `--full` 跑完后 quick summary 字符数超过 2500 | academic 模板的精炼约束 prompt 是"目标不是上限",Gemini 偶尔溢出 | 降 temperature 到 0.1；或 prompt 里要求"严格 ≤ 2500" 后处理截断 |
+| `ERROR: 无法推断论文 slug` | PDF 文件名含 unicode 私造字符或全部为非 kebab-case | 加 `--slug <kebab-case-slug>` 显式指定 |
 
 ## 前置条件
 

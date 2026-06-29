@@ -1,0 +1,102 @@
+{
+  "skill_name": "gemini-paper-summary",
+  "evals": [
+    {
+      "id": 1,
+      "name": "single-paper-full-mode-attention",
+      "prompt": "我刚下载了 Attention Is All You Need 的 PDF（路径 /home/zryang/papers/Attention Is All You Need.pdf），想把这篇论文的全文结构化版本存到 ~/wiki/llm/ 这个 wiki 仓的 raw/ 端，方便后面我反复在多轮对话里基于这份抽取向 LLM 提问。一次性帮我跑完，跑完后 raw 端就该就绪——raw/papers/ 下有 .full.md（全文级结构化转储，所有 Section 都展开、所有公式 / 表格保留、解除 ≤2500 字符压缩）+ .quick.md 给未来远端发布用；raw/assets/<slug>/ 下有 Stage 2 视觉定位裁剪的关键图。",
+      "expected_output": "一份调用产出 3 份产物：~/wiki/llm/raw/papers/attention-is-all-you-need.quick.md (≤2500 字符学术总结 6 段 ## 骨架)、~/wiki/llm/raw/papers/attention-is-all-you-need.full.md (全文级,含所有 Section X.Y 子节 + 多模态 Stage 2 视觉定位裁剪的 PNG)、~/wiki/llm/raw/assets/attention-is-all-you-need/fig-NN.png；Stage 2 默认开启。",
+      "files": [],
+      "assertions": [
+        {
+          "name": "调用是否走 --full 模式",
+          "evidence_kind": "script_invocation",
+          "criteria": "agent 实际调用形式包含 --full + --output <wiki_root> (而非 --output <any_dir>)"
+        },
+        {
+          "name": "slug 从文件名推断为 attention-is-all-you-need",
+          "evidence_kind": "filesystem",
+          "criteria": "raw/papers/attention-is-all-you-need.full.md 存在"
+        },
+        {
+          "name": "两份产物落 raw-compatible layout",
+          "evidence_kind": "filesystem",
+          "criteria": "raw/papers/<slug>.quick.md 与 raw/papers/<slug>.full.md 都在 raw/papers/ 下（而不是 <output>/summary.md 这种老 layout）"
+        },
+        {
+          "name": "full 模板 Section 全文级展开生效",
+          "evidence_kind": "text_content",
+          "criteria": "full.md 含 ≥ 5 个 ### Section X.Y 子标题,且 ## 3 句话总结 / ## 背景与动机 / ## 方法设计 / ## 代表性实验结果 / ## 业务启示 & 价值 / ## 局限与未来工作 6 个 H2 全在"
+        },
+        {
+          "name": "quick summary ≤2500 字符精炼",
+          "evidence_kind": "text_content",
+          "criteria": "quick.md 字数 ≤ 2500 字符且含 6 段 ## H2 骨架"
+        },
+        {
+          "name": "Stage 2 视觉定位默认开启",
+          "evidence_kind": "script_invocation",
+          "criteria": "agent 不显式 --no-refine-figures(允许显式开但视作偏离)"
+        },
+        {
+          "name": "raw 端冲突检测默认拒绝覆盖",
+          "evidence_kind": "behavior",
+          "criteria": "如果第二次跑 --full (无 --force-full),退出码非零并提示已存在"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "single-paper-full-mode-with-focus",
+      "prompt": "我又下了 Mixture-of-Experts 的另一篇 PDF (路径 /home/zryang/papers/MoE-X.pdf,文件名我还没重命名),我对这篇论文里 gating 路由的稀疏性 + 辅助负载均衡损失这部分最感兴趣,其它部分快速过就行。文件已经在 ~/wiki/llm/ 这个仓的 wiki 仓根下,跑完后 raw 端就该就绪(全文级抽取 + quick summary 两份,assets/ 下是 Stage 2 视觉定位裁剪的关键图)。full 模板里我希望这篇论文章节按 PDF 章节顺序展开,不要因为字符数压缩合并任何 Section;遇到图尽量保留,公式 Unicode 形式。",
+      "expected_output": "一次调用产出 3 份产物:~/wiki/llm/raw/papers/moe-x.quick.md (≤2500 字符,侧重 gating 路由 + 负载均衡损失)、~/wiki/llm/raw/papers/moe-x.full.md (全文级,按 PDF 章节展开,gating 路由小节下追加 focus 子段)、~/wiki/llm/raw/assets/moe-x/fig-NN.png;full.md 含 focus 注入 FOCUS_INJECTION_FULL('用户关注点追加到方法 / 实验 / 业务 子段'形式,而不是 academic 的'启发 / 追问'段)。",
+      "files": [],
+      "assertions": [
+        {
+          "name": "slug 从文件名 MoE-X.pdf 推断为 moe-x (kebab-case 化)",
+          "evidence_kind": "filesystem",
+          "criteria": "raw/papers/moe-x.full.md 存在"
+        },
+        {
+          "name": "焦点在 full 模板走 FOCUS_INJECTION_FULL 路径",
+          "evidence_kind": "text_content",
+          "criteria": "full.md 含 ## 方法设计 / ## 代表性实验结果 子段(如 '### 用户关注点: ...' 或等价的 focus 子段)"
+        },
+        {
+          "name": "焦点在 quick 模板走 FOCUS_INJECTION(学术 / 追问段)",
+          "evidence_kind": "text_content",
+          "criteria": "quick.md 含 ## 启发 / 追问 章节且展开 focus 相关 2-3 个延伸思考"
+        },
+        {
+          "name": "full.md 全文级展开(未压缩)",
+          "evidence_kind": "text_content",
+          "criteria": "full.md 含 ≥ 5 个 ### Section X.Y 子标题,且每个 Section 至少 1 个 bullet (不是 '原文未明确' 占位)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "full-mode-conflict-default-deny",
+      "prompt": "我把一篇 PDF 已经跑过一次 --full,产物落在 ~/wiki/llm/raw/papers/my-paper.full.md 了;现在我又想跑一遍(因为论文 v2 了),但 raw/ 下的图我之前在多轮对话里已经引用多次,不想被覆盖掉。问我这种情况该怎么办——是直接跑 --full,还是要别的什么操作?agent 给我实际跑的命令与预期行为。",
+      "expected_output": "agent 强调:--full 模式默认拒绝覆盖 raw/papers/<slug>.full.md 与 .quick.md(保护下游已经多次引用的 raw),分两种走法:(a) 删旧产品前 rm <slug>.full.md + 再跑--full;(b) 加 --force-full 显式覆盖(覆盖时 stderr 给 WARN)。不应直接再跑而没问用户;不应建议加配置文件绕过此 guard。",
+      "files": [],
+      "assertions": [
+        {
+          "name": "agent 解释了默认拒绝覆盖的 why",
+          "evidence_kind": "explanation",
+          "criteria": "agent 解释中含'贵读一次 / 下游已多次引用 / 保护 raw 端稳定'这三个意思之一"
+        },
+        {
+          "name": "agent 提供两条清晰的处置路径",
+          "evidence_kind": "explanation",
+          "criteria": "(a) rm + 再跑 --full;(b) --force-full。两条都给。"
+        },
+        {
+          "name": "agent 不应自动覆盖(raw 端就是论金币子,无关人机对话)",
+          "evidence_kind": "behavior",
+          "criteria": "agent 在确认用户意愿前不执行覆盖写动作;在冲突场景下默认建议 --force-full 仍要二次确认"
+        }
+      ]
+    }
+  ]
+}

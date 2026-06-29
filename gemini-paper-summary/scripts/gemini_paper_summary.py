@@ -134,10 +134,67 @@ def _load_default_prompt():
 DEFAULT_PROMPT = _load_default_prompt()
 
 
+def _load_full_prompt():
+    # type: () -> str
+    """从 assets/prompt-template.md 的 `## 全文级抽取模板（full）` 段读出 prompt 正文。
+
+    失败时（文件缺失 / 段不存在 / 没有 text fence）立即报错退出——与
+    `_load_default_prompt` 同样的态度：开发期问题不允许静默回退。
+
+    设计决策 SSOT: 见
+    ../../MEMORY/gemini-paper-summary-full-mode-design.md §4(D3 沿用同 H2 骨架)。
+    """
+    if not os.path.isfile(DEFAULT_TEMPLATE_PATH):
+        sys.stderr.write(
+            "ERROR: 找不到 prompt 模板文件: {0}\n".format(DEFAULT_TEMPLATE_PATH)
+        )
+        sys.exit(2)
+
+    with open(DEFAULT_TEMPLATE_PATH, encoding="utf-8") as f:
+        md = f.read()
+
+    head_match = re.search(
+        r"^##\s+全文级抽取模板[（(]full[)）]\s*$",
+        md,
+        re.MULTILINE,
+    )
+    if not head_match:
+        sys.stderr.write(
+            "ERROR: {0} 里找不到 '## 全文级抽取模板（full）' 段。\n"
+            "       模板文件结构破坏，请补回该小节。\n".format(DEFAULT_TEMPLATE_PATH)
+        )
+        sys.exit(2)
+
+    after_head = md[head_match.end() :]
+    fence_match = _DEFAULT_PROMPT_FENCE_RE.search(after_head)
+    if not fence_match:
+        sys.stderr.write(
+            "ERROR: {0} 的 full 模板段里找不到 `````text` fence。\n"
+            "       请确认模板正文仍由 4-backtick fence 包裹。\n".format(
+                DEFAULT_TEMPLATE_PATH
+            )
+        )
+        sys.exit(2)
+
+    return fence_match.group(1).rstrip() + "\n"
+
+
+FULL_PROMPT = _load_full_prompt()
+
+
 FOCUS_INJECTION = (
     "\n\n[额外关注点]\n"
     '用户在调用时指定了以下关注点，请在"方法 / 关键结果"小节中相应侧重，'
     '并在"启发 / 追问"小节展开 2-3 个延伸思考：\n\n{focus}\n'
+)
+
+# full 模板的焦点注入片段（在全文级抽取上下文里，`启发 / 追问` 段不存在——
+# 用户的关注点以"在 ## 方法设计 / ## 代表性实验结果 段下加关注点子段"形式插入）
+FOCUS_INJECTION_FULL = (
+    "\n\n[额外关注点]\n"
+    "用户在调用时指定了以下关注点，请在 **方法设计 / 代表性实验结果 / 业务启示 & 价值** "
+    "章节内以子段形式追加原文级细节关注(例如 `### 用户关注点: <focus>` 子节),"
+    "\n\n{focus}\n"
 )
 
 
@@ -1116,8 +1173,45 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
     parser.add_argument(
         "--template",
         default="academic",
-        choices=["academic"],
-        help="总结模板；当前只内置 academic（6 段 ## + 3 段 ### 的学术结构化），默认 academic。",
+        choices=["academic", "full"],
+        help=(
+            "总结模板；academic（默认，≤2500 字符精炼速读，6 段 ## 骨架）或 "
+            "full（全文级结构化转储，解除字符数约束，按 PDF 章节逐小节展开；"
+            "通常配合 --full 模式使用）。"
+        ),
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help=(
+            "全文级抽取模式：单次调用同时产 quick summary (academic 模板) "
+            "+ 全量结构化转储 (full 模板)，**两份**产物。"
+            "产物 layout 强制 raw-compatible：--output 视为 wiki 仓根，"
+            "写到 <wiki-root>/raw/papers/<slug>.quick.md + .full.md + "
+            "<wiki-root>/raw/assets/<slug>/fig-NN.png。"
+            "隐式开启 --refine-figures（Stage 2 视觉定位必带）。"
+            "用 --slug 显式指定论文 slug（默认从 PDF 文件名推断）。"
+            "若 raw 端产物已存在默认拒绝覆盖（用 --force-full 显式允许）。"
+        ),
+    )
+    parser.add_argument(
+        "--slug",
+        default=None,
+        help=(
+            "论文 slug（kebab-case，与 llm-wiki-management paper-wiki profile §3 "
+            "命名契约对齐；如 'attention-is-all-you-need'）。"
+            "默认从 PDF 文件名去后缀后再 kebab-case 化推断。"
+            "仅在 --full 模式下有意义；否则忽略。"
+        ),
+    )
+    parser.add_argument(
+        "--force-full",
+        action="store_true",
+        help=(
+            "允许 --full 模式覆盖 raw/papers/<slug>.full.md 与 .quick.md（默认拒绝覆盖，"
+            "理由：full 抽取是'贵读一次'的产物，意外重写会丢下游已经多次引用的 raw）。"
+            "仅在 --full 模式下有意义。"
+        ),
     )
     parser.add_argument(
         "--temperature",
@@ -1239,10 +1333,21 @@ def validate_inputs(args):  # type: (argparse.Namespace) -> Tuple[str, bytes, st
 # ----------------------------------------------------------------------------
 
 
-def build_prompt(focus):  # type: (str) -> str
+def build_prompt(focus, template="academic"):  # type: (str, str) -> str
+    """按 template 选择 prompt 源，必要时追加 --focus 注入。
+
+    - academic (默认): DEFAULT_PROMPT, focus 走 FOCUS_INJECTION(启发 / 追问 段)
+    - full: FULL_PROMPT, focus 走 FOCUS_INJECTION_FULL(方法/实验/业务 子段追加)
+    """
+    if template == "full":
+        base = FULL_PROMPT
+        injection = FOCUS_INJECTION_FULL
+    else:
+        base = DEFAULT_PROMPT
+        injection = FOCUS_INJECTION
     if focus:
-        return DEFAULT_PROMPT + FOCUS_INJECTION.format(focus=focus.strip())
-    return DEFAULT_PROMPT
+        return base + injection.format(focus=focus.strip())
+    return base
 
 
 def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, str, float) -> str
@@ -1296,12 +1401,241 @@ def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, st
 
 
 # ----------------------------------------------------------------------------
+# --full 模式 helpers：slug 推断 + raw 端冲突检测
+# ----------------------------------------------------------------------------
+
+# 与 llm-wiki-management/references/paper-wiki-profile.md §3 命名契约对齐
+_SLUG_NON_KEBAB_RE = re.compile(r"[^a-z0-9-]+")
+_SLUG_RUN_DASH_RE = re.compile(r"-+")
+
+
+def slug_from_path(pdf_path):  # type: (str) -> str
+    """从 PDF 文件名推断 kebab-case slug。
+
+    例子：
+      /papers/Attention Is All You Need.pdf  -> attention-is-all-you-need
+      ./my_paper-v2.PDF                      -> my-paper-v2
+      ./ART-ICDE'13.pdf                      -> art-icde-13
+    """
+    base = os.path.basename(pdf_path)
+    stem = re.sub(r"\.[Pp][Dd][Ff]$", "", base)
+    slug = stem.lower()
+    slug = _SLUG_NON_KEBAB_RE.sub("-", slug)
+    slug = _SLUG_RUN_DASH_RE.sub("-", slug).strip("-")
+    return slug
+
+
+def detect_full_overwrite(full_md_path, force):  # type: (str, bool) -> None
+    """检测 raw/papers/<slug>.full.md 是否已存在；存在且未 --force-full 时退出非零。
+
+    设计意图（SSOT 引用 MEMORY/gemini-paper-summary-full-mode-design.md §3）：
+    full 抽取是"贵读一次"的产物,意外重写会丢下游已经多次引用的 raw——默认拒绝。
+    用户显式 --force-full 才允许覆盖,stderr 仍 INFO 提示这次是覆盖。
+    """
+    if not os.path.isfile(full_md_path):
+        return
+    if force:
+        sys.stderr.write(
+            "INFO: {0} 已存在,用户显式 --force-full,覆盖现有 full 抽取。\n".format(
+                full_md_path
+            )
+        )
+        return
+    sys.stderr.write(
+        "ERROR: {0} 已存在;full 抽取默认拒绝覆盖以防丢失下游已经多次引用的 raw。\n"
+        "       若确认要覆盖,加 --force-full 显式允许。\n".format(full_md_path)
+    )
+    sys.exit(1)
+
+
+def _run_full_mode(args):  # type: (argparse.Namespace) -> int
+    """--full 模式独立子流程:产出两份 (quick + full) + raw-compatible layout。
+
+    输入约定:
+        args.pdf         -- PDF 路径
+        args.output      -- wiki 仓根(下含 raw/)
+        args.slug / --slug / 自动从 PDF 文件名推断(见 slug_from_path)
+        args.model / args.temperature / args.focus  -- Gemini 调用参数
+        args.refine_figures / args.refine_dpi       -- Stage 2(必需)
+        args.figure_dpi / args.figure_format / args.figure_quality
+        args.max_width / args.max_size_kb / args.thumbnail / args.thumbnail_width
+        args.force_full                              -- 允许覆盖冲突
+
+    写出:
+        <wiki_root>/raw/papers/<slug>.quick.md       -- academic 模板产物
+        <wiki_root>/raw/papers/<slug>.full.md        -- full 模板产物
+        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- Stage 2 裁剪的图(只 full 用)
+
+    关键决策 SSOT:../../MEMORY/gemini-paper-summary-full-mode-design.md
+    """
+    # 必填校验
+    if not args.output:
+        sys.stderr.write(
+            "ERROR: --full 模式必须配合 --output 使用(--output 视为 wiki 仓根,\n"
+            "       产物写到 <wiki_root>/raw/papers/<slug>.quick.md + .full.md +\n"
+            "       <wiki_root>/raw/assets/<slug>/fig-NN.png)。\n"
+        )
+        sys.exit(2)
+
+    wiki_root = os.path.abspath(args.output)
+    raw_root = os.path.join(wiki_root, "raw")
+    papers_dir = os.path.join(raw_root, "papers")
+    assets_root = os.path.join(raw_root, "assets")
+
+    # slug 推断(--slug 优先,否则从 PDF 文件名)
+    slug = args.slug if args.slug else slug_from_path(args.pdf)
+    if not slug:
+        sys.stderr.write(
+            "ERROR: 无法推断论文 slug(从 PDF 文件名 '{0}' 得到空字符串)。\n"
+            "       用 --slug <kebab-case-slug> 显式指定。\n".format(args.pdf)
+        )
+        sys.exit(2)
+
+    os.makedirs(papers_dir, exist_ok=True)
+    # assets/<slug>/ 在 Stage 2 渲染时再创建;这里先确保 raw/ 与 raw/papers/ 存在
+
+    quick_md_path = os.path.join(papers_dir, "{0}.quick.md".format(slug))
+    full_md_path = os.path.join(papers_dir, "{0}.full.md".format(slug))
+    assets_dir = os.path.join(assets_root, slug)
+
+    # 冲突检测(SSOT §3):full 抽取默认拒绝覆盖;quick 也走同规则
+    detect_full_overwrite(full_md_path, args.force_full)
+    if os.path.isfile(quick_md_path) and not args.force_full:
+        sys.stderr.write(
+            "ERROR: {0} 已存在;full 模式默认拒绝覆盖 quick 产物以保持 raw 端稳定。\n"
+            "       若确认要覆盖,加 --force-full 显式允许。\n".format(quick_md_path)
+        )
+        sys.exit(1)
+
+    # 1) 校验输入(隐式 GEMINI_API_KEY + PDF 完整性)
+    model, pdf_bytes, focus = validate_inputs(args)
+
+    # 2) 调用 Gemini 两次:先 academic(quick) 再 full
+    sys.stderr.write(
+        "INFO: --full 模式开始 (slug={slug});产物落 raw-compatible layout ({wiki_root}/raw/)\n".format(
+            slug=slug, wiki_root=wiki_root
+        )
+    )
+    sys.stderr.write(
+        "INFO: 第 1 次调用 Gemini (academic 模板 = quick summary)\n"
+    )
+    quick_prompt = build_prompt(focus, template="academic")
+    quick_md = call_gemini(model, pdf_bytes, quick_prompt, args.temperature)
+
+    sys.stderr.write(
+        "INFO: 第 2 次调用 Gemini (full 模板 = 全文级抽取)\n"
+    )
+    full_prompt = build_prompt(focus, template="full")
+    full_md = call_gemini(model, pdf_bytes, full_prompt, args.temperature)
+
+    # 3) full 产物的图引用处理:Stage 2 视觉定位 + raw-compatible assets 落盘
+    #    --full 隐式开启 --refine-figures(SSOT §D4)
+    full_refs = parse_figure_refs(full_md)
+    visual_bbox_map = {}
+    if full_refs:
+        # full 模式强制 Stage 2(WARN 而非 ERROR:用户或 pymupdf 缺时 fallback)
+        if not args.refine_figures:
+            sys.stderr.write(
+                "WARN: --full 模式默认开启 Stage 2 视觉定位(--refine-figures),"
+                "你显式传了 --no-refine-figures;raw 端图可能不准 bbox。\n"
+            )
+        if not _HAS_PYMUPDF:
+            sys.stderr.write(
+                "WARN: --full 需要 pymupdf 做 Stage 2,但未安装;fallback 到 caption locator。\n"
+                "      安装命令: pip install --user --break-system-packages pymupdf\n"
+            )
+        elif not os.environ.get("GEMINI_API_KEY"):
+            sys.stderr.write("WARN: Stage 2 需要 GEMINI_API_KEY,未设置;fallback 到 caption locator。\n")
+        else:
+            if args.refine_figures:
+                page_to_png = render_pages_for_gemini(args.pdf, full_refs, dpi_scale=args.refine_dpi)
+                if page_to_png:
+                    visual_bbox_map = call_gemini_for_visual_bbox(
+                        args.pdf, page_to_png, model, args.temperature
+                    )
+                    full_md = insert_caption_after_figure(full_md, visual_bbox_map)
+
+        # 4) 渲图到 raw/assets/<slug>/  (与 paper-wiki-profile §3 / SKILL.md § 命名对齐)
+        if full_refs:
+            os.makedirs(assets_dir, exist_ok=True)
+            ref_to_fullpath, ref_to_thumbpath, ref_to_dim = render_figures_to_pngs(
+                args.pdf,
+                full_refs,
+                assets_dir,
+                dpi_scale=args.figure_dpi,
+                figure_format=args.figure_format,
+                figure_quality=args.figure_quality,
+                max_width=args.max_width,
+                max_size_kb=args.max_size_kb,
+                make_thumbnail=args.thumbnail,
+                thumbnail_width=args.thumbnail_width,
+                visual_bbox_map=visual_bbox_map,
+            )
+            if args.thumbnail and ref_to_thumbpath:
+                ref_to_relpath = ref_to_thumbpath
+                ref_to_full_for_wrap = ref_to_fullpath
+            else:
+                ref_to_relpath = ref_to_fullpath
+                ref_to_full_for_wrap = None
+            full_md = embed_figure_refs(
+                full_md, ref_to_relpath, ref_to_full_for_wrap, ref_to_dim=ref_to_dim
+            )
+            refine_note = (
+                ", Stage 2 定位 {0} 个".format(len(visual_bbox_map))
+                if visual_bbox_map
+                else ""
+            )
+            sys.stderr.write(
+                "OK: 已导出 {0} 张图到 {1}(倍率 {2},{3:.0f} DPI,格式 {4}{5}{6})\n".format(
+                    len(ref_to_fullpath),
+                    assets_dir,
+                    args.figure_dpi,
+                    args.figure_dpi * 72,
+                    args.figure_format,
+                    " + 缩略图" if args.thumbnail else "",
+                    refine_note,
+                )
+            )
+
+    # 5) 写两份 .md 到 raw/papers/
+    with open(quick_md_path, "w", encoding="utf-8") as f:
+        f.write(quick_md)
+        if not quick_md.endswith("\n"):
+            f.write("\n")
+    sys.stderr.write(
+        "OK: quick summary 已写入 {0} ({1} 字符, 模型 {2})\n".format(
+            quick_md_path, len(quick_md), model
+        )
+    )
+    with open(full_md_path, "w", encoding="utf-8") as f:
+        f.write(full_md)
+        if not full_md.endswith("\n"):
+            f.write("\n")
+    sys.stderr.write(
+        "OK: full 抽取已写入 {0} ({1} 字符, 模型 {2})\n".format(
+            full_md_path, len(full_md), model
+        )
+    )
+
+    # 6) 写一份 .quick.md + .full.md 都跳开 self-check(quick 不带图, full 走
+    #    assets/ 不走 figures/;自检路径分支不值得引入)— 当前 self_check_figures
+    #    只对 .full.md 的本地图做粗校验,后续迭代再加 raw-specific self-check。
+    return 0
+
+
+# ----------------------------------------------------------------------------
 # 入口
 # ----------------------------------------------------------------------------
 
 
 def main(argv=None):  # type: (Optional[list]) -> int
     args = parse_args(argv)
+
+    # --full 模式走独立分支;设计决策 SSOT 见
+    # ../../MEMORY/gemini-paper-summary-full-mode-design.md(D1 / D2 / D3 / D4)
+    if args.full:
+        return _run_full_mode(args)
+
     model, pdf_bytes, focus = validate_inputs(args)
     prompt = build_prompt(focus)
     summary_md = call_gemini(model, pdf_bytes, prompt, args.temperature)
