@@ -310,7 +310,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 3. **跨页综合**——用引用形式带 source 链接；矛盾处显式标注："A 说 X（来源：...），
    B 说 Y（来源：...），需要更深入调研"
 4. **展示答案 + 询问归档**——如果答案有"对比 / 综合 / 发现联系"的性质，询问用户：
-   "这段答案适合归档回 wiki 作为 comparisons/<slug>.md 吗？"
+   "这段答案适合归档回 wiki 作为 comparisons/`<slug>`.md 吗？"
 5. **用户同意后归档**——走 references/page-templates.md 的 `comparison` 或
    `synthesis` 模板 + 追加 log 条目
 
@@ -362,7 +362,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 1. 决定是否值得写——是否能让未来的自己 / 未来的 agent 工作更顺？
 2. 在 `wiki/MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
-3. 写 frontmatter（5 必填：title / type / created / updated / tags；推荐 description）
+3. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
 4. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
 5. **不**追加 log 条目——MEMORY 不是操作时间线
 6. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束

@@ -75,13 +75,13 @@ metadata:
 - **link** → 在涉及跨 wiki 引用的 wiki 各自的 source / entity 页追加跨 wiki 链接（走
   `llm-wiki-management` 的 ingest 流程，不直接写 wiki 文件）
 - **lint** → 写 `<workspace>/LINT.md`（最近一次报告，每次 lint 覆盖；格式见
-  [spec §7](references/workspace-spec.md#7-lintmdskill-维护可选)）+ 对话中总结
+  [spec §8](references/workspace-spec.md#8-lintmdskill-维护可选)）+ 对话中总结
 
 ## 执行原则 / 边界
 
 ### 三层职责切分
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ workspace CLI (如 llmw)                                          │
 │   - 确定性元数据操作：init / add / remove / config / enter        │
@@ -168,7 +168,7 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 
 ### 跨 skill 依赖图（DAG，无环）
 
-```
+```text
 llm-workspace-management (本 skill)
   ├─→ references/workspace-spec.md (本 skill 自有)
   ├─→ references/wiki-spec.md (经 llm-wiki-management SKILL 仓引用)

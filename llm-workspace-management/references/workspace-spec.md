@@ -30,7 +30,7 @@
 - [§8 LINT.md（skill 维护，可选）](#8-lintmdskill-维护可选)
 - [§9 workspace MEMORY/（skill 维护）](#9-workspace-memoryskill-维护)
 - [§10 .gitignore](#10-gitignore)
-- [§11 Git 初始化（opt-in，默认跳过）](#11-git-初始化opt-in默认跳过)
+- [§11 Git 仓（用户外部创建，CLI 不碰）](#11-git-仓用户外部创建cli-不碰)
 - [§12 拒绝条件（强约束）](#12-拒绝条件强约束)
 - [§13 Frontmatter 字段约定（skill 写 §5–§9 时用）](#13-frontmatter-字段约定skill-写-5-9-时用)
 - [§14 版本钉死](#14-版本钉死)
@@ -451,23 +451,20 @@ workspace_models.toml
 **必须不忽略**：`workspace.toml`、`CLAUDE.md`、`INDEX.md`、`STATS.md`、`cross_queries/`、
 `LINT.md`、`MEMORY/`、`<wiki-name>/`（wiki 仓的内容由 wiki-spec §6 各自的 `.gitignore` 处理）。
 
-`.gitignore` **无论是否 opt-in git 都生成**——无 git 时是无害的空操作，且便于后续补 git。
+`.gitignore` **总是生成**——git 仓由用户外部创建（§11），与是否启用 git 无关；无 git 时无害，便于用户后续随时补 git。
 
-## §11 Git 初始化（opt-in，默认跳过）
+## §11 Git 仓（用户外部创建，CLI 不碰）
 
-> **立场**：workspace **不依赖 git 即可工作**——默认落盘为**纯目录树**。git 仅在用户
-> 显式 opt-in 时启用，用于版本控制 / history / diff。`workspace_models.toml` 在
-> 无 git 时靠文件系统权限保护；有 git 时靠 `.gitignore` 排除。
+> **立场**：workspace **不依赖 git 即可工作**——默认落盘为**纯目录树**。workspace 的 git 仓
+> **由用户在外部自行 `git init` / `clone` 创建**，CLI **不碰 git**——不 `git init`、不 `add`、
+> 不 `commit`、也不接 `--git`；版本控制是用户在自己机器上决定的事。`workspace_models.toml`
+> 在无 git 时靠文件系统权限保护，用户启用 git 后靠 `.gitignore`（§10）排除。
 
-- **默认（无 `--git`）**：CLI **完全不碰 git**——不 init、不 add、不 commit。
-- **opt-in（`--git`）**：CLI 在 workspace 根执行：
-  1. `git init`
-  2. `git symbolic-ref HEAD refs/heads/main`（默认 main 分支）
-  3. 检查全局 `git config user.email` / `user.name`，未配则 local 配占位值
-  4. 为 `cross_queries/`（若已建）、`MEMORY/`（若已建）等空目录放 `.gitkeep` 让其能被 `git add`
-  5. `git add .`
-  6. `git commit -m "Initial workspace scaffold"`
-- **不得**对已存在的 git 仓误调 `git init`。
+- **init 允许落在用户已建好的空 git 仓上**：若目标目录已是 git 空仓（仅含 `.git` 与/或
+  `.gitignore`），CLI 的 `init` 照常在其上继续——CLI 不调 `git init`，只是不把"已有 .git"
+  当成拒绝条件（`git init` 本身幂等，CLI 落盘不破坏用户已建的仓）。
+- **`.gitignore` 无条件生成**（详见 §10）：与用户是否启用 git 无关——CLI 总是写 `.gitignore`，
+  便于用户后续随时 `git init` 时敏感文件已被排除。
 
 ## §12 拒绝条件（强约束）
 

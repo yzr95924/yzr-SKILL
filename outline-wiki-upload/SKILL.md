@@ -20,7 +20,7 @@ metadata:
 通过 Outline Wiki MCP 的**写**操作能力（创建 + 编辑 + 扩展能力 + 风格基线），
 向工作区写入符合仓库指纹的 Markdown 文档。本 skill 是 outline-wiki-* 家族
 中**最重**的一个——含核心写能力 2 个 + 扩展写能力 5 项 + 风格映射
-（513 行 ProseMirror 节点表）+ 风格 checklist（9 大类）。
+（ProseMirror 节点映射表）+ 风格 checklist（9 大类）。
 
 读 / 搜由 [`outline-wiki-search`](../outline-wiki-search/SKILL.md) 负责；
 MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
@@ -74,6 +74,7 @@ MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
 
 > Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_document` /
 > `update_document` 只接受 Markdown 字符串作为输入。因此：
+>
 > - **写之前**先想清楚这条 Markdown 会被解析成哪个 ProseMirror 节点
 > - **不要**使用 Markdown 表面能写、但 ProseMirror schema 不接受的语法
 > - **不要**使用 Markdown 表面写不出来、必须靠 UI 才能表达的语法（如指定
@@ -356,6 +357,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 > **本 skill 的图片能力 = 上传 + 引用**——只解决"把本地文件变成 outline 里
 > 能渲染的图片"。**不**管图片怎么来：
+>
 > - 截图 / 配图 / logo 等任意本地图片：直接走下面 3 步
 > - **论文关键架构图**：图源不归本 skill——用 [`gemini-paper-summary`](../../gemini-paper-summary/SKILL.md)
 >   的 `--extract-figures` 抽到本地 `figures/*.png` 后，再走本 skill 的 attachment 3 步
@@ -363,16 +365,19 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 **完整 3 步流程**（每张图独立走一遍）：
 
 1. **预签名上传 URL**：调 `create_attachment(name, contentType, size)`
+
    ```text
    name: （如 figure-p1-f1.png）
    contentType: image/png（或 image/jpeg / image/webp）
    size: 文件字节数
    ```
+
    返回 `uploadUrl`（multipart 接收端点）+ 一组表单字段
 
 2. **上传二进制**：用 `curl` 把本地文件 POST 到 `uploadUrl`（即 `/api/files.create`）。
    `attachments.create` 返回的 `form` 字段必须**逐字**回传（`Cache-Control` /
    `Content-Type` / `key` / `acl` / `maxUploadSize` / `_csrf`），再附 `file=@<path>`：
+
    ```bash
    $> KEY=$(jq -r '.data.form.key' <(curl -sS -X POST \
          -H "Authorization: Bearer $OUTLINE_API_KEY" \
@@ -389,57 +394,65 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
         -F "file=@<本地文件路径>" \
         -H "Authorization: Bearer $OUTLINE_API_KEY"
    ```
+
    响应 `{"success":true, ...}` 才算上传成功（仅 metadata 返回但 `success=false`
    仍意味着文件未落盘，必须重试）
 
-> **⚠️ create_attachment 只注册元数据，二进制必须自己 curl**
->
-> 上一行 `create_attachment` 成功 ≠ 文件已上传。MCP 工具只接收
-> `name / contentType / size` 三个参数，**不会**接收二进制内容。缺了 step 2
-> 的 curl，attachment 记录存在但内容是 0 字节，文档嵌进去后浏览器加载图片
-> 失败 → **空白 / 破图**。**特别坑**：当时不报错，事后才发现图都没显示。
->
-> **认证**：用 outline MCP 配置里的 API key
-> （`<endpoint 域名>/mcp` 对应的 `Authorization: Bearer <key>` 头，
-> 已在 `~/.claude.json#mcpServers.outline.headers` 或
-> `.claude/settings.local.json` 注册时填入）。**agent 可以直接拿来用**——
-> 跟 MCP server 用同一把 key，curl `/api/attachments.create` 和
-> `/api/files.create` 都能过。不需要用户手动抓 cookie。
->
-> **拿 key 的安全姿势**：先看 `tools/list` 里 attachment 工具能用 → 说明
-> key 已在 MCP 端生效 → 直接用同一份 key 走 curl。
->
-> **API key 拿不到 / curl 401 时的退路**（按优先级）：
-> 1. 检查 `.claude/settings.local.json#mcpServers.outline.headers.Authorization`
->    是否真的填了 key；空 key 是 silent failure
-> 2. 重跑 `outline-wiki-setup/scripts/configure_mcp.py` 重新写 key
-> 3. 用户在 Outline UI 拖拽图片进编辑器（编辑器自带 session auth）
+   > **⚠️ create_attachment 只注册元数据，二进制必须自己 curl**
+   >
+   > 上一行 `create_attachment` 成功 ≠ 文件已上传。MCP 工具只接收
+   > `name / contentType / size` 三个参数，**不会**接收二进制内容。缺了 step 2
+   > 的 curl，attachment 记录存在但内容是 0 字节，文档嵌进去后浏览器加载图片
+   > 失败 → **空白 / 破图**。**特别坑**：当时不报错，事后才发现图都没显示。
+   >
+   > **认证**：用 outline MCP 配置里的 API key
+   > （`<endpoint 域名>/mcp` 对应的 `Authorization: Bearer <key>` 头，
+   > 已在 `~/.claude.json#mcpServers.outline.headers` 或
+   > `.claude/settings.local.json` 注册时填入）。**agent 可以直接拿来用**——
+   > 跟 MCP server 用同一把 key，curl `/api/attachments.create` 和
+   > `/api/files.create` 都能过。不需要用户手动抓 cookie。
+   >
+   > **拿 key 的安全姿势**：先看 `tools/list` 里 attachment 工具能用 → 说明
+   > key 已在 MCP 端生效 → 直接用同一份 key 走 curl。
+   >
+   > **API key 拿不到 / curl 401 时的退路**（按优先级）：
+   >
+   > 1. 检查 `.claude/settings.local.json#mcpServers.outline.headers.Authorization`
+   >    是否真的填了 key；空 key 是 silent failure
+   > 2. 重跑 `outline-wiki-setup/scripts/configure_mcp.py` 重新写 key
+   > 3. 用户在 Outline UI 拖拽图片进编辑器（编辑器自带 session auth）
 
 3. **插入引用**：在 Markdown 里写
+
    ```markdown
    ![图 N：<caption>](<attachment.url> "=WxH")
    ```
+
    - `attachment.url` 形如 `/api/attachments.redirect?id=<uuid>`
    - `=宽x高` 给渲染尺寸（仓库内 `=WxH` 等宽约定，参见 doc_style.md §7）
    - 非图片附件可省略 `=WxH`
 
 4. **必做验证**：写完 Markdown 引用**必须**核验 attachment 真有内容
+
    ```text
    mcp__outline__fetch attachment id=<attachment.id>
    → 拿到 signedUrl
    → 用 WebFetch / 浏览器访问 signedUrl
    → 必须返回 200 + 实际图片字节；404 / 0 字节 / HTML 错误页都算失败
    ```
+
    失败则**不能**写入文档，先解决 upload 再继续
 
 **写入 / 替换方式**（视场景选）：
 
 - **新建文档时**：直接把第 3 步的 `![...](...)` 嵌进 `create_document` 的 `text` 参数
 - **替换已有文档中的图引用**：用 `update_document` + `editMode: "patch"` + `findText` 精准替换
+
   ```text
   findText: ![图 1：xxx](figures/figure-p1-f1.png)
   text: ![图 1：xxx](/api/attachments.redirect?id=<uuid> "=WxH")
   ```
+
   这样可保留其他内容（评论 / 高亮 / 表格宽度）不被破坏
 
 **整篇重写**（replace 模式 + 大文档）**改用 REST API**（2026-06-21 经验）：
@@ -453,6 +466,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 - **退路**：整篇重写时**不要**用 mcp tool，**改用**
   `POST /api/documents.update` 走 curl + API key（key 同 MCP server 配置），
   payload 用文件传避免命令行转义：
+
   ```bash
   python3 -c "import json; json.dump({'id': '<doc-id>', 'text': open('summary.md').read()}, open('payload.json', 'w'), ensure_ascii=False)"
   curl -sS -X POST https://<endpoint>/api/documents.update \
@@ -460,6 +474,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
     -H "Authorization: Bearer <api-key>" \
     --data-binary @payload.json
   ```
+
   REST API 正确保留所有换行；返回 `{"data": {...}, "status": 200, "ok": true}`。
 - **校验必做**：写完立刻 `mcp__outline__fetch` 看返回的 markdown body 是否有损坏
   （首行表格 / 列表 / 章节标题），如发现 → 重发。tool 返回 success 不代表存盘 OK
