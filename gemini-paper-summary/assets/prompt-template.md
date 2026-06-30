@@ -7,6 +7,19 @@
 > 风格基线遵守仓库既定指纹：`*` bullet / `==高亮==` /
 > ` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120。详细约定见 SKILL.md 核心原则 #9。
 
+<!-- markdownlint-disable MD051 -->
+## 目录
+
+- [**默认模板（academic）**](#默认模板academic) — 给一篇论文做中文结构化总结（≤2500 字符目标）；传入 `--focus` 时在末尾追加关注点注入片段
+- [**关注点注入片段**](#关注点注入片段) — `--focus` 拼接用的 prompt 后缀
+- [**批量速览变体（lite）**](#批量速览变体lite) — 300 字内 4 段速读，配合 `gemini-3.1-flash-lite` + 批量
+- [**全文级抽取模板（full）**](#全文级抽取模板full) — `--full` 模式，解除字符数上限、按 PDF 章节结构逐小节展开
+- [**图引用约定**](#图引用约定) — Gemini 输出 + `--extract-figures` 处理 + outline 上传三阶段形态
+- [**风格约定（仓库统一基线）**](#风格约定仓库统一基线) — 与 SKILL.md §核心原则 #9 同源
+- [**高频引用表格（可选）**](#高频引用表格可选) — 业务启示 & 价值末尾的子表
+- [**基础要求**](#基础要求) — 字符数 SSOT、忠于原文、英文保留清单等约束
+<!-- markdownlint-enable MD051 -->
+
 ## 默认模板（academic）
 
 > **结构统一**：本模板**没有 `# Reference` 章节**，**不录作者主页 /
@@ -155,8 +168,8 @@ inline element 撑成"长句"不易扫读。
 * **不要**独立的 `**图 N**：<caption>` 行——避免与 alt 重复
 * 中文 caption 通常 ≤ 100 字符；个别超 120 也可，markdown 链接不能拆行
 * fig.N 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
-* bbox=x0,y0,x1,y1（PDF point 单位，1 point = 1/72 inch，原点在左上角；
-  A4 ≈ 595×842，Letter ≈ 612×792）**强烈建议附加**，脚本会用 bbox 精确截取**该图本身**
+* bbox=x0,y0,x1,y1（单位约定 SSOT 在 [`references/figure-extraction.md` §5](../references/figure-extraction.md#5-bbox-单位约定)）
+  **强烈建议附加**，脚本会用 bbox 精确截取**该图本身**
   而非整页；不写 bbox 时脚本会按 Figure N: caption 自动定位
 * **不要**写 https://、figure/xxx.png 等占位 URL——本 skill 自己管图片输出
 * 只收"关键图"（整体架构、核心模块示意、概念流程图、关键对比示意）；

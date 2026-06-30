@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 用 Gemini 多模态读 PDF 论文并按 outline 风格结构化模板（开篇 3 列表格 + 团队 item + 3 句话总结 / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作，**无 Reference / 团队背景介绍 章节**）输出中文 Markdown 总结（评测 / benchmark 类论文自动判定后走「评测设计 + 评测发现」分支替换「方法设计 + 代表性实验结果」），默认中文主语、必要时保留英文术语避免歧义。Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / `mermaidjs` block / 表格 / 行宽 ≤ 120）。在用户给出一篇本地 PDF 论文想要快速生成结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 读论文（不抽 OCR）时使用。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式（**双产物** quick summary + 全文级抽取）专用于要把一篇 PDF 的全文结构化转储落到 raw 端目录布局的场景（产物路径：`raw/papers/SLUG.quick.md` + `raw/papers/SLUG.full.md` + `raw/assets/SLUG/fig-NN.png`，其中 SLUG 是 kebab-case 论文标识），单次调用结束 raw 端就绪。
+description: 在用户给出一篇本地 PDF 论文想要快速生成中文结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 直读 PDF（含图表 / 公式，不抽 OCR）时使用本 skill。用 Gemini 多模态直读 PDF，按 outline 风格结构化模板输出中文 Markdown——开篇 3 列表格 + 团队 item + `## 3 句话总结` / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作（**无 Reference / 团队背景介绍 章节**）；评测 / benchmark 类论文自动把"方法设计 + 代表性实验结果"替换为"评测设计 + 评测发现"。默认中文主语、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式做 raw 端全文级抽取（契约详见正文 §D）。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -675,7 +675,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 ```text
 <wiki_root>/raw/
 ├── papers/
-│   ├── attention-is-all-you-need.quick.md   # academic 模板（≤2500 字符）
+│   ├── attention-is-all-you-need.quick.md   # academic 模板（精炼速读；字符数 SSOT 见 assets/prompt-template.md §基础要求 #4）
 │   └── attention-is-all-you-need.full.md    # full 模板（全文级，不限字符）
 └── assets/
     └── attention-is-all-you-need/
@@ -723,7 +723,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 | --- | --- | --- |
 | 跑出 `<wiki_root>/raw/papers/<slug>.quick.md` 与 `.full.md` 但 assets/ 目录为空 | Gemini 在 `.full.md` 里没生成 `![图 N](PDF p.X ...)` 引用 | 检查 full 模板是否有图；论文无关键图时符合预期；否则改 prompt |
 | `ERROR: .../raw/papers/<slug>.full.md 已存在;full 抽取默认拒绝覆盖` | 之前跑过 `--full` 该 PDF | 先 `rm <wiki_root>/raw/papers/<slug>.full.md` 再跑；或加 `--force-full` 显式覆盖 |
-| `--full` 跑完后 quick summary 字符数超过 2500 | academic 模板的精炼约束 prompt 是"目标不是上限",Gemini 偶尔溢出 | 降 temperature 到 0.1；或 prompt 里要求"严格 ≤ 2500" 后处理截断 |
+| `--full` 跑完后 quick summary 字符数超出预期 | academic 模板的精炼约束 prompt 是"目标不是上限",Gemini 偶尔溢出 | 降 temperature 到 0.1；或后处理截断（具体字符数 SSOT 见 `assets/prompt-template.md` §基础要求 #4） |
 | `ERROR: 无法推断论文 slug` | PDF 文件名含 unicode 私造字符或全部为非 kebab-case | 加 `--slug <kebab-case-slug>` 显式指定 |
 
 ## 前置条件
