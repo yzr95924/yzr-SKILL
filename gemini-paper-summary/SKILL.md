@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 在用户给出一篇本地 PDF 论文想要快速生成中文结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 直读 PDF（含图表 / 公式，不抽 OCR）时使用本 skill。用 Gemini 多模态直读 PDF，按 outline 风格结构化模板输出中文 Markdown——开篇 3 列表格 + 团队 item + `## 3 句话总结` / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作（**无 Reference / 团队背景介绍 章节**）；评测 / benchmark 类论文自动把"方法设计 + 代表性实验结果"替换为"评测设计 + 评测发现"。默认中文主语、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式做 raw 端全文级抽取（契约详见正文 §D）。
+description: 在用户给出一篇本地 PDF 论文想要快速生成中文结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 直读 PDF（含图表 / 公式，不抽 OCR）时使用本 skill。用 Gemini 多模态直读 PDF，按 outline 风格结构化模板输出中文 Markdown——开篇 3 列表格 + 团队 item + `## 3 句话总结` / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作（**无 Reference / 团队背景介绍 章节**；**此为 academic / quick 模板**）；评测 / benchmark 类论文自动把"方法设计 + 代表性实验结果"替换为"评测设计 + 评测发现"。默认中文主语、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式做 PDF→Markdown 全量转写，按 PDF 原生章节顺序、不做 6 类问题归纳，作为 agent 在无 PDF 时的多轮问答底座（契约详见正文 §D）。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -38,9 +38,10 @@ metadata:
 - 只想抽关键句、抽取式摘要——本 skill 是生成式结构化总结
 - 用户不愿或不能提供 `GEMINI_API_KEY`
 - **不要用 `--full` 模式 + 任意 <dir>**——`--full` 强制 `--output <wiki_root>`，产物
-  必须直接落 raw 端（`raw/papers/<slug>.quick.md` + `.full.md` + `raw/assets/<slug>/fig-NN.png`）。
-  想落任意目录用 `--extract-figures` 即可，那是与 quick summary / single summary 配套的
-  任意目录 layout
+  必须直接落 raw 端（`raw/papers/<slug>.quick.md` + `.full.md`）。quick 模式另产生
+  `raw/assets/<slug>/fig-NN.png`(`--extract-figures` 单跑亦产生),full 模式不产生
+  PNG(2026-06-30 第二轮翻面;full 自包含,mermaid/ASCII 在 markdown 里)。想落任意
+  目录用 `--extract-figures` 即可
 
 ## 输入 / 输出
 
@@ -51,7 +52,7 @@ metadata:
 | PDF 路径 | ✓ | 本地 `.pdf` 文件，绝对或相对路径均可 |
 | `GEMINI_API_KEY` | ✓ | 环境变量 |
 | 模型 ID | ✗ | 默认 `gemini-3.5-flash`（不传 `--model` 即可）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
-| 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt |
+| 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt；**full 模式行为不同**——不是末尾追加 "启发 / 追问" 段，而是在对应的 PDF 原生章节下注入 `### 用户关注点: <focus>` 子节（详见 §D 关键行为护栏） |
 | 输出路径 | ✗ | `--output` 写文件；不传则打印到 stdout |
 | 模板 | ✗ | `--template academic`（默认） |
 | 提取图片 | ✗ | `--extract-figures` 把关键图截成图片嵌入 Markdown；详见下文 A' |
@@ -63,7 +64,7 @@ metadata:
 | 缩略图 | ✗ | `--thumbnail` 额外生成缩略图；`--thumbnail-width`（默认 400px）控制宽度 |
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），详见下文 A' §Stage 2 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 `--refine-figures` 启用时生效 |
-| 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md` + `<wiki_root>/raw/assets/<slug>/fig-NN.png`；设计意图见本文 D 段 |
+| 全量抽取模式 | ✗ | `--full`，单次调用同时产 quick summary + 全文级抽取**两份**产物；**产出 layout 强制 raw-compatible**——`--output <wiki_root>`，产物落到 `<wiki_root>/raw/papers/<slug>.quick.md` + `.full.md`(full 自包含,无 PNG 配套);quick 模式另产生 `<wiki_root>/raw/assets/<slug>/fig-NN.png`;设计意图见本文 D 段 |
 | 论文 slug | ✗ | `--slug <kebab-case>`，仅 `--full` 生效；不传则从 PDF 文件名推断（kebab-case 化）；与 raw/papers + raw/assets 布局同源 |
 | 强制覆盖 | ✗ | `--force-full`，仅 `--full` 生效；raw 端 `<slug>.quick.md` / `.full.md` 已存在时默认拒绝覆盖以防丢失下游引用；加此 flag 显式覆盖 |
 
@@ -653,14 +654,15 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 > **设计决策 SSOT**：本节是 `--full` 模式边界 / 调用契约的权威实现规范（npx 分发后唯一可见的设计文档）。
 > 本文档只讲"agent 在哪一步怎么做"，决策 why 在 D 段正文内嵌——不依赖任何外部 MEMORY 文件。
 >
-> **接口约定核心**：单次调用同时产 **quick summary** + **全量结构化转储**
+> **接口约定核心**：单次调用同时产 **quick summary** + **PDF→Markdown 全量转写**
 > 两份产物；产物 layout **强制 raw-compatible**——`--output` 视为 wiki 仓根，
-> 直接落到 `<wiki_root>/raw/papers/<slug>.{quick,full}.md` +
-> `<wiki_root>/raw/assets/<slug>/fig-NN.png`。**不要**用 `--full` 把产物落
+> 直接落到 `<wiki_root>/raw/papers/<slug>.{quick,full}.md`。**不要**用 `--full` 把产物落
 > 任意目录——那是 `--extract-figures` 的职责。
 >
-> Stage 2 视觉定位默认开启（隐式 `--refine-figures`）；raw 端图会被
-> `wiki/sources/<slug>.md` 反复引用，bbox 准确度比 token 代价重要。
+> **2026-06-30 第二轮翻面**:`raw/assets/<slug>/fig-NN.png` 仅由 quick 模式或
+> `--extract-figures` 单跑产生,**full 模式不落 PNG**(自包含,mermaid/ASCII 在
+> markdown 里)。full 模式也不再跑 Stage 2;Stage 2 仍是 quick 模式隐式行为,
+> `--refine-figures` 仅作用于 quick 模式 + `--extract-figures`。
 
 **调用形式**：
 
@@ -682,16 +684,16 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/attn.pdf --output ~/wiki/llm/ --full --force-full
 ```
 
-**产物**（一次调用结束 raw 端就绪）：
+**产物**（一次调用结束 raw 端就绪；2026-06-30 第二轮翻面后,full 不落 PNG）：
 
 ```text
 <wiki_root>/raw/
 ├── papers/
-│   ├── attention-is-all-you-need.quick.md   # academic 模板（精炼速读；字符数 SSOT 见 assets/prompt-template.md §基础要求 #4）
-│   └── attention-is-all-you-need.full.md    # full 模板（全文级，不限字符）
+│   ├── attention-is-all-you-need.quick.md   # academic 模板(含 ![图 N] 引用 + 落 PNG,精炼速读;字符数 SSOT 见 assets/prompt-template.md §基础要求 #4)
+│   └── attention-is-all-you-need.full.md    # full 模板(自包含,无 PNG 配套;mermaid/ASCII 在 markdown 里;全文级 PDF→Markdown 转写)
 └── assets/
-    └── attention-is-all-you-need/
-        ├── fig-01.png                       # Stage 2 裁剪的图
+    └── attention-is-all-you-need/           # 仅由 quick 模式或 --extract-figures 单跑产生,full 不写
+        ├── fig-01.png                       # Stage 2 视觉裁剪(quick 模式产物)
         ├── fig-02.png
         └── ...
 ```
@@ -723,20 +725,64 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   强制 raw-compatible；想落任意目录就**不**加 `--full`，改用 `--extract-figures`
 - 跑两次 `--full` 然后手动把两份产物拼一起——要"一次调两份"是设计本意；
   拆两次会因 quick summary 与 full 模板的 prompt 不一致导致两份对不上
-- 用 `--full --no-refine-figures` 加速且不在意 bbox 准确度——raw 端图被任何后续
-  消费方（如 source 页）反复引用，bbox 不准一次 = 后续每次引用都歪；Stage 2
-  的 5-15s/页 + token 成本是值得的（**单论文 + Stage 2 全跑 ≈ 1-3 分钟**）
 - 在本 skill 里写"占位 source 页" —— 写 `wiki/sources/<slug>.md` 属消费端职责；
   本 skill 只到 raw 端为止
+- **`--full` 写 `![图 N](PDF p.X ...)` 引用**(2026-06-30 第二轮翻面后
+  **禁用**)——full 模式不落 PNG,引用会断图。架构/概念图直接 mermaid/
+  ASCII 画在 markdown 里,数据图转 markdown 表格,装饰图省略。**不要**写
+  `![图 N]` 引用——这是 full 与 quick 在图处理上的硬边界
+
+**关键行为护栏**（2026-06-30 第二轮翻面：full 不落 PNG）：
+
+- **产物定位**:full 模式产物是 agent 的**多轮问答底座**,无 PDF 时所有问题从
+  `.full.md` 查。**禁止** summary 视角(三句话总结 / 业务启示 / 局限),prompt
+  直接做 PDF→Markdown 全量转写
+- **章节顺序**:严格按 PDF 原文章节顺序,每个 `Section X.Y` / `Section X.Y.Z`
+  必须出现对应 `###` / `####`。**不要**做 6 类问题归纳
+- **保真元素**(按关键度排序):章节标题(英文原文) > Definition/Theorem/Lemma/
+  Algorithm 标注 > 公式(`$$...$$`) > 表格(markdown 行级) > 数字精度(3 位有效
+  数字) > 英文小节标题
+- **不落 PNG**(2026-06-30 第二轮翻面):full 模式不创建 `raw/assets/<slug>/`、
+  不跑 Stage 2、不写 `![图 N](...)` 引用。架构/概念图直接 ```mermaidjs```
+  block 画、数据可视化图转 markdown 表格、装饰图省略 + 文字一句。若想看 PNG
+  跑 quick 模式(默认)或 `--extract-figures`
+- **mermaid 块语法**:` ```mermaidjs `(不是 ` ```mermaid `)——与 academic 模板
+  风格约定一致;SSOT 见 `assets/prompt-template.md` 基础要求段(line 192-193)
+- **Output token 上限 65536**:`_run_full_mode` 第二次调用显式传
+  `max_output_tokens=65536`(SSOT 在 `scripts/gemini_paper_summary.py` 的
+  `FULL_MAX_OUTPUT_TOKENS` 模块常量;本节不重抄数值避免散落)。quick summary
+  走默认
+- **后置内容自检**:`_run_full_mode` 写完 `.full.md` 后跑 `self_check_full_content`,
+  校验 H2 ≥ 3 / `### Section X.Y` ≥ 5 / Definition+Theorem+Lemma+Algorithm
+  标注数 / `$$...$$` block / 字符下限 8000 / "原文未明确"占位比例 ≤ 50%
+  —— 任一失败 stderr WARN/FAIL,**不阻塞**(非阻塞是设计选择,见 §核心原则 #8)
+- **`--refine-figures` / `--thumbnail` 在 full 模式是哑参数**(2026-06-30):
+  full 不消费这些 flag,仅 quick 模式 + `--extract-figures` 生效。脚本 stderr
+  INFO 提示
+- **`--focus` 在 full 模式走 FOCUS_INJECTION_FULL**(2026-06-30
+  重新定位后):full 没有 summary 段,focus 不能追加到末尾——而是**注入到对应
+  的 PDF 原生章节下**,形式为 `### 用户关注点: <focus>` 子节(或等价的
+  focus 子段)。比如 focus="gating 路由的稀疏性 + 辅助负载均衡损失" 时,
+  该子节会出现在 `## Section 3` 的 `### Section 3.2 Gating` 子节下,而不是
+  全文末尾。quick 模式仍走 FOCUS_INJECTION(末尾追加 "## 启发 / 追问" 段)。
+  脚本实现见 `scripts/gemini_paper_summary.py` 的 `FOCUS_INJECTION_FULL`
+  常量(line 200-207)+ `build_prompt` 切换(line 1416-1428);契约测试见
+  `eval/evals.json` test #2 assertion 2
 
 ### C'. `--full` 模式专属故障排查
 
 | 现象 | 原因 | 处置 |
 | --- | --- | --- |
-| 跑出 `<wiki_root>/raw/papers/<slug>.quick.md` 与 `.full.md` 但 assets/ 目录为空 | Gemini 在 `.full.md` 里没生成 `![图 N](PDF p.X ...)` 引用 | 检查 full 模板是否有图；论文无关键图时符合预期；否则改 prompt |
 | `ERROR: .../raw/papers/<slug>.full.md 已存在;full 抽取默认拒绝覆盖` | 之前跑过 `--full` 该 PDF | 先 `rm <wiki_root>/raw/papers/<slug>.full.md` 再跑；或加 `--force-full` 显式覆盖 |
 | `--full` 跑完后 quick summary 字符数超出预期 | academic 模板的精炼约束 prompt 是"目标不是上限",Gemini 偶尔溢出 | 降 temperature 到 0.1；或后处理截断（具体字符数 SSOT 见 `assets/prompt-template.md` §基础要求 #4） |
 | `ERROR: 无法推断论文 slug` | PDF 文件名含 unicode 私造字符或全部为非 kebab-case | 加 `--slug <kebab-case-slug>` 显式指定 |
+| `full.md` 缺尾部章节（业务启示 & 价值 / 局限与未来工作） | 旧版 prompt 残留;**2026-06-30 重新定位后这是预期行为** | full 模式已改为 PDF→Markdown 全量转写,**不再输出**三句话总结 / 业务启示 / 局限等 summary 段;若需要 summary 段,跑 academic 模板(默认)即可 |
+| `full.md` 的"原文未明确"占位超过 `### Section` 数一半 | 模型偷懒（应"原文未明确"但实际有内容） | 改 prompt 重跑（不写 `--focus` 让模型聚焦到具体小节）；或换更精确的模型（§模型选型） |
+| `full.md` 缺 Definition/Theorem/Algorithm 标注 | 原文无此类标注 **或** 模型未保真标注 | 若是算法 / 数学类论文,自检会 WARN;检查 prompt 是否完整加载 |
+| `full.md` 缺 `$$...$$` 公式 block | 原文无独立公式 **或** 模型未用 `$$...$$` 转写 | 若是数学 / 物理类论文,自检会 WARN;检查 prompt 是否完整加载 |
+| `full.md` 缺 mermaid 块,但 PDF 明显有架构图 | 模型未按 prompt 转 mermaid(可能 PDF 视觉读不出) | 检查 prompt 是否完整加载;或换更精确模型;若该图是性能柱状图等数据图,转 markdown 表格亦可 |
+| `full.md` 的 `--focus` 注入位置不对(跑到末尾而非对应 PDF 章节下) | 误用了 academic 的 FOCUS_INJECTION(末尾追加 "启发 / 追问" 段) | full 模式 focus 必须走 FOCUS_INJECTION_FULL:在对应 PDF 原生章节下追加 `### 用户关注点: <focus>` 子节,不是末尾。脚本自动按 `template="full"` 切换;若产物错了,检查 `build_prompt` 调用是否传了 `template="full"`(见 `scripts/gemini_paper_summary.py:1416-1428`) |
+| `INFO: --full 模式已不再落 PNG,--refine-figures / --thumbnail 在 full 模式是哑参数` | `--refine-figures` 或 `--thumbnail` 在 full 模式不生效 | 期望行为:full 模式不消费这两个 flag。要 PNG 跑 quick 模式或 `--extract-figures` |
 
 ## 前置条件
 

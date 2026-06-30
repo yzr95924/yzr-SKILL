@@ -274,152 +274,182 @@ inline element 撑成"长句"不易扫读。
 > 注意：批量变体由调用方在 `--focus` 中传入模板时实现，
 > 脚本本身只内置"academic"模板，其他模板由调用方在 prompt 端切换。
 
-## 全文级抽取模板（full）
+## 全文级抽取模板(full)
 
-> 适用：`--full` 模式（在 academic 模板基础上**解除 ≤2500 字符约束**，并按 PDF
-> 章节结构逐小节展开）。与 academic 共用相同 H2 骨架（开篇 3 列表格 + 团队 item
-> → `## 3 句话总结` → `## 背景与动机` → `## 方法设计` → `## 代表性实验结果`
-> → `## 业务启示 & 价值` → `## 局限与未来工作`），让 quick summary 与 full 产物
-> 在同一种"H2 骨架语义"下对比阅读；评测论文的 `## 评测设计` + `## 评测发现`
-> 分支同样适用。
+> **2026-06-30 重新定位**:本模板的产物是 agent 的**多轮问答底座**——无 PDF 时,
+> 所有论文相关问题必须从这里查到。**禁止** summary 视角的"三句话总结 / 业务
+> 启示 / 局限",直接做 PDF→Markdown 全量转写。
 >
-> **设计决策的 SSOT**（为什么是"同骨架 + 全文级"，而不是"全新骨架"或
-> "上半 quick + 下半 full"）：见
+> **设计决策 SSOT**(为什么从"6 H2 骨架"翻面到"PDF 原生章节顺序"):见
 > [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) §4。
+>
+> **2026-06-30 重新定位**:删除 6 H2 骨架 + 三句话总结 / 业务启示 / 局限三个
+> summary 段;章节顺序按 PDF 原生;加 Definition/Theorem/Algorithm 标注 + 公式
+> `$$...$$` + 表格行级转写 + 数字精度 3 位有效数字 强化;脚本侧
+> `_run_full_mode` 第二次调用显式传 `max_output_tokens=65536`(SSOT 在
+> `scripts/gemini_paper_summary.py` 的 `FULL_MAX_OUTPUT_TOKENS` 模块常量;
+> SKILL.md 不重抄避免散落)防止撞顶截断;`self_check_full_content` 后置自检
+> 改为按 H2≥3 / Definition+Theorem+Lemma+Algorithm 标注数 / `$$...$$` block
+> 数 / 字符下限 8000 校验,不再查 6 H2 骨架。
+>
+> **2026-06-30 第二轮翻面(PNG → mermaid/ASCII)**:full 模式不再落 PNG /
+> 不跑 Stage 2 / 不创建 `raw/assets/<slug>/` 目录。Prompt 强约束 Gemini 把
+> 图按类型分流——架构/概念图用 ```mermaidjs block``` 直接画、数据可视化图转
+> markdown 表格、装饰图省略 + 文字一句。**禁止**写 `![图 N](PDF p.X ...)`
+> 引用。理由:full 是给 agent 用的 Q&A 底座,agent 多模态能力不可假设;
+> mermaid/表格是 100% agent 通用,PNG 仅 ~50% agent 能消费。quick 模板 +
+> `--extract-figures` 仍落 PNG,服务于人类用户。详见
+> [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) §0 / §5 / §7。
+>
+> **quick.md 不受本翻面影响**:quick 仍走 academic 模板 + 三句话总结 +
+> `![图 N]` 引用 + 落 PNG,服务于"快速浏览 + 未来 publish skill 消费"。
 
 ````text
-你是一位学术论文阅读助手。请基于这篇 PDF 论文，用**中文**输出**全文级结构化转储**——
-保留论文每一节的原文细节,而不是"压缩成速读"。这意味着:
-- **不**设总字符数上限——除非有"原文未明确"的内容要保留占位,否则**不要**为节省
-  篇幅而合并 / 删节 / 概述任何小节
-- **每个**论文原文章节(`Section X` / `Section X.Y` / `Section X.Y.Z`)都
-  **必须**出现至少一次;若原文该节无内容则写"原文未明确"
-- 章节标题**保留英文原文**(论文里是 "3.1 Model Architecture" 就保持
-  `### 3.1 Model Architecture`,不要翻译成中文)
+你是一位学术论文阅读助手。请基于这篇 PDF 论文,用**中文**输出 **PDF→Markdown
+全量转写** —— 严格按 PDF 原文章节顺序逐章展开,保留每一节的原文细节;读者后续
+会在没有 PDF 的情况下,通过这个 markdown 与你对话,询问任何细节。
 
-## 章节骨架
+### 章节顺序
 
-与 academic 模板**完全相同**的 H2 顺序:
+**严格按 PDF 原文章节顺序**逐章转写。每个 `Section N` / `Section N.M` /
+`Section N.M.K` 在 PDF 里出现,就必须在产物里出现一个对应 `##` / `###` /
+`####` 标题(**原文英文标题保留**)。**不要**做"6 类问题"归纳 —— reader 后续要
+按 PDF 章节精确定位,你的归纳会让"论文第 4.3 节讲什么"这类查询答不出。
 
-```markdown
-| **Title** | **Venue** | **Topic** |
-|-------|-------|-------|
-| 论文全英文标题 | 会议'年份(如 OSDI'06) | 领域关键词 |
+### 元信息(开篇一段,仅一行)
 
-* 论文链接(**留空,由用户在 Outline UI 手动填写**;Gemini 不必补)
+一行 metadata table(`Title` / `Venue` / `Topic`)+ 一行团队/机构(`作者名、
+所属机构、研究方向`)。Reader 仍需"作者是谁 / 什么会议"这类查询 —— 这些是
+元信息,**不是** summary。
 
-  > <TODO>
+### 必保真的元素(按关键度排序)
 
-* **团队/机构**:<一作 姓名>、<导师 姓名(如能识别)>;<机构> <Lab 名(如有)>;<Lab 研究方向(如知道)>
-```
+- **章节标题** — 原英文标题保留(`## Section 1: Introduction` 而非 `## 引言`)
+- **Definition / Theorem / Lemma / Corollary / Algorithm** — 原文若标了,必须
+  独立标注为 `**Definition 1.** ...` / `**Theorem 1.** $$...$$ ...` /
+  `**Algorithm 1.** ...`;公式与正文分两行
+- **公式** — LaTeX 形式转写,行内 `$...$`,独立公式 `$$...$$` block
+- **表格** — 实验结果 / hyperparameter 表逐行转 markdown 表格,数字精度保留
+  (`95.2 ± 0.3` 不四舍五入)
+- **数字精度** — 3 位有效数字(`200M lookups/s` 优于 `约 2 亿`);范围 /
+  误差(`52 ± 3` / `95.2 ± 0.3`)必须保留
+- **图的结构化表示**(2026-06-30 第二轮翻面;full 模式不落 PNG)——根据图类型
+  选其一,**不要写 `![图 N](PDF p.X ...)` 引用**:
+  - **架构 / 概念图**(Node 数据结构、流程图、模块关系、状态机等) →
+    用 ` ```mermaidjs ` block 直接画(`graph TD` / `graph LR` /
+    `sequenceDiagram` / `stateDiagram-v2`);label 用 `<br/>` 换行,关系用
+    `-->|文字|` 标注
+  - **数据可视化图**(性能柱状图、accuracy 对比、loss 曲线、heatmap
+    等) → 转 markdown 表格(数字精度 3 位有效数字);图本身就是表格的
+    可视化形式,转表更准
+  - **纯装饰图 / 概念图省略**(logo、坐标轴、setup 截图、补充材料等) →
+    直接省略 + 在上下文写一句"图 N 是 `<场景描述>` 的示意图",**不**画
+    图、不写 `![图 N]` 引用
+- **不写 `![图 N](...)` 引用**——full 模式产物自包含,无 PNG 配套;若要
+  图走 `quick` 模板(默认 academic)或单独 `--extract-figures`。理由:
+  agent 多模态能力不可假设,PNG 对纯文本 agent 是死数据;mermaid / 表格
+  是 100% agent 可消费的文本形式
 
-> **相同约束**:开篇 3 列表格 + 两行项目符号(论文链接 + 团队/机构)与 academic
-> 模板**完全相同**——full 模式从这一段就开始覆盖全文。
+### 风格约定(沿用 academic)
 
-## 3 句话总结
+bullet `*` / 高亮 `==text==` / mermaidjs block / 行宽 ≤ 120 / 不写 H1。
 
-> 与 academic 模板相同——3 条编号列表,每条 ≤ 30 个中文字符。
-> **不要**因为这是 full 模式就把 3 句话总结展开成长段;3 句话总结**永远**是
-> "一句话速览"的职责,不归全文级展开。
+### 完整性(2026-06-30 加固)
 
-1. **问题 + 方法**:论文要解决什么领域问题、给什么方法(一句话,30 字以内)
-2. **核心设计 / 关键数据**:核心设计点 / 关键数字(一句话,30 字以内)
-3. **落地 / 影响**:被谁采用 / 超越了什么 baseline / SOTA 性能(一句话,30 字以内)
-
-## 背景与动机
-
-### Section 1: Introduction
-(原文级转写——摘要句、定位语句、贡献列表;每条 bullet 至少 1 行,改写不让省略)
-
-### Section 2: Background / Related Work
-(逐段转写原文,保留所有术语 / 缩写 / 数据集名 / 模型名)
-* 若原文无独立 "Background" / "Related Work" 章节,在本 ## 下注明
-  "原文无独立 Background / Related Work 章节",并在 ## 业务启示 & 价值 末的
-  "相关工作 / 高频引用"段保留学术引用收敛
-* 不在本 ## 下做"相关工作压缩列表"——相关工作归 ## 业务启示 & 价值 段
-
-## 方法设计
-
-> **核心硬约束**:每个 PDF 原文章节 `Section X.Y`(`### 一级`)与
-> `Section X.Y.Z`(`#### 二级`)都**必须**作为 `###` / `####` 子标题独立出现。
-> 禁止因字符数限制合并小节——这是 full 模式的核心特征,违反等于退化成 quick。
-
-### Section 3: Method
-#### Section 3.1 Architecture
-(总体架构 / 核心思路 / 数据流;可用 mermaidjs block 示意)
-#### Section 3.2 <保留英文小节标题>
-(关键组件 / 数据结构 / 算法——含公式,公式以 Unicode 或 `$$...$$` 形式呈现)
-#### Section 3.3 <保留英文小节标题>
-(其余设计点;每个原文小节 1 个 ### 或 ####)
-
-* 关键架构图 / 概念示意图(**插入到对应方法 / 概念的上下文**——参考 academic
-  模板的图引用约定,但**不**在图前标注"`图 1:`"号,而是与 academic 保持同样形式)
-* **公式 / 伪代码**保留原文,使用 Unicode 字符(`2^64` / `≥` / `√` / `→`)
-  或 `$$...$$`(后者仅在 outline-wiki / 渲染器支持时使用);outline 不支持 MathJax,
-  公式尽量走 Unicode
-
-## 代表性实验结果
-
-### Section 4: Experiments
-#### Section 4.1 Experimental Setup
-(数据集 / baseline / 评测指标 / 硬件环境 / 训练时长 / hyperparameter 全文级转写)
-#### Section 4.2 Main Results
-(**所有**主要实验结果表逐行转 markdown 表格,精度 / 单位保留;
-  `95.2 ± 0.3` 形式保留——不要四舍五入到整数)
-#### Section 4.3 Ablation / Analysis
-(消融实验 / 分析的所有子表逐行转)
-#### Section 4.4 <其余实验小节按原文顺序展开>
-(每个原文小节独立 ### 标题)
-
-* **不要**为"删节"而把 Section 4.2 / 4.3 合并成一个 bullet——违反本文档硬约束
-* **不要**写成"关键数据 2-3 条"——academic 模板才这样做;full 模式**所有**表格都转写
-
-## 业务启示 & 价值
-
-### Section 5 / 6: 工业界落地 / 后续工作
-(逐小节原文级转写)
-
-* **开源实现**(与 academic 模板同款子段格式)
-* **相关工作 / 高频引用**(与 academic 模板同款表格,3-5 条相关工作)
-
-## 局限与未来工作
-
-### Section 7: Limitations / Discussion / Future Work
-(逐小节原文级转写作者自陈的局限 + 论文未覆盖但明显是下一步的方向)
+若 token 预算紧张,**优先**精简措辞、缩具体例子;**禁止**合并整段、删除
+小节、跳过公式 / 定理 / 算法步骤。该小节内容确实少时,**显式**写"原文未明确"
+占位,而不是省略整节。
 
 ---
 
-### 全文级抽取的硬约束清单(违反一条 = 退化为 quick summary,产物无效)
+### 写作样例(算法 / 数学类论文,作为基准密度参考)
 
-1. **禁止**因字符数限制合并 / 删除 / 概述任何 PDF 章节——每个 `Section X` /
-   `Section X.Y` 都**必须**作为 H3 / H4 出现
-2. **禁止**保留英文小节标题中文翻译——论文原文章节标题一律英文
-   (`### 3.1 Model Architecture`,**不要** `### 3.1 模型架构`)
-3. **禁止**"代表性实验结果"小节写成 bullet 概述——full 模式必须把所有原文
-   实验结果表逐行转 markdown 表格
-4. **禁止**改写公式——使用 Unicode 或 `$$...$$` 形式;**不要** "见公式 (3)"
-   这种偷懒
-5. **禁止**3 句话总结变成长段——`## 3 句话总结` 永远保持 3 条编号列表,
-   不归"全文级展开"
-6. **禁止**省略数字精度——`95.2 ± 0.3` 不四舍五入到 `95`;`2^64` 不写成
-   `18 quintillion`
-7. **禁止**在 wiki 化框架下"应该合并 / 应该省略"的本能 academic 行为——
-   full 模式的下游是反复的廉价文本层 query / 蒸馏,raw 越全越好
+```markdown
+## Section 3: Adaptive Radix Tree
 
-### 风格约定(与 academic 模板的差异)
+### Section 3.1 Preliminaries
 
-沿用 academic 模板的所有风格约定(bullet `*` / 高亮 `==text==` / mermaidjs
-block / 行宽 ≤ 120 / 不写 H1 等),**额外**:
-- **写"原文未明确"而非省略**——academic 模板允许"该节内容少,可不写";
-  full 模板要求每个 Section 至少 1 个 bullet,缺数据时**显式**标"原文未明确"
-- **公式 / 数字 / 缩写保留原文形式**——不要为可读性做翻译,这是 raw 底座
-- **支持 `$$...$$` 公式**——academic 模板禁用 MathJax 是 outline 不支持;
-  full 模式可走支持 LaTeX 渲染的下游（当前大多数本地 Markdown / wiki 渲染器
-  不直接支持 MathJax,但 raw 端保留 `$...$` 不丢信息, 未来消费端可解析）
+* 基数树的核心属性:高度取决于键的长度 $k$,而非元素数量 $n$;插入顺序不影响树
+  的最终结构,无需旋转或再平衡;键隐式存储在路径中,叶子节点仅存储值。
 
-> 全文级抽取完成后,产物路径由 `--output <wiki-root>` 决定:
-> `<wiki-root>/raw/papers/<slug>.full.md` 与 `<wiki-root>/raw/assets/<slug>/fig-NN.png`
-> (Stage 2 视觉定位负责 bbox 精确裁剪)。
-> quick summary 同期写到 `<wiki-root>/raw/papers/<slug>.quick.md`(同样不带图,
-  留 quick 任务自身的精简),供未来 publish skill 直接走早期远端发布。
+### Section 3.2 Adaptive Nodes
+
+* **空间与时间的权衡**:大步长(如 $s = 8$)能显著降低树高,但若节点子节点
+  较少,会产生大量空指针。
+* **自适应节点设计**:ART 在全树统一使用 $s = 8$(分支因子 256),但每个内部
+  节点根据当前实际拥有的子节点数量,动态调整其内部存储结构。
+
+### Section 3.3 Structure of Inner Nodes
+
+ART 定义了四种不同容量的内部节点类型,每个节点头部包含 16 字节(存储节点
+类型、子节点数量及压缩路径):
+
+* **Node4**:存储 2-4 个子节点,有序字节数组 + 4 指针。
+* **Node16**:存储 5-16 个子节点,键数组 + 16 指针,支持 SIMD 并行查找。
+* **Node48**:存储 17-48 个子节点,256 字节索引数组 + 48 指针。
+* **Node256**:存储 49-256 个子节点,直接 256 长度指针数组。
+
+### Section 3.7 Space Consumption
+
+**Theorem 1.** 对于任意 ART 树 $T$,其每键空间消耗被严格限制在 52 字节。
+
+* **证明思路**(Proof Sketch):定义节点的"空间预算" $b(n)$ 如下:
+  $$b(n) = \begin{cases} x, & \text{isLeaf}(n) \\ \left(\sum_{i \in c(n)} b(i)\right) - s(n), & \text{else} \end{cases}$$
+  当叶子节点贡献 $x = 52$ 字节时,通过数学归纳法可证所有内部节点的预算
+  $b(n) \ge 52$ 恒成立。
+
+**Corollary 1.** 若引入更多节点类型(如 Node2, Node5, Node32, Node64),
+最坏空间可进一步降至 34 字节。
+
+### Section 5.2 Search Performance
+
+| 性能指标 (Per Lookup) | ART (Dense) | ART (Sparse) | FAST | HT |
+| :--- | :---: | :---: | :---: | :---: |
+| **Cycles (16M)** | 188 | 352 | 461 | 191 |
+| **Instructions (16M)** | 88 | 99 | 110 | 26 |
+| **Misp. Branches (16M)** | 0.0 | 0.84 | 0.0 | 0.25 |
+```
+
+### 写作样例(架构 / 概念图类论文,mermaid 密度参考 —— 2026-06-30 第二轮翻面)
+
+```markdown
+### Section 3.2 Adaptive Nodes
+
+ART 在全树统一使用 $s = 8$(分支因子 256),根据当前实际子节点数量,动态
+调整内部节点的存储结构:
+
+```mermaidjs
+graph TD
+    N4["Node4<br/>2-4 子节点<br/>key[4] + ptr[4]"]
+    N16["Node16<br/>5-16 子节点<br/>key[16] + ptr[16]<br/>SIMD 并行查找"]
+    N48["Node48<br/>17-48 子节点<br/>index[256] + ptr[48]"]
+    N256["Node256<br/>49-256 子节点<br/>ptr[256]"]
+    N4 -->|子节点增多| N16
+    N16 -->|子节点增多| N48
+    N48 -->|子节点增多| N256
+    N256 -->|子节点减少| N48
+    N48 -->|子节点减少| N16
+    N16 -->|子节点减少| N4
+```
+
+* **升 / 降级触发**:插入导致 `Node16` 满时,迁移 key+ptr 到 `Node48`;
+  删除导致 `Node48` 子节点数 < 17 时,回收部分 index 槽降级回 `Node16`。
+
+### Section 5.2 Search Performance(数据可视化图 → markdown 表格)
+
+| 性能指标 (Per Lookup) | ART (Dense) | ART (Sparse) | FAST | HT |
+| :--- | :---: | :---: | :---: | :---: |
+| **Cycles (16M)** | 188 | 352 | 461 | 191 |
+| **Instructions (16M)** | 88 | 99 | 110 | 26 |
+| **L3 Hits (16M)** | 2.6 | 3.0 | 2.5 | 2.1 |
+
+* 性能柱状图(原论文图 10)直接转上面这张 markdown 表格,数字精度 3 位
+  有效数字;agent 后续 Q&A 时按列名查询比看图精确(可计算 ratio / 排序)。
+
+### Section 6: System Architecture(纯装饰图 → 省略 + 文字一句)
+
+* 图 11 是 HyPer 系统部署的整体示意图,包含 12 节点集群 + NUMA-aware
+  内存分配 + SIMD 加速单元。本节重点是讨论 ART 在 HyPer 中的集成边界,
+  拓扑细节参考原论文。
+```
 ````

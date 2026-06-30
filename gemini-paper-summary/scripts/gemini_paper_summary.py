@@ -70,6 +70,11 @@ DEFAULT_MODEL = "gemini-3.5-flash"
 # `--model <id>` 显式指定。SSOT: 实际策略见 _gemini_call_with_retry;与 SKILL.md
 # §核心原则 #8 对齐。
 MAX_PDF_BYTES_INLINE = 20 * 1024 * 1024  # 20 MB 走 inline Part.from_bytes；更大走 File API
+# Full 模板产物需要全文级展开,默认 output token 上限(约 8192)撞顶会截断尾部
+# 章节。此值**仅此一处定义**(SSOT);prompt-template.md / SKILL.md 不重抄避免散落。
+# 决策背景:见 prompt-template.md ## 全文级抽取模板(full) 头部 2026-06-30 加固
+# 的"完整性 > 篇幅"block。
+FULL_MAX_OUTPUT_TOKENS = 65536
 
 # 默认 prompt 从 assets/prompt-template.md 的 `## 默认模板（academic）` 段
 # 读取，让 markdown 模板成为单一事实来源（SSOT）——避免脚本 / md 双份维护。
@@ -190,12 +195,15 @@ FOCUS_INJECTION = (
     '并在"启发 / 追问"小节展开 2-3 个延伸思考：\n\n{focus}\n'
 )
 
-# full 模板的焦点注入片段（在全文级抽取上下文里，`启发 / 追问` 段不存在——
-# 用户的关注点以"在 ## 方法设计 / ## 代表性实验结果 段下加关注点子段"形式插入）
+# full 模板的焦点注入片段(2026-06-30 重新定位后,full 模板不再有
+# "方法设计 / 代表性实验结果 / 业务启示 & 价值"这些 summary 段——章节按
+# PDF 原生顺序转写。用户的关注点以"在对应的 PDF 原生章节下追加 focus 子段"
+# 形式插入,例如 `### 用户关注点: <focus>` 子节)
 FOCUS_INJECTION_FULL = (
     "\n\n[额外关注点]\n"
-    "用户在调用时指定了以下关注点，请在 **方法设计 / 代表性实验结果 / 业务启示 & 价值** "
-    "章节内以子段形式追加原文级细节关注(例如 `### 用户关注点: <focus>` 子节),"
+    "用户在调用时指定了以下关注点，请在 **对应的 PDF 原生章节下**(如 "
+    "`### Section 3.2` / `### Section 5.4`)以子段形式追加原文级细节关注"
+    "(例如 `### 用户关注点: <focus>` 子节),"
     "\n\n{focus}\n"
 )
 
@@ -538,8 +546,10 @@ def render_figures_to_pngs(
     make_thumbnail=False,
     thumbnail_width=400,
     visual_bbox_map=None,
+    naming_scheme="legacy",
+    slug=None,
 ):
-    # type: (str, list, str, float, str, int, int, int, bool, int, dict) -> tuple
+    # type: (str, list, str, float, str, int, int, int, bool, int, dict, str, Optional[str]) -> tuple
     """对每条 (page, fig_num, bbox_or_None) 截取图本身，存为图片文件。
 
     定位策略（优先级从高到低）：
@@ -556,9 +566,23 @@ def render_figures_to_pngs(
     - make_thumbnail：额外生成 figures/<name>.thumb.<ext>，受 --max-size-kb 约束
       （--max-width 不约束缩略图；thumbnail_width 自带尺寸上限）
 
+    命名方案（naming_scheme, 2026-06-30 加固）：
+    - "legacy"（默认，向后兼容）: 文件 `figure-pX-fY.<ext>`，rel path 加
+      `figures/` 前缀。用于 `--extract-figures` 模式。
+    - "raw": 文件 `fig-NN.<ext>`（fig_num 零填充），rel path 加
+      `../assets/<slug>/` 前缀。用于 `--full` 模式（对齐
+      `MEMORY/gemini-paper-summary-full-mode-design.md §7` + `eval/evals.json`
+      契约）。缩略图同套命名加 `-thumb` 后缀。
+      slug 必填（raw 模式的 rel path 前缀依赖 slug）；None 时走
+      `figures/` 前缀退化处理（与 legacy 一致，避免 silent 错误）。
+    - 决策背景：raw 端产物被下游消费方按 `fig-NN.png` 规律找文件，
+      legacy 命名 + `figures/` 前缀会导致消费方按约定找不到图。
+
     返回 (full_map, thumb_map, dim_map)：
-      - full_map: {(page, fig_num): "figures/figure-pX-fY.<ext>"}
-      - thumb_map: {(page, fig_num): "figures/figure-pX-fY.thumb.<ext>"}（无缩略图时为空）
+      - full_map: {(page, fig_num): "<prefix><file>.<ext>"}
+        - legacy: "figures/figure-pX-fY.<ext>"
+        - raw:    "../assets/<slug>/fig-NN.<ext>"
+      - thumb_map: {(page, fig_num): "<prefix><file>.thumb.<ext>"}（无缩略图时为空）
       - dim_map: {(page, fig_num): (width_px, height_px)}——full 图的实际像素尺寸,
         给 embed_figure_refs 用来在 markdown image title 字段写 `=WxH` 提示
         （缩略图也共用同图尺寸——点缩略图跳原图看到的也是这张的尺寸）"""
@@ -578,6 +602,10 @@ def render_figures_to_pngs(
     thumb_result = {}
     dim_result = {}  # v3.2+: (page, fig_num) → (width_px, height_px)，给 embed_figure_refs 加 =WxH
     visual_bbox_map = visual_bbox_map or {}
+
+    # 命名方案：把 file_stem（不含扩展名）与 rel_prefix 解耦（2026-06-30）
+    # raw 模式需要 slug；缺失时降级到 legacy 避免 silent 错误。
+    use_raw = naming_scheme == "raw" and slug
 
     doc = fitz.open(pdf_path)
     try:
@@ -687,7 +715,16 @@ def render_figures_to_pngs(
                 # === 保存主体 ===
                 # 注意：_save_pixmap_with_constraints 可能降级到不同格式（PNG→WebP）
                 # 返回的 fmt_used 才是最终落盘的扩展名
-                full_name = f"figure-p{p}-f{f}.{ext_map[actual_fmt]}"
+                # 命名按 naming_scheme 走(2026-06-30 加固,见函数头 docstring):
+                # - raw: file="fig-NN.<ext>"(fig_num 零填充), rel="../assets/<slug>/"
+                # - legacy: file="figure-pX-fY.<ext>", rel="figures/"
+                if use_raw:
+                    file_stem = f"fig-{f:02d}"
+                    rel_prefix = f"../assets/{slug}/"
+                else:
+                    file_stem = f"figure-p{p}-f{f}"
+                    rel_prefix = "figures/"
+                full_name = f"{file_stem}.{ext_map[actual_fmt]}"
                 full_path = os.path.join(out_dir, full_name)
                 fmt_used, qual_used, attempts, size_kb = _save_pixmap_with_constraints(
                     pix=pix,
@@ -697,8 +734,8 @@ def render_figures_to_pngs(
                     max_size_kb=max_size_kb,
                 )
                 # 用 fmt_used 重算最终文件名（覆盖降级的情况）
-                final_full_name = f"figure-p{p}-f{f}.{ext_map[fmt_used]}"
-                full_result[key] = "figures/" + final_full_name
+                final_full_name = f"{file_stem}.{ext_map[fmt_used]}"
+                full_result[key] = rel_prefix + final_full_name
                 dim_result[key] = (pix.width, pix.height)  # v3.2+: 供 embed_figure_refs 写 =WxH
                 sys.stderr.write(
                     f"OK: p{p}.f{f} → {final_full_name} "
@@ -712,7 +749,8 @@ def render_figures_to_pngs(
                     thumb_pix = page.get_pixmap(matrix=fitz.Matrix(thumb_scale, thumb_scale), clip=clip)
                     # 缩略图用 `.thumb.<ext>` 后缀，与原图同目录
                     final_base, _ = os.path.splitext(final_full_name)
-                    thumb_name = f"{final_base}.thumb{os.path.splitext(final_full_name)[1]}"
+                    _thumb_ext = os.path.splitext(final_full_name)[1]
+                    thumb_name = f"{final_base}.thumb{_thumb_ext}"
                     thumb_path = os.path.join(out_dir, thumb_name)
                     thumb_fmt_used, _, _, thumb_size_kb = _save_pixmap_with_constraints(
                         pix=thumb_pix,
@@ -724,7 +762,7 @@ def render_figures_to_pngs(
                     # 若缩略图也降级格式（理论上不会），同步更新名字
                     if thumb_fmt_used != fmt_used:
                         thumb_name = f"{final_base}.thumb.{ext_map[thumb_fmt_used]}"
-                    thumb_result[key] = "figures/" + thumb_name
+                    thumb_result[key] = rel_prefix + thumb_name
                     sys.stderr.write(
                         f"OK: p{p}.f{f} → {thumb_name} ({thumb_pix.width}x{thumb_pix.height}, {thumb_size_kb:.0f} KB)\n"
                     )
@@ -1047,7 +1085,16 @@ def insert_caption_after_figure(md_text, visual_bbox_map):
 
 
 # 缩略图二次包裹：`![alt](figures/figure-pX-fY.thumb.png)` → `[![alt](thumb)](full)`
-THUMB_IMG_RE = re.compile(r"(!\[[^\]]*\])\((figures/figure-[^\)]+\.thumb\.[a-z]+)\)")
+# 缩略图二次包裹：`![alt](figures/figure-pX-fY.thumb.png)` → `[![alt](thumb)](full)`
+# 2026-06-30 扩展:同时匹配 raw 模式的 `../assets/<slug>/fig-NN-thumb.png`(naming_scheme="raw"),
+# 让 full + --thumbnail 走同款 click-to-full 体验,虽然该组合与 raw 端单图约定略冲突(已 WARN)。
+THUMB_IMG_RE = re.compile(
+    r"(!\[[^\]]*\])\(("
+    r"figures/figure-[^\)]+\.thumb\.[a-z]+"  # legacy: --extract-figures
+    r"|"
+    r".+/fig-\d+-thumb\.[a-z]+"  # raw: --full(--thumbnail 反模式,WARN 但仍工作)
+    r")\)"
+)
 
 
 def embed_figure_refs(md_text, ref_to_relpath, ref_to_fullpath=None, ref_to_dim=None):
@@ -1383,7 +1430,7 @@ def build_prompt(focus, template="academic"):  # type: (str, str) -> str
     return base
 
 
-def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, str, float) -> str
+def call_gemini(model, pdf_bytes, prompt, temperature, max_output_tokens=None):  # type: (str, bytes, str, float, Optional[int]) -> str
     """调用 Gemini，返回 Markdown 文本。短 PDF 走 inline；长 PDF 走 File API。
 
     **无自动 fallback**(2026-06-21 决策): 503/429/500 等高并发 / 限流错误
@@ -1395,6 +1442,11 @@ def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, st
     终失败错误信息会明示: model 名 + status_code + 用户可执行的下一步
     (稍后重试 / 检查 GEMINI_API_KEY 与配额 / 用 --model 换模型)。统一策略
     实现见 `_gemini_call_with_retry`(本函数委托给它)。
+
+    `max_output_tokens`（2026-06-30 加固）: None 走模型默认(约 8192 for
+    3.5-flash);full 模板需要全文级展开时由 caller 显式传 `FULL_MAX_OUTPUT_TOKENS`
+    (65536),避免撞顶截断尾部章节。**SSOT**: 数值仅在 FULL_MAX_OUTPUT_TOKENS
+    模块常量定义;prompt-template.md / SKILL.md 不重抄。
     """
     client = genai.Client()  # 自动读 GEMINI_API_KEY
 
@@ -1418,7 +1470,10 @@ def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, st
         contents = [uploaded, prompt]
         # 把 uploaded.name 暂存,调用方如需清理可从返回值再调用 client.files.delete(name=...)
 
-    config = types.GenerateContentConfig(temperature=temperature)
+    config_kwargs = {"temperature": temperature}
+    if max_output_tokens is not None:
+        config_kwargs["max_output_tokens"] = max_output_tokens
+    config = types.GenerateContentConfig(**config_kwargs)
     response = _gemini_call_with_retry(client, model, contents, config, label="主调用")
     text = getattr(response, "text", None)
     if not text:
@@ -1483,31 +1538,41 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         args.output      -- wiki 仓根(下含 raw/)
         args.slug / --slug / 自动从 PDF 文件名推断(见 slug_from_path)
         args.model / args.temperature / args.focus  -- Gemini 调用参数
-        args.refine_figures / args.refine_dpi       -- Stage 2(必需)
-        args.figure_dpi / args.figure_format / args.figure_quality
-        args.max_width / args.max_size_kb / args.thumbnail / args.thumbnail_width
         args.force_full                              -- 允许覆盖冲突
 
     写出:
-        <wiki_root>/raw/papers/<slug>.quick.md       -- academic 模板产物
-        <wiki_root>/raw/papers/<slug>.full.md        -- full 模板产物
-        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- Stage 2 裁剪的图(只 full 用)
+        <wiki_root>/raw/papers/<slug>.quick.md       -- academic 模板产物(含 ![图 N] 引用 + 落 PNG)
+        <wiki_root>/raw/papers/<slug>.full.md        -- full 模板产物(自包含,无 PNG 配套)
+        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- 仅由 quick 模式产生,full 不写(2026-06-30 第二轮翻面)
 
     关键决策 SSOT:../../MEMORY/gemini-paper-summary-full-mode-design.md
+
+    2026-06-30 第二轮翻面:full 模式不再落 PNG / 不跑 Stage 2 / 不创建
+    raw/assets/<slug>/ 目录。架构/概念图直接 mermaid 画在 markdown 里,
+    数据可视化图转 markdown 表格(详见 prompt-template.md full 模板)。quick
+    模式 + `--extract-figures` 单跑仍走落 PNG 路径。
     """
     # 必填校验
     if not args.output:
         sys.stderr.write(
             "ERROR: --full 模式必须配合 --output 使用(--output 视为 wiki 仓根,\n"
-            "       产物写到 <wiki_root>/raw/papers/<slug>.quick.md + .full.md +\n"
-            "       <wiki_root>/raw/assets/<slug>/fig-NN.png)。\n"
+            "       产物写到 <wiki_root>/raw/papers/<slug>.quick.md + .full.md;\n"
+            "       full 模式不落 PNG,quick 模式或 --extract-figures 单跑仍会落图)。\n"
         )
         sys.exit(2)
+
+    # 2026-06-30 第二轮翻面:--refine-figures / --thumbnail 在 full 模式是
+    # 哑参数(quick 模式或 --extract-figures 才生效),INFO 提示而非 WARN。
+    # 不阻断用户使用,full 模式不消费这些 flag。
+    if args.refine_figures or args.thumbnail:
+        sys.stderr.write(
+            "INFO: --full 模式已不再落 PNG(2026-06-30),--refine-figures / --thumbnail "
+            "在 full 模式是哑参数;仅 quick 模式或 --extract-figures 单跑生效。\n"
+        )
 
     wiki_root = os.path.abspath(args.output)
     raw_root = os.path.join(wiki_root, "raw")
     papers_dir = os.path.join(raw_root, "papers")
-    assets_root = os.path.join(raw_root, "assets")
 
     # slug 推断(--slug 优先,否则从 PDF 文件名)
     slug = args.slug if args.slug else slug_from_path(args.pdf)
@@ -1519,11 +1584,11 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         sys.exit(2)
 
     os.makedirs(papers_dir, exist_ok=True)
-    # assets/<slug>/ 在 Stage 2 渲染时再创建;这里先确保 raw/ 与 raw/papers/ 存在
+    # 2026-06-30 第二轮翻面:full 模式不再创建 raw/assets/<slug>/ 目录,
+    # 仅在 papers_dir 写两份 .md
 
     quick_md_path = os.path.join(papers_dir, "{0}.quick.md".format(slug))
     full_md_path = os.path.join(papers_dir, "{0}.full.md".format(slug))
-    assets_dir = os.path.join(assets_root, slug)
 
     # 冲突检测(SSOT §3):full 抽取默认拒绝覆盖;quick 也走同规则
     detect_full_overwrite(full_md_path, args.force_full)
@@ -1550,81 +1615,27 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
     quick_md = call_gemini(model, pdf_bytes, quick_prompt, args.temperature)
 
     sys.stderr.write(
-        "INFO: 第 2 次调用 Gemini (full 模板 = 全文级抽取)\n"
+        f"INFO: 第 2 次调用 Gemini (full 模板 = PDF→Markdown 全量转写, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
     )
     full_prompt = build_prompt(focus, template="full")
-    full_md = call_gemini(model, pdf_bytes, full_prompt, args.temperature)
+    # max_output_tokens=65536(SSOT: FULL_MAX_OUTPUT_TOKENS 模块常量),避免
+    # 撞顶截断尾部章节(决策背景见 prompt-template.md ## 全文级抽取模板
+    # 头部 2026-06-30 加固的"完整性 > 篇幅"block)。
+    full_md = call_gemini(
+        model, pdf_bytes, full_prompt, args.temperature,
+        max_output_tokens=FULL_MAX_OUTPUT_TOKENS,
+    )
 
-    # 3) full 产物的图引用处理:Stage 2 视觉定位 + raw-compatible assets 落盘
-    #    --full 隐式开启 --refine-figures(SSOT §D4)
-    full_refs = parse_figure_refs(full_md)
-    visual_bbox_map = {}
-    if full_refs:
-        # full 模式强制 Stage 2(WARN 而非 ERROR:用户或 pymupdf 缺时 fallback)
-        if not args.refine_figures:
-            sys.stderr.write(
-                "WARN: --full 模式默认开启 Stage 2 视觉定位(--refine-figures),"
-                "你显式传了 --no-refine-figures;raw 端图可能不准 bbox。\n"
-            )
-        if not _HAS_PYMUPDF:
-            sys.stderr.write(
-                "WARN: --full 需要 pymupdf 做 Stage 2,但未安装;fallback 到 caption locator。\n"
-                "      安装命令: pip install --user --break-system-packages pymupdf\n"
-            )
-        elif not os.environ.get("GEMINI_API_KEY"):
-            sys.stderr.write("WARN: Stage 2 需要 GEMINI_API_KEY,未设置;fallback 到 caption locator。\n")
-        else:
-            if args.refine_figures:
-                page_to_png = render_pages_for_gemini(args.pdf, full_refs, dpi_scale=args.refine_dpi)
-                if page_to_png:
-                    visual_bbox_map = call_gemini_for_visual_bbox(
-                        args.pdf, page_to_png, model, args.temperature
-                    )
-                    full_md = insert_caption_after_figure(full_md, visual_bbox_map)
+    # 3) 2026-06-30 第二轮翻面:full 模式不再落 PNG / 不跑 Stage 2 / 不创建
+    #    raw/assets/<slug>/ 目录。full.md 自包含(架构图直接 mermaid 画在
+    #    markdown 里,数据图转表格,装饰图省略)。--extract-figures 单跑仍
+    #    落 PNG,服务于人类用户。
+    #    移除的函数调用(parse_figure_refs / render_pages_for_gemini /
+    #    call_gemini_for_visual_bbox / insert_caption_after_figure /
+    #    render_figures_to_pngs / embed_figure_refs)由 quick 模式与
+    #    --extract-figures 单跑消费。
 
-        # 4) 渲图到 raw/assets/<slug>/  (沿用 Karpathy LLM Wiki raw/assets 布局)
-        if full_refs:
-            os.makedirs(assets_dir, exist_ok=True)
-            ref_to_fullpath, ref_to_thumbpath, ref_to_dim = render_figures_to_pngs(
-                args.pdf,
-                full_refs,
-                assets_dir,
-                dpi_scale=args.figure_dpi,
-                figure_format=args.figure_format,
-                figure_quality=args.figure_quality,
-                max_width=args.max_width,
-                max_size_kb=args.max_size_kb,
-                make_thumbnail=args.thumbnail,
-                thumbnail_width=args.thumbnail_width,
-                visual_bbox_map=visual_bbox_map,
-            )
-            if args.thumbnail and ref_to_thumbpath:
-                ref_to_relpath = ref_to_thumbpath
-                ref_to_full_for_wrap = ref_to_fullpath
-            else:
-                ref_to_relpath = ref_to_fullpath
-                ref_to_full_for_wrap = None
-            full_md = embed_figure_refs(
-                full_md, ref_to_relpath, ref_to_full_for_wrap, ref_to_dim=ref_to_dim
-            )
-            refine_note = (
-                ", Stage 2 定位 {0} 个".format(len(visual_bbox_map))
-                if visual_bbox_map
-                else ""
-            )
-            sys.stderr.write(
-                "OK: 已导出 {0} 张图到 {1}(倍率 {2},{3:.0f} DPI,格式 {4}{5}{6})\n".format(
-                    len(ref_to_fullpath),
-                    assets_dir,
-                    args.figure_dpi,
-                    args.figure_dpi * 72,
-                    args.figure_format,
-                    " + 缩略图" if args.thumbnail else "",
-                    refine_note,
-                )
-            )
-
-    # 5) 写两份 .md 到 raw/papers/
+    # 4) 写两份 .md 到 raw/papers/
     with open(quick_md_path, "w", encoding="utf-8") as f:
         f.write(quick_md)
         if not quick_md.endswith("\n"):
@@ -1644,9 +1655,21 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         )
     )
 
-    # 6) 写一份 .quick.md + .full.md 都跳开 self-check(quick 不带图, full 走
-    #    assets/ 不走 figures/;自检路径分支不值得引入)— 当前 self_check_figures
-    #    只对 .full.md 的本地图做粗校验,后续迭代再加 raw-specific self-check。
+    # 5.5) full 模式内容完整性自检(2026-06-30 加固):6 H2 + ≥5 ### Section,
+    # 防止模型撞 token 截断或偷懒。WARN/FAIL 写 stderr,不阻塞退出(同
+    # self_check_figures 模式)。
+    try:
+        check_result = self_check_full_content(full_md)
+        sys.stderr.write("INFO: " + check_result["report"] + "\n")
+        for w in check_result.get("warnings", []):
+            sys.stderr.write("WARN: " + w + "\n")
+        for fl in check_result.get("failures", []):
+            sys.stderr.write("FAIL: " + fl + "\n")
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(
+            f"WARN: self_check_full_content 异常: {e}(自检未跑全,不影响主流程)\n"
+        )
+
     return 0
 
 
@@ -1911,6 +1934,126 @@ def self_check_figures(md_text, figures_dir, outline_check=False, outline_endpoi
     summary_line = (
         f"Self-check: {len(outline_ref_ids) + len(local_paths) - len(result['failures'])} ok, "
         f"{len(result['warnings'])} warnings, {len(result['failures'])} failures"
+    )
+    result["report"] = summary_line
+    return result
+
+
+def self_check_full_content(
+    md_text,
+    min_h2=3,
+    min_sections=5,
+    placeholder_ratio_warn=0.5,
+    min_chars=8000,
+):
+    # type: (str, int, int, float, int) -> Dict[str, object]
+    """full 模式产物内容完整性自检(2026-06-30 重新定位后)。
+
+    与 self_check_figures 同款 return shape({ok, warnings, failures, report}),
+    WARN/FAIL 写 stderr、不阻塞退出。
+
+    校验项(2026-06-30 重新定位 — 不再查 6 H2 骨架,改为按"PDF 章节保真度"校验):
+
+    1. **H2 章节保真度**:`^## ` 行数 ≥ min_h2(默认 3)。意味着 PDF 章节未被
+       保真展开时 FAIL(stderr 不阻塞)。**不**再限定具体 H2 名称白名单——
+       full 模式现在按 PDF 原生章节顺序转写,章节名因论文而异。
+    2. **`### Section X.Y` 数量** ≥ min_sections(默认 5,按 eval/evals.json
+       契约下限)。算法 / 系统类论文有 ≥ 5 个 `Section X.Y` 子标题是基本密度。
+    3. **Definition / Theorem / Lemma / Algorithm 标注数**(关键保真指标):
+       4 类任一出现次数合计。若 0 次 WARN(意味着原文无标 *或者* 模型未保真);
+       对算法 / 数学类论文 ≥ 1 是基本密度。
+    4. **`$$...$$` 公式 block 数** ≥ 1。若 0 次 WARN(原文无独立公式或模型未
+       保真 LaTeX 转写)。
+    5. **字符下限** ≥ min_chars(默认 8000)。过短意味着模型偷懒或撞 token。
+    6. **"原文未明确"占位比例** > placeholder_ratio_warn(默认 50%) 时 WARN,
+       防止模型偷懒("该小节内容少" 不应该成为大量占位的理由)。
+
+    Args:
+        md_text: 已生成的 full.md 全文(本地产物)
+        min_h2: 最少 H2 章节数(默认 3)
+        min_sections: 最少 `### Section X.Y` 数(默认 5)
+        placeholder_ratio_warn: "原文未明确"占位 / ### Section 比例阈值(默认 0.5)
+        min_chars: 字符下限(默认 8000)
+
+    Returns:
+        {
+          "ok": bool,                # True = 0 failures;False = 至少 1 项失败
+          "warnings": [str, ...],
+          "failures": [str, ...],
+          "report": str,             # 单行摘要,例
+                                       # "Content self-check: H2=12, ###Section=18,
+                                       #  Def+Thm+Lem+Alg=4, $$block=3, 0w 0f"
+        }
+    """
+    import re  # 局部 import,避免污染模块级命名空间
+
+    result = {"ok": True, "warnings": [], "failures": [], "report": ""}  # type: Dict[str, object]
+
+    # ---- 检查 1:H2 章节保真度(2026-06-30:不查具体名称,只保底数量) ----
+    h2_re = re.compile(r"^##\s+", re.MULTILINE)
+    n_h2 = len(h2_re.findall(md_text))
+    if n_h2 < min_h2:
+        result["failures"].append(
+            f"full.md H2 章节数 {n_h2} < {min_h2},PDF 章节未被保真展开"
+        )
+        result["ok"] = False
+
+    # ---- 检查 2:### Section X.Y 数量 ----
+    # 匹配 `### Section 3` / `### Section 3.1` / `### Section 3.1.2` 等
+    section_re = re.compile(
+        r"^###\s+Section\s+\d+(?:\.\d+)*",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    section_matches = list(section_re.finditer(md_text))
+    n_sections = len(section_matches)
+    if n_sections < min_sections:
+        result["warnings"].append(
+            f"full.md ### Section X.Y 数量 {n_sections} < {min_sections}(evals.json 契约下限)"
+        )
+
+    # ---- 检查 3:Definition / Theorem / Lemma / Algorithm 标注数 ----
+    # 按 "**Label N.** ..." 模式统计 4 类标注(原文若有,模型必须保真标注)
+    label_re = re.compile(
+        r"^\s*\*\*(Definition|Theorem|Lemma|Corollary|Algorithm)\s+\d",
+        re.MULTILINE,
+    )
+    n_labels = len(label_re.findall(md_text))
+    if n_labels == 0:
+        result["warnings"].append(
+            "full.md 未发现 Definition/Theorem/Lemma/Corollary/Algorithm 标注"
+            "(原文无此类标注 或 模型未保真)"
+        )
+
+    # ---- 检查 4:`$$...$$` 公式 block 数 ----
+    block_re = re.compile(r"\$\$.+?\$\$", re.DOTALL)
+    n_blocks = len(block_re.findall(md_text))
+    if n_blocks == 0:
+        result["warnings"].append(
+            "full.md 未发现 $$...$$ 公式 block(原文无独立公式 或 模型未保真 LaTeX 转写)"
+        )
+
+    # ---- 检查 5:字符下限 ----
+    n_chars = len(md_text)
+    if n_chars < min_chars:
+        result["warnings"].append(
+            f"full.md 字符数 {n_chars} < {min_chars},可能偷懒或撞 token 上限"
+        )
+
+    # ---- 检查 6:"原文未明确" 占位比例 ----
+    placeholder_count = md_text.count("原文未明确")
+    if n_sections > 0:
+        ratio = placeholder_count / float(n_sections)
+        if ratio > placeholder_ratio_warn:
+            result["warnings"].append(
+                f"full.md 含 {placeholder_count} 处'原文未明确'占位 / {n_sections} 个 ### Section = {ratio:.0%},"
+                f"超过 {placeholder_ratio_warn:.0%} 阈值,可能存在偷懒"
+            )
+
+    # ---- 收尾 ----
+    summary_line = (
+        f"Content self-check: H2={n_h2}, ###Section={n_sections}, "
+        f"Def+Thm+Lem+Alg={n_labels}, $$block={n_blocks}, "
+        f"chars={n_chars}, {len(result['warnings'])}w {len(result['failures'])}f"
     )
     result["report"] = summary_line
     return result
