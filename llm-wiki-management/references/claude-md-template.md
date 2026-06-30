@@ -15,7 +15,7 @@
 
 ### `raw/` —— 真相之源（**LLM 只读，用户可改**）
 
-- 路径：`<wiki-root>/raw/{articles,assets}/`
+- 路径：`<wiki-root>/raw/{articles,assets,...}/`（子目录可自由扩展，见下文 `external/`）
 - 性质：用户策划的原始资料（论文、剪藏、PDF、图片、播客转写、手写笔记等）
 - 纪律：
   - **LLM 在任何情况下不写 / 删除 / 移动 raw/ 下文件**——只读
@@ -26,6 +26,30 @@
     --check-stale` 会按 mtime vs source 页 `updated` 标记这类待重新摄取的文件
   - raw 文件路径是 wiki 内 source 页的 `sources` 字段的"永久引用"——改名会断链
   - raw/ 的内容是真相之源；wiki 摘要如与 raw 矛盾，**以 raw 为准**
+
+#### `raw/external/` —— 外部代码仓接入（symlink）
+
+- 路径：`<wiki-root>/raw/external/<source-name>/`
+- 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、papers-with-code 项目等）
+  作语料纳入 wiki；**不**内嵌拷贝（占空间 + 失去 commit 锚点），走 symlink +
+  锚定元数据
+- 一个 `<source-name>/` 下放 symlink + 同目录 `.symlink-anchor.json`：
+
+  ```
+  raw/external/linux-kernel/
+  ├── .symlink-anchor.json         # {"target": "/home/me/src/linux", "captured_at": "2026-07-01", ...}
+  └── linux                       # symlink → /home/me/src/linux
+  ```
+
+- **纪律（用户责任，LLM 不代办）**：
+  - symlink 由用户用 `ln -s` 或编辑器创建；**没有 anchor 的 symlink = lint 报错**
+  - `.symlink-anchor.json` 含 `target`（绝对路径，`readlink -f` 结果）+
+    `captured_at`（接入当天）+ `kind: "external-repo"`
+  - target 路径被改 / 删除后，anchor 仍记旧值——lint 立刻报 `external-target-dead`
+    让用户感知（不静默漏掉）
+  - LLM agent **不写、不删、不改** symlink / anchor——延续 `raw/` 的"LLM 只读"
+- `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `**/.symlink-anchor.json`——
+  跨机器 clone 时通过 anchor 立即知道"这本来指着哪"
 
 ### `wiki/` —— LLM 拥有的复利资产
 
@@ -96,6 +120,89 @@ updated: YYYY-MM-DD
 sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / concept 可选
 ---
 ```
+
+### Tag Taxonomy（防 tag 漂移）
+
+`tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 维护一份
+**有限 tag 字典**，写在初始化时由 LLM 与用户共同确认（10-20 个一级 tag，按主题分类）。
+
+<!-- 本段示例：按主题替换。常见领域分类参考： -->
+
+- 模型：model / architecture / benchmark / training
+- 组织：person / company / lab / open-source
+- 技术：optimization / fine-tuning / inference / alignment / data
+- 元：comparison / timeline / controversy / prediction
+
+**规则**：
+
+- 新增 tag 必须**先扩本段再使用**——不要"先用后补"，否则字典永远追不上漂移
+- 单页 `tags` 建议 3-7 个；过多说明页面主题过散，考虑拆分或聚焦
+- tag 取值严格小写 + kebab-case，与文件名命名一致
+- `lint_wiki.py` 应对 `tags` 中**不**在本表的值报 `tag-not-in-taxonomy`（info 级，不阻断）
+
+> **格式约束（影响 lint 解析）**：本段 tag 列表必须是**裸 bullet**（每行 `- ...`），
+> 不能包在 code block / HTML comment 里——`parse_tag_taxonomy` 只读裸文本。
+> 格式示例：`- 模型：model / architecture`（中文 / 英文分隔符都支持）。
+> 多个 tag 用 `/` `，` `,` 任意一种分隔。`lint_wiki.py` 找不到 Tag Taxonomy 段或
+> 解析出 0 个 tag 时**静默跳过**（不报错），避免新 setup 的 wiki 必报错。
+
+### Page Thresholds（建页/追加/归档决策）
+
+不是每个 entity / concept 都值得独立成页——没阈值 wiki 会被名词堆爆，几个月后 index 翻不到底。
+
+| 动作 | 触发条件 |
+| --- | --- |
+| **新建 entity / concept 页** | 该 entity / concept 在 ≥ 2 个 source 页中被提到 **或** 是某 source 页的中心主题 |
+| **追加到已有页** | source 页提到一个已被覆盖的 entity / concept——追加"参考来源"段即可（不重写） |
+| **不创建页** | 路过提及（脚注 / 一次出现的名字）、领域外的细节、与本 wiki 主题无关 |
+| **拆分页** | 单页正文超过 ~200 行——拆成子主题 + cross-link，避免单页过于庞杂 |
+| **归档页** | 内容被完全取代 / 主题域变化——加 `archived: true`、从 `index.md` 移除（log 走 `ingest` 或 `lint` op，记一条说明性条目） |
+
+> **为什么有阈值**：宁可错过一个 entity 也不要堆十个空页。"克制"是 wiki 长期可用性的具体化——
+> 一次放过一个小 entity 几乎无成本；堆一千个空 entity 后 lint 报告会被噪声淹没。
+
+### 认知质量信号（可选，防"弱主张固化成事实"）
+
+> 字段语义权威定义在 [`../page-templates.md`](../page-templates.md) §一「可选：认知质量信号」；
+> 本节是 wiki 内的速查 + 何时标的指引。三个字段**全部可选**，互不依赖。
+
+三个可选 frontmatter 字段：
+
+| 字段 | 取值 | 何时标 |
+| --- | --- | --- |
+| `confidence` | `high` / `medium` / `low` | fast-moving / 争议 / 单源内容标 `medium` 或 `low`；多源交叉印证且无争议标 `high`（或省略，省略 = medium） |
+| `contested` | `true`（仅在为 true 时写） | 本页含**尚未裁定**的矛盾主张——搭配 `contradictions` 指向对端 |
+| `contradictions` | wiki 页路径数组 | 与本页主张冲突的页面（**双向标注**：A 标 B，B 也标 A） |
+
+`lint_wiki.py`（§二 13）会把 `contested: true` / `confidence: low` / 非对称 `contradictions`
+拎出来供复审——不是 error，是"弱主张自带警示"。**核心理念**：单源弱断言一旦写进 wiki
+不加标注，时间一长会被当成"既成事实"——这是比断链更隐蔽的腐烂，这三个字段让它显性化。
+
+### 矛盾处理 Update Policy（ingest 遇到"新资料与已有页冲突"时）
+
+ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下顺序处理：
+
+1. **先看日期**——更新的来源一般覆盖旧的；但若旧来源更权威（如官方技术报告 vs 博客），
+   保留两者并进入第 2 步
+2. **判定是否真矛盾**——版本差异（Llama 3.0 vs 3.1 的 context window）、上下文差异
+   （不同评测条件）不算矛盾，加注明即可；确属矛盾进入第 3 步
+3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
+   不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指
+4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（§二 13）；与用户一起裁定后，
+   移除 `contested`（保留 `confidence` 反映裁定后的可信度）
+
+### Index 扩容（防 index.md 翻不到底）
+
+`index.md` 是 wiki 的单一入口，但条目无限增长后同样会腐烂——给它两条护栏：
+
+| 触发条件 | 动作 |
+| --- | --- |
+| 单个类别（如 `## Sources`）> 50 条 | 按首字母或子域拆成小段（如 `### A-F` / `### G-M`） |
+| `index.md` 总条目 > 200 | 新建 `wiki/_meta/topic-map.md` 按主题聚合页面（index 仍按 type 列，topic-map 按主题导航） |
+
+> 这是"建页阈值"在入口侧的对偶——建页克制控制"有多少页"，扩容规则控制"index 还好不好翻"。
+> lint 目前**不**自动检测 index 条目数（与 log-rotation 同理：报告而非强制）；agent 在
+> lint 半定性环节（§三）观察 index 体积，超阈值时建议用户拆段 / 建 topic-map。
 
 ## 三、写入纪律
 

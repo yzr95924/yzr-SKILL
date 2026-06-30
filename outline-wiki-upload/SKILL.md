@@ -3,14 +3,16 @@ name: outline-wiki-upload
 description: 用户要往 Outline Wiki 工作区写内容时使用——创建 / 编辑文档，以及扩展写
   操作：图片附件（论文笔记、架构图等含图文档）、@mention、评论、Collection 管理、
   移动 / 删除 / 归档文档。产出遵守仓库既有的 Markdown 风格指纹（`*` bullet /
-  `==高亮==` / mermaid 等）。**不**用于搜 / 读 outline 文档（走 outline-wiki-search）；
+  `==高亮==` / mermaid 等），并按 OKF（Open Knowledge Format）控制上传格式——正文
+  首块 ```yaml 元数据 + 稳定标题结构，使 Outline 文档可被 agent 读回理解。
+  **不**用于搜 / 读 outline 文档（走 outline-wiki-search）；
   **不**用于配置 outline MCP（走 outline-wiki-setup）；**不**用于 Notion / Confluence /
   Obsidian / GitHub Wiki。'outline' 若指大纲 / 议程同名词则无关；分享 / 导出 /
   权限调整官方 MCP 未列、server 通常也未暴露，走 UI 或 REST。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-06-29
+  last_modified: 2026-07-01
 ---
 
 # Outline Wiki Upload
@@ -82,6 +84,65 @@ MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
 [`references/doc_style.md`](references/doc_style.md)。本 SKILL.md 只列风格速查
 表 + 关键反模式，**完整的 §1-§13 映射 + 图片附件上传流程 + @mention 语法 +
 彩色高亮写不出来**都在 references 里。
+
+## OKF 上传格式（agent 可读基线）
+
+> **为什么**：推到 Outline 的文档要能被 agent **读回理解**——
+> `outline-wiki-search` 读回 markdown body、外部 OKF 消费端解析、检索分块都
+> 依赖一个可机读的元数据头 + 可预测的正文结构。OKF = Open Knowledge Format
+> （"markdown + frontmatter、人 / agent 都能读"），权威实现是
+> [`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)；
+> 本仓库 [`llm-wiki-management`](../llm-wiki-management/SKILL.md) 落地了 v0.1
+> 子集，本 skill 沿用**同一定义**，只为 Outline 做载体适配。
+
+**载体选型（实测）**：OKF 标准用 `---...---` frontmatter，但 Outline 的 MCP 把
+Markdown 解析成 ProseMirror 再序列化，`---...---` 过不了往返——`---` 被吃掉、
+YAML 泄漏成可见正文（2026-07-01 同 server 双探针实测确认）。` ```yaml ` 围栏则
+存成 `code_block` 逐字保留。故 Outline 侧载体 = **正文首块 ```yaml 围栏**（标准
+字段 + 适配载体），**不**用 `---...---`。
+
+**两个 Outline 适配点**：
+
+1. **title 外置**：OKF 的 `title` 由 Outline **原生 title 字段**承载，不写进
+   正文（裸写 H1 与 title 重复；裸写 `---...---` 又会泄漏）。
+2. **元数据载体 = 正文首块 ```yaml 围栏**：其余字段放正文**第一个**块的
+   ```yaml 代码块里，ProseMirror 存成 `code_block` 原样保留，读回时排在最前。
+
+**正文首块最小骨架**（title 走 Outline 字段，不进块）：
+
+````markdown
+```yaml
+type: paper-note
+description: 一句话摘要；agent 索引摘要从它来
+tags: [llm, architecture]
+created: 2026-07-01
+updated: 2026-07-01
+x-outline:
+  collection: 论文笔记
+  source-skill: gemini-paper-summary
+```
+
+## 正文第一节
+````
+
+- **硬门槛只有 `type`**：OKF 消费端"frontmatter 解析失败或缺 `type` 才跳过文档，
+  其余一律容忍"——agent 能否读回**只取决于 `type` 非空**。
+- **推荐项**：`description` / `tags`（≥ 1） / `created` / `updated`
+  （`YYYY-MM-DD`）；能填都填，提升检索 / 摘要 / 时效。
+- **不放本块**：`okf_version`（标准只在 bundle 根 `index.md` 声明，单篇文档无
+  bundle）、`title`（Outline 字段承载）。
+- **`x-outline` 扩展块**（可选）：Outline 专属溯源（collection / docId / 来源
+  skill），走 OKF `x-<producer>` 私有键；标准字段能表达的别塞这里。
+- **type 枚举**：知识页类 `entity` / `concept` / `source` / `comparison` /
+  `synthesis`（同 wiki，跨 skill 一致）+ Outline 专属 `design-doc` /
+  `paper-note` / `runbook` / `reference` / `guide`；都不属于时可自定义
+  kebab-case 并在 `description` 说明。
+- **正文结构纪律**：yaml 块是正文第一个块（前面无任何内容）；标题从 `##`
+  起、不跳级、同级不重名（agent 用标题做分块锚点）；一篇一主题；链接用
+  Outline 链接 / 绝对 URL，不裸写本地相对路径。
+
+完整字段表 + 载体选型实测细节 + 与标准 / wiki 子集的关系 + 改写时如何 patch
+yaml 块，见 [`references/doc_style.md` → OKF agent 可读基线](references/doc_style.md#okf-agent-可读基线上传格式控制)。
 
 ## MCP 工具发现（重要）
 
@@ -186,7 +247,10 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 | 元素 | 仓库约定 | 说明 |
 | --- | --- | --- |
-| 顶部结构 | `# Reference` 段开头，列外部资料 | 仓库内事实标准 |
+| OKF 元数据块 | 正文首块 ```yaml（硬门槛 `type`；推荐 `description`/`tags`/`created`/`updated`/`x-outline`） | agent 可读基线，详见 doc_style OKF 小节 |
+| OKF title | 走 Outline 原生 title 字段，**不**进 yaml 块 | 避免重复 |
+| OKF `okf_version` | 单篇文档**不写**（标准只在 bundle 根 `index.md` 声明） | 单篇无 bundle |
+| 顶部结构 | 正文首块 = OKF yaml；其后若用 Reference 段走 `## Reference` | 标准 + OKF 约束 |
 | 标题层级 | `#` / `##` / `###` 表达逻辑层级；**正文不要 H1**（title 单独传） | 标准 + MCP 约束 |
 | Bullet marker | `*`（不用 `-` / `+`） | 仓库统一 |
 | 高亮 | `==text==` 标记关键术语 / 参数 / 状态 | 仓库指纹（默认色） |
@@ -200,6 +264,10 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ### 反模式（写之前先看）
 
+- 正文首块不是 OKF ```yaml 元数据块，或块内缺非空 `type`（agent 读回的唯一硬门槛）
+- 把 OKF `title` 重复写进 yaml 块（title 已由 Outline 字段承载）
+- 在 yaml 块写 `okf_version`（标准只在 bundle 根 `index.md` 声明，单篇文档不该有）
+- 正文裸写 `---...---` frontmatter——Outline 往返会吃掉 `---`、YAML 泄漏成可见正文（实测确认）
 - 用 `-` 或 `+` 起 bullet（破坏统一）
 - 正文以 H1 开头（title 已单独传，再加正文 H1 与标题重复）
 - 期望 `==text==` 出现彩色高亮（Markdown 写不出来，详见 doc_style.md §进阶）
@@ -271,6 +339,10 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
    （`create_attachment`）可用
 4. **执行操作**：
    - 调用对应工具
+   - **组织正文**：写新文档 / 大幅改写时，正文**首块**写 OKF ```yaml 元数据
+     块（硬门槛 `type`；推荐 `description` / `tags` / `created` / `updated` +
+     可选 `x-outline`；title 走 Outline 字段，**不**写 `okf_version`），标题从
+     `##` 起不跳级（详见上文"OKF 上传格式"）
    - 图片场景走"create_attachment → curl 上传 → Markdown 引用 attachment URL"
      3 步（详见下方"图片插入 / 文件附件工作流"）
    - 评论场景先 `list_comments` 看现有讨论再决定新建还是回复
@@ -442,8 +514,11 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ```text
 1. 用 outline-wiki-search 查 '后端' Collection ID（若 create schema 要求）
-2. 撰写 Markdown 正文（按 doc_style.md 风格基线 + style_checklist.md 9 大类）
+2. 撰写 Markdown 正文：正文首块写 OKF yaml 元数据块
+   （type: reference / tags / description / created / updated），
+   再按 doc_style.md 风格基线 + style_checklist.md（§0 OKF + §1-§9）组织正文
 3. 调用 create_document 工具传 title / content / collection_id
+   （title 走 Outline 字段，不写进 yaml 块）
 4. 验证返回成功，把新文档链接 / ID 告诉用户
 ```
 
@@ -473,13 +548,15 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ```text
 1. 用 outline-wiki-search 查目标 Collection + 是否已有同名文档
-2. 对每张 figures/*.png 走 attachment 3 步（详见上文"图片插入"）
-3. 用 outline-wiki-search 的 read 拿当前 summary.md 中所有
+2. 正文首块写 OKF yaml 元数据块（type: paper-note / tags / description /
+   created / updated）——title 走 Outline 字段
+3. 对每张 figures/*.png 走 attachment 3 步（详见上文"图片插入"）
+4. 用 outline-wiki-search 的 read 拿当前 summary.md 中所有
    ![图 N](figures/figure-pX-fN.png) 引用
-4. 用 update_document + editMode: "patch" + findText 精准替换每张图为
+5. 用 update_document + editMode: "patch" + findText 精准替换每张图为
    ![图 N](/api/attachments.redirect?id=<uuid> "=WxH")
-5. 验证 fetch 返回每张图 signedUrl 能 200 下载
-6. （可选）删本地 figures/ 目录
+6. 验证 fetch 返回每张图 signedUrl 能 200 下载
+7. （可选）删本地 figures/ 目录
 ```
 
 ## 相关参考
@@ -488,6 +565,9 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 - [`outline-wiki-search`](../outline-wiki-search/SKILL.md) — 配套：搜 / 读 outline 文档
   （本 skill 的"写前 search 查重"协作方）
 - [`references/doc_style.md`](references/doc_style.md) — Markdown ↔ ProseMirror
-  节点映射（§1-§13）+ 图片附件上传流程（§12）+ @mention（§13）+ 进阶
+  节点映射（§1-§13）+ 图片附件上传流程（§12）+ @mention（§13）+ OKF agent
+  可读基线（上传格式控制）+ 进阶
 - [`references/style_checklist.md`](references/style_checklist.md) — 写前必跑的
-  9 大类风格 checklist
+  风格 checklist（§0 OKF 元数据 + §1-§9 风格）
+- [`llm-wiki-management`](../llm-wiki-management/SKILL.md) — OKF v0.1 子集的仓库
+  锚点（本 skill 的 OKF 上传格式沿用同一定义）

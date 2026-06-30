@@ -5,13 +5,36 @@
 风格指南——完整规则见
 [`doc_style.md`](doc_style.md)，本 checklist 是"最后一道防线"。
 
+## 0. OKF agent 可读基线（先过这一关）
+
+> 目的：文档要能被 agent 稳定读回理解。权威定义见
+> [`doc_style.md` → OKF agent 可读基线](doc_style.md#okf-agent-可读基线上传格式控制)。
+
+- [ ] 正文**第一个块**是 ```yaml 围栏（前面无 Reference 段 / 无空段 /
+      无任何文字）
+- [ ] yaml 块含**非空 `type`**（agent 读回的唯一硬门槛，缺它文档被跳过）；
+      `description` / `tags`（≥ 1） / `created` / `updated`（`YYYY-MM-DD`）
+      为推荐项——能填都填，提升检索 / 摘要 / 时效质量
+- [ ] `type` 取枚举值（`entity` / `concept` / `source` / `comparison` /
+      `synthesis` / `design-doc` / `paper-note` / `runbook` / `reference` /
+      `guide`）；自定义值要在 `description` 说清
+- [ ] Outline 专属溯源（collection / docId / 来源 skill）放可选的 `x-outline`
+      块，**不**塞进标准字段
+- [ ] yaml 块内**不写** `title`（Outline 字段承载）也**不写** `okf_version`
+      （标准只在 bundle 根 `index.md` 声明，单篇文档无 bundle）
+- [ ] 大改写时 `updated` 已同步成当天
+- [ ] **不**在正文裸写 `---...---` frontmatter——Outline 往返会吃掉 `---`、
+      把 YAML 泄漏成可见正文（2026-07-01 实测确认）；OKF 元数据只走 ```yaml 围栏
+
 ## 1. 标题与结构
 
 - [ ] 标题字段（`title` 参数）**单独传**，正文不要 H1——避免与 title 重复
-- [ ] 顶部走 `# Reference`（A 变体，最常见）/ `## Reference`（B 变体）/
-      直接进主题（C 变体，仅在"文档本身就是平台对比清单"时合理）
-      中的某一种；**同一篇文档内不要混用** A/B/C
-- [ ] 标题层级 `#` / `##` / `###` 体现逻辑层级，不跳级
+- [ ] 正文第一个块是 §0 的 ```yaml OKF 元数据块；其后才是正文标题
+- [ ] 紧跟 yaml 块之后，若沿用 Reference 段则走 `## Reference`（OKF 块已占
+      正文首块，Reference 不再用 `#`/H1，避免与 title 语义重复）；不沿用则
+      直接进主题——**同一篇文档内只选一种**
+- [ ] 正文标题从 `##` 起、体现逻辑层级、不跳级、同级标题文字不重名
+      （agent 用标题做分块锚点，重名会撞锚）
 
 ## 2. Markdown 基础
 

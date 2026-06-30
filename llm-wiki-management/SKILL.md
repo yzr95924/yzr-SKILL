@@ -8,8 +8,8 @@ description: 用本 skill 维护本地、单用户的复利型知识库（遵循
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-06-29
-  wiki_spec_version: 0.3.0
+  last_modified: 2026-07-01
+  wiki_spec_version: 0.5.0
 ---
 
 # LLM Wiki Management
@@ -37,6 +37,9 @@ metadata:
 - 用户指向 `<wiki-root>/raw/` 里新出现 / 未归档的文件
 - 用户首次提到"我想搭一个 wiki 用来管理 X 的研究 / 读书笔记 / 项目"
 - 用户提到"CLAUDE.md 怎么写 / raw/ 和 wiki/ 的边界"
+- 用户想把外部代码仓（Linux kernel / Ray 源码等）作为语料纳入 wiki——走
+  `raw/external/<source-name>/` 的 symlink + `.symlink-anchor.json` 路径（详见
+  [wiki-spec §13](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)）
 
 ### 不使用
 
@@ -122,9 +125,17 @@ metadata:
 
 ### 核心原则
 
-> **操作前置（所有操作通用）**：每次 ingest / query / lint 启动前，先
-> `Read <$LLM_WIKI_ROOT>/CLAUDE.md` 拿到本 wiki 的主题名与边界配置。在 wiki 根目录内
-> 工作时它会被 Claude Code 自动加载；别处由 skill 按需读取——**不依赖 symlink**。
+> **操作前置（orient ritual，所有操作通用）**：每次 ingest / query / lint 启动前，**不依赖 symlink**
+> ——按以下顺序读完三件套再动手：
+>
+> 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、Tag Taxonomy、
+>    Page Thresholds。在 wiki 根目录内工作时 Claude Code 自动加载；别处由 skill 按需读
+> 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
+> 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
+>    ingest / 漏归档旧工作
+>
+> 三件套任一未读完不写任何 wiki 内容。100+ 页的 wiki 还应在 `wiki/` 全域
+> `Grep "<topic>"` 补一次——单看 index.md 可能漏掉 entity/concept 页之间的引用关系。
 
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/CLAUDE.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
@@ -143,6 +154,10 @@ metadata:
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
    同步以该处为准。
+   **可选认知质量信号**（`confidence` / `contested` / `contradictions`，全部可选）——语义同样在
+   page-templates.md §一。它们把"单源弱主张"显性化，防其无声固化成 wiki 事实；ingest 遇到与
+   已有页矛盾时按 CLAUDE.md「矛盾处理 Update Policy」双向标注 `contested` + `contradictions`。
+   lint（见下）会把 `contested: true` / `confidence: low` 拎出来供复审。
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
@@ -152,7 +167,8 @@ metadata:
 
 ### 边界
 
-- **不**编辑 `raw/` 下任何文件（LLM 只读；用户可改，改后由 ingest 重新消化）
+- **不**编辑 `raw/` 下任何文件（含 `raw/external/` 的 symlink + anchor）——
+  LLM 只读；用户可改，改后由 ingest 重新消化
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `CLAUDE.md` 自创约定——若 CLAUDE.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
@@ -227,7 +243,11 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 1. 跑 `scripts/ingest_diff.py <wiki-root>`（日常加 `--check-stale`）找出需要摄取的文件
    清单——含全新文件（untracked）与 raw 被更新过的已归档文件（stale-raw）
-2. 对每个文件：
+2. **对一下要点**（**仅交互式单篇或少量场景**）——若用户指明了具体 raw 路径（如
+   "把 attention-is-all-you-need.md 摄入"），先问 1-3 句确认要点：本篇最值得提炼的
+   主题方向、有没有已知 entity/concept 要重点交叉、是否已有用户视角的判断要保留。
+   用户答复后再开始处理。**批处理 / 定时任务 / 用户已明确"按你自己理解"跳过此步**
+3. 对每个文件：
    - **必读** raw 资料全文（含 PDF / 图片需先 OCR / 视觉识别）
    - 提取关键信息：标题、作者 / 来源、主题、关键论点、引用关系、可链接的实体 / 概念
    - 在 `wiki/sources/<slug>.md` 写**摘要页**（frontmatter + 摘要 + 关键引用 + 跨链）；
@@ -235,12 +255,49 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 同步相关 `entities/` / `concepts/` 页面（追加"参考资料"段，不重写）
    - 同步 `wiki/index.md`（追加 source 条目 + 视情况更新 entity/concept 条目）
    - 追加 `log.md` 条目：`## [YYYY-MM-DD] ingest | <source title>`
-3. **commit**（建议但非必须）——仅当 wiki 启用了 git 时；未启用 git 跳过此步
+4. **commit**（建议但非必须）——仅当 wiki 启用了 git 时；未启用 git 跳过此步
    （裸目录树无版本控制，由用户自行决定是否后续手动 init / 回填）。commit 节奏由
    用户 / agent 决定
 
-详细模板与 frontmatter 字段见 [`references/ingest-workflow.md`](references/ingest-workflow.md)
-+ [`references/page-templates.md`](references/page-templates.md)。
+### 1.bulk 批处理摄取（≥ 3 份 raw 同时摄入时）
+
+当 `ingest_diff.py` 返回 ≥ 3 个待摄取文件，或用户明确说"把这堆一起 ingest / 把这批论文
+过稿"，走批处理路径而非逐份处理。批处理的关键是**一次聚合、一次写入、一次索引**——
+避免 N 次重复 search / N 次 index 更新 / N 条 log。
+
+1. **Read 所有 raw**——一次性读完所有待处理 raw（先列清单 + Read 并行）
+2. **聚合 entity / concept**——跨所有 raw 找出候选 entity / concept，**去重合并**；
+   同一概念在多篇 raw 出现时只对应一个 wiki 页（避免重复创建）
+3. **一次 search**——用 `Grep` 在 `wiki/` 全域搜所有候选 entity / concept 名称，**一次**
+   搜完（不要 N 次）；产出"已存在 / 待新建"两栏
+4. **一次写入**——按以下顺序成片写：
+   - source 页（按主题聚类而非 raw 文件名顺序——主题相近的先写，便于交叉引用）
+   - entity / concept 页（先建新的，再更新已有的——追加"参考来源"段，不重写）
+   - `wiki/index.md`（所有改动落定后**一次**更新；不要每写一页更一次 index）
+   - `wiki/log.md`（**写一条** `## [YYYY-MM-DD] ingest | Bulk: <主题概览> (<N> sources)`，
+     标题里把本批主题说清；不再逐文件分别追加 ingest 条目——避免 log 被一次 ingest 撑爆）
+5. **报告**——告诉用户哪些是新建页、哪些是更新页、哪些 entity / concept 因聚合而合并
+
+> **为什么批处理**：逐份处理在 N 份 raw 时要做 N 次 search + N 次 index 更新 + N 条
+> log，既慢又容易因中间步骤失败导致不一致；批处理把主流程收敛成一次写入，副作用面最小。
+> `^[date] ingest | Bulk:` 标题前缀保留后续按需 grep 出"批量事件"的能力（无需新增
+> `bulk-ingest` op）。
+
+**外部代码仓作为语料**——若用户说"把 X 仓库（外部代码仓）纳入 wiki"：
+
+- **不**内嵌拷仓（占空间 + 失去 commit 锚点），走 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)
+  的 symlink 路径：
+  1. 与用户确认仓库在本机的绝对路径（如 `~/src/linux`）
+  2. **LLM 指导 / 由用户执行**：`mkdir -p raw/external/<source-name> && ln -s <target> raw/external/<source-name>/<symlink-name>`
+  3. **用户**就地写 `.symlink-anchor.json`（`target` = `readlink -f` 结果绝对路径，`captured_at` = 今天，`kind: "external-repo"`）
+  4. 后续 `ingest_diff.py` 会把 symlink 目标下的文件当作 raw 资料正常扫描；
+     source 页 `sources` 字段填 `raw/external/<source-name>/<path-under-target>`
+- LLM 在此流程中**仅**解释 spec + 帮用户写命令；**不**直接创建 symlink /
+  写 anchor（保留 raw/ 的"LLM 只读"纪律）
+
+详细模板与 frontmatter 字段见
+[`references/ingest-workflow.md`](references/ingest-workflow.md) +
+[`references/page-templates.md`](references/page-templates.md)。
 
 ### 2. Query（跨页综合）
 
@@ -278,6 +335,10 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 失效的相对路径引用（`[link](sources/missing.md)` 之类的断链）
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`；权威正则见 [page-templates.md §7](references/page-templates.md#7-logmdlog)）
    - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
+   - 页面体量（5 类内容页正文非空行 > 200；`MEMORY/` 豁免）——见 [lint-checklist.md §二.12](references/lint-checklist.md#12-页面体量)
+   - 认知质量信号（`contested: true` / `confidence: low` 或非法 / `contradictions` 断链或非对称）——见
+     [lint-checklist.md §二.13](references/lint-checklist.md#13-认知质量信号confidence--contested--contradictions)
+   - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效（spec §13；让用户感知 link 丢失）
 3. 脚本输出报告后，**agent 还要做半定性检查**：
    - 矛盾主张（同一概念在两个 page 中说法冲突）
    - 缺失的交叉引用（页 A 提到 B 概念但没链到 `concepts/b.md`）
@@ -390,6 +451,8 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 1 个失效引用：concepts/transformer.md 链到 sources/bigtable.md 但后者不存在
    - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist §二.7](references/lint-checklist.md#7-过期摘要)），建议复查
    - 1 个孤儿页：concepts/scaling-laws.md 没有任何 inbound link
+   - 1 个 `contested-page`：sources/llama-3.md 与 sources/llama-2.md 对 context window
+     说法冲突、已双向标注 `contested: true`——需与用户裁定后移除标记
 3. agent 补充半定性观察：
    - sources/llama-3.md 与 sources/llama-2.md 对 "context window" 的描述不一致
 4. 整理成结构化报告，问用户先修哪些

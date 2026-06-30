@@ -2,8 +2,8 @@
 """
 lint_wiki.py — deterministic 健康检查
 
-跑 references/lint-checklist.md 的 §二（1-9 项）。
-半定性检查（§三 10-14）由 agent 现场做。
+跑 references/lint-checklist.md 的 §二（deterministic 全部项）+ external symlink 检查。
+半定性检查（§三，矛盾主张 / 缺失交叉引用等需理解语义的）由 agent 现场做。
 
 用法：
   python3 lint_wiki.py [<WIKI_ROOT>] [--severity <LEVEL>] [--no-git]
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 # 复用 ingest_diff 的轻量 frontmatter 解析
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -36,8 +36,11 @@ from log_format import LOG_LINE_RE  # noqa: E402
 VALID_TYPES = {"entity", "concept", "source", "comparison", "synthesis"}
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
 MEMORY_SUBDIR = "MEMORY"
+EXTERNAL_SUBDIR = "external"
+ANCHOR_FILENAME = ".symlink-anchor.json"
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
+SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 # 严重性等级
 SEV_RANK = {"error": 0, "warn": 1, "info": 2}
@@ -133,10 +136,109 @@ def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
     lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
     if not lines:
         return ([], "")
-    findings = [
-        f"raw-modified: raw/ 有 {len(lines)} 处未提交改动：{lines[0]}{' ...' if len(lines) > 1 else ''}"
-    ]
+    findings = [f"raw-modified: raw/ 有 {len(lines)} 处未提交改动：{lines[0]}{' ...' if len(lines) > 1 else ''}"]
     return (findings, "")
+
+
+def _parse_anchor(anchor_path: Path):
+    """解析 .symlink-anchor.json；返回 dict 或 None（损坏/缺字段）
+
+    只校验最小必填字段（target / captured_at / kind）——扩展字段静默忽略。
+    """
+    import json  # 局部 import 保持 Python 3.6 风格
+
+    try:
+        data = json.loads(anchor_path.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    target = data.get("target")
+    captured_at = data.get("captured_at")
+    kind = data.get("kind")
+    if not isinstance(target, str) or not target:
+        return None
+    if not isinstance(captured_at, str):
+        return None
+    if kind != "external-repo":
+        return None
+    return data
+
+
+def check_external_symlinks(wiki_root: Path) -> List[str]:
+    """10. raw/external/<source-name>/ 下 symlink 的健康检查
+
+    触发条件：扫 `raw/external/<source-name>/`，检测两类问题：
+    - anchor 缺失：symlink 存在但没 `.symlink-anchor.json`（用户漏配）
+    - target 失效：anchor 存在但解析出的 target 路径不存在（已被删/挪）
+
+    返回 finding 列表；该目录不存在/不存在 symlink 时返回空。
+    """
+    findings = []  # type: List[str]
+    external_dir = wiki_root / "raw" / EXTERNAL_SUBDIR
+    if not external_dir.is_dir():
+        return findings
+    # 一层：只看每个 <source-name>/ 顶层 entry（不递归扫描嵌套 symlink——
+    # spec §13.1 规定每个 symlink 都需自己的 anchor，但嵌套场景罕见且会让
+    # 报错路径膨胀；遇到再说）
+    for entry in sorted(external_dir.iterdir()):
+        if entry.name.startswith("."):
+            continue
+        source_dir = external_dir / entry.name
+        if not source_dir.is_dir():
+            continue
+        # 命名规范
+        if not SOURCE_NAME_RE.match(entry.name):
+            rel = source_dir.relative_to(wiki_root).as_posix()
+            findings.append(
+                f"external-source-name-invalid: {rel}/ 目录名 '{entry.name}' 不符合 "
+                f"^[a-z0-9][a-z0-9-]*$（kebab-case 短名）"
+            )
+        # 找该目录下所有 symlink（用 lexists 区分；broken symlink 也会被 ls 列）
+        try:
+            children = list(source_dir.iterdir())
+        except OSError:
+            continue
+        symlinks = [c for c in children if c.name != ANCHOR_FILENAME and c.is_symlink()]
+        if not symlinks:
+            continue
+        for sl in symlinks:
+            rel = sl.relative_to(wiki_root).as_posix()
+            anchor_path = source_dir / ANCHOR_FILENAME
+            if not anchor_path.is_file():
+                findings.append(
+                    f"external-anchor-missing: {rel} 是 symlink 但同目录缺 "
+                    f"'{ANCHOR_FILENAME}'（按 spec §13 没有 anchor 视为未接入）"
+                )
+                continue
+            anchor = _parse_anchor(anchor_path)
+            if anchor is None:
+                findings.append(
+                    f"external-anchor-corrupt: {rel} 的 '{ANCHOR_FILENAME}' 解析失败 "
+                    f"或缺 target / captured_at / kind='external-repo' 必填字段"
+                )
+                continue
+            # target 路径必须存在（解析 anchor 的绝对路径）
+            target_path = Path(anchor["target"]).expanduser()
+            if not target_path.exists():
+                findings.append(
+                    f"external-target-dead: {rel} 的 anchor target='{anchor['target']}' "
+                    f"已不存在（captured_at={anchor.get('captured_at', '?')}）；"
+                    f"用户需重新锚定或删除 symlink"
+                )
+            # target 路径与当前 symlink 解析不一致：target 被迁移了
+            else:
+                try:
+                    current_target = str(sl.resolve())
+                except OSError:
+                    current_target = ""
+                if current_target and anchor["target"] != current_target:
+                    findings.append(
+                        f"external-target-drift: {rel} 当前 symlink 解析为 "
+                        f"'{current_target}'，但 anchor 记录 '{anchor['target']}'；"
+                        f"anchor 需更新"
+                    )
+    return findings
 
 
 def check_frontmatter(wiki_root: Path) -> List[str]:
@@ -290,6 +392,39 @@ def check_log_format(wiki_root: Path) -> List[str]:
     return findings
 
 
+# log.md 条目数阈值——超过则建议 rotate 到 log-YYYY.md（详见 wiki-spec §4.1）
+LOG_ROTATION_THRESHOLD = 500
+
+
+def check_log_rotation(wiki_root: Path) -> List[str]:
+    """10. log.md 条目数阈值——超过 LOG_ROTATION_THRESHOLD 建议 rotate
+
+    仅检查 wiki/log.md 当前文件；归档文件 log-YYYY.md 不计入（它们是只读归档，
+    不需要再次 rotate）。判定依据：按 LOG_LINE_RE 正则匹配行数。
+
+    不自动 rotate——lint 只报告；rotate 由 agent 或用户按 wiki-spec §4.1 流程手动执行。
+    log-missing 已被 check_log_format 报告，这里跳过重复报错。
+    """
+    findings = []  # type: List[str]
+    log_path = wiki_root / "wiki" / "log.md"
+    if not log_path.is_file():
+        return findings
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    body_start = 0
+    if text.startswith("---"):
+        m = re.match(r"^---\n.*?\n---\n?", text, re.DOTALL)
+        if m:
+            body_start = m.end()
+    body = text[body_start:]
+    entry_count = sum(1 for line in body.splitlines() if LOG_LINE_RE.match(line))
+    if entry_count > LOG_ROTATION_THRESHOLD:
+        findings.append(
+            f"log-rotation-recommended: wiki/log.md 含 {entry_count} 条目，超过 {LOG_ROTATION_THRESHOLD} 阈值；"
+            f"按 wiki-spec §4.1 rotate 到 log-YYYY.md（当前 log.md 仍正常追加，rotate 是建议而非必须）"
+        )
+    return findings
+
+
 def check_stale_summaries(wiki_root: Path, threshold_days: int = 90) -> List[str]:
     """7. 过期摘要"""
     findings = []  # type: List[str]
@@ -313,6 +448,104 @@ def check_stale_summaries(wiki_root: Path, threshold_days: int = 90) -> List[str
             findings.append(
                 f"stale-summary: {rel} type=source updated={updated} ({age} 天前，超过 {threshold_days} 天阈值)"
             )
+    return findings
+
+
+# Tag Taxonomy 段在 CLAUDE.md 内的解析常量
+TAG_TAXONOMY_HEADER_RE = re.compile(r"^###\s+Tag Taxonomy")
+TAXONOMY_BULLET_RE = re.compile(r"^[-*]\s+(.+)$")
+TAG_KV_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def parse_tag_taxonomy(claude_md_path: Path) -> Set[str]:
+    """从 CLAUDE.md 的 Tag Taxonomy 段提取允许的 tag 集合
+
+    解析规则：
+    - 找到 `### Tag Taxonomy` 段（到下一个 ### / ## / # 标题结束）
+    - 每行形如 `- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持）
+      或 `- tag`（无分类）
+    - 多个 tag 用 `/` `，` `,` 任一字符分隔
+    - 跳过 code block fence、HTML comment、空行
+    - 只保留 kebab-case（`^[a-z0-9][a-z0-9-]*$`）的 tag
+    - 找不到文件 / 段 / 解析出 0 个 tag → 返回空集合（调用方应静默跳过）
+    """
+    tags = set()  # type: Set[str]
+    if not claude_md_path.is_file():
+        return tags
+    text = claude_md_path.read_text(encoding="utf-8", errors="replace")
+    in_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        # 段进入
+        if TAG_TAXONOMY_HEADER_RE.match(stripped):
+            in_section = True
+            continue
+        # 段退出（遇到其它标题——但同一标题再次出现仍算段内）
+        if in_section and re.match(r"^#{1,4}\s", stripped) and not TAG_TAXONOMY_HEADER_RE.match(stripped):
+            break
+        if not in_section:
+            continue
+        # 跳过空行 / 注释 / code block
+        if not stripped or stripped.startswith("<!--") or stripped.startswith("```"):
+            continue
+        # 提取 bullet 内容
+        m = TAXONOMY_BULLET_RE.match(stripped)
+        if not m:
+            continue
+        content = m.group(1).strip()
+        # 分类形式："category：tag1 / tag2"——第一个 ： 或 : 是分隔符
+        sep_match = re.match(r"^([^：:]+)[：:]\s*(.+)$", content)
+        if sep_match:
+            tag_part = sep_match.group(2)
+        else:
+            tag_part = content
+        # 多 tag 分隔
+        for t in re.split(r"[/，,]", tag_part):
+            t = t.strip().strip("`").strip("*").strip()
+            if t and TAG_KV_RE.match(t):
+                tags.add(t)
+    return tags
+
+
+def check_tag_taxonomy(wiki_root: Path) -> List[str]:
+    """11. tag 是否在 CLAUDE.md 的 Tag Taxonomy 白名单内
+
+    找不到 CLAUDE.md / Tag Taxonomy 段为空 / 解析出 0 个 tag → 静默跳过
+    （避免新 setup 的 wiki 必报错）。启用 taxonomy 后，对每个内容页（5 类 +
+    MEMORY 非 README）的 frontmatter.tags 元素做包含校验；不在白名单 → info 级。
+    """
+    findings = []  # type: List[str]
+    allowed = parse_tag_taxonomy(wiki_root / "CLAUDE.md")
+    if not allowed:
+        return findings
+    pages = find_md_files(wiki_root)
+    target_pages = []  # type: List[Path]
+    for sub in WIKI_SUBDIRS:
+        target_pages.extend(pages[sub])
+    for p in pages["memory"]:
+        # MEMORY/README.md 是 reserved，不校验
+        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+            continue
+        target_pages.append(p)
+    for p in target_pages:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        fm = parse_frontmatter_simple(text)
+        tags = fm.get("tags", [])
+        if not isinstance(tags, list):
+            continue
+        rel = p.relative_to(wiki_root).as_posix()
+        for t in tags:
+            if not isinstance(t, str):
+                continue
+            t = t.strip().strip("\"'")
+            if not t:
+                continue
+            if t not in allowed:
+                findings.append(
+                    f"tag-not-in-taxonomy: {rel} tags 含 '{t}' 不在 CLAUDE.md 的 Tag Taxonomy 白名单"
+                )
     return findings
 
 
@@ -363,6 +596,132 @@ def check_duplicate_titles(wiki_root: Path) -> List[str]:
     return findings
 
 
+# 页面正文行数阈值——超过则建议拆分（与 CLAUDE.md「Page Thresholds」的「拆分页」行对齐）
+PAGE_SIZE_THRESHOLD = 200
+
+# 认知质量信号字段取值
+CONFIDENCE_VALUES = {"high", "medium", "low"}
+
+
+def _strip_frontmatter_body(text):
+    """返回去掉 frontmatter 后的正文（frontmatter 不计入页面体量）"""
+    body_start = 0
+    if text.startswith("---"):
+        m = re.match(r"^---\n.*?\n---\n?", text, re.DOTALL)
+        if m:
+            body_start = m.end()
+    return text[body_start:]
+
+
+def check_page_size(wiki_root, threshold=PAGE_SIZE_THRESHOLD):
+    """12. 页面体量——正文非空行数 > threshold 的内容页建议拆分
+
+    仅检查 5 类内容页（entities/concepts/sources/comparisons/syntheses）——MEMORY/*
+    按 wiki-spec §5.2「正文无长度上限」豁免。计非空行（纯空行不计），避免空行撑大计数。
+    阈值默认 200，与 CLAUDE.md「Page Thresholds」的「拆分页（单页正文超过 ~200 行）」对齐。
+    """
+    findings = []  # type: List[str]
+    pages = find_md_files(wiki_root)
+    for sub in WIKI_SUBDIRS:
+        for p in pages[sub]:
+            if not p.is_file():
+                continue
+            text = p.read_text(encoding="utf-8", errors="replace")
+            body = _strip_frontmatter_body(text)
+            n = sum(1 for ln in body.splitlines() if ln.strip())
+            if n > threshold:
+                rel = p.relative_to(wiki_root).as_posix()
+                findings.append(
+                    f"oversized-page: {rel} 正文 {n} 行（非空），超过 {threshold} 阈值——"
+                    f"建议拆成子主题页 + cross-link（CLAUDE.md「Page Thresholds」）"
+                )
+    return findings
+
+
+def check_quality_signals(wiki_root):
+    """13. 认知质量信号——把 confidence/contested/contradictions 显性化（防"弱主张固化成事实"）
+
+    deterministic 子检查（字段全部可选；省略 = 不评，lint 不报）：
+    - contested-page（warn）：contested: true 的页——含未解决矛盾，需用户裁定后移除标记
+    - low-confidence（info）：confidence: low 的页——弱支撑主张
+    - invalid-confidence（warn）：confidence 取值不在 {high, medium, low}
+    - contradiction-target-missing（warn）：contradictions 指向不存在的页
+    - contradiction-asymmetric（warn）：A 把 B 列入 contradictions 但 B 未反向标注 A
+      （字段语义要求双向标注，见 page-templates.md §一）
+
+    这与"lint 抓腐烂而非评判内容"立场一致——只把作者主动标注的弱信号拎出来，不替作者
+    决定"该不该标"。判定"某主张是否弱支撑"是半定性工作，见 lint-checklist.md §三。
+    """
+    findings = []  # type: List[str]
+    pages = find_md_files(wiki_root)
+    target_pages = []  # type: List[Path]
+    for sub in WIKI_SUBDIRS:
+        target_pages.extend(pages[sub])
+    for p in pages["memory"]:
+        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+            continue
+        target_pages.append(p)
+
+    # contradictions 对端映射：page_rel -> set(已解析且存在的 target wiki 相对路径)
+    contra_out = {}  # type: Dict[str, Set[str]]
+    for p in target_pages:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        fm = parse_frontmatter_simple(text)
+        rel = p.relative_to(wiki_root).as_posix()
+        # contested
+        if str(fm.get("contested", "")).strip().strip("\"'").lower() == "true":
+            findings.append(
+                f"contested-page: {rel} contested=true — 含未解决矛盾主张，需裁定后移除该标记"
+            )
+        # confidence
+        conf = fm.get("confidence")
+        if conf is not None:
+            conf_s = str(conf).strip().strip("\"'").lower()
+            if conf_s == "low":
+                findings.append(
+                    f"low-confidence: {rel} confidence=low — 弱支撑主张，引用需谨慎或找印证"
+                )
+            elif conf_s not in CONFIDENCE_VALUES:
+                findings.append(
+                    f"invalid-confidence: {rel} confidence='{conf}' 非法；应为 high/medium/low 之一"
+                )
+        # contradictions（收集对端 + 即时检查 target 存在性）
+        contras = fm.get("contradictions", [])
+        if isinstance(contras, list) and contras:
+            resolved = set()  # type: Set[str]
+            for c in contras:
+                if not isinstance(c, str):
+                    continue
+                target = resolve_link(p, c)
+                if target is None:
+                    continue
+                try:
+                    target_rel = target.relative_to(wiki_root.resolve()).as_posix()
+                except ValueError:
+                    continue
+                if target.is_file():
+                    resolved.add(target_rel)
+                else:
+                    findings.append(
+                        f"contradiction-target-missing: {rel} contradictions 含 '{c}'，"
+                        f"但该页不存在（{target_rel}）"
+                    )
+            if resolved:
+                contra_out[rel] = resolved
+    # 对称性：A 标 B → B 应标 A
+    for src, targets in contra_out.items():
+        for tgt in targets:
+            back = contra_out.get(tgt)
+            if back is None or src not in back:
+                findings.append(
+                    f"contradiction-asymmetric: {src} 把 {tgt} 标为矛盾对端，"
+                    f"但 {tgt} 的 contradictions 未反向标注 {src}（要求双向标注）"
+                )
+    return findings
+
+
 def severity_of(finding: str) -> str:
     """从 finding 的类别前缀推断严重性"""
     if finding.startswith(
@@ -376,11 +735,28 @@ def severity_of(finding: str) -> str:
             "orphan-page",
             "index-missing",
             "log-missing",
+            "external-anchor-missing",
+            "external-target-dead",
+            "external-source-name-invalid",
         )
     ):
         return "error"
-    if finding.startswith(("stale-summary", "log-format", "filename-not-kebab", "duplicate-title")):
+    if finding.startswith(("external-anchor-corrupt", "external-target-drift")):
         return "warn"
+    if finding.startswith(("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")):
+        return "warn"
+    if finding.startswith(
+        (
+            "contested-page",
+            "invalid-confidence",
+            "contradiction-target-missing",
+            "contradiction-asymmetric",
+            "oversized-page",
+        )
+    ):
+        return "warn"
+    if finding.startswith(("tag-not-in-taxonomy", "low-confidence")):
+        return "info"
     return "info"
 
 
@@ -421,9 +797,14 @@ def main() -> int:
     all_findings.extend(check_link_integrity(wiki_root))
     all_findings.extend(check_index_coverage(wiki_root))
     all_findings.extend(check_log_format(wiki_root))
+    all_findings.extend(check_log_rotation(wiki_root))
     all_findings.extend(check_stale_summaries(wiki_root))
     all_findings.extend(check_filename_kebab(wiki_root))
     all_findings.extend(check_duplicate_titles(wiki_root))
+    all_findings.extend(check_tag_taxonomy(wiki_root))
+    all_findings.extend(check_external_symlinks(wiki_root))
+    all_findings.extend(check_page_size(wiki_root))
+    all_findings.extend(check_quality_signals(wiki_root))
 
     # 过滤
     if args.severity != "all":

@@ -34,6 +34,10 @@ type: <entity|concept|source|comparison|synthesis, 必填>  # 5 类内容页；i
 tags: [<string array>, 必填但可空数组]
 created: <YYYY-MM-DD, 必填>
 updated: <YYYY-MM-DD, 必填>
+# —— 以下为可选「认知质量信号」（见下方「可选：认知质量信号」段）——
+confidence: <high|medium|low, 可选>  # 该页主张的可信支撑度；省略 = 不评（视同 medium）
+contested: <true, 可选>               # 仅在为 true 时写：本页含未解决的矛盾主张
+contradictions: [<wiki 页路径数组>, 可选]  # 与本页主张冲突的页面（双向标注：A 标 B，B 也标 A）
 ---
 ```
 
@@ -48,6 +52,40 @@ updated: <YYYY-MM-DD, 必填>
 - `tags`——用于跨页搜索 + 未来可能的 dataview 查询
 - `created` / `updated`——**严格** `YYYY-MM-DD` 格式（lint 解析用）
 - 类型特定字段（`sources` / `compared` / `threads`）见各模板
+- `confidence` / `contested` / `contradictions`——**可选**认知质量信号，见下
+
+### 可选：认知质量信号（防"弱主张固化成事实"）
+
+> **为什么需要**：wiki 的复利价值依赖"已沉淀的主张可被信任"。但一个只凭单篇弱来源的断言，
+> 一旦写进 wiki 不再标注，时间一长会被当成"既成事实"——这是**认知腐烂**，比断链 / 孤儿更隐蔽。
+> lint 抓结构性腐烂（断链、孤儿、过期）；这三个字段把**认知腐烂**显性化，让弱主张"自带警示"，
+> 复审时一眼可见。借用自 Karpathy / Hermes 的 LLM Wiki 模式。
+
+三个字段（**全部可选**，互不依赖）：
+
+- `confidence: high | medium | low`——本页主张的可信支撑度：
+  - `high`——多源交叉印证、且无争议（**不要**随意标 high；默认即隐含 medium）
+  - `medium`——单一权威来源，或多源但角度相近（**最常见**，可省略字段）
+  - `low`——单一弱来源 / 推测 / 个人观点 / fast-moving 领域的早期数据。lint 会把
+    `low` 拎出来提示"该页主张弱支撑，引用时需谨慎或找印证"
+  - 省略字段 = 不评（lint 不报），等同 medium。**建议**在 opinion-heavy / fast-moving /
+    单源 source 页**显式**标 `medium` 或 `low`
+- `contested: true`——**仅**在为 `true` 时写。表示本页存在**尚未裁定**的矛盾主张
+  （搭配 `contradictions` 指向对端）。lint 把所有 `contested: true` 的页集中拎出供用户复审，
+  避免悬而未决的冲突被后续 ingest 静默继承
+- `contradictions: [path-a, path-b]`——与本页主张**冲突**的 wiki 页路径数组（相对路径，
+  与交叉引用同写法）。**双向标注**：A 把 B 列进 `contradictions`，B 也应把 A 列进来；
+  lint 检查这种对称性（单向 = `contradiction-asymmetric` warn）
+
+**何时设**：
+
+- 摄入 fast-moving / 争议性 / 单源内容 → 给 source / concept 页标 `confidence: medium|low`
+- ingest 时发现新资料与已有页主张冲突、且暂未裁定 → 双方都设 `contested: true` +
+  `contradictions` 互指；裁定后移除 `contested`（保留 `confidence`）
+- 多源交叉印证且稳定的 concept 页 → 可标 `confidence: high`（也可省略）
+
+**矛盾处理的完整 Update Policy**（ingest 时遇到"新资料与已有页冲突"怎么做）见
+[`claude-md-template.md`](claude-md-template.md)「矛盾处理 Update Policy」段——本节只定义字段语义。
 
 ## 二、各类型模板
 
@@ -327,6 +365,23 @@ sources:
 ## 参考来源 / Sources
 
 * 列在 frontmatter `sources` 字段
+```
+
+> **逐段溯源（synthesis 专属）**：synthesis 页通常综合 ≥ 3 个 source，主张散落在不同段落、
+> 各自从不同来源得出。仅靠 frontmatter `sources` 只能定位"本页引用了哪些来源"，**无法**
+> 追溯"某句具体主张来自哪篇"。因此 synthesis 正文对**来源可分的断言**用标准 Markdown 脚注
+> `[^n]` 标注，文末给出 `[^n]: ...` 指向 source 页——让每个可被引用的论点都能不重读 raw 就回溯：
+>
+> ```markdown
+> Linear attention 把复杂度降到 O(n) [^linear]，但长序列精度普遍不及 sparse attention [^sparse]。
+>
+> [^linear]: [Linear Attention](../sources/linear-attention.md) — kernel 重设计
+> [^sparse]: [Sparse Transformer](../sources/sparse-transformer.md) — 固定 stride pattern
+> ```
+>
+> 用标准脚注 `[^n]`（**不要**用 pandoc 的行内 `^[...]`，与本 skill "通用 Markdown" 立场一致，
+> 且不依赖 Obsidian / 特定渲染器）。单段纯推论 / 综合判断无需脚注；只对**可追溯到具体来源**
+> 的断言标。comparison 页若同样综合多源、断言来源可分，也照此办理。
 ```
 
 ### 6. `index`（index.md）

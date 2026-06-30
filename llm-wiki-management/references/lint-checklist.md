@@ -81,39 +81,86 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 - 同一 `title` 出现在多个 wiki 页 → 报告
 - **严重性：warning**——可能是合并候选
 
+### 10. log.md 条目数（log-rotation）
+
+- `wiki/log.md` 当前文件条目数 > 阈值（默认 500）→ 报告 `log-rotation-recommended`
+- 阈值由 `scripts/lint_wiki.py` 顶部 `LOG_ROTATION_THRESHOLD` 常量控制
+- **不**自动 rotate——lint 只建议；rotate 流程见 [wiki-spec §4.1](wiki-spec.md#41-log-rotation防-logmd-无限增长)
+- 归档文件 `log-YYYY.md` 不计入（它们是只读归档，不需要再次 rotate）
+- **严重性：warning**——超过阈值不是错误，但长期不 rotate 会让 `grep "^## ["` 噪声变大
+
+### 11. Tag Taxonomy 校验
+
+- 解析 `<wiki-root>/CLAUDE.md` 的 `### Tag Taxonomy` 段，提取允许的 tag 集合
+- 段必须是**裸 bullet**（每行 `- ...`），不能包在 code block / HTML comment 里——
+  包了就解析不出 0 个 tag，lint 静默跳过（视为未启用约束）
+- 格式兼容：`- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持；
+  多 tag 用 `/` `，` `,` 任一字符分隔）
+- 对每个内容页（5 类 + MEMORY 非 README）的 `frontmatter.tags` 元素做包含校验
+- 找不到 CLAUDE.md / Tag Taxonomy 段 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
+  wiki 必报错）
+- 严格匹配的 tag 名 = 严格小写 + kebab-case（`^[a-z0-9][a-z0-9-]*$`），与文件名命名一致
+- **严重性：info**——tag 漂移不会立刻让 wiki 失能，但放任几个月后 index 噪音变大
+
+### 12. 页面体量
+
+- 5 类内容页（entities / concepts / sources / comparisons / syntheses）正文**非空行数** >
+  阈值（默认 200，`lint_wiki.py` 顶部 `PAGE_SIZE_THRESHOLD` 控制）→ 报 `oversized-page`
+- 阈值与 CLAUDE.md「Page Thresholds」的「拆分页（单页正文超过 ~200 行）」对齐
+- `MEMORY/*` 豁免——按 wiki-spec §5.2「正文无长度上限」（agent 经验沉淀可长）
+- 计**非空行**（纯空行不计），避免空行撑大计数
+- **严重性：warning**——不是 error，但单页过长 = 主题过散，建议拆成子主题页 + cross-link
+
+### 13. 认知质量信号（confidence / contested / contradictions）
+
+- 把作者主动标注的"弱主张警示"拎出来供复审——防止单源弱断言无声固化成"wiki 事实"
+  （字段语义见 [page-templates.md §一「可选：认知质量信号」](page-templates.md#可选认知质量信号防弱主张固化成事实)）
+- 子检查（字段全部可选；省略 = 不评，不报）：
+  - `contested-page`（warn）：`contested: true` 的页——含未解决矛盾，需裁定后移除标记
+  - `low-confidence`（info）：`confidence: low` 的页——弱支撑主张
+  - `invalid-confidence`（warn）：`confidence` 取值不在 `high` / `medium` / `low`
+  - `contradiction-target-missing`（warn）：`contradictions` 指向不存在的页
+  - `contradiction-asymmetric`（warn）：A 把 B 列入 `contradictions` 但 B 未反向标注 A
+    （字段语义要求**双向标注**）
+- **为什么是 deterministic 而非半定性**：这里只读作者**已写**的 frontmatter 信号并拎出来；
+  判定"某主张到底该不该标 low / 是否真的矛盾"是 §三 14 的半定性工作，lint 不替作者决定
+- **严重性**：见上各子项——`contested` / 断链类为 warn（需行动），`low-confidence` 为 info（提示）
+
 ## 三、半定性检查（agent 执行）
 
 跑完 deterministic 检查后，agent 应当再做以下检查（**仅在 wiki 规模 < 200 页
 时人工做**——更大规模需 LLM-based 自动检查）：
 
-### 10. 矛盾主张
+### 14. 矛盾主张
 
-- 同一概念 / 实体在 ≥ 2 个页里被以**矛盾方式**描述
+- 同一概念 / 实体在 ≥ 2 个页里被以**矛盾方式**描述（**内容层**矛盾，区别于 §二 13 的
+  frontmatter `contested` 信号——后者是作者已标注、本项是 agent 主动发现未标注的）
 - 例：`concepts/context-window.md` 说 "Llama 3 支持 200K tokens"，
   `sources/llama-2.md` 说 "128K tokens"（可能是不同版本，但未注明）
-- 检查方法：grep 概念关键词 + 读周围上下文
+- 检查方法：grep 概念关键词 + 读周围上下文；发现后建议双方补 `contested: true` +
+  `contradictions` 互指（让 §二 13 后续能持续追踪）
 - **严重性：warning**——可能需要更深入调研
 
-### 11. 缺失交叉引用
+### 15. 缺失交叉引用
 
 - 概念 X 出现在页面 A 的正文里，但 A 没有链接到 `concepts/x.md`
 - 例：`sources/foo.md` 提到 "self-attention" 但没链到 `concepts/self-attention.md`
 - 检查方法：grep 概念名 + 看是否生成了 link
 - **严重性：info**——是 lint 的最高频 finding
 
-### 12. 缺失 entity / concept 页
+### 16. 缺失 entity / concept 页
 
 - 重要概念（出现在 ≥ 3 个 source 页）但没有独立 entity / concept 页
 - 检查方法：grep 候选关键词 + 统计出现次数
 - **严重性：info**
 
-### 13. 调查方向建议
+### 17. 调查方向建议
 
 - 哪些主题"很热门"（多个 source 涉及）但 wiki 内的综合 / 对比页没有
 - 例：5 篇 source 提到 RAG，但 `syntheses/rag-evolution.md` 不存在
 - **严重性：info**——这是"建议新摄取 / 新合成"的机会
 
-### 14. 资料投放口是否堆积
+### 18. 资料投放口是否堆积
 
 - `raw/articles/` 是否有大量未摄取文件（跑 `ingest_diff.py` 即可知）
 - **严重性：info**——堆积太久会让 ingest 时信息过载

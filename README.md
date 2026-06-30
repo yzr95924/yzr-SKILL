@@ -43,7 +43,19 @@ python3 scripts/install-dev-deps.py
 
 ## SKILLs 分类
 
-TODO：待后续不断补充；
+> 每个子目录即一个独立 skill。完整名单与简介见 [CLAUDE.md](./CLAUDE.md) 顶层结构。
+
+按职责分三类：
+
+- **知识库**（本地 / 私有，复利累积型）：
+  - `llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
+  - `llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
+- **写作**：
+  - `design-doc-edit` —— 设计文档写作（强制骨架 + 场景/方案分析）
+- **元 skill**：
+  - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
+
+外部 skill（依赖项，非本仓所有）：`outline-wiki-{setup,search,upload}` / `gemini-paper-summary` 等按需 `npx skills add` 接入。
 
 ## 代码仓规范
 

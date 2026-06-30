@@ -216,6 +216,19 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 **正文：** [`ddnsto-relay-https-only-quirk.md`](./ddnsto-relay-https-only-quirk.md)
 
+### Outline MCP 吃掉 --- frontmatter → OKF 载体用 ```yaml 围栏（2026-07-01 outline-wiki-upload OKF 化时实测）
+
+**Why：** 2026-07-01 改进 `outline-wiki-upload` 的 OKF 上传格式时定载体。OKF 标准（[`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler) 权威实现）用 `---...---` YAML frontmatter，但 Outline MCP 把 Markdown 解析成 ProseMirror 再序列化——同 server 双探针实测：`---...---` 的 `---` 被吃掉、YAML 泄漏成可见正文（`title:` 还和 Outline title 重复）；` ```yaml ` 围栏存成 `code_block` 逐字保留。故 Outline 侧 OKF 载体 = 正文首块 ```yaml 围栏（标准字段 + 适配载体），非字面 OKF 合规。
+
+**How to apply：**
+
+- Outline 上写 OKF / 任何 YAML 元数据，**走 ```yaml 围栏，不用 ---...---**；`title` 由 Outline 字段承载不进块
+- 字段对齐真 OKF：`type` 唯一硬门槛（消费端缺 type 才跳过，其余容忍）；`description`/`tags`/`created`/`updated` 推荐；`okf_version` 只在 bundle 根 index.md，**单篇不写**；Outline 溯源放 `x-outline` 块
+- 读 body：`fetch` 只回元数据，`list_documents(query)` 的 `context` 是 snippet 来源；REST `/api/*` 在 ddnsto relay 下全 404（[[ddnsto-relay-https-only-quirk]] 推论），只 /mcp 通
+- SSOT 已落 skill（doc_style.md OKF 小节），本条是作者跨会话指针
+
+**正文：** [`outline-mcp-strips-yaml-frontmatter.md`](./outline-mcp-strips-yaml-frontmatter.md)
+
 ### 影响分发后行为的经验必须进 SKILL，不能只留 MEMORY（2026-06-30 实战感悟）
 
 **Why：** 2026-06-30 修 ddnsto 陷阱 + outline MCP 白名单时发现——两份关键经验最初都只写在仓库 `MEMORY/`，**SKILL 没接收**。而 `MEMORY/` 是仓库 SSOT，**不进 npx、不进 vendor 副本、不会出现在新安装用户的 Claude Code 上下文中**——等于踩过的坑在新环境会重演。本轮把两条同步进了 SKILL.md / onboarding.md 才补上。

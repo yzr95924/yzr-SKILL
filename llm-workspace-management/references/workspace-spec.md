@@ -9,11 +9,11 @@
 > 本 spec 变更 → CLI 与 skill 必须同步；CLI / skill 变更不影响本 spec。
 >
 > **生命周期归属**：本 spec 只规定 workspace 仓的"出生形态" + 持续维护期各文件的归属。
-> workspace 出生后的所有成长（cross-wiki Q&A / xref / lint / 跨 wiki 编排）由
-> [`llm-workspace-management`](../SKILL.md) skill 在会话内负责。CLI 在 workspace
+> workspace 出生后的所有成长（cross-wiki Q&A / xref / lint / 跨 wiki 编排 / 跨 wiki memory）
+> 由 [`llm-workspace-management`](../SKILL.md) skill 在会话内负责。CLI 在 workspace
 > 生命周期的两个边界点被调用：
 >
-> - **init**：创建（按本 spec §1–§7 落盘）
+> - **init**：创建（按本 spec §1–§4 + §10–§11 落盘）
 > - **delete**：删除（带备份）
 >
 > 其他时刻调 CLI 属"误用"，CLI 应拒绝。
@@ -23,17 +23,19 @@
 - [§1 目录结构](#1-目录结构)
 - [§2 workspace.toml](#2-workspacetoml)
 - [§3 workspace_models.toml](#3-workspace_modelstoml)
-- [§4 INDEX.md（skill 维护）](#4-indexmdskill-维护)
-- [§5 STATS.md（skill 维护）](#5-statsmdskill-维护)
-- [§6 cross_queries/（skill 维护，可选）](#6-cross_queriesskill-维护可选)
-- [§7 LINT.md（skill 维护，可选）](#7-lintmdskill-维护可选)
-- [§8 .gitignore](#8-gitignore)
-- [§9 Git 初始化（opt-in，默认跳过）](#9-git-初始化opt-in默认跳过)
-- [§10 拒绝条件（强约束）](#10-拒绝条件强约束)
-- [§11 Frontmatter 字段约定（skill 写 INDEX.md / STATS.md / LINT.md / cross_queries 时用）](#11-frontmatter-字段约定skill-写-indexmd--statsmd--lintmd--cross_queries-时用)
-- [§12 版本钉死](#12-版本钉死)
-- [§13 命名约束](#13-命名约束)
-- [§14 不在本 spec 范围内](#14-不在本-spec-范围内)
+- [§4 workspace CLAUDE.md（CLI init，用户所有）](#4-workspace-claudemdcli-init用户所有)
+- [§5 INDEX.md（skill 维护）](#5-indexmdskill-维护)
+- [§6 STATS.md（skill 维护）](#6-statsmdskill-维护)
+- [§7 cross_queries/（skill 维护，可选）](#7-cross_queriesskill-维护可选)
+- [§8 LINT.md（skill 维护，可选）](#8-lintmdskill-维护可选)
+- [§9 workspace MEMORY/（skill 维护）](#9-workspace-memoryskill-维护)
+- [§10 .gitignore](#10-gitignore)
+- [§11 Git 初始化（opt-in，默认跳过）](#11-git-初始化opt-in默认跳过)
+- [§12 拒绝条件（强约束）](#12-拒绝条件强约束)
+- [§13 Frontmatter 字段约定（skill 写 §5–§9 时用）](#13-frontmatter-字段约定skill-写-5-9-时用)
+- [§14 版本钉死](#14-版本钉死)
+- [§15 命名约束](#15-命名约束)
+- [§16 不在本 spec 范围内](#16-不在本-spec-范围内)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
 - [附录 B：版本历史](#附录-b-版本历史)
 
@@ -41,37 +43,43 @@
 
 ```
 <workspace-root>/
-├── .gitignore                      # CLI init 时写（§8）
+├── .gitignore                      # CLI init 时写（§10）
 ├── workspace.toml                  # CLI init 时写（§2）
 ├── workspace_models.toml           # CLI init 时写（§3，gitignored）
-├── INDEX.md                        # skill scan 时建 + 维护（§4）
-├── STATS.md                        # skill scan 时建 + 维护（§5）
-├── cross_queries/                  # skill 可选建（§6）
+├── CLAUDE.md                       # CLI init 时按 §4 拷模板；用户所有
+├── INDEX.md                        # skill scan 时建 + 维护（§5）
+├── STATS.md                        # skill scan 时建 + 维护（§6）
+├── cross_queries/                  # skill 可选建（§7）
+├── LINT.md                         # skill lint 时写（§8）
+├── MEMORY/                         # skill 建空目录 + 写 README（§9）
 └── <wiki-name>/                    # 每个 wiki 一个子目录，遵循 [wiki-spec.md §1](wiki-spec.md#1-目录结构)
 ```
 
-**workspace 根的 6 类文件 / 目录各自归属**：
+**workspace 根的 9 类文件 / 目录各自归属**：
 
 | 文件 / 目录 | init 时刻（CLI） | 后续维护方 | 说明 |
 | --- | --- | --- | --- |
 | `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
 | `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + 全局默认；skill **不写** |
 | `workspace_models.toml` | CLI 写 | **CLI**（`model add / remove / set-default`） | 模型注册表（API key 等敏感信息）；skill **不写** |
+| `CLAUDE.md` | CLI 按 §4 模板拷贝 | **用户**（schema 是用户的宪法）；skill **只读** | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
 | `STATS.md` | CLI **不写**（留空） | **skill**（scan 时一并刷新） | workspace 结构化统计 |
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
 | `LINT.md` | CLI **不写**（留空） | **skill**（lint 时写） | workspace 级 lint 报告（最近一次） |
+| `MEMORY/` | CLI **不写**（留空目录） | **skill**（首次 scan 时建空目录 + 写 README.md） | 跨 wiki agent 私有记忆 |
 | `<wiki-name>/` | CLI 写（按 [wiki-spec §1](wiki-spec.md#1-目录结构)） | **CLI** 写元数据 + **skill**（或 `llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
 > **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_models.toml`、
-> `.gitignore` 三份根级文件 + `<wiki-name>/` 子树（按 wiki-spec）。**CLI 绝不写
-> `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`**——这四份是 workspace
-> skill 的领地。
+> `CLAUDE.md`（按模板拷贝）、`.gitignore` 四份根级文件 + `<wiki-name>/` 子树（按 wiki-spec）。
+> **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` / `cross_queries/`**——
+> 这五份是 workspace skill 的领地。
 
 > **skill 的写入范围限制（不变量）**：skill 只写 `INDEX.md` / `STATS.md` / `LINT.md` /
-> `cross_queries/` 四份 workspace 级文件 + 各 `<wiki-name>/wiki/**`（通过
+> `MEMORY/` / `cross_queries/` 五份 workspace 级文件 + 各 `<wiki-name>/wiki/**`（通过
 > `llm-wiki-management`）。**skill 绝不写 `workspace.toml` / `workspace_models.toml` /
-> `.gitignore`**——这些是 CLI 的领地。skill 也不写 `<wiki-name>/raw/`（用户所有）。
+> `.gitignore` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后一份是用户的宪法。skill 也不写
+> `<wiki-name>/raw/`（用户所有）。
 
 ## §2 workspace.toml
 
@@ -95,7 +103,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `path` | string | 是 | 相对 workspace 根的子目录名（与 `<name>` 相同的约定，见 §13） |
+| `path` | string | 是 | 相对 workspace 根的子目录名（与 `<name>` 相同的约定，见 §15） |
 | `created_at` | string (ISO8601) | 是 | wiki 注册时间，CLI 自动写 |
 
 - **CLI 写入场景**：`init` / `wiki add` / `wiki remove` / `wiki config set default_model`
@@ -109,7 +117,7 @@
 
 - 路径：`<workspace-root>/workspace_models.toml`
 - 格式：TOML
-- **必须 gitignored**（详见 §8）——含 API key 等敏感信息
+- **必须 gitignored**（详见 §10）——含 API key 等敏感信息
 - 落盘后 `chmod 600`（POSIX 系统；NFS 等不支持 chmod 的 FS best-effort 跳过）
 - schema_version：`2`（当前）
 - 字段：
@@ -125,7 +133,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `model_id` | string | 是 | slug，CLI 内部引用用，**不是网关模型名**；命名约束见 §13 |
+| `model_id` | string | 是 | slug，CLI 内部引用用，**不是网关模型名**；命名约束见 §15 |
 | `name` | string | 是 | 网关模型名（如 `claude-sonnet-4-6`），`wiki enter` 时用作 `ANTHROPIC_MODEL` |
 | `base_url` | string | 是 | API base URL |
 | `api_key` | string | 是 | API key；list / show / dry-run 输出走 redact（`前3...末4` 或 `***`） |
@@ -134,7 +142,29 @@
 - **CLI 写入场景**：`init` / `model add` / `model remove` / `model set-default` / `model unset-default`
 - **skill 写入场景**：**无**——完全无关
 
-## §4 INDEX.md（skill 维护）
+## §4 workspace CLAUDE.md（CLI init，用户所有）
+
+> **维护方**：CLI 在 init 时刻按 [`workspace-claude-md-template.md`](workspace-claude-md-template.md)
+> 拷模板生成。后续修改由 **用户** 完成（CLAUDE.md 是 workspace 的 schema，是用户的"宪法"）。
+> LLM agent **不得编辑** CLAUDE.md；如需变更 schema，**先与用户确认**。
+>
+> 本 spec 只规定存在性 + 维护方；模板内容（含占位符）见 `workspace-claude-md-template.md`，
+> 是权威 canonical。
+
+- 路径：`<workspace-root>/CLAUDE.md`
+- 内容来源：本仓 `references/workspace-claude-md-template.md`（**权威 canonical 模板**）
+- CLI 实现时必须**逐字拷贝**该模板，仅做以下替换：
+  - `{{WORKSPACE_DISPLAY_NAME}}` → workspace display name（默认取 `workspace.toml.created_at` 那天
+    或人类指定字符串，如 `"LLM Wiki Workspace"`）
+  - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD`
+  - `{{WORKSPACE_SPEC_VERSION}}` → CLI 当前兼容的 workspace spec 版本号（如 `0.2.0`）
+  - `{{CLI_VERSION}}` → CLI 自身版本号
+- 模板顶部关于"本文件由 ... 初始化时生成"的反向引用，CLI **不得修改**
+- **不带 frontmatter**——CLAUDE.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/CLAUDE.md` 一致
+- **CLI 写入场景**：`init`（重 init 时若 `CLAUDE.md` 已存在，§12 拒绝覆盖）
+- **skill 写入场景**：**无**——只读
+
+## §5 INDEX.md（skill 维护）
 
 > **维护方**：CLI 在 init 时刻**不创建**（留空）。skill 在 `scan` / `refresh-index` 时
 > 创建 + 持续维护。skill 是 LLM 拥有的"workspace 入口文档"——人类只读。
@@ -146,7 +176,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `title` | string | 是 | 推荐 `"Workspace Index"` |
-| `type` | enum | 是 | `workspace-index`（reserved，见 §11） |
+| `type` | enum | 是 | `workspace-index`（reserved，见 §13） |
 | `tags` | array | 是 | 推荐 `[workspace, index]` |
 | `created` | date (`YYYY-MM-DD`) | 是 | skill 首次创建时间 |
 | `updated` | date (`YYYY-MM-DD`) | 是 | skill 每次刷新时更新为今天 |
@@ -195,13 +225,13 @@
 - **skill 写入场景**：`scan` / `refresh-index`
 - **CLI 写入场景**：**无**
 
-## §5 STATS.md（skill 维护）
+## §6 STATS.md（skill 维护）
 
 > **维护方**：CLI 在 init 时刻**不创建**（留空）。skill 在 `scan` 时一并创建 + 维护。
 > 与 INDEX.md 的区别：INDEX.md 给人看（散文 + 列表），STATS.md 给 agent / 脚本看（结构化）。
 
 - 路径：`<workspace-root>/STATS.md`
-- frontmatter：同 §4（`type: workspace-stats`）
+- frontmatter：同 §5（`type: workspace-stats`）
 - **正文骨架**：
 
   ```markdown
@@ -245,11 +275,11 @@
   ... (同上)
   ```
 
-- **生成流程**：同 §4，但输出格式更结构化（表格）
+- **生成流程**：同 §5，但输出格式更结构化（表格）
 - **skill 写入场景**：`scan`（与 INDEX.md 同一次刷新）
 - **CLI 写入场景**：**无**
 
-## §6 cross_queries/（skill 维护，可选）
+## §7 cross_queries/（skill 维护，可选）
 
 > **维护方**：CLI 不创建。skill 在 `query` 输出适合归档为 cross-wiki synthesis 时
 > 创建 + 写入。是 workspace 级的"synthesis 类比"——`llm-wiki-management` 把好的
@@ -257,13 +287,13 @@
 > 跨 wiki query 答案归档为 `<workspace>/cross_queries/<slug>.md`。
 
 - 路径：`<workspace-root>/cross_queries/`
-- 文件命名：`<slug>.md`，kebab-case，约束见 §13
+- 文件命名：`<slug>.md`，kebab-case，约束见 §15
 - frontmatter（**5 必填** + 推荐 `description`）：
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `title` | string | 是 | 人类可读标题 |
-| `type` | enum | 是 | `cross-query`（reserved，见 §11） |
+| `type` | enum | 是 | `cross-query`（reserved，见 §13） |
 | `tags` | array | 是 | 推荐 `[workspace, cross-query, <涉及 wiki 的 tag>...]` |
 | `created` | date | 是 | skill 写入日期 |
 | `updated` | date | 是 | skill 写入日期（首次创建时同 `created`） |
@@ -274,13 +304,13 @@
 - **skill 写入场景**：`query` 输出用户确认归档时
 - **CLI 写入场景**：**无**
 
-## §7 LINT.md（skill 维护，可选）
+## §8 LINT.md（skill 维护，可选）
 
 > **维护方**：CLI 不创建。skill 在 `lint` 时写最近一次报告。属于"快照"——历史上多次
 > lint 报告不累积，被新一次覆盖。
 
 - 路径：`<workspace-root>/LINT.md`
-- frontmatter：同 §4（`type: workspace-lint`）
+- frontmatter：同 §5（`type: workspace-lint`）
 - **正文骨架**：
 
   ```markdown
@@ -308,9 +338,92 @@
 - **skill 写入场景**：`lint`（每次覆盖）
 - **CLI 写入场景**：**无**
 
-## §8 .gitignore
+## §9 workspace MEMORY/（skill 维护）
 
-CLI 必须生成一份最小 `.gitignore`，至少包含以下忽略规则（保留 §1 / §2 / §3 涉及的
+> **维护方**：CLI 在 init 时刻**不创建**目录（留空）；skill 在**首次 scan** 时建空目录
+> 并写 `MEMORY/README.md` 占位（说明本目录用途）。skill 是 LLM agent 的**跨 wiki** 私有
+> 记忆——人类**不写** MEMORY 内容。CLI 不参与 MEMORY 的任何写入。
+
+> **scope 严格区分**（**核心不变量**，避免变成 junk drawer）：
+>
+> - ✅ `<workspace>/MEMORY/` 写**跨 wiki** 的 LLM 经验（用户对 workspace 组织的偏好 /
+>   跨 wiki 关联 / lint recurring pattern / 跨 wiki 综合经验）
+> - ❌ **不**写单 wiki 观察——单 wiki 的踩坑 / 偏好 / 关联归 `<wiki>/wiki/MEMORY/`
+>   （由 `llm-wiki-management` 维护）
+> - ❌ **不**写跨 wiki 综合答案本身——归 `<workspace>/cross_queries/`
+> - ❌ **不**写一次性观察——直接 chat，不写 MEMORY
+
+- 路径：`<workspace-root>/MEMORY/`
+- 目录名 `MEMORY` **大写**，区别于小写 `raw` / `wiki` / `cross_queries` 等目录
+- **MEMORY 不在 `INDEX.md` 中强制列出**——它是 agent 私有入口，不需要 workspace 单一入口约束
+- 命名约束：详见 §15
+
+### §9.1 MEMORY/README.md
+
+> **维护方**：skill 在首次 scan 时写一次（idempotent：已存在则跳过）。
+> 类似 wiki-spec §5.1 `MEMORY/README.md`，说明本目录用途。
+
+- 路径：`<workspace-root>/MEMORY/README.md`
+- frontmatter（**4 必填**，省 `description`）：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `title` | string | 是 | `"MEMORY"` |
+| `type` | enum | 是 | `memory`（**复用 wiki-spec §5.1 的 reserved 类型**——本目录与 wiki 内 MEMORY 用途同构） |
+| `tags` | array | 是 | `[memory]` |
+| `created` | date | 是 | skill 首次 scan 日期 |
+| `updated` | date | 是 | skill 首次 scan 日期 |
+
+- 正文骨架：1 段用途说明 + 1 段"何时写 / 不写"指引（对照 wiki 内 MEMORY/README.md 的格式）
+
+### §9.2 MEMORY/*.md（非 README）
+
+- 路径：`<workspace-root>/MEMORY/<slug>.md`
+- 命名约束：kebab-case `^[a-z0-9][a-z0-9-]*$`，见 §15
+- frontmatter：**5 必填**（`title` / `type` / `created` / `updated` / `tags`）+ 推荐
+  `description` + 推荐 `wikis` 字段（涉及 wiki 名数组）
+
+| `type` 取值 | 含义 |
+| --- | --- |
+| `entity` / `concept` / `source` / `comparison` / `synthesis` | 复用 wiki-spec §9 的 5 类内容页 enum（按记忆内容性质选） |
+| `workspace-memory` | 跨 wiki 关联 / 用户偏好 / lint 模式（**新增 reserved**，见 §13） |
+
+- `wikis` 字段：数组，列涉及的 wiki 名；若该条记忆涉及全 workspace 而非特定 wiki，可省略
+- lint 校验：走与 wiki 内容页一致的 5 必填校验（`title` / `type` / `created` / `updated` / `tags`）
+- 与 wiki 内容页的区别：
+  - **不**强制在 INDEX.md 列出
+  - **不**要求有 inbound 链接
+  - 正文无长度上限（agent 经验沉淀可以很长）
+  - LLM agent **必须**创建（user 不写）
+
+### §9.3 何时写 / 不写
+
+**写**（按 [`SKILL.md` §5 memory](../../SKILL.md) 触发）：
+
+- 跨 wiki 的关联（"X 类主题放 A wiki，Y 类放 B wiki"）
+- 用户对 workspace 组织的偏好（"我更喜欢按时间线而非主题分 wiki"）
+- workspace-wide lint 模式（"最近 N 次 lint 总是报某类问题"）
+- 跨 wiki 综合经验（"这类问题需要先 scan 再答"）
+
+**不写**：
+
+- 单 wiki 的踩坑 → 归 `<wiki>/wiki/MEMORY/`
+- 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
+- 一次性观察 → 直接 chat，不写 MEMORY
+
+### §9.4 创建时机
+
+skill 在 `scan` 触发时检查 `<workspace>/MEMORY/` 是否存在 + 是否含 `README.md`：
+
+- 都不存在 → 建目录 + 写 `README.md`（占位）
+- 目录存在但 README 缺失 → 补 README
+- 都存在 → 不动
+
+`lint` / `query` / `link` 触发时不创建 MEMORY 结构——只在真正需要写 MEMORY 文件时才 Write。
+
+## §10 .gitignore
+
+CLI 必须生成一份最小 `.gitignore`，至少包含以下忽略规则（保留 §2 / §3 涉及的
 "gitignored 但不能丢"的标记段）：
 
 ```gitignore
@@ -335,12 +448,12 @@ workspace_models.toml
 *.bak
 ```
 
-**必须不忽略**：`workspace.toml`、`INDEX.md`、`STATS.md`、`cross_queries/`、`LINT.md`、
-`<wiki-name>/`（wiki 仓的内容由 wiki-spec §6 各自的 `.gitignore` 处理）。
+**必须不忽略**：`workspace.toml`、`CLAUDE.md`、`INDEX.md`、`STATS.md`、`cross_queries/`、
+`LINT.md`、`MEMORY/`、`<wiki-name>/`（wiki 仓的内容由 wiki-spec §6 各自的 `.gitignore` 处理）。
 
 `.gitignore` **无论是否 opt-in git 都生成**——无 git 时是无害的空操作，且便于后续补 git。
 
-## §9 Git 初始化（opt-in，默认跳过）
+## §11 Git 初始化（opt-in，默认跳过）
 
 > **立场**：workspace **不依赖 git 即可工作**——默认落盘为**纯目录树**。git 仅在用户
 > 显式 opt-in 时启用，用于版本控制 / history / diff。`workspace_models.toml` 在
@@ -351,28 +464,29 @@ workspace_models.toml
   1. `git init`
   2. `git symbolic-ref HEAD refs/heads/main`（默认 main 分支）
   3. 检查全局 `git config user.email` / `user.name`，未配则 local 配占位值
-  4. 为 `cross_queries/`（若已建）等空目录放 `.gitkeep` 让其能被 `git add`
+  4. 为 `cross_queries/`（若已建）、`MEMORY/`（若已建）等空目录放 `.gitkeep` 让其能被 `git add`
   5. `git add .`
   6. `git commit -m "Initial workspace scaffold"`
 - **不得**对已存在的 git 仓误调 `git init`。
 
-## §10 拒绝条件（强约束）
+## §12 拒绝条件（强约束）
 
 CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 
 | 触发条件 | 错误信息建议 |
 | --- | --- |
 | `workspace.toml` 已存在且非 CLI 自己写的 | `"workspace.toml 已存在；拒绝覆盖"` |
+| `CLAUDE.md` 已存在 | `"CLAUDE.md 已存在；拒绝覆盖（schema 是用户所有，若需更新请手动编辑）"` |
 | 试图 `wiki add` 到已存在的子目录 | `"<wiki-name>/ 已存在；拒绝覆盖"` |
 | 试图 `wiki add` 时 `wiki-name` 与现存 wiki 重复 | `"wiki <name> 已注册；拒绝重复"` |
 
 **绝不允许覆盖**：workspace CLI 的 idempotency 原则——已存在 + 内容合法 = 跳过；已存在 + 内容非法 = 报错；用户想重新初始化必须先手动备份 + 删除。
 
-> **注意**：CLI **不**触碰 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`——
+> **注意**：CLI **不**触碰 `INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` / `cross_queries/`——
 > 这些是 skill 的领地，CLI 不检查它们是否存在，也不拒绝 init 时这些文件已存在的情况
-> （skill 会在首次 `scan` 时创建或覆盖自己的 INDEX.md，这是 skill 的幂等约定）。
+> （skill 会在首次 `scan` 时按需创建或跳过自己的产物，这是 skill 的幂等约定）。
 
-## §11 Frontmatter 字段约定（skill 写 INDEX.md / STATS.md / LINT.md / cross_queries 时用）
+## §13 Frontmatter 字段约定（skill 写 §5–§9 时用）
 
 ### 通用必填字段（5 项）
 
@@ -384,54 +498,58 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | `created` | date | `YYYY-MM-DD` |
 | `updated` | date | `YYYY-MM-DD` |
 
-### `type` 取值（新增 4 类 reserved）
+### `type` 取值（5 类 wiki 内容页 + 3 类 wiki reserved + 4 类 workspace reserved + 1 类 workspace-memory）
 
 | `type` | 目录 | 备注 |
 | --- | --- | --- |
-| `workspace-index` | `<workspace>/INDEX.md`（唯一） | reserved，仅标记用 |
-| `workspace-stats` | `<workspace>/STATS.md`（唯一） | reserved，仅标记用 |
-| `workspace-lint` | `<workspace>/LINT.md`（唯一） | reserved，仅标记用 |
-| `cross-query` | `<workspace>/cross_queries/<slug>.md` | 类比 wiki 内的 `synthesis` |
+| `entity` / `concept` / `source` / `comparison` / `synthesis` | 5 类 wiki 内容页 enum（**复用 wiki-spec §9**） | `<workspace>/MEMORY/*.md` 可按记忆内容性质选 |
+| `index` / `log` / `memory` | 3 类 wiki reserved（**复用 wiki-spec §9**） | `<workspace>/MEMORY/README.md` 用 `memory` |
+| `workspace-index` | `<workspace>/INDEX.md`（唯一） | workspace reserved |
+| `workspace-stats` | `<workspace>/STATS.md`（唯一） | workspace reserved |
+| `workspace-lint` | `<workspace>/LINT.md`（唯一） | workspace reserved |
+| `cross-query` | `<workspace>/cross_queries/<slug>.md` | workspace reserved |
+| `workspace-memory` | `<workspace>/MEMORY/*.md`（非 README） | workspace reserved，本 spec 新增（0.2.0） |
 
-> **与 wiki-spec §9 的关系**：本 spec 新增的 4 类 reserved 与 wiki-spec §9 的
-> 5 类内容页（`entity` / `concept` / `source` / `comparison` / `synthesis`）+
-> 3 类 wiki reserved（`index` / `log` / `memory`）**不冲突也不重复**——命名空间分开
-> （`workspace-*` / `cross-query` vs wiki 内 5+3 类）。lint 工具需要识别本 spec
-> 新增的 4 类；若 lint 脚本只跑在 wiki 内，可忽略本节。
+> **与 wiki-spec §9 的关系**：本 spec 新增的 `workspace-memory` 与 wiki 内的 `memory`
+> reserved 不冲突——location 区分（`workspace/MEMORY/*.md` 用 `workspace-memory`；
+> `<wiki>/wiki/MEMORY/README.md` 用 `memory`；`<wiki>/wiki/MEMORY/*.md` 用 5 类 enum）。
+> lint 工具需要识别本 spec 新增的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
 
 ### 类型特化字段
 
 | 字段 | 适用 type | 必填 | 含义 |
 | --- | --- | --- | --- |
 | `sources` | `cross-query` | 是 | 引用的 wiki 内页路径数组（相对 workspace 根） |
-| `wikis` | `cross-query` | 是 | 涉及的 wiki 名列表 |
-| `description` | 所有 4 类 | 否 | 一句话 |
+| `wikis` | `cross-query` / `workspace-memory` | 是（`cross-query`）/ 推荐（`workspace-memory`） | 涉及的 wiki 名列表 |
+| `description` | 所有 5 必填类 | 否 | 一句话 |
 
-## §12 版本钉死
+## §14 版本钉死
 
 | 占位符 | 替换为 | 来源 |
 | --- | --- | --- |
-| `{{WORKSPACE_SPEC_VERSION}}` | CLI 当前兼容的 workspace spec 版本（如 `0.1.0`） | CLI 仓硬编码 |
+| `{{WORKSPACE_SPEC_VERSION}}` | CLI 当前兼容的 workspace spec 版本（如 `0.2.0`） | CLI 仓硬编码 |
 | `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本 | CLI 仓硬编码（与 llm-wiki-management SKILL.md metadata.wiki_spec_version 对齐） |
 | `{{CLI_VERSION}}` | CLI 自身版本号 | CLI 仓 `__version__` 或 `pyproject.toml` / `package.json` |
 
 CLI 在生成 `<workspace>/workspace.toml` 时把 `templates_version` 字段写为
-`workspace_spec = <WORKSPACE_SPEC_VERSION>; wiki_spec = <WIKI_SPEC_VERSION>`（或类似编码）。
+`workspace_spec = <WORKSPACE_SPEC_VERSION>; wiki_spec = <WIKI_SPEC_VERSION>`（或类似编码）；
+CLI 在生成 `<workspace>/CLAUDE.md` 时把上述占位符按本表替换。
 
 skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 顶部声明的
 当前版本——不一致时**警告用户**（不阻断；旧 spec 的产物仍可读）。
 
-## §13 命名约束
+## §15 命名约束
 
 | 维度 | 规则 | 适用对象 |
 | --- | --- | --- |
 | Wiki name | `[a-z0-9][a-z0-9_-]*`，1–64 字符；推荐纯 kebab-case | `[wikis.<name>]` key + `<wiki-name>/` 子目录名 |
 | cross_query slug | kebab-case `^[a-z0-9][a-z0-9-]*$` | `cross_queries/<slug>.md` |
+| MEMORY 文件名 | kebab-case `^[a-z0-9][a-z0-9-]*$` | `<workspace>/MEMORY/*.md`（README 例外） |
 | `model_id` | `[a-z0-9_-]{1,64}` | `workspace_models.toml` |
 | frontmatter 字段名 | 严格小写 + 下划线 | 所有 workspace 级 markdown |
-| frontmatter `type` 值 | 严格小写 + 连字符（`workspace-index` 等） | 所有 workspace 级 markdown |
+| frontmatter `type` 值 | 严格小写 + 连字符（`workspace-index` / `workspace-memory` 等） | 所有 workspace 级 markdown |
 
-## §14 不在本 spec 范围内
+## §16 不在本 spec 范围内
 
 以下事项 workspace CLI 与 skill 不必按本 spec 实现（属于"运行时规则"）：
 
@@ -439,6 +557,7 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
   算法与判定规则属 [`llm-workspace-management`](../SKILL.md) skill 范畴
 - **跨 wiki 交叉引用（xref）建议逻辑**——同上
 - **workspace lint 的工作流**——同上
+- **workspace MEMORY 的工作流**（何时写 / 不写 / 怎样分类）——同上
 - **frontmatter 字段的语义**（如 `description` 推荐写法）——LLM 写作视角，非 spec 视角
 - **Obsidian / 编辑器偏好**——skill 假设通用 Markdown
 - **INGEST / 单 wiki query / 单 wiki lint**——走 [`llm-wiki-management`](wiki-spec.md) skill，
@@ -451,17 +570,18 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 CLI 在生成完成后，可执行以下验证：
 
 1. **字节级对比**：CLI 渲染的 `workspace.toml` 与本 spec §2 schema 一致；`workspace_models.toml`
-   与 §3 schema 一致；`.gitignore` 与 §8 一致
+   与 §3 schema 一致；`CLAUDE.md` 与 §4 模板字面一致（占位符替换后）；`.gitignore` 与 §10 一致
 2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项；`<wiki-name>/` 子目录按
    [wiki-spec §1](wiki-spec.md#1-目录结构) 落盘
 3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
-   到已存在目录，应非零退出
+   到已存在目录，应非零退出；尝试 `init` 时 `CLAUDE.md` 已存在，应非零退出（§12）
 4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；`*/.claude/settings.local.json` 在 `.gitignore` 中
-5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`
-   **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时建）
+5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` /
+   `cross_queries/` **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§9 约定建）
 
 ## 附录 B：版本历史
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
-| 0.1.0 | 2026-06-30 | 初始版本：定义 workspace 根 6 类文件归属、INDEX.md / STATS.md / LINT.md / cross_queries/ schema、CLI 与 skill 边界（CLI 写 workspace.toml / models / .gitignore；skill 写 INDEX.md / STATS.md / LINT.md / cross_queries/）+ 4 类 reserved frontmatter type |
+| 0.2.0 | 2026-06-30 | **breaking**：新增 §4 `CLAUDE.md`（CLI init 按模板拷，用户所有）+ §9 `MEMORY/`；新增 `workspace-memory` reserved frontmatter type；§1 ownership 6 → 9 类；§12 拒绝条件新增 CLAUDE.md 已存在则拒绝 |
+| 0.1.0 | 2026-06-30 | 初始：6 类文件归属 + INDEX/STATS/LINT/cross_queries schema + CLI/skill 边界 + 3 类 reserved type |

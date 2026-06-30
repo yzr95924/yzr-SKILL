@@ -12,6 +12,7 @@
   - §1-§11 节点映射
   - [§12 图片附件与上传流程](#12-图片附件与上传流程)
   - [§13 @mention 用户](#13-mention-用户)
+- [OKF agent 可读基线（上传格式控制）](#okf-agent-可读基线上传格式控制)
 - [反模式](#反模式)
 - [进阶：Markdown 写不出的特性](#进阶markdown-写不出的特性)
 - [参考样例](#参考样例)
@@ -354,6 +355,134 @@ MCP server 暴露 `list_users`，配合 Markdown 语法即可在正文里 @ 到
 注意：**MCP 工具名以 `tools/list` 实际返回为准**——本节描述基于当前
 server 暴露的工具集，不同 self-hosted 部署可能略有差异。
 
+## OKF agent 可读基线（上传格式控制）
+
+> **目的**：推到 Outline 的文档要能被 agent 稳定**读回理解**——
+> `outline-wiki-search` 读回 markdown body、外部 OKF 消费端解析、未来检索
+> 分块，都依赖一个可机读的元数据头 + 可预测的正文结构。OKF =
+> [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+> （"markdown + frontmatter、人 / agent 都能读"）。权威实现见
+> [`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)（OKF
+> 生产端 + 消费端）；本仓库 [`llm-wiki-management`](../../llm-wiki-management/SKILL.md)
+> 落地了 v0.1 子集，**Outline 侧沿用同一定义**，只为 Outline 的硬约束做载体适配。
+
+### 载体选型（实测，2026-07-01）
+
+OKF 标准载体是 `---...---` YAML frontmatter。但 Outline 的 MCP
+`create_document` / `update_document` 把 Markdown 解析成 **ProseMirror** 节点
+再序列化，`---...---` 过不了往返——实测在同一 server 上写两篇探针文档读回：
+
+- `---...---` frontmatter：`---` 被吃掉，YAML 键值**泄漏成可见正文**（`title:
+  …` 还会和 Outline title 字段重复），不是隐藏元数据
+- ` ```yaml ` 围栏代码块：存成 `code_block` 节点**逐字保留**（行间 `\n` 完整存活），
+
+因此 Outline 侧的 OKF 载体 = **正文首块 ` ```yaml ` 围栏**（标准字段，适配载体），
+而**不是** `---...---`。这是有意的平台适配，非字面合规——见末尾"与标准的关系"。
+
+### 两个 Outline 适配点
+
+1. **title 外置**：OKF 的 `title` 由 Outline **原生 title 字段**承载，**不**写进
+   正文块（正文裸写 H1 会与 title 重复；裸写 `---...---` 又会泄漏，见上）。
+2. **元数据载体 = 正文首块 ` ```yaml ` 围栏**：其余 OKF 字段放正文**第一个**块的
+   yaml 围栏代码块。ProseMirror 存成 `code_block` 原样保留；读回时这块在最前，
+   agent 一眼可解析。
+
+### OKF 元数据块字段（正文首块 yaml 围栏）
+
+> **硬门槛只有 `type`**：OKF 消费端的宽容模型（见 `llm-wiki-compiler`
+> `okf-read.ts`）是"frontmatter 解析失败或缺 `type` 才跳过该文档，其余一律
+> 容忍"。所以 agent 能否读回，**只取决于 `type` 是否非空**；其余字段都是
+> 推荐项，提升检索 / 摘要 / 时效质量，但不卡读回。
+
+| 字段 | 级别 | 值 / 约束 |
+| --- | --- | --- |
+| `type` | **必填**（唯一硬门槛） | 非空；见下方 type 枚举 |
+| `description` | 推荐 | 一句话摘要；agent 检索 / 索引摘要从它来 |
+| `tags` | 推荐 | 数组，≥ 1 个，如 `[llm, systems]` |
+| `created` | 推荐 | `YYYY-MM-DD`（内容首次成稿日） |
+| `updated` | 推荐 | `YYYY-MM-DD`；每次大改写同步 |
+| `x-outline` | 可选 | Outline 专属溯源（见下），生产者命名空间块 |
+| `okf_version` | **不放本块** | 标准只在 bundle 根 `index.md` 声明；单篇 Outline 文档无 bundle，故不写 |
+| `title` | —— | **不写进块**——由 Outline title 字段承载（= OKF `title`） |
+
+> **`x-outline` 扩展块**（OKF 允许 `x-<producer>` 私有键，消费端保留不动）：
+> 放 Outline 特有、标准字段表达不了的溯源信息，例如 `collection`（所属
+> Collection）、`docId`、`source-skill`（产出该文的 skill）。标准字段能表达的
+> 不要塞进这里。
+>
+> **时间戳与标准的分歧**：真 OKF 用单个 `timestamp`；本仓库 wiki 子集刻意用
+> `created` + `updated`（双字段，便于 lint 抓腐烂）。Outline 侧**沿用 wiki 的
+> `created`/`updated`** 保持跨 skill 一致，不单独切回 `timestamp`。注意它们是
+> **写入方维护的内容版本时间戳**，与 Outline 系统自动维护的 `createdAt` /
+> `updatedAt` 不是一回事，不要用后者替代。
+
+### type 枚举
+
+- **知识页类**（同 wiki，跨 skill 一致）：
+  - `entity`——具体系统 / 产品 / 团队的事实页
+  - `concept`——概念 / 术语 / 原理
+  - `source`——单一外部资料（论文 / 博客 / spec）的摘要
+  - `comparison`——多对象横向对比
+  - `synthesis`——跨来源综合
+- **Outline 专属扩展**：
+  - `design-doc`——设计文档（`design-doc-edit` 的产出）
+  - `paper-note`——论文笔记（`gemini-paper-summary` 推上来的）
+  - `runbook`——操作手册 / SOP / 故障处理
+  - `reference`——速查 / API / 配置清单
+  - `guide`——教程 / how-to
+
+`type` 优先取上表枚举值；确实不属于任何一类时可自定义 kebab-case 值（OKF §4.1
+本就是开放集），但要在 `description` 里说清这是什么类型。
+
+### 正文结构纪律（让 agent 能分块导航）
+
+yaml 块之后的正文按以下规则写——这些不是装饰，是 agent 检索 / 分块能
+工作的前提：
+
+1. yaml 块是正文**第一个**块，前面无任何内容（含空 Reference 段）。
+2. 正文标题从 `##` 起（H1 = title 已外置），**不跳级**；**同级标题文字不
+   重复**——agent 用标题文本做锚点 / 分块单元，重名标题会撞锚。
+3. **一篇一主题**：一个主题一篇文档，不把多个不相关主题塞进一篇——
+   agent 的检索粒度 = 文档。
+4. 链接用 Outline 文档链接或绝对 URL，**不**裸写本地相对路径（agent 解析
+   不到，渲染也是死链）。
+5. 富文本降级照旧：彩色高亮等 Markdown 写不出来的特性走"进阶"小节，
+   **不**在 yaml 块里塞渲染指令。
+
+### 最小骨架示例
+
+Outline title 字段填 `"LLaMA-3 架构要点"`；正文：
+
+````markdown
+```yaml
+type: paper-note
+description: LLaMA-3 的注意力 / 位置编码 / 训练数据要点速记
+tags: [llm, architecture, meta]
+created: 2026-07-01
+updated: 2026-07-01
+x-outline:
+  collection: 论文笔记
+  source-skill: gemini-paper-summary
+```
+
+## 背景
+
+* ...
+````
+
+> 改写已有文档时，用 `update_document` + `editMode: "patch"` + `findText`
+> 精准替换 yaml 块（`findText` 取整块含围栏行），并把 `updated` 改成当天，
+> 不动正文其他部分。
+
+### 与标准的关系
+
+本格式是 OKF v0.1 的 **Outline 适配子集**：字段语义对齐标准（`type` 硬门槛、
+`x-<producer>` 扩展块、宽容消费模型），但载体用 ` ```yaml ` 围栏而非 `---...---`
+（Outline 往返实测不支持，见"载体选型"）。任何 OKF 消费端能"尽力读取"这种文档
+（`type` 在、字段名标准），但**不**声称字面合规。要把一批 Outline 文档导成
+完全合规的 OKF bundle，需另写转换（围栏→`---...---`、补 bundle 根 `index.md`
+声明 `okf_version`），不在本 skill 范围。
+
 ## 反模式
 
 以下写法**应避免**，会导致工作区风格漂移或渲染异常：
@@ -376,6 +505,15 @@ server 暴露的工具集，不同 self-hosted 部署可能略有差异。
 - Mermaid 代码块嵌在 bullet 子项内（应放在 bullet 之外，block-level）
 - 写新文档时用 `<image: ...>` 占位符（已停用，应改为
   `![alt](/api/attachments.redirect?id=...)`）
+- 正文裸写 `---...---` YAML frontmatter——Outline 往返会**吃掉 `---`**、把
+  YAML 泄漏成可见正文（`title:` 还会和 Outline 字段重复），不是隐藏元数据
+  （2026-07-01 实测确认）；OKF 元数据只走正文首块 ```yaml 围栏
+- 把 OKF `title` 既写进 Outline title 字段又写进 yaml 块（重复）——title
+  只外置，yaml 块内不出现 `title`
+- 在单篇文档的 yaml 块写 `okf_version`——标准只在 bundle 根 `index.md` 声明，
+  单篇 Outline 文档无 bundle，写了反而背离标准
+- OKF 元数据块不放在正文首块（前面垫了 Reference 段 / 空段）——agent
+  读回时拿不到"开头即元数据"，分块失效
 
 ### 偶尔可见但**不推荐**的写法
 

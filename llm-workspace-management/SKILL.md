@@ -2,11 +2,12 @@
 name: llm-workspace-management
 description: |
   用本 skill 管理由 llm-wiki-management 维护的多个本地 wiki：在 workspace 层级扫描所有 wiki、
-  生成与维护全局 INDEX.md 与 STATS.md，做跨 wiki 综合问答（路由 / 合成 / 对比 / 局部），
-  维护跨 wiki 交叉引用，做 workspace 级 lint。触发场景："总结我所有 wiki 中关于 X 的内容"、
-  "对比 wiki A 和 wiki B 对 Y 的看法"、"这个问题该查哪个 wiki"、"扫一下我的 workspace"、
-  "workspace 整体 lint"。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——CLI
-  负责确定性操作（init / add / remove / config / enter / model 注册），本 skill
+  生成与维护全局 INDEX.md / STATS.md / LINT.md，做跨 wiki 综合问答（路由 / 合成 / 对比 / 局部），
+  维护跨 wiki 交叉引用，做 workspace 级 lint，沉淀跨 wiki agent 私有记忆到 MEMORY/。
+  触发场景："总结我所有 wiki 中关于 X 的内容"、"对比 wiki A 和 wiki B 对 Y 的看法"、
+  "这个问题该查哪个 wiki"、"扫一下我的 workspace"、"workspace 整体 lint"、
+  "记一下：用户偏好按时间线分 wiki"。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——
+  CLI 负责确定性操作（init / add / remove / config / enter / model 注册），本 skill
   负责需要 LLM 判断的跨 wiki 决策。不适用：单 wiki 的 ingest / query / lint（走
   llm-wiki-management）；workspace / wiki 元数据 CRUD（走 workspace CLI 如 llmw）；
   云端协作 wiki（走 outline-wiki-{search,upload,setup}）。
@@ -14,7 +15,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-06-30
-  workspace_spec_version: 0.1.0
+  workspace_spec_version: 0.2.0
 ---
 
 # LLM Workspace Management
@@ -70,7 +71,7 @@ metadata:
 - **scan** → 写 `<workspace>/INDEX.md`（人类可读概览）+ `<workspace>/STATS.md`（结构化统计），
   按 [spec §4 / §5](references/workspace-spec.md) 落盘
 - **query** → 对话中给出答案（带每 wiki 引用）；可选落 `<workspace>/cross_queries/<slug>.md`
-  （需用户确认后归档；格式见 [spec §6](references/workspace-spec.md#6-cross_queriesskill-维护可选)）
+  （需用户确认后归档；格式见 [spec §7](references/workspace-spec.md#7-cross_queriesskill-维护可选)）
 - **link** → 在涉及跨 wiki 引用的 wiki 各自的 source / entity 页追加跨 wiki 链接（走
   `llm-wiki-management` 的 ingest 流程，不直接写 wiki 文件）
 - **lint** → 写 `<workspace>/LINT.md`（最近一次报告，每次 lint 覆盖；格式见
@@ -85,18 +86,20 @@ metadata:
 │ workspace CLI (如 llmw)                                          │
 │   - 确定性元数据操作：init / add / remove / config / enter        │
 │   - 写 workspace.toml / workspace_models.toml / .gitignore       │
+│   - init 时按模板拷 CLAUDE.md（用户所有，schema 宪法）           │
 │   - 写 <wiki>/wiki_metadata.toml + wiki 仓骨架（按 wiki-spec）   │
-│   - 不读不写 INDEX.md / STATS.md / LINT.md / cross_queries/      │
+│   - 不读不写 INDEX.md / STATS.md / LINT.md / MEMORY/ / cross_queries/ │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
                               │ 元数据 / 启动 session
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │ llm-workspace-management (本 skill)                              │
-│   - 跨 wiki 编排：scan / query (4 模式) / link / lint            │
-│   - 写 INDEX.md / STATS.md / LINT.md / cross_queries/             │
+│   - 跨 wiki 编排：scan / query (4 模式) / link / lint / memory   │
+│   - 写 INDEX.md / STATS.md / LINT.md / MEMORY/ / cross_queries/  │
 │   - 写 <wiki>/wiki/** （通过 llm-wiki-management 委托）           │
 │   - 不写 workspace.toml / workspace_models.toml / .gitignore      │
+│   - 不写 <workspace>/CLAUDE.md（用户所有 schema）                  │
 │   - 不写 <wiki>/raw/                                              │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -145,17 +148,23 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<workspace>/workspace.toml` | workspace CLI | 只读 |
 | `<workspace>/workspace_models.toml` | workspace CLI | 只读（甚至不读；不感知 model 配置） |
 | `<workspace>/.gitignore` | workspace CLI | 只读 |
+| `<workspace>/CLAUDE.md` | 用户（CLI init 时拷模板） | 只读（schema 宪法；改前先与用户确认） |
 | `<workspace>/INDEX.md` | 本 skill | 写 |
 | `<workspace>/STATS.md` | 本 skill | 写 |
 | `<workspace>/cross_queries/` | 本 skill | 写 |
 | `<workspace>/LINT.md` | 本 skill | 写 |
+| `<workspace>/MEMORY/` | 本 skill | 写（跨 wiki 私有记忆；首 scan 时建 README） |
 | `<wiki>/wiki_metadata.toml` | workspace CLI | 只读 |
 | `<wiki>/wiki/{entities,concepts,sources,...}` | `llm-wiki-management` | 通过它写 |
+| `<wiki>/wiki/MEMORY/` | `llm-wiki-management` | 通过它写（单 wiki 私有记忆） |
 | `<wiki>/CLAUDE.md` | 用户（CLI init 时拷模板） | 只读 |
 | `<wiki>/raw/` | 用户 | 只读 |
 
 完整归属表见 [spec §1](references/workspace-spec.md#1-目录结构)。**违反归属 = bug**：
-本 skill 写 `workspace.toml` 属越权；CLI 写 `INDEX.md` 属越权。
+本 skill 写 `workspace.toml` 属越权；CLI 写 `INDEX.md` 属越权；skill 写
+`<workspace>/CLAUDE.md` 属越权（用户宪法）。**MEMORY 跨边界混淆**：本 skill **禁止**写
+`<wiki>/wiki/MEMORY/`，单 wiki 记忆归 `llm-wiki-management`；同样禁止把跨 wiki 观察
+写到单 wiki MEMORY——按 [spec §9 scope 边界](references/workspace-spec.md#9-workspace-memoryskill-维护)。
 
 ### 跨 skill 依赖图（DAG，无环）
 
@@ -223,8 +232,8 @@ spec 文件做契约对齐。
 | 模式 | 触发关键词 | 流程 |
 | --- | --- | --- |
 | **route** | "应该查哪个 wiki" / "属于哪个 wiki" | 读 INDEX.md → 按 topic / tag / description 匹配 → 返回 1–3 个候选 wiki 名 + 理由 |
-| **synthesis** | "总结所有" / "综合所有 wiki" / "跨 wiki 总结" | route → 对每个候选 wiki 走 `llm-wiki-management` query → 合并 + 标注每 wiki 来源 |
-| **compare** | "对比 A 和 B" / "A 和 B 的区别" | 读 wiki-A 与 wiki-B 的 `wiki/index.md` → 走 `llm-wiki-management` query 双侧 → diff 风格对比 |
+| **synthesis** | "总结所有" / "综合所有 wiki" / "跨 wiki 总结" | route → 每候选 wiki query → 合并 + 标注每 wiki 来源 |
+| **compare** | "对比 A 和 B" / "A 和 B 的区别" | 读 wiki-A 与 wiki-B 的 `wiki/index.md` → query 双侧 → diff 风格对比 |
 | **local** | "只看 wiki X" / "在 X 里查 Y" | 走 `llm-wiki-management` query（单 wiki） |
 
 **判定规则**：
@@ -239,7 +248,7 @@ spec 文件做契约对齐。
 
 - 答案涉及**单 wiki** → 归档到 `<wiki>/wiki/syntheses/<slug>.md`（走 `llm-wiki-management`）
 - 答案涉及**多 wiki** → 归档到 `<workspace>/cross_queries/<slug>.md`（本 skill 直接写，
-  格式见 [spec §6](references/workspace-spec.md#6-cross_queriesskill-维护可选)）
+  格式见 [spec §7](references/workspace-spec.md#7-cross_queriesskill-维护可选)）
 
 ### 3. Link（跨 wiki 交叉引用）
 
@@ -268,7 +277,7 @@ spec 文件做契约对齐。
    - 重复 entity 跨 wiki（同名 + 不同 slug 的对）
    - 失效跨 wiki 链接（cross_queries/*.md 的 `sources` 路径不存在；`<wiki>/wiki/**`
      中的 `../<another-wiki>/...` 路径不存在）
-   - 未注册的 wiki 子目录（磁盘上有 `<dir>/CLAUDE.md` 但 workspace.toml 没有注册）
+   - 未注册的 wiki 子目录（磁盘上有 `<wiki>/CLAUDE.md` 但 workspace.toml 没有注册）
    - workspace.toml 注册但磁盘上不存在的 wiki（孤儿注册）
    - STATS.md 与 INDEX.md 的 wiki 列表是否一致
 2. **本 skill 做的半定性检查**：
@@ -277,9 +286,50 @@ spec 文件做契约对齐。
 3. **本 skill 不做的**：单 wiki 内部 lint（重复 entity / 缺 frontmatter / 矛盾主张等）
    ——转交 `llm-wiki-management`
 4. **输出**：写 `<workspace>/LINT.md`（格式见
-   [spec §7](references/workspace-spec.md#7-lintmdskill-维护可选)）+ 对话中报告
+   [spec §8](references/workspace-spec.md#8-lintmdskill-维护可选)）+ 对话中报告
 
 **何时不做 lint**：用户只问 query → 不 lint；用户说"扫一下" → scan 而非 lint。
+
+### 5. Memory（跨 wiki agent 私有记忆）
+
+**触发**：在 scan / query / link / lint 过程中识别到**跨 wiki**值得沉淀的信息时主动写。
+**严格 scope 边界**（参考 [spec §9.3](references/workspace-spec.md#93-何时写--不写)）：
+
+**写**（跨 wiki 视角）：
+
+- 跨 wiki 关联——"X 类主题放 A wiki，Y 类放 B wiki"
+- 用户对 workspace 组织的偏好——"我更喜欢按时间线而非主题分 wiki"
+- workspace-wide lint 模式——"最近 N 次 lint 都报某类问题"
+- 跨 wiki 综合经验——"这类问题需要先 scan 再答"
+
+**不写**（避免越界）：
+
+- 单 wiki 踩坑 → 归 `<wiki>/wiki/MEMORY/`（委托 `llm-wiki-management`）
+- 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
+- 一次性观察 → 直接 chat，不写 MEMORY
+
+**流程**：
+
+1. 识别一个值得沉淀的跨 wiki 观察
+2. **scope 自检**——确认是跨 wiki 视角（不只涉及单个 wiki）
+3. 生成 slug（kebab-case 短标题，例 `user-prefers-time-based-wikis`）
+4. 检查目标 MEMORY 文件是否已存在：
+   - 不存在 → `Write` 新文件（5 必填 frontmatter：`title` / `type`（用 `workspace-memory`） /
+     `created` / `updated` / `tags`；推荐 `wikis` 数组 + `description`）
+   - 已存在 → `Edit` 更新正文 + `updated` 字段，`created` 保留原值
+5. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口）
+6. **不写** log.md（MEMORY 没有 workspace-level log）
+
+**首次 scan 时的特殊动作**：若 `<workspace>/MEMORY/` 不存在或缺 `README.md` → 建目录 + 写
+`README.md`（按 [spec §9.1](references/workspace-spec.md#91-memoryreadmemd) 的 4 必填 frontmatter）。
+
+**MEMORY 与单 wiki MEMORY 的清晰边界**：
+
+| 场景 | 写哪 |
+| --- | --- |
+| "wiki A 的 ingest 总是失败，因为 raw/ 里有特殊字符" | `<A>/wiki/MEMORY/ingest-special-char-pitfall.md`（单 wiki 经验） |
+| "用户偏好把所有 storage 相关放 A wiki，把 LLM 相关放 B wiki" | `<workspace>/MEMORY/user-storage-vs-llm-preference.md`（跨 wiki 偏好） |
+| "跨 wiki 综合答案：对比 A 与 B 的性能优化方法" | `<workspace>/cross_queries/perf-compare-a-b.md`（答案本身，不是 memory） |
 
 ## 参考样例
 
@@ -327,10 +377,12 @@ spec 文件做契约对齐。
 ## 参考文件
 
 - **必读**：[`references/workspace-spec.md`](references/workspace-spec.md)——workspace 根
-  6 类文件的归属 + schema 权威定义
+  9 类文件的归属 + schema 权威定义（含 §4 CLAUDE.md + §9 MEMORY/）
+- **必读**：[`references/workspace-claude-md-template.md`](references/workspace-claude-md-template.md)——
+  `<workspace>/CLAUDE.md` 的 canonical 模板字节金标准（CLI init 时按此拷）
 - **必读**：[`../llm-wiki-management/references/wiki-spec.md`](../llm-wiki-management/references/wiki-spec.md)——
   单 wiki 内的目录 / frontmatter / 命名约束（本 skill 操作 wiki 时遵循）
 - **委托目标**：[`../llm-wiki-management/SKILL.md`](../llm-wiki-management/SKILL.md)——
-  单 wiki ingest / query / lint 工作流（本 skill 的单 wiki 操作委托给它）
+  单 wiki ingest / query / lint / memory 工作流（本 skill 的单 wiki 操作委托给它）
 - **CLI 文档**：workspace CLI 仓（当前为 `~/llm_workspace_cli/`，命令 `llmw`）——本 skill
   **不直接调**，但用户的 `init / add / remove / config / enter / model ...` 命令参考此处

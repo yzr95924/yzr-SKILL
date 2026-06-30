@@ -85,11 +85,13 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── README.md              # 设计原则 / 依赖 / SKILLs 分类占位
 ├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引，正文同级）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
-├── design-doc-edit/       # 设计文档写作 skill（强制骨架 + 场景/方案分析）
-├── outline-wiki-setup/    # Outline Wiki MCP 接入 + 重启验证（一次性配置）
-├── outline-wiki-search/   # Outline Wiki 搜 / 读文档（核心 2 个能力）
-├── outline-wiki-upload/   # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection + 移动 / 删除
-└── yzr-skill-creator/     # 元 skill：创建 / 改进 / 评估 skill 本身
+├── design-doc-edit/             # 设计文档写作 skill（强制骨架 + 场景/方案分析）
+├── llm-wiki-management/         # 本地单 wiki 维护（llm-workspace-management 的内层）
+├── llm-workspace-management/    # 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki Q&A / lint）
+├── outline-wiki-setup/          # Outline Wiki MCP 接入 + 重启验证（一次性配置）
+├── outline-wiki-search/         # Outline Wiki 搜 / 读文档（核心 2 个能力）
+├── outline-wiki-upload/         # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection + 移动 / 删除
+└── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …
     ├── references/        # schemas.md（evals/history 等 JSON 结构）+ agents/{grader,comparator,analyzer}.md
