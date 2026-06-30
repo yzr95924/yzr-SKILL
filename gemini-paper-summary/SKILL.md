@@ -91,6 +91,11 @@ metadata:
 | `gemini-3.1-flash-lite` | Stable | 最便宜、轻量 | 批量过稿 / 简单综述 / 上下文大但要求低 |
 | `gemini-3.1-pro-preview` | Preview | 复杂推理最强 | 形式化证明 / 难数学 / 推理敏感论文 |
 
+> **主模型不可用 → 报错退出，不降级**（2026-06-30 强化）：上表里**任一**模型
+> 遇到 503 / 429 / 5xx，脚本走 3 次重试后**直接抛错**给上层——绝不静默切到
+> lite/pro 或其它便宜模型。换模型必须用 `--model <id>` 显式指定，**完整策略
+> 见 §核心原则 #8**（包含错误信息格式与三步建议）。
+
 **避免使用**：
 
 - ==`gemini-2.5-flash`==：deprecated，官方推荐替代 `gemini-3.5-flash`（**有 shutdown 日期**）
@@ -308,12 +313,18 @@ metadata:
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
    - 论文**完全未提**任何 prototype 链接时，**整段省略**（不要写"无开源"或占位文本）
 8. **模型选择**：默认与"何时显式覆盖"指南见 §模型选型小节（脚本 `DEFAULT_MODEL` 常量在 `scripts/gemini_paper_summary.py:65`）。实际可用模型以当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。**为什么不在本条重列模型名**：模型选型表是 SSOT，列在 §模型选型小节里
-   - **无自动 fallback**（2026-06-21 决策）：默认模型遇到 503 UNAVAILABLE /
-     429 RESOURCE_EXHAUSTED 等高并发 / 限流错误时，脚本**直接抛错**给上层，
-     不静默降级。理由：不同模型对 v3.2 prompt 模板的输出质量差异显著
-     （alt 字段偏差、表格行数错位、章节遗漏等），silent fallback 用户感知不到
-     是模型降级导致的，只看到"结果怪"——质量风险大于便利。换模型用
-     `--model <id>` 显式指定。
+   - **结果质量 > 系统可用性 · 无自动 fallback**（2026-06-21 决策，2026-06-30 加固）：
+     默认模型遇到 503 UNAVAILABLE / 429 RESOURCE_EXHAUSTED / 5xx 等高并发 / 限流
+     错误时，统一走 3 次重试（2s/4s 退避；4xx 永久错误不重试直接抛）——仍失败则
+     脚本**直接抛错**给上层，**绝不**静默降级到便宜模型。理由：不同模型对
+     v3.2 prompt 模板的输出质量差异显著（alt 字段偏差、表格行数错位、章节
+     遗漏等），silent fallback 用户感知不到是模型降级导致的，只看到"结果怪"——
+     质量风险大于便利。换模型用 `--model <id>` 显式指定。
+   - **终失败错误信息明确可执行**（2026-06-30）：抛出的 RuntimeError 必含
+     `model=<id>` + `status=<code>` + 类型与消息，并附三步建议：稍后重试 /
+     检查 `GEMINI_API_KEY` 与配额 / `--model <id>` 显式换模型。统一策略实现在
+     `scripts/gemini_paper_summary.py:_gemini_call_with_retry`，主调用与 Stage 2
+     都委托给它——SSOT 不会策略漂移。
 9. **Markdown 风格约定（仓库统一基线）**
    - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`（仓库统一基线；
      本仓库其他 skill 也按此约定）
@@ -543,6 +554,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`；见"模型选型"小节 |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/prompt-template.md`）/ `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
 | 输出空 / 截断 | 输出 token 上限（默认 65k）撞顶 | 减小 `max_output_tokens` 不会影响——缩短 prompt 或换模型 |
+| `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **不自动降级**——脚本直接抛错，错误信息含 model 名 + status + 三步建议（稍后重试 / 检查 key 与配额 / `--model <id>` 显式换模型）。完整策略见 §核心原则 #8 |
 
 ## 参考样例
 

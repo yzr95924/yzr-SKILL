@@ -63,10 +63,12 @@ except ImportError:  # pragma: no cover
 # ----------------------------------------------------------------------------
 
 DEFAULT_MODEL = "gemini-3.5-flash"
-# 无自动 fallback 链：503/429 等高并发 / 限流错误**直接抛**给用户，不静默降级。
-# 理由：不同模型的输出质量差异显著，silent fallback 容易引入质量问题（漏掉章节、
-# alt 字段偏差、表格行数错位等），用户感知不到是模型降级导致的——只看到结果怪。
-# 用户如要换模型，用 `--model gemini-3.1-flash-lite` 显式指定。
+# 503/429 等高并发 / 限流错误:走 3 次重试(2s/4s 退避),终失败**直接抛**给用户,
+# 不静默降级到便宜模型(2026-06-21 决策)。理由:不同模型对 v3.2 prompt 模板的
+# 输出质量差异显著(alt 字段偏差、表格行数错位、章节遗漏等),silent fallback 用户
+# 感知不到是模型降级导致的,只看到"结果怪"——质量风险 > 便利。换模型用
+# `--model <id>` 显式指定。SSOT: 实际策略见 _gemini_call_with_retry;与 SKILL.md
+# §核心原则 #8 对齐。
 MAX_PDF_BYTES_INLINE = 20 * 1024 * 1024  # 20 MB 走 inline Part.from_bytes；更大走 File API
 
 # 默认 prompt 从 assets/prompt-template.md 的 `## 默认模板（academic）` 段
@@ -856,54 +858,86 @@ def _parse_visual_bbox_response(response_json, page_num):
     return out
 
 
-def _call_gemini_with_retry(client, model, png_bytes, prompt, temperature, page_num, max_attempts=3):
-    # type: (object, str, bytes, str, float, int, int) -> object
-    """Stage 2 单页 Gemini 调用,带临时错误重试。
+def _gemini_call_with_retry(client, model, contents, config, max_attempts=3, label="Gemini"):
+    # type: (object, str, list, object, int, str) -> object
+    """统一 Gemini 调用 + 临时错误重试,**不切模型**(2026-06-21 决策, SSOT)。
 
     重试策略:
     - 最多 max_attempts 次(默认 3)
     - 临时错误 (5xx / 429) 退避 2s, 4s 后重试
-    - 永久错误 (400/401/403/404) 直接抛出(不重试)
-    - 其他异常也走重试(网络抖动等)
+    - 永久错误 (400/401/403/404) 直接抛(不重试)
+    - 网络异常 / 超时也走重试(无 status_code 时一律重试)
 
-    返回 response 对象;最终失败抛 RuntimeError。"""
+    **无自动 fallback**: 重试全程使用同一个 model,绝不静默切到便宜模型。
+    终失败抛 RuntimeError, 错误信息含 model 名 + status_code + 用户可执行的下一步
+    (稍后重试 / 检查 GEMINI_API_KEY 与配额 / 用 `--model <id>` 显式换模型)。
+
+    SSOT: 与 SKILL.md §核心原则 #8 "无自动 fallback" 决策对齐;主调用
+    (call_gemini) 与 Stage 2 (_call_gemini_with_retry) 都委托本函数,保证两处
+    不会策略漂移。
+    """
     import time  # 局部 import,避免顶层 import 副作用
 
     # google.genai.errors.APIError 子类都有 status_code 属性
     last_err = None
     for attempt in range(max_attempts):
         try:
-            response = client.models.generate_content(
+            return client.models.generate_content(
                 model=model,
-                contents=[
-                    types.Part.from_bytes(data=png_bytes, mime_type="image/png"),
-                    prompt,
-                ],
-                config=types.GenerateContentConfig(
-                    temperature=temperature,
-                    response_mime_type="application/json",
-                    response_json_schema=VISUAL_BBOX_SCHEMA,
-                ),
+                contents=contents,
+                config=config,
             )
-            return response
         except Exception as e:
             last_err = e
             status = getattr(e, "status_code", None) or getattr(e, "code", None)
-            # 永久错误:直接抛(由外层 catch 报 WARN)
+            # 永久错误:直接抛(由外层 catch 报 WARN/ERROR)
             if status is not None and status in {400, 401, 403, 404}:
                 raise
             # 临时错误或无 status_code:重试
             if attempt + 1 < max_attempts:
                 backoff = 2 ** (attempt + 1)  # 2s, 4s
                 sys.stderr.write(
-                    f"INFO: Stage 2 第 {page_num} 页 第 {attempt + 1}/{max_attempts} 次失败"
+                    f"INFO: {label} 调用第 {attempt + 1}/{max_attempts} 次失败"
                     f"({type(e).__name__}: {e}),{backoff}s 后重试...\n"
                 )
                 time.sleep(backoff)
                 continue
             # 已到 max_attempts,跑完重试
             break
-    raise RuntimeError(f"Stage 2 Gemini 调用 {max_attempts} 次仍失败: {type(last_err).__name__}: {last_err}")
+    # 终失败:抛带上下文的 RuntimeError(供上层 / 用户判断)
+    status = getattr(last_err, "status_code", None) or getattr(last_err, "code", None)
+    raise RuntimeError(
+        f"{label} 调用 {max_attempts} 次仍失败: model={model}, status={status}, "
+        f"error={type(last_err).__name__}: {last_err}\n"
+        f"  → 不自动降级到更便宜的模型(质量风险 > 便利,见 SKILL.md §核心原则 #8)。\n"
+        f"  → 下一步: 1) 稍后重试  2) 检查 GEMINI_API_KEY / 配额 / 服务状态\n"
+        f"           3) 用 --model <id> 显式换模型"
+    )
+
+
+def _call_gemini_with_retry(client, model, png_bytes, prompt, temperature, page_num, max_attempts=3):
+    # type: (object, str, bytes, str, float, int, int) -> object
+    """Stage 2 单页 Gemini 调用,委托给 _gemini_call_with_retry 走统一策略。
+
+    - 临时错误 (5xx / 429) 退避 2s, 4s 后重试
+    - 永久错误 (400/401/403/404) 直接抛
+    - 最多 max_attempts 次, 终失败抛 RuntimeError(错误信息含 page_num)
+    - **不切模型**(无自动 fallback,与 _gemini_call_with_retry 同策略)
+    """
+    config = types.GenerateContentConfig(
+        temperature=temperature,
+        response_mime_type="application/json",
+        response_json_schema=VISUAL_BBOX_SCHEMA,
+    )
+    contents = [types.Part.from_bytes(data=png_bytes, mime_type="image/png"), prompt]
+    return _gemini_call_with_retry(
+        client,
+        model,
+        contents,
+        config,
+        max_attempts=max_attempts,
+        label=f"Stage 2 第 {page_num} 页",
+    )
 
 
 def call_gemini_for_visual_bbox(pdf_path, page_to_png, model, temperature):
@@ -1352,46 +1386,40 @@ def build_prompt(focus, template="academic"):  # type: (str, str) -> str
 def call_gemini(model, pdf_bytes, prompt, temperature):  # type: (str, bytes, str, float) -> str
     """调用 Gemini，返回 Markdown 文本。短 PDF 走 inline；长 PDF 走 File API。
 
-    **无自动 fallback**（2026-06-21 决策）：503/429/500 等高并发 / 限流错误
-    **直接抛**给上层——silent 降级到便宜模型容易引入质量问题（不同模型对
-    v3.2 prompt 模板的输出质量差异显著，比如 alt 字段偏差、表格行数错位），
-    用户感知不到是模型降级导致的，只看到结果怪。换模型用 `--model <id>`
-    显式指定。
+    **无自动 fallback**(2026-06-21 决策): 503/429/500 等高并发 / 限流错误
+    先做 3 次重试(2s/4s 退避),仍失败则**直接抛**给上层,**绝不**降级到便宜模型。
+    理由: 不同模型对 v3.2 prompt 模板的输出质量差异显著(alt 字段偏差、表格行数
+    错位、章节遗漏等),silent fallback 用户感知不到是模型降级导致的,只看到
+    "结果怪"——质量风险 > 便利。换模型用 `--model <id>` 显式指定。
+
+    终失败错误信息会明示: model 名 + status_code + 用户可执行的下一步
+    (稍后重试 / 检查 GEMINI_API_KEY 与配额 / 用 --model 换模型)。统一策略
+    实现见 `_gemini_call_with_retry`(本函数委托给它)。
     """
     client = genai.Client()  # 自动读 GEMINI_API_KEY
 
     if len(pdf_bytes) <= MAX_PDF_BYTES_INLINE:
-        # 走 inline Part：单请求延迟最低
+        # 走 inline Part:单请求延迟最低
         contents = [
             types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
             prompt,
         ]
     else:
-        # 走 File API：先 upload，再把 uploaded file 放进 contents
+        # 走 File API:先 upload,再把 uploaded file 放进 contents
         sys.stderr.write(
-            "INFO: PDF 超过 20 MB，走 File API 上传。\n"
-            "      （文件会在 Google 服务端保留 48 小时；如需立即清理，"
-            "参考 references/api-quickstart.md §3。）\n"
+            "INFO: PDF 超过 20 MB,走 File API 上传。\n"
+            "      (文件会在 Google 服务端保留 48 小时;如需立即清理,"
+            "参考 references/api-quickstart.md §3。)\n"
         )
         uploaded = client.files.upload(
             file=pdf_bytes,
             config={"display_name": "paper-pdf", "mime_type": "application/pdf"},
         )
         contents = [uploaded, prompt]
-        # 把 uploaded.name 暂存，调用方如需清理可从返回值再调用 client.files.delete(name=...)
+        # 把 uploaded.name 暂存,调用方如需清理可从返回值再调用 client.files.delete(name=...)
 
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=types.GenerateContentConfig(temperature=temperature),
-    )
-    text = getattr(response, "text", None)
-    if not text:
-        sys.stderr.write(f"ERROR: Gemini 返回为空。原始 response: {response}\n")
-        sys.exit(3)
-    return text
-
-    # response.text 在出错时可能为 None，做一次防御
+    config = types.GenerateContentConfig(temperature=temperature)
+    response = _gemini_call_with_retry(client, model, contents, config, label="主调用")
     text = getattr(response, "text", None)
     if not text:
         sys.stderr.write(f"ERROR: Gemini 返回为空。原始 response: {response}\n")

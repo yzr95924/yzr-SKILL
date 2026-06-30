@@ -201,3 +201,33 @@ grep -nE "(\| None|list\[|dict\[|tuple\[|capture_output|text=True|:=|breakpoint\
 
 - [[paper-wiki-integration-design]]——本决策的父决策（publish skill 独立、远端不归 llm-wiki-management）
 - [[gemini-paper-summary-full-mode-design]]——producer 侧 SSOT；本决策不与 D1-D4 冲突（layout 不变，仅 H1 由 publish 端补）
+
+### ddnsto relay 仅 HTTPS 443 才透到上游（2026-06-30 outline-wiki-setup 接入时新发现）
+
+**Why：** 2026-06-30 给 self-hosted Outline 跑 outline-wiki-setup 时收到用户给的 `http://myoutline.ddnsto.com/mcp`，configure_mcp.py 的 test_connection 失败。curl 探测后确诊：**ddnsto relay 的 HTTP 80 端口对所有路径都回 "200 OK Content-Length: 0 + Server: Caddy"，HTTPS 443 才真正转发到上游后端**。用户原话"标记完的客户端主机,应该就可以访问了"是指 ddnsto 控制台要标记 client host——但**与 HTTP 80 占位无关**，标记仅让 HTTPS 路径生效。
+
+**诊断关键**（先于任何"鉴权 / endpoint 错"的猜测）：换 API key / 换 Host 头 / 换路径 / 换方法**全部同响应**，唯独**换协议 http→https 后行为完全反转**拿到真实 Outline MCP 响应——决定性证据是协议层 middlebox。
+
+**How to apply：**
+
+- **接入任何走 ddnsto 隧道的 MCP 时，endpoint 必须用 `https://<sub>.ddnsto.com:443/mcp`**（或省略端口），不要用 http://
+- 用户第一次给 http:// 时**直接尝试 https://**，不用先排查鉴权
+- 已在 `outline-wiki-setup/SKILL.md` 故障排查段同步加症状+解药一行（指向 MEMORY 正文）
+
+**正文：** [`ddnsto-relay-https-only-quirk.md`](./ddnsto-relay-https-only-quirk.md)
+
+### 影响分发后行为的经验必须进 SKILL，不能只留 MEMORY（2026-06-30 实战感悟）
+
+**Why：** 2026-06-30 修 ddnsto 陷阱 + outline MCP 白名单时发现——两份关键经验最初都只写在仓库 `MEMORY/`，**SKILL 没接收**。而 `MEMORY/` 是仓库 SSOT，**不进 npx、不进 vendor 副本、不会出现在新安装用户的 Claude Code 上下文中**——等于踩过的坑在新环境会重演。本轮把两条同步进了 SKILL.md / onboarding.md 才补上。
+
+**判定核心问题**：「另一个用户在另一台机器上 `npx install <skill>`，能指望他们自己撞见并解决吗？」——不能则必须进 SKILL；能则可留 MEMORY；边界模糊倾向 SKILL（错放 SKILL 多一句废话；错放 MEMORY 会让人重蹈覆辙）。
+
+**How to apply：**
+
+- **新发现的"坑 / 经验"先进 SKILL，后 MEMORY**——MEMORY 是补充不是替代
+- 进 SKILL 按"症状→指引 / 详方案放 references/"分层，保 SKILL.md 不顶 5000 词
+- 同主题的另一篇 MEMORY（[[memory-synced-to-skill-source]]）从**作者改动流程**视角，本条从**用户分发端**视角，互补
+
+**反模式**："先写 MEMORY 下次补 SKILL" = 窗口期给未来用户挖坑；"description 加触发就够" = description 只决定**是否触发**，不决定**怎么跑**。
+
+**正文：** [`experience-affecting-skill-distribution-goes-to-skill-not-memory.md`](./experience-affecting-skill-distribution-goes-to-skill-not-memory.md)
