@@ -56,6 +56,10 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
 > **若重摄发现新内容与已有 entity / concept 页主张矛盾**——不要静默覆盖旧说法，走
 > CLAUDE.md「矛盾处理 Update Policy」（双方设 `contested: true` + `contradictions` 互指、
 > 正文显式记录两种说法）。这是 `contested` 信号最常见的产生时机。
+>
+> **生命周期纪律（stale-raw / 重摄取）**：被更新的 source 页如果原来 `reviewed: true`，
+> 必须**删除** `reviewed` + `reviewed_at` 字段（回到默认未审核）。事件表与"两道闸门"细节
+> 见 [page-templates.md §一「生命周期规则」](page-templates.md#生命周期规则llm-必读)。
 
 1. **完整读取 raw 资料**——若是 PDF / 图片，先做 OCR / 视觉识别
 2. **提取元数据**：标题、作者 / 来源、发布时间、URL（若有）、关键标签
@@ -69,8 +73,8 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
      - 关键引用——可独立成段的引文 / 数字 / 结论
      - 链接出去的 cross-refs——相关 entity / concept / source 页
    - **认知质量信号（可选）**：fast-moving / 争议 / 单一弱来源的 source 页，建议在 frontmatter
-     标 `confidence: medium` 或 `low`（字段语义见 [page-templates.md §一](page-templates.md#可选认知质量信号防弱主张固化成事实)）。
-     多源印证且稳定的页可标 `high` 或省略。这让弱主张"自带警示"，lint 会把 `low` 拎出来提醒
+     标 `contested: true`（仅当**确属矛盾未裁定**时）——0.7.0 起 `confidence` 字段已退役，
+     可信度由"是否人工审核过"承载（详见 [page-templates.md §一](page-templates.md#可选可信度与认知质量信号)）
 5. **决策点：是否需要新建 entity / concept 页**
    - 例：raw 资料里反复提到"self-attention"，但 `concepts/self-attention.md` 不存在
    - → 新建 `concepts/self-attention.md`（首次出现 + 值得沉淀的概念）

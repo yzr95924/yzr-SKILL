@@ -169,20 +169,26 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 
 ### 认知质量信号（可选，防"弱主张固化成事实"）
 
-> 字段语义权威定义在 [`../page-templates.md`](../page-templates.md) §一「可选：认知质量信号」；
-> 本节是 wiki 内的速查 + 何时标的指引。三个字段**全部可选**，互不依赖。
+> 字段语义权威定义在 [`../page-templates.md`](../page-templates.md) §一「可选：可信度与认知质量信号」；
+> 本节是 wiki 内的速查 + 何时标的指引。四个字段**全部可选**，互不依赖。
 
-三个可选 frontmatter 字段：
+四个可选 frontmatter 字段：
 
 | 字段 | 取值 | 何时标 |
 | --- | --- | --- |
-| `confidence` | `high` / `medium` / `low` | fast-moving / 争议 / 单源内容标 `medium` 或 `low`；多源交叉印证且无争议标 `high`（或省略，省略 = medium） |
+| `reviewed` | `true`（仅在为 true 时写） | 人工**已审核该页**——写 `reviewed: true` + `reviewed_at: <今天>` |
+| `reviewed_at` | `YYYY-MM-DD` | 与 `reviewed: true` 成对出现 |
 | `contested` | `true`（仅在为 true 时写） | 本页含**尚未裁定**的矛盾主张——搭配 `contradictions` 指向对端 |
 | `contradictions` | wiki 页路径数组 | 与本页主张冲突的页面（**双向标注**：A 标 B，B 也标 A） |
 
-`lint_wiki.py`（§二 13）会把 `contested: true` / `confidence: low` / 非对称 `contradictions`
-拎出来供复审——不是 error，是"弱主张自带警示"。**核心理念**：单源弱断言一旦写进 wiki
-不加标注，时间一长会被当成"既成事实"——这是比断链更隐蔽的腐烂，这三个字段让它显性化。
+`lint_wiki.py`（§二 13）会把 `contested: true` / 非对称 `contradictions` 拎出来供复审，
+未审核页面会标 `pending-review`（info，新常态）。**核心理念**：单源弱断言一旦写进 wiki
+不加标注，时间一长会被当成"既成事实"——这是比断链更隐蔽的腐烂，这些字段让它显性化。
+
+**生命周期规则（LLM 必读）**：`reviewed: true` 是"我对这一刻的内容背书"的快照，**不是永久标签**。
+任何对页面正文的 LLM 修改都会让戳失效——必须**删除** `reviewed` + `reviewed_at` 回到默认未审核状态，
+由人重新审。`lint_wiki.py` 用 `reviewed-stale` 兜底：`reviewed: true` 存在且
+`updated > reviewed_at` 时给 warn，把漏清戳的页面拎出来。
 
 ### 矛盾处理 Update Policy（ingest 遇到"新资料与已有页冲突"时）
 
@@ -195,7 +201,8 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
    不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指
 4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（§二 13）；与用户一起裁定后，
-   移除 `contested`（保留 `confidence` 反映裁定后的可信度）
+   移除 `contested`（**不再保留 `confidence` 字段**——0.7.0 起已退役；如该页此前已审核，
+   按"生命周期规则"判断是否需要重新审）
 
 ### Index 扩容（防 index.md 翻不到底）
 

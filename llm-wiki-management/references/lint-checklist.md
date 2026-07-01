@@ -19,6 +19,28 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 退出码：0 = 干净；1 = 有问题（看输出）。
 
+### 子命令 `--migrate-confidence`（0.7.0+）
+
+老 wiki 中 `confidence: high/medium/low` 字段（0.5.0 引入，0.7.0 退役）一次性迁移到
+新 `reviewed` + `reviewed_at`：
+
+```bash
+python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --migrate-confidence
+```
+
+行为：
+
+- `confidence: high` → 写 `reviewed: true` + `reviewed_at: <今天>`，移除 `confidence`
+- `confidence: medium` / `confidence: low` → 仅移除 `confidence`（默认未审核）
+- 遇到冲突（页面同时已有 `reviewed` 字段）→ `migration-conflict`，跳过该页
+- 输出报告：`<N> migrated, <M> removed, <K> skipped (conflicts)`
+- **不**写 log 条目（迁移是脚本运行，不是 wiki 操作事件）
+
+**与正常 lint 的关系**：
+
+- 不带 `--migrate-confidence` 时：见到 `confidence:` 字段给 `legacy-confidence-field` warn（§二.13.C）
+- 带 `--migrate-confidence` 时：**不**做常规 lint 检查，**只**做迁移（互斥模式）
+
 ## 二、Deterministic 检查清单（脚本执行）
 
 ### 1. `raw/` 不可变性
@@ -111,20 +133,39 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 - 计**非空行**（纯空行不计），避免空行撑大计数
 - **严重性：warning**——不是 error，但单页过长 = 主题过散，建议拆成子主题页 + cross-link
 
-### 13. 认知质量信号（confidence / contested / contradictions）
+### 13. 可信度与认知质量信号（reviewed / contested / contradictions）
 
-- 把作者主动标注的"弱主张警示"拎出来供复审——防止单源弱断言无声固化成"wiki 事实"
-  （字段语义见 [page-templates.md §一「可选：认知质量信号」](page-templates.md#可选认知质量信号防弱主张固化成事实)）
+- 把作者主动标注的"人工审核背书"与"认知冲突警示"拎出来供复审——防止单源弱断言无声固化成
+  "wiki 事实"，同时让"已审核"在 query / lint / index.md 三处可见
+- 字段语义见 [page-templates.md §一「可选：可信度与认知质量信号」](page-templates.md#可选可信度与认知质量信号)
 - 子检查（字段全部可选；省略 = 不评，不报）：
-  - `contested-page`（warn）：`contested: true` 的页——含未解决矛盾，需裁定后移除标记
-  - `low-confidence`（info）：`confidence: low` 的页——弱支撑主张
-  - `invalid-confidence`（warn）：`confidence` 取值不在 `high` / `medium` / `low`
-  - `contradiction-target-missing`（warn）：`contradictions` 指向不存在的页
-  - `contradiction-asymmetric`（warn）：A 把 B 列入 `contradictions` 但 B 未反向标注 A
-    （字段语义要求**双向标注**）
+
+#### A. 可信度信号 reviewed（0.7.0+）
+
+- `pending-review`（**info**）：非 log/index 页**未**含 `reviewed: true`——新常态，仅提示
+- `reviewed-stale`（**warn**）：`reviewed: true` 存在但 `updated > reviewed_at`——LLM 修改后漏清戳
+- `invalid-reviewed-value`（**warn**）：`reviewed` 取值非严格 `true`（如 `"true"` 字符串、`yes`、`1`、`false`）
+- `reviewed-at-missing`（**warn**）：`reviewed: true` 存在但缺 `reviewed_at`
+- `reviewed-at-orphan`（**warn**）：`reviewed_at` 存在但缺 `reviewed: true`
+- `index-review-badge-drift`（**warn**）：`wiki/index.md` 条目上的 ✓/✗ 标识与被链页 frontmatter
+  不一致（缺漏 / 多余 / 日期错）
+
+#### B. 认知质量信号 contested / contradictions（0.5.0+）
+
+- `contested-page`（warn）：`contested: true` 的页——含未解决矛盾，需裁定后移除标记
+- `contradiction-target-missing`（warn）：`contradictions` 指向不存在的页
+- `contradiction-asymmetric`（warn）：A 把 B 列入 `contradictions` 但 B 未反向标注 A
+  （字段语义要求**双向标注**）
+
+#### C. 迁移期检测（0.5.0 → 0.7.0 过渡）
+
+- `legacy-confidence-field`（warn）：出现已退役的 `confidence:` 字段——请运行
+  `lint_wiki.py --migrate-confidence`（见 §一 调用方式）
+- **什么时候下线**：0.7.0 发布后建议保留 ≥ 1 个迁移周期（半年），期间未触发可移除
+
 - **为什么是 deterministic 而非半定性**：这里只读作者**已写**的 frontmatter 信号并拎出来；
-  判定"某主张到底该不该标 low / 是否真的矛盾"是 §三 14 的半定性工作，lint 不替作者决定
-- **严重性**：见上各子项——`contested` / 断链类为 warn（需行动），`low-confidence` 为 info（提示）
+  判定"某页是否真的经过认真审核 / 某主张到底是否矛盾"是 §三 半定性工作，lint 不替人/agent 决定
+- **严重性**：见上各子项——`reviewed-stale` / 断链类为 warn（需行动），`pending-review` 为 info（新常态）
 
 ### 14. MEMORY.md 索引一致性
 
@@ -189,9 +230,13 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 [ERROR] orphan-page: wiki/concepts/qux.md is not listed in wiki/index.md
 [WARN] stale-summary: wiki/sources/quux.md type=source updated=2024-01-01 (>90 days)
 [WARN] log-format: wiki/log.md line 23: '## [bad] ingest | foo' doesn't match expected format
+[WARN] reviewed-stale: wiki/concepts/transformer.md reviewed=true reviewed_at=2026-06-15 但 updated=2026-07-01 — LLM 修改后未清 reviewed，建议重新审核
+[WARN] index-review-badge-drift: wiki/index.md 条目 'Transformer' 标识为 ✓ reviewed 2026-06-15 但被链页 reviewed=true reviewed_at=2026-06-30 — 日期错
+[WARN] legacy-confidence-field: wiki/sources/llama-2.md 含已退役 confidence 字段——请运行 --migrate-confidence
 [INFO] missing-xref: wiki/sources/abc.md mentions 'self-attention' but doesn't link to concepts/self-attention.md
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
 [INFO] memory-not-indexed: wiki/MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
+[INFO] pending-review: wiki/concepts/flash-attention.md 未审核 — 待人工复审后置 reviewed: true
 ```
 
 每条带：**严重性** + **类别** + **文件:行** + **描述**。

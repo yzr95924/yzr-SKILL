@@ -8,8 +8,8 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-01
-  wiki_spec_version: 0.6.0
+  last_modified: 2026-07-02
+  wiki_spec_version: 0.7.0
 ---
 
 # LLM Wiki Management
@@ -151,18 +151,19 @@ metadata:
    `scripts/lint_wiki.py` 为准）
 5. **每页必带 YAML frontmatter**——共有必填 5 字段（`title` / `type` / `created` /
    `updated` / `tags`），推荐 `description`（一句话，`index.md` 条目摘要从它来）。
-   **5 字段是 OKF §9 "字段齐全性" 与 lint 校验一致性的最小交集**——少于 5 字段会让
-   "抓腐烂"判定（stale / orphan）失效，多于 5 字段 OK 但不强制。
+   **为什么是这 5 个**见 [wiki-spec.md §9「通用必填字段」](references/wiki-spec.md#通用必填字段5-项)
+   （OKF §9 字段齐全性 × lint 校验一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
    `wiki/MEMORY/MEMORY.md` **无 frontmatter**（被 CLAUDE.md `@` import 的索引片段）——
    权威定义见 [spec §3 / §4 / §5.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
    同步以该处为准。
-   **可选认知质量信号**（`confidence` / `contested` / `contradictions`，全部可选）——语义同样在
-   page-templates.md §一。它们把"单源弱主张"显性化，防其无声固化成 wiki 事实；ingest 遇到与
-   已有页矛盾时按 CLAUDE.md「矛盾处理 Update Policy」双向标注 `contested` + `contradictions`。
-   lint（见下）会把 `contested: true` / `confidence: low` 拎出来供复审。
+   **可选可信度与认知质量信号**（`reviewed` / `reviewed_at` / `contested` / `contradictions`，
+   全部可选）——语义同样在 page-templates.md §一；**`reviewed: true` + `reviewed_at: <date>`
+   表示"人工已审核该页"**，query 时优先采信；ingest 遇到与已有页矛盾时按 CLAUDE.md「矛盾处理
+   Update Policy」双向标注 `contested` + `contradictions`。lint 触发条件与严重性见
+   [`lint-checklist.md` §二.13](references/lint-checklist.md#13-可信度与认知质量信号reviewed--contested--contradictions)。
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
@@ -170,6 +171,16 @@ metadata:
    时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
    必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 CLAUDE.md `@` import 会话常驻，否则下次
    读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-wikimemory)
+10. **LLM 修改已审核页必须清 `reviewed` 戳**——按
+    [`page-templates.md` §一「生命周期规则」](references/page-templates.md#生命周期规则llm-必读)：
+    任何对页面正文的 LLM 修改（含 ingest 重摄取、query 归档、refine、任何 Edit/Write
+    触碰正文）都会让戳失效，必须**删除** `reviewed` + `reviewed_at` 两个字段回到默认
+    未审核状态，由人重新审；`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在
+    且 `updated > reviewed_at` 时给 warn）兜底。
+
+    > **注**：同样的规则也会出现在 [`references/claude-md-template.md`](references/claude-md-template.md) §二
+    > 「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板，必须自包含（不能跨仓
+    > 引到本 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
 ### 边界
 
@@ -183,6 +194,7 @@ metadata:
   时适用；未启用 git 时没有"未提交改动"概念（lint 自动跳过此项）
 - **不**对 wiki 内文件用 Read 之外的工具做"自动"修改——所有修改走 Edit / Write 并
   走 schema 约定
+- **不**在 LLM 修改页面后保留 `reviewed: true` 戳——戳即过期，回到默认未审核（详见核心原则 §10）
 
 ### 反模式（绝对禁止）
 
@@ -342,8 +354,10 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`；权威正则见 [page-templates.md §7](references/page-templates.md#7-logmdlog)）
    - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
    - 页面体量——5 类内容页非空行 > ~300 行阈值（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
-   - 认知质量信号（`contested: true` / `confidence: low` 或非法 / `contradictions` 断链或非对称）——见
-     [lint-checklist.md §二.13](references/lint-checklist.md#13-认知质量信号confidence--contested--contradictions)
+   - 认知质量信号（`contested: true` / `contradictions` 断链或非对称）+ 可信度信号
+     （`pending-review` info / `reviewed-stale` warn / `reviewed` 取值非法 / `reviewed_at`
+     与 `reviewed` 不成对 / `index-review-badge-drift` / `legacy-confidence-field`
+     迁移期检测）——见 [lint-checklist.md §二.13](references/lint-checklist.md#13-可信度与认知质量信号reviewed--contested--contradictions)
    - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效（spec §13；让用户感知 link 丢失）
 3. 脚本输出报告后，**agent 还要做半定性检查**：
    - 矛盾主张（同一概念在两个 page 中说法冲突）
@@ -461,6 +475,9 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 1 个孤儿页：concepts/scaling-laws.md 没有任何 inbound link
    - 1 个 `contested-page`：sources/llama-3.md 与 sources/llama-2.md 对 context window
      说法冲突、已双向标注 `contested: true`——需与用户裁定后移除标记
+   - 7 个 `pending-review`：默认未审核页面（新常态，info）
+   - 1 个 `reviewed-stale`：sources/llama-2.md reviewed=true reviewed_at=2026-06-01 但
+     updated=2026-06-25——LLM 修改后漏清 reviewed 戳，建议重新审核
 3. agent 补充半定性观察：
    - sources/llama-3.md 与 sources/llama-2.md 对 "context window" 的描述不一致
 4. 整理成结构化报告，问用户先修哪些
