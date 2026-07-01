@@ -169,14 +169,15 @@ metadata:
   - 句 2 = 核心设计点 / 关键数据
   - 句 3 = 落地 / 关键 baseline 对比
 
-> **为什么不带 `# Reference` 章节 / 不录作者主页 / 不录参考实现？**
-> - 论文标题、作者主页、参考实现等元信息在 outline-wiki 由 `title` 字段
->   承载（且 Gemini 容易**自由发挥编造**作者主页、参考仓库 URL）；
->   再写 `# Reference` 会与 `title` 重复，**且** Gemini 编造链接是常见的
->   错误来源
-> - 论文链接字段**保留位置**作为占位符，由用户在 Outline UI 手动填写——
->   这样既统一了本地 Markdown / Obsidian 与 outline-wiki 场景的模板，
->   也避免 Gemini 猜错 URL
+**为什么不带 `# Reference` 章节 / 不录作者主页 / 不录参考实现？**
+
+- 论文标题、作者主页、参考实现等元信息在 outline-wiki 由 `title` 字段
+  承载（且 Gemini 容易**自由发挥编造**作者主页、参考仓库 URL）；
+  再写 `# Reference` 会与 `title` 重复，**且** Gemini 编造链接是常见的
+  错误来源
+- 论文链接字段**保留位置**作为占位符，由用户在 Outline UI 手动填写——
+  这样既统一了本地 Markdown / Obsidian 与 outline-wiki 场景的模板，
+  也避免 Gemini 猜错 URL
 
 **正文章节**（从 `## 背景与动机` 起完全统一）：
 
@@ -278,7 +279,7 @@ metadata:
    > （解决边界不准 / 标题残缺 / 上方留白三个老问题）。`--no-figures` 关闭图导出；
    > 除非用户明确说"不要用 Gemini 视觉定位 / 嫌慢 / 不想花 token"，否则**不要**加
    > `--no-refine-figures`。详细规范见 [`references/figure-processing.md`](references/figure-processing.md)。
-
+   >
    > **图片选择 / 排版 / alt 写法 / 处理不了的图兜底**——这些是给 Gemini 看的真权威规则，
    > 统一收在 `assets/prompt-template.md` §图引用约定。本节只讲 Gemini 看不到的 meta / 流程约束。
 
@@ -287,7 +288,8 @@ metadata:
    - **三阶段格式**（同一 image 引用在 3 个阶段的不同形态）：
      - Gemini 输出: `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)`
      - 脚本图导出处理后（quick 默认）: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
-     - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`（走 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的 attachment 3 步）
+     - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`
+       （走 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的 attachment 3 步）
    - `=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
@@ -321,7 +323,10 @@ metadata:
    - 链接类型不明确时（如脚注里的 project page）归到"代码仓库"那行
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
    - 论文**完全未提**任何 prototype 链接时，**整段省略**（不要写"无开源"或占位文本）
-8. **模型选择**：默认与"何时显式覆盖"指南见 §模型选型小节（脚本 `DEFAULT_MODEL` 常量在 `scripts/gemini_paper_summary.py:65`）。实际可用模型以当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。**为什么不在本条重列模型名**：模型选型表是 SSOT，列在 §模型选型小节里
+8. **模型选择**：默认与"何时显式覆盖"指南见 §模型选型小节
+   （脚本 `DEFAULT_MODEL` 常量在 `scripts/gemini_paper_summary.py:65`）。实际可用模型以
+   当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。
+   **为什么不在本条重列模型名**：模型选型表是 SSOT，列在 §模型选型小节里
    - **结果质量 > 系统可用性 · 无自动 fallback**（2026-06-21 决策，2026-06-30 加固）：
      默认模型遇到 503 UNAVAILABLE / 429 RESOURCE_EXHAUSTED / 5xx 等高并发 / 限流
      错误时，统一走 3 次重试（2s/4s 退避；4xx 永久错误不重试直接抛）——仍失败则
@@ -395,7 +400,8 @@ metadata:
 
 **Why：** 用户在 2026-06-21 反馈——图片完整性、attachment 上传失败、边界破坏常被遗漏。自检是生成流程的最后一道防线，分 3 层面（引用完整性 / 二进制完整性 / 边界破坏）。
 
-**完整规范见 [`references/post-generation-self-check.md`](references/post-generation-self-check.md)：** 自动化分层、运行时策略、失败处理、visual diff 不自动做的原因。
+**完整规范见 [`references/post-generation-self-check.md`](references/post-generation-self-check.md)：**
+自动化分层、运行时策略、失败处理、visual diff 不自动做的原因。
 
 ## 工作流 / 步骤
 
