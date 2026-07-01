@@ -69,3 +69,7 @@ CC 只采纳 MCP 首个 text block、丢弃其后；outline 读完整正文走 R
 ### gemini-paper-summary 图片提取边界与设计决策
 
 Stage 2 视觉定位/坐标约定/caption 写 alt/quick 默认带图等图片提取全部设计决策与边界 case。 → [正文](gemini-paper-summary-figure-extraction-edges.md)
+
+### wiki-spec ↔ workspace-spec type enum 耦合
+
+workspace-spec §13 type 表"复用 wiki-spec §9"——改 wiki-spec type enum（如 0.6.0 删 type:memory）时必须同步查 workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-workspace-spec-type-coupling.md)

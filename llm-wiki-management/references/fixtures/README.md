@@ -1,6 +1,6 @@
 # Fixtures
 
-CLI 实现 wiki 仓时落盘的 `wiki/index.md` / `wiki/log.md` / `wiki/MEMORY/README.md` / `.gitignore`
+CLI 实现 wiki 仓时落盘的 `wiki/index.md` / `wiki/log.md` / `wiki/MEMORY/MEMORY.md` / `.gitignore`
 四个文件的**字面量金标准**。
 
 ## 用法
@@ -15,7 +15,7 @@ CLI 实现时,把 fixtures 视为**带占位符的字节模板**,把 `references
 
 cmp -s $TMP/wiki/index.md         canonical/index.md
 cmp -s $TMP/wiki/log.md            canonical/log.md
-cmp -s $TMP/wiki/MEMORY/README.md  canonical/memory-readme.md
+cmp -s $TMP/wiki/MEMORY/MEMORY.md  canonical/memory-index.md
 cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占位符,直接 fixture 比对
 ```
 
@@ -43,7 +43,7 @@ cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占
 |---|---|---|
 | `index.md.txt` | init 时刻 | **LLM agent**（每次 ingest / 重写 / 归档同步） |
 | `log.md.txt` | init 时刻（首条 setup 条目） | **LLM agent**（只 append ingest/query/lint 条目） |
-| `memory-readme.txt` | init 时刻 | **LLM agent**（追加经验条目到 MEMORY/ 下） |
+| `memory-index.txt` | init 时刻 | **LLM agent**（追加经验条目到 MEMORY/ 下 + 同步 MEMORY.md 索引） |
 | `gitignore.txt` | init 时刻 | **不动**（除非用户手动调） |
 
 详细归属见 `wiki-spec.md` 顶部声明。

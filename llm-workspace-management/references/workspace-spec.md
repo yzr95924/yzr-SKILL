@@ -51,7 +51,7 @@
 ├── STATS.md                        # skill scan 时建 + 维护（§6）
 ├── cross_queries/                  # skill 可选建（§7）
 ├── LINT.md                         # skill lint 时写（§8）
-├── MEMORY/                         # skill 建空目录 + 写 README（§9）
+├── MEMORY/                         # CLI init 建空目录 + 写 MEMORY.md 索引（§9）
 └── <wiki-name>/                    # 每个 wiki 一个子目录，遵循 [wiki-spec.md §1](wiki-spec.md#1-目录结构)
 ```
 
@@ -67,16 +67,18 @@
 | `STATS.md` | CLI **不写**（留空） | **skill**（scan 时一并刷新） | workspace 结构化统计 |
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
 | `LINT.md` | CLI **不写**（留空） | **skill**（lint 时写） | workspace 级 lint 报告（最近一次） |
-| `MEMORY/` | CLI **不写**（留空目录） | **skill**（首次 scan 时建空目录 + 写 README.md） | 跨 wiki agent 私有记忆 |
+| `MEMORY/` | CLI 写（init 建空目录 + 写 MEMORY.md 索引） | **skill**（写 `*.md` 经验 + 同步 MEMORY.md 索引） | 跨 wiki agent 私有记忆 |
 | `<wiki-name>/` | CLI 写（按 [wiki-spec §1](wiki-spec.md#1-目录结构)） | **CLI** 写元数据 + **skill**（或 `llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
 > **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_models.toml`、
-> `CLAUDE.md`（按模板拷贝）、`.gitignore` 四份根级文件 + `<wiki-name>/` 子树（按 wiki-spec）。
-> **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` / `cross_queries/`**——
-> 这五份是 workspace skill 的领地。
+> `CLAUDE.md`（按模板拷贝）、`.gitignore` 四份根级文件 + `MEMORY/`（init 建空目录 + 写
+> `MEMORY.md` 索引占位，见 §9）+ `<wiki-name>/` 子树（按 wiki-spec）。
+> **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` + `MEMORY/*.md` 经验条目**——
+> 这些是 workspace skill 的领地。
 
 > **skill 的写入范围限制（不变量）**：skill 只写 `INDEX.md` / `STATS.md` / `LINT.md` /
-> `MEMORY/` / `cross_queries/` 五份 workspace 级文件 + 各 `<wiki-name>/wiki/**`（通过
+> `cross_queries/` 四份 workspace 级文件 + `MEMORY/*.md` 经验条目（并同步追加 `MEMORY.md`
+> 索引一行；`MEMORY.md` 骨架由 CLI init 写）+ 各 `<wiki-name>/wiki/**`（通过
 > `llm-wiki-management`）。**skill 绝不写 `workspace.toml` / `workspace_models.toml` /
 > `.gitignore` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后一份是用户的宪法。skill 也不写
 > `<wiki-name>/raw/`（用户所有）。
@@ -340,9 +342,10 @@
 
 ## §9 workspace MEMORY/（skill 维护）
 
-> **维护方**：CLI 在 init 时刻**不创建**目录（留空）；skill 在**首次 scan** 时建空目录
-> 并写 `MEMORY/README.md` 占位（说明本目录用途）。skill 是 LLM agent 的**跨 wiki** 私有
-> 记忆——人类**不写** MEMORY 内容。CLI 不参与 MEMORY 的任何写入。
+> **维护方**：CLI 在 init 时刻创建**空目录**并按 §9.1 写入 `MEMORY/MEMORY.md`（索引占位）；
+> 后续 `MEMORY/*.md` 经验条目由 **skill** 写入，并**同步追加 MEMORY.md 索引一行**。
+> skill 是 LLM agent 的**跨 wiki** 私有记忆——人类**不写** MEMORY 内容。CLI 不参与 MEMORY
+> 的后续写入（仅 init 写骨架）。
 
 > **scope 严格区分**（**核心不变量**，避免变成 junk drawer）：
 >
@@ -358,25 +361,28 @@
 - **MEMORY 不在 `INDEX.md` 中强制列出**——它是 agent 私有入口，不需要 workspace 单一入口约束
 - 命名约束：详见 §15
 
-### §9.1 MEMORY/README.md
+### §9.1 MEMORY/MEMORY.md（索引）
 
-> **维护方**：skill 在首次 scan 时写一次（idempotent：已存在则跳过）。
-> 类似 wiki-spec §5.1 `MEMORY/README.md`，说明本目录用途。
+> **维护方**：CLI 在 init 时刻写一次（idempotent：已存在则跳过）。与 wiki-spec §5.1
+> `MEMORY/MEMORY.md` 同构——本目录的索引文件。
 
-- 路径：`<workspace-root>/MEMORY/README.md`
-- frontmatter（**4 必填**，省 `description`）：
+- 路径：`<workspace-root>/MEMORY/MEMORY.md`
+- **无 frontmatter**——它是被 `<workspace>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 内联的
+  索引片段，不是 workspace 内容页（对齐仓库根 `MEMORY/MEMORY.md` / wiki-spec §5.1 形态）。
+  lint / scan 把它当索引跳过 frontmatter / type 校验
+- **加载机制**：agent 在 workspace 根目录工作时，Claude Code 自动加载根 `CLAUDE.md`，
+  `@MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLMW_WORKSPACE`
+  读 CLAUDE.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
+- 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
+  口径分裂）+ `## 索引` 段；每条一行：`- <slug> — <一句话摘要> → [正文](<slug>.md)`
+- **内容来源 / 字面量**：[`references/fixtures/memory-index.txt`](fixtures/memory-index.txt)
+  （与 [`references/canonical/memory-index.md`](canonical/memory-index.md) 一致——MEMORY.md 无占位符，
+  fixtures 与 canonical 内容相同）。CLI init **逐字拷贝**生成 `<workspace>/MEMORY/MEMORY.md`——与
+  wiki-spec §5.1 走相同的 fixtures/canonical 字节金标准模式（无占位符字面量文件进 fixtures/canonical；
+  有占位符的 `CLAUDE.md` 模板仍在 references/ 根，走 §4 内容级验证）。初始索引为空，注释用纯文字
+  描述格式，不含真实 `[](...)` 链接以免被未来 lint 当死链
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `title` | string | 是 | `"MEMORY"` |
-| `type` | enum | 是 | `memory`（**复用 wiki-spec §5.1 的 reserved 类型**——本目录与 wiki 内 MEMORY 用途同构） |
-| `tags` | array | 是 | `[memory]` |
-| `created` | date | 是 | skill 首次 scan 日期 |
-| `updated` | date | 是 | skill 首次 scan 日期 |
-
-- 正文骨架：1 段用途说明 + 1 段"何时写 / 不写"指引（对照 wiki 内 MEMORY/README.md 的格式）
-
-### §9.2 MEMORY/*.md（非 README）
+### §9.2 MEMORY/*.md（非 MEMORY.md）
 
 - 路径：`<workspace-root>/MEMORY/<slug>.md`
 - 命名约束：kebab-case `^[a-z0-9][a-z0-9-]*$`，见 §15
@@ -395,6 +401,7 @@
   - **不**要求有 inbound 链接
   - 正文无长度上限（agent 经验沉淀可以很长）
   - LLM agent **必须**创建（user 不写）
+  - **必须**在 `MEMORY/MEMORY.md` 索引列出一行（skill 写 memory 时同步追加）
 
 ### §9.3 何时写 / 不写
 
@@ -413,13 +420,12 @@
 
 ### §9.4 创建时机
 
-skill 在 `scan` 触发时检查 `<workspace>/MEMORY/` 是否存在 + 是否含 `README.md`：
+`MEMORY/` 目录 + `MEMORY.md` 索引由 **CLI init 时刻**创建（见 §1 / §9.1）；skill **不重建**
+（已存在即跳过）。这与 `INDEX.md` / `STATS.md`（skill scan 时建）区分——MEMORY 骨架是出生
+形态的一部分，由 CLI 负责。
 
-- 都不存在 → 建目录 + 写 `README.md`（占位）
-- 目录存在但 README 缺失 → 补 README
-- 都存在 → 不动
-
-`lint` / `query` / `link` 触发时不创建 MEMORY 结构——只在真正需要写 MEMORY 文件时才 Write。
+skill 在 `lint` / `query` / `link` / `scan` 触发时**不创建** MEMORY 结构；只在真正需要写
+跨 wiki 经验时才 Write `MEMORY/<slug>.md` + 同步 `MEMORY.md` 索引一行。
 
 ## §10 .gitignore
 
@@ -479,9 +485,11 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 
 **绝不允许覆盖**：workspace CLI 的 idempotency 原则——已存在 + 内容合法 = 跳过；已存在 + 内容非法 = 报错；用户想重新初始化必须先手动备份 + 删除。
 
-> **注意**：CLI **不**触碰 `INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` / `cross_queries/`——
-> 这些是 skill 的领地，CLI 不检查它们是否存在，也不拒绝 init 时这些文件已存在的情况
-> （skill 会在首次 `scan` 时按需创建或跳过自己的产物，这是 skill 的幂等约定）。
+> **注意**：CLI **不**触碰 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` +
+> `MEMORY/*.md` 经验条目——这些是 skill 的领地。CLI 仅在 init 时写 `MEMORY/MEMORY.md` 索引
+> 占位（见 §9.1）；CLI 不检查 INDEX/STATS/LINT/cross_queries 是否存在，也不拒绝 init 时
+> 这些文件已存在的情况（skill 会在首次 `scan` 时按需创建或跳过自己的产物，这是 skill 的
+> 幂等约定）。
 
 ## §13 Frontmatter 字段约定（skill 写 §5–§9 时用）
 
@@ -495,22 +503,23 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | `created` | date | `YYYY-MM-DD` |
 | `updated` | date | `YYYY-MM-DD` |
 
-### `type` 取值（5 类 wiki 内容页 + 3 类 wiki reserved + 4 类 workspace reserved + 1 类 workspace-memory）
+### `type` 取值（5 类 wiki 内容页 + 2 类 wiki reserved + 4 类 workspace reserved + 1 类 workspace-memory）
 
 | `type` | 目录 | 备注 |
 | --- | --- | --- |
 | `entity` / `concept` / `source` / `comparison` / `synthesis` | 5 类 wiki 内容页 enum（**复用 wiki-spec §9**） | `<workspace>/MEMORY/*.md` 可按记忆内容性质选 |
-| `index` / `log` / `memory` | 3 类 wiki reserved（**复用 wiki-spec §9**） | `<workspace>/MEMORY/README.md` 用 `memory` |
+| `index` / `log` | 2 类 wiki reserved（**复用 wiki-spec §9**） | wiki 内 `wiki/index.md` / `wiki/log.md`（workspace 不直接用） |
 | `workspace-index` | `<workspace>/INDEX.md`（唯一） | workspace reserved |
 | `workspace-stats` | `<workspace>/STATS.md`（唯一） | workspace reserved |
 | `workspace-lint` | `<workspace>/LINT.md`（唯一） | workspace reserved |
 | `cross-query` | `<workspace>/cross_queries/<slug>.md` | workspace reserved |
-| `workspace-memory` | `<workspace>/MEMORY/*.md`（非 README） | workspace reserved，本 spec 新增（0.2.0） |
+| `workspace-memory` | `<workspace>/MEMORY/*.md`（非 MEMORY.md） | workspace reserved，本 spec 新增（0.2.0） |
 
-> **与 wiki-spec §9 的关系**：本 spec 新增的 `workspace-memory` 与 wiki 内的 `memory`
-> reserved 不冲突——location 区分（`workspace/MEMORY/*.md` 用 `workspace-memory`；
-> `<wiki>/wiki/MEMORY/README.md` 用 `memory`；`<wiki>/wiki/MEMORY/*.md` 用 5 类 enum）。
-> lint 工具需要识别本 spec 新增的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
+> **与 wiki-spec §9 的关系**：workspace-spec 的 `workspace-memory`（`<workspace>/MEMORY/*.md`
+> 经验条目）与 wiki 内容页 5 类 enum（`<wiki>/wiki/MEMORY/*.md` 可按记忆性质选）location 区分，
+> 不冲突。两份 `MEMORY.md` 索引（workspace 与 wiki 各一份）均**无 frontmatter**——wiki-spec
+> 0.6.0 起 `<wiki>/wiki/MEMORY/MEMORY.md` 亦无 frontmatter，本 spec 对齐。lint 工具需要识别本
+> spec 新增的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
 
 ### 类型特化字段
 
@@ -541,7 +550,7 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 | --- | --- | --- |
 | Wiki name | `[a-z0-9][a-z0-9_-]*`，1–64 字符；推荐纯 kebab-case | `[wikis.<name>]` key + `<wiki-name>/` 子目录名 |
 | cross_query slug | kebab-case `^[a-z0-9][a-z0-9-]*$` | `cross_queries/<slug>.md` |
-| MEMORY 文件名 | kebab-case `^[a-z0-9][a-z0-9-]*$` | `<workspace>/MEMORY/*.md`（README 例外） |
+| MEMORY 文件名 | kebab-case `^[a-z0-9][a-z0-9-]*$` | `<workspace>/MEMORY/*.md`（MEMORY.md 例外） |
 | `model_id` | `[a-z0-9_-]{1,64}` | `workspace_models.toml` |
 | frontmatter 字段名 | 严格小写 + 下划线 | 所有 workspace 级 markdown |
 | frontmatter `type` 值 | 严格小写 + 连字符（`workspace-index` / `workspace-memory` 等） | 所有 workspace 级 markdown |
@@ -567,18 +576,21 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 CLI 在生成完成后，可执行以下验证：
 
 1. **字节级对比**：CLI 渲染的 `workspace.toml` 与本 spec §2 schema 一致；`workspace_models.toml`
-   与 §3 schema 一致；`CLAUDE.md` 与 §4 模板字面一致（占位符替换后）；`.gitignore` 与 §10 一致
-2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项；`<wiki-name>/` 子目录按
+   与 §3 schema 一致；`CLAUDE.md` 与 §4 模板字面一致（占位符替换后）；`MEMORY/MEMORY.md` 与
+   `references/canonical/memory-index.md` 字节一致（无占位符，直接 `cmp`，流程同 wiki fixtures）；`.gitignore` 与 §10 一致
+2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项（含 `MEMORY/MEMORY.md`）；`<wiki-name>/` 子目录按
    [wiki-spec §1](wiki-spec.md#1-目录结构) 落盘
 3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
    到已存在目录，应非零退出；尝试 `init` 时 `CLAUDE.md` 已存在，应非零退出（§12）
 4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；`*/.claude/settings.local.json` 在 `.gitignore` 中
-5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `MEMORY/` /
-   `cross_queries/` **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§9 约定建）
+5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`
+   **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§8 约定建）；但 `<workspace>/MEMORY/`
+   **存在**且含 `MEMORY.md` 索引、无 `*.md` 经验条目（CLI init 按 §9 建骨架）
 
 ## 附录 B：版本历史
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
+| 0.3.0 | 2026-07-01 | **breaking**：§9 MEMORY 重构——`MEMORY/README.md`（type:memory）→ `MEMORY/MEMORY.md`（无 frontmatter 索引，**CLI init 创建**，被 `<workspace>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 会话常驻）；§1 ownership `MEMORY/` 改 CLI init 建骨架；§13 删 wiki reserved `memory` 引用（跟齐 wiki-spec 0.6.0）。**老 workspace 迁移**：删 `MEMORY/README.md` + 新建 `MEMORY/MEMORY.md` 索引并把现有 `*.md` 各补一行 |
 | 0.2.0 | 2026-06-30 | **breaking**：新增 §4 `CLAUDE.md`（CLI init 按模板拷，用户所有）+ §9 `MEMORY/`；新增 `workspace-memory` reserved frontmatter type；§1 ownership 6 → 9 类；§12 拒绝条件新增 CLAUDE.md 已存在则拒绝 |
 | 0.1.0 | 2026-06-30 | 初始：6 类文件归属 + INDEX/STATS/LINT/cross_queries schema + CLI/skill 边界 + 3 类 reserved type |

@@ -73,7 +73,7 @@ def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
         if d.is_dir():
             for p in sorted(d.glob("*.md")):
                 out[sub].append(p)
-    # MEMORY/ 单独扫：含 README.md + 其它 .md
+    # MEMORY/ 单独扫：含 MEMORY.md（索引）+ 其它经验条目 .md
     mem_dir = wiki_dir / MEMORY_SUBDIR
     if mem_dir.is_dir():
         for p in sorted(mem_dir.glob("*.md")):
@@ -245,13 +245,13 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
     """2. frontmatter 完整性 + 3. source/synthesis 的 sources 字段"""
     findings = []  # type: List[str]
     pages = find_md_files(wiki_root)
-    # 合并所有非 index / log / MEMORY/README.md 页（MEMORY/README.md 是 reserved，不走 5 字段校验）
+    # 合并所有非 index / log / MEMORY/MEMORY.md 页（MEMORY/MEMORY.md 是索引无 frontmatter，不走 5 字段校验）
     content_pages = []
     for sub in WIKI_SUBDIRS:
         content_pages.extend(pages[sub])
     for p in pages["memory"]:
-        # 跳过 MEMORY/README.md（reserved；只校验 type=memory 即可，字段不全不报错）
-        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+        # 跳过 MEMORY/MEMORY.md（索引，无 frontmatter；不校验字段）
+        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
         content_pages.append(p)
     # 跳过不存在的 index / log
@@ -512,7 +512,7 @@ def check_tag_taxonomy(wiki_root: Path) -> List[str]:
 
     找不到 CLAUDE.md / Tag Taxonomy 段为空 / 解析出 0 个 tag → 静默跳过
     （避免新 setup 的 wiki 必报错）。启用 taxonomy 后，对每个内容页（5 类 +
-    MEMORY 非 README）的 frontmatter.tags 元素做包含校验；不在白名单 → info 级。
+    MEMORY 非 MEMORY.md）的 frontmatter.tags 元素做包含校验；不在白名单 → info 级。
     """
     findings = []  # type: List[str]
     allowed = parse_tag_taxonomy(wiki_root / "CLAUDE.md")
@@ -523,8 +523,8 @@ def check_tag_taxonomy(wiki_root: Path) -> List[str]:
     for sub in WIKI_SUBDIRS:
         target_pages.extend(pages[sub])
     for p in pages["memory"]:
-        # MEMORY/README.md 是 reserved，不校验
-        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+        # MEMORY/MEMORY.md 是索引无 frontmatter，不校验
+        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
         target_pages.append(p)
     for p in target_pages:
@@ -543,9 +543,7 @@ def check_tag_taxonomy(wiki_root: Path) -> List[str]:
             if not t:
                 continue
             if t not in allowed:
-                findings.append(
-                    f"tag-not-in-taxonomy: {rel} tags 含 '{t}' 不在 CLAUDE.md 的 Tag Taxonomy 白名单"
-                )
+                findings.append(f"tag-not-in-taxonomy: {rel} tags 含 '{t}' 不在 CLAUDE.md 的 Tag Taxonomy 白名单")
     return findings
 
 
@@ -561,9 +559,9 @@ def check_filename_kebab(wiki_root: Path) -> List[str]:
                 findings.append(
                     f"filename-not-kebab: {rel} 文件名 '{p.name}' 应使用 kebab-case（小写字母 + 数字 + 短横线）"
                 )
-    # MEMORY/* 走同一规则，但排除 README.md（reserved，大写不报错）
+    # MEMORY/* 走同一规则，但排除 MEMORY.md（索引，大写不报错）
     for p in pages["memory"]:
-        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
         stem = p.stem
         if not re.match(r"^[a-z0-9][a-z0-9-]*$", stem):
@@ -658,7 +656,7 @@ def check_quality_signals(wiki_root):
     for sub in WIKI_SUBDIRS:
         target_pages.extend(pages[sub])
     for p in pages["memory"]:
-        if p.name == "README.md" and p.parent.name == MEMORY_SUBDIR:
+        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
         target_pages.append(p)
 
@@ -672,21 +670,15 @@ def check_quality_signals(wiki_root):
         rel = p.relative_to(wiki_root).as_posix()
         # contested
         if str(fm.get("contested", "")).strip().strip("\"'").lower() == "true":
-            findings.append(
-                f"contested-page: {rel} contested=true — 含未解决矛盾主张，需裁定后移除该标记"
-            )
+            findings.append(f"contested-page: {rel} contested=true — 含未解决矛盾主张，需裁定后移除该标记")
         # confidence
         conf = fm.get("confidence")
         if conf is not None:
             conf_s = str(conf).strip().strip("\"'").lower()
             if conf_s == "low":
-                findings.append(
-                    f"low-confidence: {rel} confidence=low — 弱支撑主张，引用需谨慎或找印证"
-                )
+                findings.append(f"low-confidence: {rel} confidence=low — 弱支撑主张，引用需谨慎或找印证")
             elif conf_s not in CONFIDENCE_VALUES:
-                findings.append(
-                    f"invalid-confidence: {rel} confidence='{conf}' 非法；应为 high/medium/low 之一"
-                )
+                findings.append(f"invalid-confidence: {rel} confidence='{conf}' 非法；应为 high/medium/low 之一")
         # contradictions（收集对端 + 即时检查 target 存在性）
         contras = fm.get("contradictions", [])
         if isinstance(contras, list) and contras:
@@ -705,8 +697,7 @@ def check_quality_signals(wiki_root):
                     resolved.add(target_rel)
                 else:
                     findings.append(
-                        f"contradiction-target-missing: {rel} contradictions 含 '{c}'，"
-                        f"但该页不存在（{target_rel}）"
+                        f"contradiction-target-missing: {rel} contradictions 含 '{c}'，但该页不存在（{target_rel}）"
                     )
             if resolved:
                 contra_out[rel] = resolved
@@ -719,6 +710,52 @@ def check_quality_signals(wiki_root):
                     f"contradiction-asymmetric: {src} 把 {tgt} 标为矛盾对端，"
                     f"但 {tgt} 的 contradictions 未反向标注 {src}（要求双向标注）"
                 )
+    return findings
+
+
+def check_memory_index(wiki_root: Path) -> List[str]:
+    """14. MEMORY.md 索引一致性——MEMORY/*.md（非 MEMORY.md）必须在 MEMORY.md 索引中列出
+
+    MEMORY.md 是被 CLAUDE.md @import 的轻量索引（无 frontmatter），不走 wiki/index.md
+    强制入口；但每条经验条目仍需在 MEMORY.md 列一行，否则下次会话读不到（MEMORY 沦为死库）。
+    本检查把"有文件但没进索引"的拎出来。反向（索引列了但文件不存在）已被 check_link_integrity
+    的 broken-link 覆盖（MEMORY.md 在 memory 桶，其 markdown 链接被扫）。
+
+    MEMORY.md 不存在时静默跳过（老 wiki 迁移期 / spec <0.6.0，不报错）。
+    severity = info（轻量索引非强制入口，类比 tag-not-in-taxonomy）。
+    """
+    findings = []  # type: List[str]
+    mem_dir = wiki_root / "wiki" / MEMORY_SUBDIR
+    memory_index = mem_dir / "MEMORY.md"
+    if not memory_index.is_file():
+        return findings
+    # 解析 MEMORY.md 正文里的 markdown 链接 → 已索引的文件名集合
+    indexed = set()  # type: Set[str]
+    text = memory_index.read_text(encoding="utf-8", errors="replace")
+    mem_dir_resolved = mem_dir.resolve()
+    for m in MD_LINK_RE.finditer(text):
+        target = resolve_link(memory_index, m.group(2))
+        if target is None:
+            continue
+        # 只关心 MEMORY/ 范围内的链接
+        try:
+            target.relative_to(mem_dir_resolved)
+        except ValueError:
+            continue
+        if target.is_file():
+            indexed.add(target.name)
+    # 扫 MEMORY/*.md（排除 MEMORY.md 本身）；任一不在 indexed → memory-not-indexed
+    if not mem_dir.is_dir():
+        return findings
+    for p in sorted(mem_dir.glob("*.md")):
+        if p.name == "MEMORY.md":
+            continue
+        if p.name not in indexed:
+            rel = p.relative_to(wiki_root).as_posix()
+            findings.append(
+                f"memory-not-indexed: {rel} 未在 wiki/MEMORY/MEMORY.md 索引中列出；"
+                f"该条目下次会话读不到（追加一行：- <slug> — <一句话> → [正文](<slug>.md)）"
+            )
     return findings
 
 
@@ -743,7 +780,9 @@ def severity_of(finding: str) -> str:
         return "error"
     if finding.startswith(("external-anchor-corrupt", "external-target-drift")):
         return "warn"
-    if finding.startswith(("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")):
+    if finding.startswith(
+        ("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")
+    ):
         return "warn"
     if finding.startswith(
         (
@@ -755,7 +794,7 @@ def severity_of(finding: str) -> str:
         )
     ):
         return "warn"
-    if finding.startswith(("tag-not-in-taxonomy", "low-confidence")):
+    if finding.startswith(("tag-not-in-taxonomy", "low-confidence", "memory-not-indexed")):
         return "info"
     return "info"
 
@@ -805,6 +844,7 @@ def main() -> int:
     all_findings.extend(check_external_symlinks(wiki_root))
     all_findings.extend(check_page_size(wiki_root))
     all_findings.extend(check_quality_signals(wiki_root))
+    all_findings.extend(check_memory_index(wiki_root))
 
     # 过滤
     if args.severity != "all":

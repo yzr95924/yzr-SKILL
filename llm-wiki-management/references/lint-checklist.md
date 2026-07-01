@@ -34,7 +34,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 ### 2. frontmatter 完整性
 
-- 扫所有 `wiki/**/*.md`（排除 `index.md` 和 `log.md`）
+- 扫所有 `wiki/**/*.md`（排除 `index.md`、`log.md` 和 `MEMORY/MEMORY.md`——索引无 frontmatter）
 - 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
   （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
 - `type` 必须是 `entity` / `concept` / `source` / `comparison` / `synthesis` 之一
@@ -96,7 +96,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
   包了就解析不出 0 个 tag，lint 静默跳过（视为未启用约束）
 - 格式兼容：`- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持；
   多 tag 用 `/` `，` `,` 任一字符分隔）
-- 对每个内容页（5 类 + MEMORY 非 README）的 `frontmatter.tags` 元素做包含校验
+- 对每个内容页（5 类 + MEMORY 非 MEMORY.md）的 `frontmatter.tags` 元素做包含校验
 - 找不到 CLAUDE.md / Tag Taxonomy 段 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
   wiki 必报错）
 - 严格匹配的 tag 名 = 严格小写 + kebab-case（`^[a-z0-9][a-z0-9-]*$`），与文件名命名一致
@@ -125,6 +125,19 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 - **为什么是 deterministic 而非半定性**：这里只读作者**已写**的 frontmatter 信号并拎出来；
   判定"某主张到底该不该标 low / 是否真的矛盾"是 §三 14 的半定性工作，lint 不替作者决定
 - **严重性**：见上各子项——`contested` / 断链类为 warn（需行动），`low-confidence` 为 info（提示）
+
+### 14. MEMORY.md 索引一致性
+
+- `wiki/MEMORY/MEMORY.md` 是被 `<wiki-root>/CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 的轻量
+  索引（无 frontmatter），让 agent 每次会话都能看到 MEMORY 里有哪些条目——避免 MEMORY 沦为
+  只写不读的死库
+- 扫 `wiki/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
+  列出** → 报 `memory-not-indexed`
+- **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
+  （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
+- `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期 / spec <0.6.0 未补索引，不报错）
+- **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
+  漏列不阻断但提示 agent 补索引
 
 ## 三、半定性检查（agent 执行）
 
@@ -178,6 +191,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 [WARN] log-format: wiki/log.md line 23: '## [bad] ingest | foo' doesn't match expected format
 [INFO] missing-xref: wiki/sources/abc.md mentions 'self-attention' but doesn't link to concepts/self-attention.md
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
+[INFO] memory-not-indexed: wiki/MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
 ```
 
 每条带：**严重性** + **类别** + **文件:行** + **描述**。

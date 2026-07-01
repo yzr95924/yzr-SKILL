@@ -11,6 +11,9 @@
 > `CLAUDE.md`（本文件）；在别处工作时，skill 会在每次操作前通过 `$LLM_WIKI_ROOT`
 > 按需读取它——所以**不依赖 symlink**，多 wiki / 跨项目都能用。
 
+<!-- 下一行 @import 把 MEMORY 索引内联进本文件，会话常驻；agent 写 memory 时同步更新它 -->
+@wiki/MEMORY/MEMORY.md
+
 ## 一、本 wiki 的边界
 
 ### `raw/` —— 真相之源（**LLM 只读，用户可改**）
@@ -87,8 +90,11 @@
   不是 wiki 内容、不是操作时间线，而是 agent 私有记忆
 - 纪律：
   - 用户**不**直接编辑 MEMORY/（这是 agent 私有记录）
-  - 任何 MEMORY/ 下的 `.md` 文件**必须**含 frontmatter 5 必填（title / type / created / updated / tags），
-    与 wiki 内容页规则一致；README.md 例外（与 index.md / log.md 同级别 reserved 标记）
+  - 任何 MEMORY/ 下的经验条目 `*.md` **必须**含 frontmatter 5 必填（title / type / created / updated / tags），
+    与 wiki 内容页规则一致
+  - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——被本文件顶部的 `@wiki/MEMORY/MEMORY.md`
+    import 内联、会话常驻；写每条经验条目时**同步追加索引一行**
+    （`- <slug> — <一句话> → [正文](<slug>.md)`），否则下次会话读不到（lint `memory-not-indexed` 兜底）
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
   - **不**要求 inbound 链接
   - 目录结构与契约详见 [`../wiki-spec.md`](../wiki-spec.md) §5

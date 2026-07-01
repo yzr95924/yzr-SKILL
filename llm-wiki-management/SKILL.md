@@ -9,7 +9,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-01
-  wiki_spec_version: 0.5.0
+  wiki_spec_version: 0.6.0
 ---
 
 # LLM Wiki Management
@@ -65,7 +65,7 @@ metadata:
 ### 操作产物
 
 - **setup** → 由外部 workspace CLI 完成（按 [`references/wiki-spec.md`](references/wiki-spec.md) 落盘），
-  本 skill 不实现创建逻辑；产物形态为目录结构 + CLAUDE.md + wiki/index.md + wiki/log.md + .gitignore
+  本 skill 不实现创建逻辑；产物形态为目录结构 + CLAUDE.md + wiki/index.md + wiki/log.md + wiki/MEMORY/MEMORY.md + .gitignore
 - **ingest** → 新增 / 更新 `wiki/sources/<slug>.md` + 同步实体 / 概念页 + 追加
   `log.md` 条目 + 更新 `index.md`
 - **query** → 对话中给出答案（带引用），**可选**把答案归档为 `wiki/comparisons/`
@@ -89,7 +89,9 @@ metadata:
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
    wiki 内容，只读 + 提问题。每次摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
 3. **`wiki/MEMORY/` agent 持久化记忆**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
-   与 wiki/ 同归属（LLM 写、用户不写）但**不**走单一入口约束。详细规则见 spec §5。
+   与 wiki/ 同归属（LLM 写、用户不写）但**不**走单一入口约束。其中 `MEMORY.md` 是索引，被
+   `CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
+   详细规则见 spec §5。
 4. **`CLAUDE.md` 纪律配置**——把"wiki 怎么写 / 写什么 / 不写什么"的约定集中到
    一处，是 LLM 维护 wiki 的"宪法"。没有它，LLM 会退化成普通聊天机器人；有它，
    LLM 是"纪律严明的 wiki 维护者"。
@@ -129,7 +131,9 @@ metadata:
 > ——按以下顺序读完三件套再动手：
 >
 > 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、Tag Taxonomy、
->    Page Thresholds。在 wiki 根目录内工作时 Claude Code 自动加载；别处由 skill 按需读
+>    Page Thresholds。在 wiki 根目录内工作时 Claude Code 自动加载（含 `@wiki/MEMORY/MEMORY.md`
+>    索引——MEMORY 条目一览随之常驻）；别处由 skill 按需读 CLAUDE.md 时 `@` **不**自动展开，
+>    需额外 `Read <$LLM_WIKI_ROOT>/wiki/MEMORY/MEMORY.md` 补齐索引
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
@@ -149,8 +153,9 @@ metadata:
    `updated` / `tags`），推荐 `description`（一句话，`index.md` 条目摘要从它来）。
    **5 字段是 OKF §9 "字段齐全性" 与 lint 校验一致性的最小交集**——少于 5 字段会让
    "抓腐烂"判定（stale / orphan）失效，多于 5 字段 OK 但不强制。
-   **例外**：`wiki/index.md` / `wiki/log.md` / `wiki/MEMORY/README.md` 是 **4 字段必填**
-   （省 `description`）——权威定义见 [spec §3 / §4 / §5.1](references/wiki-spec.md)。
+   **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
+   `wiki/MEMORY/MEMORY.md` **无 frontmatter**（被 CLAUDE.md `@` import 的索引片段）——
+   权威定义见 [spec §3 / §4 / §5.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
    同步以该处为准。
@@ -162,8 +167,9 @@ metadata:
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
 9. **`wiki/MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
-   时主动追加；frontmatter 5 必填与 wiki 内容页一致，**但不在 index.md 强制列出**。
-   详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-wikimemory)
+   时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
+   必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 CLAUDE.md `@` import 会话常驻，否则下次
+   读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-wikimemory)
 
 ### 边界
 
@@ -351,7 +357,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 **触发**：在 ingest / query / lint 过程中识别到值得沉淀的信息——踩坑、用户偏好、跨文档关联。
 
-**何时写**（参见 `wiki/MEMORY/README.md`）：
+**何时写**：
 
 - **遇到踩坑**——raw/ 里的 PDF 经常有 OCR 错误，下次让用户先转换格式
 - **发现用户偏好**——用户偏好表格化的对比、不喜欢散文式总结
@@ -364,8 +370,10 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 2. 在 `wiki/MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
 3. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
 4. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
-5. **不**追加 log 条目——MEMORY 不是操作时间线
-6. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束
+5. **同步追加 `MEMORY/MEMORY.md` 索引一行**：`- <slug> — <一句话> → [正文](<slug>.md)`——
+   这是 MEMORY 能被下次会话读到的前提（索引被 CLAUDE.md `@` import 常驻；漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
+6. **不**追加 log 条目——MEMORY 不是操作时间线
+7. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束（入口是 MEMORY.md 索引，见步骤 5）
 
 **纪律**：
 

@@ -15,7 +15,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-06-30
-  workspace_spec_version: 0.2.0
+  workspace_spec_version: 0.3.0
 ---
 
 # LLM Workspace Management
@@ -88,7 +88,8 @@ metadata:
 │   - 写 workspace.toml / workspace_models.toml / .gitignore       │
 │   - init 时按模板拷 CLAUDE.md（用户所有，schema 宪法）           │
 │   - 写 <wiki>/wiki_metadata.toml + wiki 仓骨架（按 wiki-spec）   │
-│   - 不读不写 INDEX.md / STATS.md / LINT.md / MEMORY/ / cross_queries/ │
+│   - init 建 MEMORY/ + 写 MEMORY.md 索引（§9）                    │
+│   - 不读不写 INDEX/STATS/LINT/cross_queries + MEMORY/*.md 经验   │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
                               │ 元数据 / 启动 session
@@ -96,7 +97,7 @@ metadata:
 ┌─────────────────────────────────────────────────────────────────┐
 │ llm-workspace-management (本 skill)                              │
 │   - 跨 wiki 编排：scan / query (4 模式) / link / lint / memory   │
-│   - 写 INDEX.md / STATS.md / LINT.md / MEMORY/ / cross_queries/  │
+│   - 写 INDEX/STATS/LINT/cross_queries + MEMORY/*.md（同步索引）  │
 │   - 写 <wiki>/wiki/** （通过 llm-wiki-management 委托）           │
 │   - 不写 workspace.toml / workspace_models.toml / .gitignore      │
 │   - 不写 <workspace>/CLAUDE.md（用户所有 schema）                  │
@@ -153,7 +154,7 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<workspace>/STATS.md` | 本 skill | 写 |
 | `<workspace>/cross_queries/` | 本 skill | 写 |
 | `<workspace>/LINT.md` | 本 skill | 写 |
-| `<workspace>/MEMORY/` | 本 skill | 写（跨 wiki 私有记忆；首 scan 时建 README） |
+| `<workspace>/MEMORY/` | CLI init 建骨架（目录 + MEMORY.md）+ 本 skill | CLI init 写 MEMORY.md 索引；skill 写 `*.md` 经验 + 同步索引 |
 | `<wiki>/wiki_metadata.toml` | workspace CLI | 只读 |
 | `<wiki>/wiki/{entities,concepts,sources,...}` | `llm-wiki-management` | 通过它写 |
 | `<wiki>/wiki/MEMORY/` | `llm-wiki-management` | 通过它写（单 wiki 私有记忆） |
@@ -194,7 +195,11 @@ spec 文件做契约对齐。
 1. 定位 workspace 路径：`$LLMW_WORKSPACE` → 默认 `~/yzr_llm_wiki_workspace` → 交互问
 2. 验证 `<workspace>/workspace.toml` 存在——不存在提示用户 "workspace 还没 init，
    跑 `llmw init` 初始化"（**不**替用户跑）
-3. **不**自动跑 `scan`——等用户给操作意图
+3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时，`<workspace>/CLAUDE.md` 自动加载
+   且 `@MEMORY/MEMORY.md` 已把索引内联会话常驻；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
+   读 CLAUDE.md，`@` 不自动展开）→ 显式 `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，
+   知晓已有哪些跨 wiki 记忆
+4. **不**自动跑 `scan`——等用户给操作意图
 
 ### 1. Scan / refresh-index
 
@@ -211,7 +216,8 @@ spec 文件做契约对齐。
    - 扫 `<wiki>/raw/` 递归拿原始资料数（仅 `find` + 计数，不读内容）
    - 读 `<wiki>/wiki/log.md` 末条拿 last activity
    - 读 `<wiki>/wiki/MEMORY/` 拿 memory files 数（仅文件名）
-3. 按 wiki name 字母序聚合，写 `<workspace>/INDEX.md`（格式见
+3. 读 `<workspace>/MEMORY/MEMORY.md` 索引（知晓已有跨 wiki 记忆，供 query 路由 / scan 报告
+   引用）；按 wiki name 字母序聚合，写 `<workspace>/INDEX.md`（格式见
    [spec §4](references/workspace-spec.md#4-indexmdskill-维护)）+ `<workspace>/STATS.md`
    （格式见 [spec §5](references/workspace-spec.md#5-statsmdskill-维护)）
 4. 原子写（POSIX `tmp + fsync + rename`）
@@ -317,11 +323,15 @@ spec 文件做契约对齐。
    - 不存在 → `Write` 新文件（5 必填 frontmatter：`title` / `type`（用 `workspace-memory`） /
      `created` / `updated` / `tags`；推荐 `wikis` 数组 + `description`）
    - 已存在 → `Edit` 更新正文 + `updated` 字段，`created` 保留原值
-5. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口）
-6. **不写** log.md（MEMORY 没有 workspace-level log）
+5. **同步 `MEMORY.md` 索引一行**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（`MEMORY.md`
+   由 CLI init 建骨架，agent 追加索引——这是 MEMORY 不沦为死库的关键）
+6. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口；但**必须**在
+   `MEMORY.md` 索引列出，见上一步）
+7. **不写** log.md（MEMORY 没有 workspace-level log）
 
-**首次 scan 时的特殊动作**：若 `<workspace>/MEMORY/` 不存在或缺 `README.md` → 建目录 + 写
-`README.md`（按 [spec §9.1](references/workspace-spec.md#91-memoryreadmemd) 的 4 必填 frontmatter）。
+**MEMORY 骨架不由 skill 建**：`<workspace>/MEMORY/` 目录 + `MEMORY.md` 索引由 **CLI init** 创建
+（[spec §9](references/workspace-spec.md#9-workspace-memoryskill-维护) §9.1）；skill 不重建（已存在即
+跳过），只在写跨 wiki 经验时追加 `*.md` + 同步索引。
 
 **MEMORY 与单 wiki MEMORY 的清晰边界**：
 
