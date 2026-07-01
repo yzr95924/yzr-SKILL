@@ -39,7 +39,7 @@
     OUTLINE_MCP_API_KEY='...' OUTLINE_MCP_SCOPE='project' \
     python3 outline-wiki-setup/scripts/configure_mcp.py
 
-依赖：Python 3.6+ 标准库 + 本机已安装并登录的 `claude` CLI。
+依赖：Python 3.7+ 标准库 + 本机已安装并登录的 `claude` CLI。
 """
 
 import json

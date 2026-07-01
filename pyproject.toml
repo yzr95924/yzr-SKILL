@@ -2,10 +2,9 @@
 # 这里不发布 Python 包，仅为 ruff 提供 [tool.ruff.*] 配置入口。
 #
 # 与代码现状的对齐：
-# - CLAUDE.md 约束「全部脚本对齐到 Python 3.6 语法」（Optional/List/Tuple、
-#   stdout=PIPE+universal_newlines=True）。ruff 不支持 py36 作为最低目标，
-#   因此 target-version 选 py37——它仍然禁用 PEP 604（X | Y，3.10+）与
-#   PEP 585（list[X]，3.9+），等价地保住 3.6 风格。
+# - 仓库脚本最低支持 Python 3.7（2026-07-01 起放弃 CentOS 7/3.6 兼容）。
+#   target-version = "py37" 禁用 PEP 604（X | Y，3.10+）与 PEP 585（list[X]，3.9+），
+#   故类型注解走 Optional/List/Tuple、union 用 Optional[X] 而非 X | None。
 # - 行宽与 .markdownlint.jsonc MD013 对齐，120 列。
 
 [tool.ruff]
@@ -28,9 +27,8 @@ select = ["E", "W", "F", "I", "B", "UP"]
 ignore = [
   # 与 ruff format 冲突的规则；让 formatter 决定行宽相关的换行。
   "E501",
-  # CLAUDE.md 约定 subprocess 调用保留 3.6 兼容写法
-  # （universal_newlines=True 而非 text=True、stdout/stderr=PIPE 而非 capture_output=True）。
-  # py37 target 下 ruff 默认会建议替换，这里显式禁用。
+  # 仓库脚本沿用 subprocess 的 universal_newlines=True / stdout/stderr=PIPE 写法
+  # （既有风格；py37 target 下 ruff 默认会建议替换为 text/capture_output，这里显式禁用）。
   "UP021",
   "UP022",
 ]

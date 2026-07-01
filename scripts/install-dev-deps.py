@@ -12,7 +12,7 @@
     SKIP_NPM=1 python3 scripts/install-dev-deps.py
     SKIP_PIP=1 python3 scripts/install-dev-deps.py
 
-依赖：Python 3.6+ 标准库；如装 npm 包则需要系统装了 Node.js。
+依赖：Python 3.7+ 标准库；如装 npm 包则需要系统装了 Node.js。
 """
 
 import os
@@ -34,9 +34,9 @@ def run(
 ) -> Tuple[int, str, str]:
     """调子进程并返回 (returncode, stdout, stderr)。
 
-    显式传 stdout=PIPE / stderr=PIPE / universal_newlines=True，保 3.6
-    兼容（3.7+ 的 capture_output + text 写法会被 ruff UP022 警告，
-    与本仓库 [[python-3.6-compat]] 记忆条目冲突）。
+    显式传 stdout=PIPE / stderr=PIPE / universal_newlines=True（仓库既有
+    风格；ruff UP021/UP022 已在 pyproject ignore，不会警告），见
+    [[python-min-3-7]]。
     """
     proc = subprocess.run(  # noqa: S603,S607  # 命令硬编码，无 shell 注入风险
         cmd,

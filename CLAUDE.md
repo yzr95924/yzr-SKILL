@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@MEMORY/MEMORY.md
+
 ## 仓库定位
 
 个人自定义 Claude Skills 合集。仓库本身既是 skills 的消费载体（每个子目录是一个独立 skill），也是一个用于"造 skill"的元仓库。设计原则与 skill 写作规范详见 `README.md` 与 `./yzr-skill-creator/SKILL.md`。
@@ -32,7 +34,7 @@ python3 yzr-skill-creator/scripts/run_eval.py --eval-set ... --skill-path ...
 python3 yzr-skill-creator/scripts/run_loop.py --eval-set ... --skill-path ... --model <id>
 ```
 
-- 全部脚本已对齐到 **Python 3.6 语法**（`Optional` / `List` / `Dict` / `Tuple` 而非 PEP 604 / 585；`stdout=PIPE + universal_newlines=True` 而非 `capture_output + text`）。
+- 全部脚本最低支持 **Python 3.7**：类型注解用 `Optional` / `List` / `Dict` / `Tuple`（PEP 604 / 585 在 py37 target 下被 ruff 禁用）；`subprocess` 沿用 `stdout=PIPE + universal_newlines=True` 既有风格。详见 [Python 最低 3.7](MEMORY/python-min-3-7.md)。
 
 ### Markdown 格式 / lint
 
@@ -60,8 +62,8 @@ ruff check --fix yzr-skill-creator      # 跑 lint 并应用 safe 修复
 ```
 
 关键约束：
-- `target-version = "py37"`：ruff 的最低支持版本，等价保住 `Optional` / `List` / `Tuple` 注解（PEP 604/585 在 py37 下仍被 UP 规则禁用）。
-- `UP021` / `UP022` 在 `ignore` 列表里——`subprocess.run` 的 `universal_newlines=True` 与 `stdout/stderr=PIPE` 写法是为了保 3.6 兼容，**不要**被自动改成 `text=True` / `capture_output=True`。
+- `target-version = "py37"`：仓库脚本的最低支持版本（Python 3.7）；PEP 604/585 在 py37 下被 UP 规则禁用，故注解走 `Optional` / `List` / `Tuple`。
+- `UP021` / `UP022` 在 `ignore` 列表里——仓库脚本沿用 `subprocess.run` 的 `universal_newlines=True` 与 `stdout/stderr=PIPE` 写法（既有风格），**不要**被自动改成 `text=True` / `capture_output=True`。
 - 行宽 120，与 `.markdownlint.jsonc` MD013 对齐。
 
 ### Gemini 相关依赖（首次接入时按需执行）
@@ -132,7 +134,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ### 跨 skill 协作约定
 
-- `outline-wiki-*` 三个 skill（`outline-wiki-setup` / `outline-wiki-search` / `outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 `~/.claude.json` + 重启验证；`search` 只读 search / read；`upload` 写 / 编辑 + 图片附件 3 步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。三者均完全依赖 MCP 工具（不直连 REST，唯一例外是 `upload` 在大文档整篇重写时走 REST API 绕开 update_document 的换行吞字 bug）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
+- `outline-wiki-*` 三个 skill（`outline-wiki-setup` / `outline-wiki-search` / `outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 `~/.claude.json` + 重启验证；`search` 只读 search / read；`upload` 写 / 编辑 + 图片附件 3 步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。三者均以 MCP 为主、不直连 REST，有两个例外：`upload` 在大文档整篇重写时走 REST 绕开 `update_document` 的换行吞字 bug；`search` 读文档正文走 REST `POST /api/documents.info`，绕开 Claude Code 截断 MCP 多 content block 的缺陷（元数据仍走 MCP `fetch`；属临时，待 CC 完整支持多 block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
 - `design-doc-edit` 输出**有强制章节骨架**（概述 → 场景分析 → 方案选择 → 核心设计 → 文件归属），章节可增删但顺序不可打乱；行宽同样受 `.markdownlint.jsonc` MD013 约束。
 - `gemini-paper-summary` ↔ `outline-wiki-upload` 构成本地论文管线，单向流动：
   - `gemini-paper-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`（`--extract-figures` 模式产物）

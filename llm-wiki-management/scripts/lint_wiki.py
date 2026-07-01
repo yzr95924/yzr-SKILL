@@ -145,7 +145,7 @@ def _parse_anchor(anchor_path: Path):
 
     只校验最小必填字段（target / captured_at / kind）——扩展字段静默忽略。
     """
-    import json  # 局部 import 保持 Python 3.6 风格
+    import json  # 局部 import（函数内按需）
 
     try:
         data = json.loads(anchor_path.read_text(encoding="utf-8", errors="replace"))

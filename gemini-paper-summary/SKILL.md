@@ -17,7 +17,7 @@ metadata:
 或 Obsidian 显示。agent 可以直接调用本 skill 的脚本做单篇或批量总结，
 也可以按 `references/api-quickstart.md` 在会话内自行调用 SDK。
 
-> 依赖：Python ≥ 3.6、`google-genai`（`pip install -U google-genai`）、
+> 依赖：Python ≥ 3.7、`google-genai`（`pip install -U google-genai`）、
 > 环境变量 `GEMINI_API_KEY`（在 [Google AI Studio](https://aistudio.google.com/apikey) 创建）。
 > 详细的依赖与失败排查见文末"前置条件"。
 
@@ -37,11 +37,10 @@ metadata:
 - 需要**对比多篇论文**——本 skill 一次一篇，多篇请调用多次再人工拼接
 - 只想抽关键句、抽取式摘要——本 skill 是生成式结构化总结
 - 用户不愿或不能提供 `GEMINI_API_KEY`
-- **不要用 `--full` 模式 + 任意 <dir>**——`--full` 强制 `--output <wiki_root>`，产物
-  必须直接落 raw 端（`raw/papers/<slug>.quick.md` + `.full.md`）。quick 模式另产生
-  `raw/assets/<slug>/fig-NN.png`(`--extract-figures` 单跑亦产生),full 模式不产生
-  PNG(2026-06-30 第二轮翻面;full 自包含,mermaid/ASCII 在 markdown 里)。想落任意
-  目录用 `--extract-figures` 即可
+- **不要用 `--full` 模式 + 任意目录**——`--full` 强制 `--output <wiki_root>`，产物
+  必须直接落 raw 端（`raw/papers/<slug>.quick.md` + `.full.md`；quick 的图落 `raw/assets/<slug>/fig-NN.png`）。
+  full 模式不产生 PNG(2026-06-30 第二轮翻面;full 自包含,mermaid/ASCII 在 markdown 里,给 agent 多轮查询用)。
+  想落任意目录跑 quick 默认即可(默认就带图,无需 `--extract-figures`)
 
 ## 输入 / 输出
 
@@ -53,10 +52,11 @@ metadata:
 | `GEMINI_API_KEY` | ✓ | 环境变量 |
 | 模型 ID | ✗ | 默认 `gemini-3.5-flash`（不传 `--model` 即可）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
 | 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt；**full 模式行为不同**——不是末尾追加 "启发 / 追问" 段，而是在对应的 PDF 原生章节下注入 `### 用户关注点: <focus>` 子节（详见 §D 关键行为护栏） |
-| 输出路径 | ✗ | `--output` 写文件；不传则打印到 stdout |
+| 输出路径 | ✗ | quick 默认带图：`--output` 视作**目录**（写 summary.md + figures/）；`--no-figures` 时视作 .md 文件；不传则 stdout（清破图、不导出图） |
 | 模板 | ✗ | `--template academic`（默认） |
-| 提取图片 | ✗ | `--extract-figures` 把关键图截成图片嵌入 Markdown；详见下文 A' |
-| 渲染倍率 | ✗ | `--figure-dpi 2.0`（默认 2.0 = 144 DPI），仅 `--extract-figures` 启用时生效 |
+| 提取图片 | ✗ | `[向后兼容] --extract-figures`：quick 默认就带图，传了等价默认；详见下文 A' |
+| 关闭图片 | ✗ | `--no-figures`：关闭图导出回纯 Markdown（批量速读 / 纯文字速览用） |
+| 渲染倍率 | ✗ | `--figure-dpi 2.0`（默认 2.0 = 144 DPI），仅图导出启用时生效（quick 默认即启用） |
 | 图片格式 | ✗ | `--figure-format {png,webp,jpeg}`，默认 png；webp/jpeg 时可用 `--figure-quality` 压缩 |
 | 压缩质量 | ✗ | `--figure-quality 1-100`，默认 85；仅 webp/jpeg 生效 |
 | 像素上限 | ✗ | `--max-width N`，渲染后等比缩放到 ≤ N px 宽；None 不限制 |
@@ -92,10 +92,12 @@ metadata:
 | `gemini-3.1-flash-lite` | Stable | 最便宜、轻量 | 批量过稿 / 简单综述 / 上下文大但要求低 |
 | `gemini-3.1-pro-preview` | Preview | 复杂推理最强 | 形式化证明 / 难数学 / 推理敏感论文 |
 
-> **主模型不可用 → 报错退出，不降级**（2026-06-30 强化）：上表里**任一**模型
-> 遇到 503 / 429 / 5xx，脚本走 3 次重试后**直接抛错**给上层——绝不静默切到
-> lite/pro 或其它便宜模型。换模型必须用 `--model <id>` 显式指定，**完整策略
-> 见 §核心原则 #8**（包含错误信息格式与三步建议）。
+> **主模型不可用 → 报错退出，端到端不降级**（2026-06-30 强化，2026-07-01 补 agent 盲区）：
+> 上表里**任一**模型遇到 503 / 429 / 5xx，脚本走 3 次重试后**直接抛错**给上层——
+> 绝不静默切到 lite/pro 或其它便宜模型。**且 agent 收到此错也不得自行换模型重跑**
+> （脚本错误里的"用 `--model <id>` 换模型"是给用户的、不是给 agent 的指令），须如实
+> 把错误 + 三步建议呈现给用户，由用户决定。换模型必须用 `--model <id>` 显式指定，
+> **完整策略见 §核心原则 #8**（包含错误信息格式与三步建议）。
 
 **避免使用**：
 
@@ -271,7 +273,11 @@ metadata:
    - 列表 / 表格中若一项本身就是英文术语，整项保持英文
 5. **关键架构图 / 概念示意图：(page, fig_num, bbox) 引用 + 内联到对应方法上下文，caption 写到 image alt 字段（v3.2 终版）**
 
-   > **Stage 2（`--refine-figures`）默认开**——除非用户明确说"不要用 Gemini 视觉定位 / 嫌慢 / 不想花 token"，否则**不要**加 `--no-refine-figures`。Stage 2 用 Gemini 看图直接给精确 bbox，能解决边界不准确 / 标题残缺 / 上方留白三个老问题，详细规范见 [`references/figure-processing.md`](references/figure-processing.md)。
+   > **quick 模式默认带图 + Stage 2（`--refine-figures`）默认开**（2026-07-01）——quick
+   > 是给人看的，必须带高质量图；Stage 2 用 Gemini 看图直接给精确 bbox，保证图质量
+   > （解决边界不准 / 标题残缺 / 上方留白三个老问题）。`--no-figures` 关闭图导出；
+   > 除非用户明确说"不要用 Gemini 视觉定位 / 嫌慢 / 不想花 token"，否则**不要**加
+   > `--no-refine-figures`。详细规范见 [`references/figure-processing.md`](references/figure-processing.md)。
 
    > **图片选择 / 排版 / alt 写法 / 处理不了的图兜底**——这些是给 Gemini 看的真权威规则，
    > 统一收在 `assets/prompt-template.md` §图引用约定。本节只讲 Gemini 看不到的 meta / 流程约束。
@@ -280,13 +286,13 @@ metadata:
      `![图 N: <中文翻译+总结>](<url> "=WxH")` 是 outline UI 唯一渲染为图片下方 caption 文字的通道
    - **三阶段格式**（同一 image 引用在 3 个阶段的不同形态）：
      - Gemini 输出: `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)`
-     - 脚本 `--extract-figures` 处理后: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
+     - 脚本图导出处理后（quick 默认）: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
      - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`（走 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的 attachment 3 步）
    - `=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
      单位 PDF point（1 point = 1/72 inch），原点在左上角；A4 ≈ 595×842，Letter ≈ 612×792
-   - 启用 `--extract-figures` 时，**脚本会用 bbox 精确截取该图本身**（不含 caption，caption 由 markdown 承载）
+   - 图导出启用时（quick 默认），**脚本会用 bbox 精确截取该图本身**（不含 caption，caption 由 markdown 承载）
    - 若不写 bbox：脚本会在该页按 `Figure N:` caption 自动定位，**裁到 caption 顶部**（caption 文字保留给 markdown）
    - 页码以 PDF 实际页码为准（论文首页为 p.1），不要写 "图 1 在第 3 页附近"
    - 若论文没有关键图（如纯理论论文），**完全省略**——既无单独章节也无内联图
@@ -296,7 +302,8 @@ metadata:
    - 表格列：`#` / 论文（作者-年份 + 标题 + 会议/期刊）/ 一句话核心观点
    - **省略"引用次数"列**——Gemini 难以精确估算，强行写会注水
    - 排序按"对本文重要性"降序，**3-5 条**
-   - 重点收录：奠基性工作、近期 SOTA、本文方法的直接前身
+   - 重点收录（按贴题度降序）：本文实验直接对比过的 baseline 方法（性能对比表 / 图里
+     出现的）> 奠基性工作 / 近期 SOTA / 本文方法的直接前身
    - 剔除一次性提及、自引、与本文方法无直接关系的工作
    - 会议/期刊用领域惯用缩写（NeurIPS / ICML / SIGMOD / VLDB / ICDE / OSDI / TODS / VLDBJ 等），
      不确定时按论文 PDF 中参考文献列表里的写法
@@ -308,7 +315,8 @@ metadata:
    - 论文没有引言 / 相关工作章节时（如短文、纯实验报告），整段省略
 7. **开源实现：作为"业务启示 & 价值"的子段**
    - 放在 `## 业务启示 & 价值` 段内，不另起 `### 开源实现` 子小节
-   - 链接**只从论文正文 / 脚注 / 参考列表里提取**，绝不编造
+   - 链接**只从论文正文 / 脚注 / 参考列表里提取**，绝不编造；论文明确给的 URL 要
+     **保留**（勿因"省略优先"漏掉），但绝不凭自己知识补作者主页 / GitHub
    - 格式：`- **代码仓库**：<URL>（简述：实现语言 / 仓库活跃度）`、`- **数据集**：...`、`- **在线 Demo**：...`
    - 链接类型不明确时（如脚注里的 project page）归到"代码仓库"那行
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
@@ -321,6 +329,14 @@ metadata:
      v3.2 prompt 模板的输出质量差异显著（alt 字段偏差、表格行数错位、章节
      遗漏等），silent fallback 用户感知不到是模型降级导致的，只看到"结果怪"——
      质量风险大于便利。换模型用 `--model <id>` 显式指定。
+   - **端到端不降级 · agent 也不得自行换模型**（2026-07-01 加固）：上一条
+     "无 fallback" 是**端到端契约**，不只约束脚本——脚本抛 `RuntimeError`
+     （含 `model=` + `status=` + 三步建议）即任务失败，**agent 不得**自行加
+     `--model gemini-3.1-flash-lite` 等便宜模型重跑。脚本错误里的"用
+     `--model <id>` 显式换模型"建议是给**用户**的，不是给 agent 自动执行的
+     指令；agent 须把错误原文 + 三步建议如实呈现给用户，换不换模型由用户决定。
+     理由与脚本不降级同源：silent 换模型用户只看到"结果怪"，质量风险 > 便利。
+     （补 2026-06-30 脚本侧加固后遗漏的 agent 行为盲区）
    - **终失败错误信息明确可执行**（2026-06-30）：抛出的 RuntimeError 必含
      `model=<id>` + `status=<code>` + 类型与消息，并附三步建议：稍后重试 /
      检查 `GEMINI_API_KEY` 与配额 / `--model <id>` 显式换模型。统一策略实现在
@@ -389,23 +405,27 @@ metadata:
 1. 确认 PDF 存在且可读
 2. 确认 GEMINI_API_KEY 已设置；未设置则提示用户去 aistudio.google.com/apikey 申请
 3. 确认 google-genai 已安装：python3 -c "import google.genai" 或 pip install -U google-genai
-4. 调用 scripts/gemini_paper_summary.py：
+4. 调用 scripts/gemini_paper_summary.py（quick 模式默认带图，--output 视作目录）：
    python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
      --pdf <path> \
-     --output <path-to-md>  # 可省，省略则打印到 stdout
-   # 默认值护栏：Stage 2 视觉定位（`--refine-figures`）默认开，
-   # 仅在用户明确要求"完全跳过 Gemini 视觉定位"时才加 `--no-refine-figures`
-5. 把生成的 Markdown 总结呈现给用户
+     --output <output-dir>  # 产出 <dir>/summary.md + <dir>/figures/*.png
+   # 默认护栏：quick 默认带图 + Stage 2 视觉定位（--refine-figures）默认开，保证图质量；
+   # 纯文字速读 / 批量场景加 --no-figures；仅在用户明确要求"跳过 Gemini 视觉定位"时加 --no-refine-figures
+5. 把生成的 Markdown 总结（含图）呈现给用户
 6. 标注所用模型与论文文件名
+7. **失败处理（重要）**：若第 4 步脚本抛 RuntimeError（503/429/5xx 重试耗尽），
+   agent **不得**自行加 `--model` 换便宜模型重跑——把错误原文 + 三步建议如实
+   呈现给用户并停下，换不换模型由用户决定（见 §核心原则 #8 端到端不降级）
 ```
 
 也可以直接在会话里调 SDK（API 细节见 `references/api-quickstart.md`）。
 
-### A'. 导出关键架构图（推荐做法）
+### A'. 图导出（quick 模式默认行为）
 
-启用 `--extract-figures` 后，脚本会用 pymupdf **只截取 figure 本身的矩形区域**（而非整页），
-并把 Markdown 里的 `(PDF p.X fig.N [bbox=...])` 替换为 `figures/figure-pX-fN.png`。
-该模式下 `--output` 视作目录路径，目录结构：
+quick 模式**默认就带图**（无需 `--extract-figures`；该 flag 仅为向后兼容保留）——脚本用
+pymupdf **只截取 figure 本身的矩形区域**（而非整页），并把 Markdown 里的
+`(PDF p.X fig.N [bbox=...])` 替换为 `figures/figure-pX-fN.png`。`--output` 视作目录路径，
+`--no-figures` 关闭则回纯 Markdown。目录结构：
 
 ```text
 <--output 指定的目录>/
@@ -466,13 +486,15 @@ metadata:
 - 用户问"图被裁错了 / 留白过多 / caption 残缺"等具体故障
 - 用户问对照实验 / Stage 2 成本估算
 
-**何时**不**需要读**：日常调脚本（默认值已护栏）→ 直接 `python3 gemini_paper_summary.py --extract-figures` 即可。
+**何时**不**需要读**：日常调脚本（默认值已护栏）→ 直接 `python3 gemini_paper_summary.py --pdf X.pdf --output <dir>` 即可（默认带图）。
 
 **关键摘要**（避免漏读导致错误决策）：
 
 - **Stage 2 默认开**（`--refine-figures`），必须显式 `--no-refine-figures` 才关闭——别凭印象加 `--no-refine-figures` "为了快"
 - **算法原理、caption 甄别、bbox sanity check** 见 [`references/figure-extraction.md`](references/figure-extraction.md)
-- **默认参数真源**：`scripts/gemini_paper_summary.py` argparse（`--refine-dpi` @ line 1191、`--figure-format` @ line 1146、`--figure-quality` @ line 1152、`--thumbnail-width` @ line 1175、`--figure-dpi` @ line 1140）—— 改默认值先改脚本，再同步本文档表
+- **默认参数真源**：`gemini_paper_summary.py` 的 `parse_args()`（`--figure-dpi` /
+  `--figure-format` / `--figure-quality` / `--refine-dpi` / `--thumbnail-width`）
+  —— 改默认值先改脚本 argparse，再同步本文档表
 - **DPI**：Stage 2 与最终输出图各自独立（`--refine-dpi` / `--figure-dpi`）
 - **失败兜底**：单页 Stage 2 失败不影响其他页，自动退 caption locator
 
@@ -483,13 +505,12 @@ metadata:
 ```bash
 # 开启 Stage 2(默认)
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
-  --pdf ~/papers/attention.pdf --output ~/out_with_stage2 \
-  --extract-figures
+  --pdf ~/papers/attention.pdf --output ~/out_with_stage2
 
 # 关闭 Stage 2
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/attention.pdf --output ~/out_without_stage2 \
-  --extract-figures --no-refine-figures
+  --no-refine-figures
 
 # 对比每张图
 ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
@@ -497,7 +518,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 
 ### A''. 输出目标与图片处理（跨 skill 分工）
 
-> **本 skill 只产出本地文件**——A' 节的 `--extract-figures` 截下来的
+> **本 skill 只产出本地文件**——A' 节默认带图截下来的
 > PNG 全部落在本地 `figures/` 目录，**不会**自动上传到 outline-wiki。
 > **上传到 outline-wiki 不归本 skill 管**，请走
 > [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的
@@ -506,16 +527,16 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 
 **按输出目标决定本 skill 的参数**：
 
-| 输出目标 | `--extract-figures` | 理由 |
+| 输出目标 | 图导出（quick 默认开） | 理由 |
 | --- | --- | --- |
-| **本地 Markdown / VS Code / Obsidian** | 可选（按需） | 读者可在本地直接看 `figures/*.png` |
-| **直接上传到 outline-wiki** | ==**必须开**== | 关掉的话，Markdown 里的 `![图 N](PDF p.X fig.Y ...)` 引用是**破图**——outline 不识别 PDF 路径 / bbox 引用，必须有真实的 attachment URL |
-| 仅文字速读 / 不带图 | 关（默认） | 不需要 PNG，省时间 + pymupdf 依赖 |
+| **本地 Markdown / VS Code / Obsidian** | 默认开（`--no-figures` 可关） | 读者可在本地直接看 `figures/*.png` |
+| **直接上传到 outline-wiki** | ==**默认开，别关**== | 关掉（`--no-figures`）的话，Markdown 里的 `![图 N](PDF p.X fig.Y ...)` 引用是**破图**——outline 不识别 PDF 路径 / bbox 引用，必须有真实的 attachment URL |
+| 仅文字速读 / 不带图 | `--no-figures` 关 | 不需要 PNG，省时间 + pymupdf 依赖 |
 
 **端到端工作流（论文总结 → outline-wiki 笔记含图）**：
 
 ```text
-1. 本 skill：跑 gemini_paper_summary.py --extract-figures → 产出
+1. 本 skill：跑 gemini_paper_summary.py --output <dir> → 产出（默认带图）
    <output_dir>/summary.md + <output_dir>/figures/*.png
 2. outline-wiki-upload：拿每张 figures/*.png 走 attachment 3 步
    （create_attachment → curl 上传 → 拿到 /api/attachments.redirect?id=...）
@@ -537,8 +558,8 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 
 ```text
 1. 列出目录下所有 *.pdf
-2. 对每篇并行（或限流并发）调用 gemini_paper_summary.py
-3. 每篇输出文件名 <paper-stem>.summary.md，放在同目录
+2. 对每篇并行（或限流并发）调用 gemini_paper_summary.py（批量速读加 `--no-figures` 跳过图，省时省钱）
+3. 每篇输出文件名 <paper-stem>.summary.md（`--no-figures` 模式 `--output` 是 .md 文件），放在同目录
 4. 结束时汇总哪些论文成功 / 失败
 ```
 
@@ -547,7 +568,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | 现象 | 原因 | 处置 |
 | --- | --- | --- |
 | `ModuleNotFoundError: google.genai` | SDK 未装 | `pip install --user --break-system-packages google-genai` |
-| `--extract-figures` 报 "需要 pymupdf" | pymupdf 未装 | `pip install --user --break-system-packages pymupdf` |
+| `--extract-figures` / quick 默认带图报 "需要 pymupdf" | pymupdf 未装 | `pip install --user --break-system-packages pymupdf`（或 `--no-figures` 跳过图） |
 | `DefaultCredentialsError` / `api_key not set` | 缺 `GEMINI_API_KEY` | `export GEMINI_API_KEY=...` 或 `.env` + `direnv` |
 | `400 INVALID_ARGUMENT` + `mime type` 报错 | PDF 损坏 / 加密 / 非 PDF 头 | 用 `file <pdf>` 核实；解密或重新下载 |
 | `413 REQUEST_TOO_LARGE` | PDF 超 50 MB | 走 File API 上传（见 `references/api-quickstart.md` §超大 PDF） |
@@ -555,7 +576,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`；见"模型选型"小节 |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/prompt-template.md`）/ `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
 | 输出空 / 截断 | 输出 token 上限（默认 65k）撞顶 | 减小 `max_output_tokens` 不会影响——缩短 prompt 或换模型 |
-| `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **不自动降级**——脚本直接抛错，错误信息含 model 名 + status + 三步建议（稍后重试 / 检查 key 与配额 / `--model <id>` 显式换模型）。完整策略见 §核心原则 #8 |
+| `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **端到端不降级**——脚本直接抛错（含 model 名 + status + 三步建议）；**agent 收到此错不得自行换模型重跑**，须如实报给用户、由用户决定是否 `--model` 显式重试。完整策略见 §核心原则 #8 |
 
 ## 参考样例
 
@@ -568,10 +589,10 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 ```bash
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/attention_is_all_you_need.pdf \
-  --output ~/papers/attention_is_all_you_need.summary.md
+  --output ~/papers/summaries/attention_is_all_you_need  # 目录：summary.md + figures/*.png
 ```
 
-把生成的 `.summary.md` 内容呈现给用户，注明所用模型（默认见 §模型选型小节）。
+把生成的 `summary.md`（含图）内容呈现给用户，注明所用模型（默认见 §模型选型小节）。
 
 ### 样例二：带关注点
 
@@ -583,7 +604,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/diffusion.pdf \
   --focus "重点关注数学推导的关键步骤和采样效率优化" \
-  --output ~/papers/diffusion.summary.md
+  --output ~/papers/summaries/diffusion  # 目录：summary.md + figures/*.png
 ```
 
 生成的总结会在"方法 / 关键结果"小节侧重，并在末尾补"启发 / 追问"小节。
@@ -614,8 +635,7 @@ done
 # 一次性：Gemini 总结 + 渲染关键页为 PNG + 替换 Markdown 引用 + 写文件
 python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   --pdf ~/papers/attention.pdf \
-  --output ~/papers/summaries/attention \
-  --extract-figures
+  --output ~/papers/summaries/attention  # 默认带图：summary.md + figures/*.png
 ```
 
 产出：
@@ -716,13 +736,14 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 - **`raw/papers/<slug>.full.md` 不重写**：默认拒绝覆盖；下游已多次引用 full 抽取，
   意外重写会丢下游状态。若要重新抽取，先 `rm <wiki-root>/raw/papers/<slug>.full.md`
   再跑
-- **`--full` 与 `--extract-figures` 互斥（隐式）**：full 模式的产物 layout 是
-  raw-compatible，不走 `<output>/figures/`；混用两者是反模式
+- **`--full` 与图导出（quick 默认带图）职责不同**：full 模式产物自包含无图、layout 是
+  raw-compatible，不消费 `--extract-figures` / `--no-figures`（这些仅 quick 模式生效）；
+  full 模式同时另产一份 quick summary（带图，落 `raw/assets/<slug>/`）
 
 **反模式**（**别**这么干）：
 
 - 跑 `--full` 但希望产物落 `<dir>/papers/<slug>.full.md`——**不会发生**，`--full`
-  强制 raw-compatible；想落任意目录就**不**加 `--full`，改用 `--extract-figures`
+  强制 raw-compatible；想落任意目录就**不**加 `--full`，直接跑 quick 默认（就带图）
 - 跑两次 `--full` 然后手动把两份产物拼一起——要"一次调两份"是设计本意；
   拆两次会因 quick summary 与 full 模板的 prompt 不一致导致两份对不上
 - 在本 skill 里写"占位 source 页" —— 写 `wiki/sources/<slug>.md` 属消费端职责；
@@ -757,8 +778,8 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   标注数 / `$$...$$` block / 字符下限 8000 / "原文未明确"占位比例 ≤ 50%
   —— 任一失败 stderr WARN/FAIL,**不阻塞**(非阻塞是设计选择,见 §核心原则 #8)
 - **`--refine-figures` / `--thumbnail` 在 full 模式是哑参数**(2026-06-30):
-  full 不消费这些 flag,仅 quick 模式 + `--extract-figures` 生效。脚本 stderr
-  INFO 提示
+  full 不消费这些 flag;quick 模式默认带图时生效（`--no-figures` 关闭则都不跑）。
+  脚本 stderr INFO 提示
 - **`--focus` 在 full 模式走 FOCUS_INJECTION_FULL**(2026-06-30
   重新定位后):full 没有 summary 段,focus 不能追加到末尾——而是**注入到对应
   的 PDF 原生章节下**,形式为 `### 用户关注点: <focus>` 子节(或等价的
@@ -766,7 +787,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   该子节会出现在 `## Section 3` 的 `### Section 3.2 Gating` 子节下,而不是
   全文末尾。quick 模式仍走 FOCUS_INJECTION(末尾追加 "## 启发 / 追问" 段)。
   脚本实现见 `scripts/gemini_paper_summary.py` 的 `FOCUS_INJECTION_FULL`
-  常量(line 200-207)+ `build_prompt` 切换(line 1416-1428);契约测试见
+  常量(`FOCUS_INJECTION_FULL` @ line 202)+ `build_prompt` 的 template 切换;契约测试见
   `eval/evals.json` test #2 assertion 2
 
 ### C'. `--full` 模式专属故障排查
@@ -781,15 +802,15 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 | `full.md` 缺 Definition/Theorem/Algorithm 标注 | 原文无此类标注 **或** 模型未保真标注 | 若是算法 / 数学类论文,自检会 WARN;检查 prompt 是否完整加载 |
 | `full.md` 缺 `$$...$$` 公式 block | 原文无独立公式 **或** 模型未用 `$$...$$` 转写 | 若是数学 / 物理类论文,自检会 WARN;检查 prompt 是否完整加载 |
 | `full.md` 缺 mermaid 块,但 PDF 明显有架构图 | 模型未按 prompt 转 mermaid(可能 PDF 视觉读不出) | 检查 prompt 是否完整加载;或换更精确模型;若该图是性能柱状图等数据图,转 markdown 表格亦可 |
-| `full.md` 的 `--focus` 注入位置不对(跑到末尾而非对应 PDF 章节下) | 误用了 academic 的 FOCUS_INJECTION(末尾追加 "启发 / 追问" 段) | full 模式 focus 必须走 FOCUS_INJECTION_FULL:在对应 PDF 原生章节下追加 `### 用户关注点: <focus>` 子节,不是末尾。脚本自动按 `template="full"` 切换;若产物错了,检查 `build_prompt` 调用是否传了 `template="full"`(见 `scripts/gemini_paper_summary.py:1416-1428`) |
+| `full.md` 的 `--focus` 注入位置不对(跑到末尾而非对应 PDF 章节下) | 误用了 academic 的 FOCUS_INJECTION(末尾追加 "启发 / 追问" 段) | full 模式 focus 必须走 FOCUS_INJECTION_FULL:在对应 PDF 原生章节下追加 `### 用户关注点: <focus>` 子节,不是末尾。脚本自动按 `template="full"` 切换;若产物错了,检查 `build_prompt` 调用是否传了 `template="full"`(见 `build_prompt` 的 template 分支) |
 | `INFO: --full 模式已不再落 PNG,--refine-figures / --thumbnail 在 full 模式是哑参数` | `--refine-figures` 或 `--thumbnail` 在 full 模式不生效 | 期望行为:full 模式不消费这两个 flag。要 PNG 跑 quick 模式或 `--extract-figures` |
 
 ## 前置条件
 
-- **Python ≥ 3.6**（脚本遵循仓库 3.6 兼容规范）
+- **Python ≥ 3.7**（脚本遵循仓库 Python 3.7 规范）
 - **`google-genai` Python SDK**（旧 `google-generativeai` 已弃用，请用新包）：
   `pip install -U google-genai`（Debian/WSL 系统 Python 加 `--break-system-packages`）
-- **`pymupdf`**（**软依赖**，仅启用 `--extract-figures` 时需要）：
+- **`pymupdf`**（**软依赖**，仅图导出时需要——quick 默认带图即需要；`--no-figures` 可跳过）：
   `pip install --user --break-system-packages pymupdf`
 - **`GEMINI_API_KEY`**：
   在 [Google AI Studio](https://aistudio.google.com/apikey) 创建后

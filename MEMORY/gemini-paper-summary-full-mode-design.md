@@ -205,7 +205,7 @@ quick summary 因为 ≤2500 字符，公式通常只写"参见公式 X"，full 
 
 - [[paper-wiki-integration-design]] — 本决策的上游（profile 的定位 → producer 落 raw 约定）
 - [[gemini-paper-summary-figure-extraction-edges]] — Stage 2 视觉定位的为什么（D4 引用 §1）
-- [[python-36-compat]] — 脚本侧的 3.6 兼容约束（本 skill 的 `.py` 必须遵守）
+- [[python-min-3-7]] — 脚本侧的 Python 版本兼容约束（本 skill 的 `.py` 必须遵守）
 - [[repo-conventions]] — 行宽 120、Markdown 行宽（SSOT）
 - `gemini-paper-summary/SKILL.md` §A' / §B（端到端示例 + 批量速读）— 引用本文 §7 / §8 解释 --full 与现有工作流的边界
 - `llm-wiki-management/references/paper-wiki-profile.md` §7 — **消费方侧的集成契约 SSOT**（本文 producer 侧 SSOT 的对端）

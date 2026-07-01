@@ -287,6 +287,37 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 ## 9. 关联
 
-- `[[python-36-compat]]`(见 [`MEMORY.md`](./MEMORY.md) 同名小节):3.6 兼容约束也适用于本脚本
+- `[[python-min-3-7]]`(见 [`MEMORY.md`](./MEMORY.md) "Python 最低 3.7" 小节):Python 版本兼容约束也适用于本脚本
 - `[[repo-conventions]]`(CLAUDE.md 顶层):row width 120,Markdown 行宽检查
 - `gemini-paper-summary/SKILL.md` §A':用户面向的文档,本文件是设计决策的内部记忆
+
+## 12. quick 模式默认带图（2026-07-01 产品决策）
+
+**Why:** quick 模式的产物是给**人看**的（快速浏览论文），图是论文理解的关键部分；
+纯文字 Markdown 残留 `![图 N](PDF p.X fig.N bbox=...)` 这种任何渲染器都显示不了
+的破图引用，比"没图"更糟（误导用户以为图坏了）。full 模式则是给 agent 多轮查询用
+的纯文本底座，不需要图（mermaid/ASCII/表格替代）。两个模式的图策略彻底分家：
+**quick 默认带图 + Stage 2 精修保质量；full 不带图**。
+
+**关键变更（main() 重构）：**
+
+- 产图不再由 `--extract-figures`（默认 False）显式触发，而是 quick 模式**默认行为**
+  （`want_figures = not args.no_figures`）
+- `--extract-figures` 降级为**向后兼容冗余 flag**（传了等价默认 + INFO），不破坏
+  outline-wiki-upload 等下游既有调用
+- 新增 `--no-figures` 关闭图导出（批量速读 / 纯文字速览场景）
+- Stage 2（`--refine-figures` 默认 True）与默认带图绑定，保证图质量（Gemini 视觉
+  定位精修 bbox + 完整 caption + 过滤装饰图）
+
+**边界清理（strip_pdf_figure_refs）：** 当 `--no-figures` / 缺 pymupdf / stdout 模式
+导致不导出图时，调用新增的 `strip_pdf_figure_refs(md_text)`（复用 `embed_figure_refs`
+里提取出的 `_strip_failed_figure_lines` 同源清理逻辑）把**所有** `![...](PDF p.X
+fig.N ...)` 破图引用整行删 + 剥"如图 N 所示"呼应句，保证产物绝不残留破图。各边界
+打明确 WARN/INFO 告知用户为何没图。
+
+**`--output` 语义随是否带图切换：** 带图成功时视作目录（summary.md + figures/）；
+否则视作 .md 文件路径；不传则 stdout（清破图、不导出）。
+
+**关联：** 端到端不降级（agent 收到 503 RuntimeError 也不自行换模型）见
+`gemini-paper-summary/SKILL.md` §核心原则 #8（2026-07-01 同期加固，是这次改动的
+姊妹修复——脚本侧早已零降级，补的是 agent 行为盲区）。

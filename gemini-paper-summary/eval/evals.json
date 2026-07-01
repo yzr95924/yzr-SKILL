@@ -97,6 +97,40 @@
           "criteria": "agent 在确认用户意愿前不执行覆盖写动作;在冲突场景下默认建议 --force-full 仍要二次确认"
         }
       ]
+    },
+    {
+      "id": 4,
+      "name": "quick-mode-default-with-figures",
+      "prompt": "帮我把 ~/papers/attention.pdf 总结成中文，关键架构图要能直接看到，输出放到 ~/papers/summaries/attention。",
+      "expected_output": "agent 用 quick 默认调用（不传 --full / --no-figures / --extract-figures）：python3 gemini-paper-summary/scripts/gemini_paper_summary.py --pdf ~/papers/attention.pdf --output ~/papers/summaries/attention。默认带图（Stage 2 视觉定位精修保质量），产出 ~/papers/summaries/attention/summary.md + ~/papers/summaries/attention/figures/*.png。summary.md 里图引用是 figures/figure-pX-fY.png 相对路径，不是 PDF p.X fig.N bbox=... 破图。--output 视作目录。",
+      "files": [],
+      "assertions": [
+        {
+          "name": "默认 quick 调用（不带 --full / --no-figures）",
+          "evidence_kind": "script_invocation",
+          "criteria": "agent 调用是 quick 默认（无 --full / --no-figures），--output 指向目录而非 .md 文件"
+        },
+        {
+          "name": "--output 视作目录 + 产 figures/",
+          "evidence_kind": "filesystem",
+          "criteria": "<output>/summary.md 与 <output>/figures/*.png 都存在（默认带图）"
+        },
+        {
+          "name": "图引用是真相对路径非 PDF 破图",
+          "evidence_kind": "text_content",
+          "criteria": "summary.md 里图引用形如 figures/figure-pX-fY.png，不含 ![图 N](PDF p.X fig.N bbox=...) 这种未替换的 PDF reference 破图"
+        },
+        {
+          "name": "Stage 2 默认开保证图质量",
+          "evidence_kind": "script_invocation",
+          "criteria": "agent 不加 --no-refine-figures（除非用户明确要求跳过视觉定位），保证图经过 Gemini 视觉定位精修"
+        },
+        {
+          "name": "失败时不自行换模型（端到端不降级）",
+          "evidence_kind": "behavior",
+          "criteria": "若脚本抛 503/429 RuntimeError，agent 不自行加 --model 换便宜模型重跑，而是如实报给用户"
+        }
+      ]
     }
   ]
 }
