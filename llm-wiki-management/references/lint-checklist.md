@@ -105,8 +105,8 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 ### 12. 页面体量
 
 - 5 类内容页（entities / concepts / sources / comparisons / syntheses）正文**非空行数** >
-  阈值（默认 200，`lint_wiki.py` 顶部 `PAGE_SIZE_THRESHOLD` 控制）→ 报 `oversized-page`
-- 阈值与 CLAUDE.md「Page Thresholds」的「拆分页（单页正文超过 ~200 行）」对齐
+  阈值（SSOT = `scripts/lint_wiki.py` 的 `PAGE_SIZE_THRESHOLD`，默认 ~300 行）→ 报 `oversized-page`
+- 阈值与 CLAUDE.md「Page Thresholds」段的「拆分页」行对齐（`claude-md-template.md` 也引用此 SSOT）
 - `MEMORY/*` 豁免——按 wiki-spec §5.2「正文无长度上限」（agent 经验沉淀可长）
 - 计**非空行**（纯空行不计），避免空行撑大计数
 - **严重性：warning**——不是 error，但单页过长 = 主题过散，建议拆成子主题页 + cross-link

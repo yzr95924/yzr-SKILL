@@ -1,10 +1,10 @@
 ---
 name: llm-wiki-management
-description: 用本 skill 维护本地、单用户的复利型知识库（遵循 Karpathy
-  "LLM 拥有 wiki、人类只读" 模式）。触发场景：把参考资料摄入个人 wiki、对已
-  摄入资料做跨页综合查询、对 wiki 做矛盾 / 孤儿 lint、或围绕一个新主题搭建
-  wiki。知识越用越厚，不越用越乱。不用于云端协作 wiki（Notion / Confluence
-  / Outline / GitHub Wiki）—— 那些场景走 outline-wiki-upload（写）/ outline-wiki-search（搜读）。
+description: 用户在搭建或维护本地、单用户的复利型个人 wiki
+  （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill —— 把
+  参考资料摄入 wiki、做跨页综合查询、跑矛盾 / 孤儿 lint、围绕新主题搭 wiki。
+  不用于云端协作 wiki（Notion / Confluence / Outline / GitHub Wiki）——
+  那些走 outline-wiki-upload（写）/ outline-wiki-search（搜读）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -341,7 +341,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 失效的相对路径引用（`[link](sources/missing.md)` 之类的断链）
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`；权威正则见 [page-templates.md §7](references/page-templates.md#7-logmdlog)）
    - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
-   - 页面体量（5 类内容页正文非空行 > 200；`MEMORY/` 豁免）——见 [lint-checklist.md §二.12](references/lint-checklist.md#12-页面体量)
+   - 页面体量——5 类内容页非空行 > ~300 行阈值（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
    - 认知质量信号（`contested: true` / `confidence: low` 或非法 / `contradictions` 断链或非对称）——见
      [lint-checklist.md §二.13](references/lint-checklist.md#13-认知质量信号confidence--contested--contradictions)
    - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效（spec §13；让用户感知 link 丢失）

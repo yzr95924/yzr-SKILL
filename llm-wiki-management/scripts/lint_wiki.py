@@ -594,8 +594,9 @@ def check_duplicate_titles(wiki_root: Path) -> List[str]:
     return findings
 
 
-# 页面正文行数阈值——超过则建议拆分（与 CLAUDE.md「Page Thresholds」的「拆分页」行对齐）
-PAGE_SIZE_THRESHOLD = 200
+# 页面正文行数阈值——超过则建议拆分。
+# SSOT：其他文件 prose 提到「单页正文阈值」时，统一引用此常量，避免散弹式散落。
+PAGE_SIZE_THRESHOLD = 300
 
 # 认知质量信号字段取值
 CONFIDENCE_VALUES = {"high", "medium", "low"}
@@ -616,7 +617,7 @@ def check_page_size(wiki_root, threshold=PAGE_SIZE_THRESHOLD):
 
     仅检查 5 类内容页（entities/concepts/sources/comparisons/syntheses）——MEMORY/*
     按 wiki-spec §5.2「正文无长度上限」豁免。计非空行（纯空行不计），避免空行撑大计数。
-    阈值默认 200，与 CLAUDE.md「Page Thresholds」的「拆分页（单页正文超过 ~200 行）」对齐。
+    阈值见模块顶部 PAGE_SIZE_THRESHOLD（SSOT）。
     """
     findings = []  # type: List[str]
     pages = find_md_files(wiki_root)

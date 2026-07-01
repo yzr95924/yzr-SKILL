@@ -161,7 +161,7 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 | **新建 entity / concept 页** | 该 entity / concept 在 ≥ 2 个 source 页中被提到 **或** 是某 source 页的中心主题 |
 | **追加到已有页** | source 页提到一个已被覆盖的 entity / concept——追加"参考来源"段即可（不重写） |
 | **不创建页** | 路过提及（脚注 / 一次出现的名字）、领域外的细节、与本 wiki 主题无关 |
-| **拆分页** | 单页正文超过 ~200 行——拆成子主题 + cross-link，避免单页过于庞杂 |
+| **拆分页** | 单页正文超过 ~300 行阈值（SSOT = `scripts/lint_wiki.py` 的 `PAGE_SIZE_THRESHOLD`）——拆成子主题 + cross-link，避免单页过于庞杂 |
 | **归档页** | 内容被完全取代 / 主题域变化——加 `archived: true`、从 `index.md` 移除（log 走 `ingest` 或 `lint` op，记一条说明性条目） |
 
 > **为什么有阈值**：宁可错过一个 entity 也不要堆十个空页。"克制"是 wiki 长期可用性的具体化——
