@@ -22,6 +22,8 @@ cmp -s $TMP/scripts/SCRIPTS.md     canonical/scripts.md       # 0.9.0+；无 fro
 cmp -s $TMP/.gitignore             <fixture>/gitignore.txt    # .gitignore 纯文本常量,fixture 比对足够
 ```
 
+> **注**：`scripts.md.txt` 是 **无占位符**少数派（不要从"fixture 都带占位符"推导），**不是**与 `index.md.txt` / `log.md.txt` 同族。分组见 §fixture 取值约定。
+
 任何一个不一致 → CLI 实现有 bug,应 fail 退出。
 
 > **术语**：fixtures 是**模板**(带 `{{TOPIC_NAME}}` / `{{SETUP_DATE}}` 占位符),
