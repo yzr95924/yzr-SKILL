@@ -144,18 +144,26 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - 归档文件 `log-YYYY.md` 不计入（它们是只读归档，不需要再次 rotate）
 - **严重性：warning**——超过阈值不是错误，但长期不 rotate 会让 `grep "^## ["` 噪声变大
 
-### 11. Tag Taxonomy 校验
+### 11. Tag Taxonomy 校验（0.8.0+）
 
-- 解析 `<wiki-root>/CLAUDE.md` 的 `### Tag Taxonomy` 段，提取允许的 tag 集合
-- 段必须是**裸 bullet**（每行 `- ...`），不能包在 code block / HTML comment 里——
+- 解析 `<wiki-root>/wiki/tags.md`（**0.8.0+ 主流位置**）的裸 bullet 列表，提取允许的 tag 集合；
+  若不存在则 fallback 解析 `<wiki-root>/CLAUDE.md` 的 `### Tag Taxonomy` 段（**仅过渡期**，
+  老 wiki 跨 spec 迁移用；详见 `wiki-spec.md` §9.1）
+- 文件 / 段必须是**裸 bullet**（每行 `- ...`），不能包在 code block / HTML comment 里——
   包了就解析不出 0 个 tag，lint 静默跳过（视为未启用约束）
 - 格式兼容：`- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持；
   多 tag 用 `/` `，` `,` 任一字符分隔）
-- 对每个内容页（5 类 + MEMORY 非 MEMORY.md）的 `frontmatter.tags` 元素做包含校验
-- 找不到 CLAUDE.md / Tag Taxonomy 段 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
+- 对每个内容页（5 类 + MEMORY 非 MEMORY.md）的 `frontmatter.tags` 元素做包含校验；
+  **`wiki/tags.md` 自身不参与此校验**——它是无 frontmatter 的元数据文件，不是 wiki 内容页
+- 找不到任何 tag 源 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
   wiki 必报错）
 - 严格匹配的 tag 名 = 严格小写 + kebab-case（`^[a-z0-9][a-z0-9-]*$`），与文件名命名一致
 - **严重性：info**——tag 漂移不会立刻让 wiki 失能，但放任几个月后 index 噪音变大
+- **审计循环**（与本节协同）：用户可在 `wiki/tags.md` 中**直接删除**误判的 bullet；下次 lint 把
+  `tag-not-in-taxonomy`（info）报到所有还引用已删 tag 的页面，由用户裁定二选一：
+  重新加回 / 从页面删除 tag。`tag-not-in-taxonomy` 含义因此覆盖：(a) 用户审计删除后的
+  残留引用；(b) 用户手工编辑 page 时漏注册；(c) LLM auto-extend 失败 — 详见
+  [`../page-templates.md`](../page-templates.md) §一「tags」段
 
 ### 12. 页面体量
 

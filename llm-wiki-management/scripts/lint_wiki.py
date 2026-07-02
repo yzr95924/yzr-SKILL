@@ -55,7 +55,7 @@ SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
-CURRENT_WIKI_SPEC = "0.7.0"
+CURRENT_WIKI_SPEC = "0.8.0"
 
 # --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
 MIGRATION_PLAN_FILENAME = ".migration-plan.json"
@@ -66,6 +66,7 @@ LEGACY_PATTERN_KEYS = {
     "confidence-field": "wiki-spec.md#附录-b-0-7-0",
     "memory-readme-file": "wiki-spec.md#附录-b-0-6-0",
     "type-memory-value": "wiki-spec.md#附录-b-0-6-0",
+    "claudemd-tag-section": "wiki-spec.md#附录-b-0-8-0",
 }
 
 # 严重性等级
@@ -477,40 +478,32 @@ def check_stale_summaries(wiki_root: Path, threshold_days: int = 90) -> List[str
     return findings
 
 
-# Tag Taxonomy 段在 CLAUDE.md 内的解析常量
+# Tag taxonomy 解析常量
 TAG_TAXONOMY_HEADER_RE = re.compile(r"^###\s+Tag Taxonomy")
 TAXONOMY_BULLET_RE = re.compile(r"^[-*]\s+(.+)$")
 TAG_KV_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
+# Tag taxonomy 主流位置（0.8.0+）：wiki/tags.md，无 frontmatter，纯裸 bullet 列表。
+TAG_FILE_PRIMARY = "wiki/tags.md"
+# 旧格式 fallback：CLAUDE.md 的 `### Tag Taxonomy` 段。
+# 兼容 wiki 升级前未迁移 / 跨 spec 过渡期；新 wiki 不会写这一段。
+TAG_SECTION_HEADER = "### Tag Taxonomy"
 
-def parse_tag_taxonomy(claude_md_path: Path) -> Set[str]:
-    """从 CLAUDE.md 的 Tag Taxonomy 段提取允许的 tag 集合
 
-    解析规则：
-    - 找到 `### Tag Taxonomy` 段（到下一个 ### / ## / # 标题结束）
+def _parse_tag_bullets(text: str) -> Set[str]:
+    """从裸 bullet 文本里提取 kebab-case tag 集合
+
+    解析规则（兼容两种来源：wiki/tags.md 全文 / CLAUDE.md Tag Taxonomy 段内容）：
     - 每行形如 `- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持）
       或 `- tag`（无分类）
     - 多个 tag 用 `/` `，` `,` 任一字符分隔
     - 跳过 code block fence、HTML comment、空行
     - 只保留 kebab-case（`^[a-z0-9][a-z0-9-]*$`）的 tag
-    - 找不到文件 / 段 / 解析出 0 个 tag → 返回空集合（调用方应静默跳过）
+    - 不要求特殊 heading——传给本函数的 text 应当已是"目标内容段"（已剔除非 bullet 行）
     """
     tags = set()  # type: Set[str]
-    if not claude_md_path.is_file():
-        return tags
-    text = claude_md_path.read_text(encoding="utf-8", errors="replace")
-    in_section = False
     for line in text.splitlines():
         stripped = line.strip()
-        # 段进入
-        if TAG_TAXONOMY_HEADER_RE.match(stripped):
-            in_section = True
-            continue
-        # 段退出（遇到其它标题——但同一标题再次出现仍算段内）
-        if in_section and re.match(r"^#{1,4}\s", stripped) and not TAG_TAXONOMY_HEADER_RE.match(stripped):
-            break
-        if not in_section:
-            continue
         # 跳过空行 / 注释 / code block
         if not stripped or stripped.startswith("<!--") or stripped.startswith("```"):
             continue
@@ -533,15 +526,66 @@ def parse_tag_taxonomy(claude_md_path: Path) -> Set[str]:
     return tags
 
 
-def check_tag_taxonomy(wiki_root: Path) -> List[str]:
-    """11. tag 是否在 CLAUDE.md 的 Tag Taxonomy 白名单内
+def _extract_claudemd_tag_section(text: str) -> str:
+    """从 CLAUDE.md 全文抽出 `### Tag Taxonomy` 段的内容文本（不含 heading 自身）
 
-    找不到 CLAUDE.md / Tag Taxonomy 段为空 / 解析出 0 个 tag → 静默跳过
+    段界定：到下一个 #/##/### 标题结束（heading 重复出现仍算段内）。
+    段内每行 raw 保留（空行 / code block / comment / bullet 混合），交由
+    `_parse_tag_bullets` 过滤。
+    """
+    out_lines = []  # type: List[str]
+    in_section = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if TAG_TAXONOMY_HEADER_RE.match(stripped):
+            in_section = True
+            continue
+        if in_section and re.match(r"^#{1,4}\s", stripped) and not TAG_TAXONOMY_HEADER_RE.match(stripped):
+            break
+        if not in_section:
+            continue
+        out_lines.append(line)
+    return "\n".join(out_lines)
+
+
+def parse_tag_taxonomy(wiki_root: Path) -> Set[str]:
+    """读 tag 白名单，返回允许 tag 集合
+
+    来源优先级（0.8.0+）：
+    1. `<wiki_root>/wiki/tags.md`（**新主流位置**）—— LLM 拥有、按需扩展
+    2. fallback：`<wiki_root>/CLAUDE.md` 的 `### Tag Taxonomy` 段
+       （旧 wiki / 跨 spec 过渡期；迁移通过 `--check-version --apply` 完成）
+
+    解析失败 / 文件不存在 / 解析出 0 个 tag → 返回空集合（调用方应静默跳过，
+    避免新 setup 的 wiki 必报错）。
+    """
+    primary = wiki_root / TAG_FILE_PRIMARY
+    if primary.is_file():
+        text = primary.read_text(encoding="utf-8", errors="replace")
+        return _parse_tag_bullets(text)
+    # Legacy fallback：CLAUDE.md 的 Tag Taxonomy 段
+    claude_md = wiki_root / "CLAUDE.md"
+    if claude_md.is_file():
+        try:
+            text = claude_md.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return set()
+        section = _extract_claudemd_tag_section(text)
+        if section:
+            return _parse_tag_bullets(section)
+    return set()
+
+
+def check_tag_taxonomy(wiki_root: Path) -> List[str]:
+    """11. tag 是否在 taxonomy 白名单内
+
+    来源：`wiki/tags.md`（0.8.0+），fallback 见 `parse_tag_taxonomy`。
+    找不到任何 taxonomy 源 / 解析出 0 个 tag → 静默跳过
     （避免新 setup 的 wiki 必报错）。启用 taxonomy 后，对每个内容页（5 类 +
     MEMORY 非 MEMORY.md）的 frontmatter.tags 元素做包含校验；不在白名单 → info 级。
     """
     findings = []  # type: List[str]
-    allowed = parse_tag_taxonomy(wiki_root / "CLAUDE.md")
+    allowed = parse_tag_taxonomy(wiki_root)
     if not allowed:
         return findings
     pages = find_md_files(wiki_root)
@@ -1197,6 +1241,19 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
             {"file": "wiki/MEMORY/README.md", "conflict": False}
         )
 
+    # 文件级 legacy：CLAUDE.md 仍含 `### Tag Taxonomy` 段（0.8.0+ 移到 wiki/tags.md）
+    # 只要 heading 行存在就报 legacy——含 bullets 时迁移内容；空段只清 heading
+    claude_md = wiki_root / "CLAUDE.md"
+    if claude_md.is_file():
+        try:
+            claude_text = claude_md.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            claude_text = ""
+        if any(TAG_TAXONOMY_HEADER_RE.match(line.strip()) for line in claude_text.splitlines()):
+            out["patterns"]["claudemd-tag-section"].append(  # type: ignore
+                {"file": "CLAUDE.md", "conflict": False}
+            )
+
     return out
 
 
@@ -1284,6 +1341,30 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
                 "remove": ["type"],
                 "add_or_modify": {"type": "memory-entry"},  # 新占位类型——具体语义 wiki-spec §5.2 兜底
                 "note": "0.6.0 起 MEMORY/*.md 不再写 reserved `type: memory`；agent 视上下文决定是否需要改 type 值或仅删字段",
+            }
+        )
+
+    # claudemd-tag-section → 0.8.0+ 迁移规则：把 CLAUDE.md 的 Tag Taxonomy 段搬到 wiki/tags.md
+    # 一条组合动作：创建 wiki/tags.md + 删除 CLAUDE.md 中该段（含 heading + 子 bullet）
+    # 模式列表要么空要么含一个 CLAUDE.md 条目——按是否有 legacy 决定是否生成 action
+    if legacy["patterns"]["claudemd-tag-section"]:  # type: ignore
+        actions.append(
+            {
+                "file": "wiki/tags.md",
+                "type": "tag-taxonomy-migrate",
+                "rule_ref": LEGACY_PATTERN_KEYS["claudemd-tag-section"],
+                "from_file": "CLAUDE.md",
+                "section_header": TAG_SECTION_HEADER,
+                "to_action": (
+                    "读 CLAUDE.md 中 `### Tag Taxonomy` 段所有 bullet 内容"
+                    "（用本脚本 `_extract_claudemd_tag_section` 函数语义——到下一个 #/##/### 标题结束）。"
+                    "若段有 bullet：在 <wiki_root>/wiki/tags.md 写入该内容"
+                    "（无 frontmatter，文件顶部加简短 H1 标题如 `# Tags` + 一句说明，文末保留原 bullet 列表）；"
+                    "若段为空（heading 在无 bullet），跳过 wiki/tags.md 写入。"
+                    "完成后从 CLAUDE.md Edit 删除整个 `### Tag Taxonomy` 段"
+                    "（含 heading 行 + 直到下一标题前的所有 bullet / 空行）。"
+                    "若 wiki/tags.md 已存在，先检查内容是否相同——相同则跳过写入；不同给迁移冲突，转人工"
+                ),
             }
         )
 

@@ -9,7 +9,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-02
-  wiki_spec_version: 0.7.0
+  wiki_spec_version: 0.9.0
 ---
 
 # LLM Wiki Management
@@ -136,17 +136,24 @@ metadata:
 ### 核心原则
 
 > **操作前置（orient ritual，所有操作通用）**：每次 ingest / query / lint 启动前，**不依赖 symlink**
-> ——按以下顺序读完三件套再动手：
+> ——按以下顺序读完四件套再动手：
 >
-> 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、Tag Taxonomy、
->    Page Thresholds。在 wiki 根目录内工作时 Claude Code 自动加载（含 `@wiki/MEMORY/MEMORY.md`
->    索引——MEMORY 条目一览随之常驻）；别处由 skill 按需读 CLAUDE.md 时 `@` **不**自动展开，
->    需额外 `Read <$LLM_WIKI_ROOT>/wiki/MEMORY/MEMORY.md` 补齐索引
+> 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、
+>    Page Thresholds；CLAUDE.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——
+>    见本节 §核心原则 §11），但**含** `@wiki/MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md`
+>    import（0.9.0+ 起），不要去 CLAUDE.md 里找这些索引的物理内容。在 wiki 根目录内工作时
+>    Claude Code 自动加载（含 `@wiki/MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` 索引——MEMORY
+>    条目 / 本 wiki 工具列表随之常驻）；别处由 skill 按需读 CLAUDE.md 时 `@` **不**自动展开，
+>    需额外 `Read <$LLM_WIKI_ROOT>/wiki/MEMORY/MEMORY.md` + 视情况
+>    `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
+> 4. **0.9.0+：** `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md`——确认本 wiki 是否有
+>    可用的项目级扩展脚本（批量 ingest / 外部 CLI 胶水 / 自动化 hook），有则按段中
+>    "调用约定" 显式执行；不强制（wiki 可无 scripts/），但**触发非标工作流前**必须先查
 >
-> 三件套任一未读完不写任何 wiki 内容。100+ 页的 wiki 还应在 `wiki/` 全域
+> 四件套任一未读完不写任何 wiki 内容。100+ 页的 wiki 还应在 `wiki/` 全域
 > `Grep "<topic>"` 补一次——单看 index.md 可能漏掉 entity/concept 页之间的引用关系。
 
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/CLAUDE.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
@@ -162,11 +169,11 @@ metadata:
    **为什么是这 5 个**见 [wiki-spec.md §9「通用必填字段」](references/wiki-spec.md#通用必填字段5-项)
    （OKF §9 字段齐全性 × lint 校验一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
-   `wiki/MEMORY/MEMORY.md` **无 frontmatter**（被 CLAUDE.md `@` import 的索引片段）——
-   权威定义见 [spec §3 / §4 / §5.1](references/wiki-spec.md)。
+   `wiki/MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 CLAUDE.md `@` import
+   的索引片段，后者是 tag 白名单）——权威定义见 [spec §3 / §4 / §5.1 / §9.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
-   同步以该处为准。
+   同步以该处为准。**`tags` 取值管理见 §核心原则 §11**（白名单在 `wiki/tags.md`，agent 按需自加）。
    **可选可信度与认知质量信号**（`reviewed` / `reviewed_at` / `contested` / `contradictions`，
    全部可选）——语义同样在 page-templates.md §一；**`reviewed: true` + `reviewed_at: <date>`
    表示"人工已审核该页"**，query 时优先采信；ingest 遇到与已有页矛盾时按 CLAUDE.md「矛盾处理
@@ -190,6 +197,42 @@ metadata:
     > 「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板，必须自包含（不能跨仓
     > 引到本 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
+11. **tag 白名单在 `wiki/tags.md`，LLM 按需自加 + 用户审计把关**（0.8.0+ 起，详
+    [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）。
+    - **白名单位置**：`<wiki-root>/wiki/tags.md`——无 frontmatter（与 MEMORY.md 同形态）、
+      裸 bullet 列表，**LLM 拥有**；CLAUDE.md 是 schema "宪法" 不含 tag 字典
+    - **agent 行为**：ingest / query 遇到新 tag 时**直接 append bullet** 到 `wiki/tags.md`
+      并同步写入该 page frontmatter——**不**询问用户、不打断流程；批处理 ingest 在结束时
+      一次性追加所有新 tag（避免每页重复改文件）。typo / 弱分类由 lint `tag-not-in-taxonomy`
+      兜底（覆盖用户手工编辑漏注册 + 本原则漏写两场景）
+    - **审计循环**（核心机制）：用户可在 `wiki/tags.md` 中**直接删除**任意 bullet——下次
+      lint 把所有还引用已删 tag 的页面以 `tag-not-in-taxonomy`（info）报回来，用户据此
+      裁定二选一：(a) 重新加回 tag（"我之前不该删"）/ (b) 从所有引用页面删除该 tag
+      （"确实误判"）。这条循环让"自加"模式长期不漂移，无需给每次新 tag 加闸门
+    - **不**给 `wiki/tags.md` 加 frontmatter / `type` 之类的 enum 扩展——它是元数据不是
+      内容页（与 `wiki/MEMORY/MEMORY.md` 同），lint 按路径识别，不参与 `tag-not-in-taxonomy` 校验
+    - **迁移**（跨 spec 升级）：老 wiki 的 CLAUDE.md 含 `### Tag Taxonomy` 段时，跑
+      `lint_wiki.py --check-version --apply` 自动写 `wiki/tags.md` + 删 CLAUDE.md 段；
+      没迁移前 lint `parse_tag_taxonomy` 仍**fallback**到 CLAUDE.md 段读取——过渡期不阻断
+
+12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，
+    详 [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）。
+    - **位置**：`<wiki-root>/scripts/` 顶层目录，CLI init 时刻**始终创建**
+      （与 `raw/articles/` 同原则）；每条工具在 `scripts/SCRIPTS.md` 列一段
+    - **CLAUDE.md import**：`scripts/SCRIPTS.md` 被 wiki 根目录的 `CLAUDE.md` 用
+      `@scripts/SCRIPTS.md` import 会话常驻——同 `wiki/MEMORY/MEMORY.md` /
+      `wiki/tags.md` 模式；agent 通过索引"知道有什么工具"
+    - **agent 行为**：执行非内置工作流（批量 ingest / 一键预处理 / 跑外部 CLI /
+      写 hook）时**先 `Read` `scripts/SCRIPTS.md`**——找到对应段、按段中"调用约定"
+      显式执行；**不**自动遍历 `scripts/` 跑任何文件，防止意外 execute 未审脚本
+    - **添加 / 修改 / 删除脚本与同步更新 `SCRIPTS.md` 段是原子动作**——完成时两者必须同时一致；
+      **不**在 SCRIPTS.md 出现未对应文件名的"幽灵段"，**不**在 `scripts/` 出现未被索引的孤儿脚本
+    - **git 策略**：默认跟踪；启用 git 时跟 wiki 同进仓；未启用 git 时跟 wiki 走纯目录树
+    - **不**复制 llm-wiki-management skill 自带脚本到 `scripts/`（lint_wiki.py /
+      ingest_diff.py / log_format.py 由 skill 仓管）——版本漂移风险 + 失去 spec 0.9.0+ 升级路径
+    - **不**为 scripts/ 写 frontmatter（**不**走 §5 5 必填、**不**参与 `lint_wiki.py` 扫描；
+      scripts/ 是代码不是 wiki 内容页）
+
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件（含 `raw/external/` 的 symlink + anchor）——
@@ -203,6 +246,8 @@ metadata:
 - **不**对 wiki 内文件用 Read 之外的工具做"自动"修改——所有修改走 Edit / Write 并
   走 schema 约定
 - **不**在 LLM 修改页面后保留 `reviewed: true` 戳——戳即过期，回到默认未审核（详见核心原则 §10）
+- **不**忽略 `scripts/SCRIPTS.md` 索引直接遍历 `scripts/` 跑脚本——必须先 `Read` 索引定位工具
+  - 按段中调用约定执行（详见核心原则 §12）
 
 ### 反模式（绝对禁止）
 
@@ -211,6 +256,8 @@ metadata:
 - 不写 log 条目就改 wiki（无法审计 + 无法 ingest_diff 识别新文件）
 - 跨 wiki 互引但不更新对端 index（两套 wiki 同步是用户的责任）
 - 用 Obsidian-only 语法（`[[wikilink]]`、`![[embed]]`）——本 skill 假设通用 Markdown
+- 把 llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py）
+  复制进 `<wiki-root>/scripts/`——SSOT 在 skill 仓；本 wiki 自维护脚本必须同时更新 `SCRIPTS.md` 索引段
 
 ## 工作流 / 步骤
 
@@ -230,8 +277,9 @@ metadata:
 workspace wiki init "LLM Systems"
 
 # CLI 按 wiki-spec.md 落盘：
-#   - 目录结构（raw/{articles,assets}/ + wiki/{entities,concepts,sources,comparisons,syntheses}/）
-#   - <wiki-root>/CLAUDE.md（按 references/claude-md-template.md 模板）
+#   - 目录结构（raw/{articles,assets}/ + wiki/{entities,concepts,sources,comparisons,syntheses}/
+#     + wiki/MEMORY/ + wiki/tags.md + scripts/SCRIPTS.md（0.9.0+））
+#   - <wiki-root>/CLAUDE.md（按 references/claude-md-template.md 模板，含 @scripts/SCRIPTS.md import 行）
 #   - wiki/index.md（5 段空类别占位 + okf_version: "0.1"）
 #   - wiki/log.md（首条 setup 条目）
 #   - .gitignore（忽略 OS / Obsidian / 临时文件）

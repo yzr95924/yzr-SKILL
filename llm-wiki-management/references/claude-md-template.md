@@ -14,6 +14,10 @@
 <!-- 下一行 @import 把 MEMORY 索引内联进本文件，会话常驻；agent 写 memory 时同步更新它 -->
 @wiki/MEMORY/MEMORY.md
 
+<!-- 0.9.0+：下一行 @import 把 scripts/ 索引内联进本文件，会话常驻；
+     agent 添加/修改/删除脚本时同步更新它。详见 [wiki-spec §14](../wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090) -->
+@scripts/SCRIPTS.md
+
 ## 一、本 wiki 的边界
 
 ### `raw/` —— 真相之源（**LLM 只读，用户可改**）
@@ -99,6 +103,30 @@
   - **不**要求 inbound 链接
   - 目录结构与契约详见 [`../wiki-spec.md`](../wiki-spec.md) §5
 
+### `scripts/` —— 本 wiki 仓的自维护脚本目录（0.9.0+）
+
+- 路径：`<wiki-root>/scripts/`
+- 性质：**用户 + LLM agent 共有**的项目级脚本目录——放置项目专属的 ingest 扩展（批量 PDF prep、
+  主题模板预处理等）、外部 CLI 胶水（pdf 抽图 / obsidian 同步等）、自动化 hook（pre-commit 校验、
+  ingest 前清洗等）。**不**放置 llm-wiki-management skill 自带脚本（那些 SSOT 在
+  `llm-wiki-management/scripts/`）
+- 索引文件：`scripts/SCRIPTS.md`（无 frontmatter，与 `MEMORY/MEMORY.md` 同形态）——
+  被本文件顶部 `@scripts/SCRIPTS.md` import 会话常驻。**每条工具必须列一段**：
+  - 使用场景（agent 触发条件）
+  - 调用约定（一行可粘贴）
+  - 作用（做什么 / 产出什么 / 副作用）
+  - 前置依赖（可选，`.sh` 需 `chmod +x`；`.py` 走 `python3`）
+- 纪律：
+  - **添加 / 修改 / 删除脚本文件**与**同步更新 `SCRIPTS.md` 段**是原子动作——完成时两者必须一致
+  - **不**写 frontmatter（scripts/ 是代码，不是 wiki 内容页）
+  - **`scripts/` 不参与 `lint_wiki.py` 扫描**——脚本代码质量由维护者自行负责
+  - **agent 不自动遍历 `scripts/` 跑任何东西**——必须先 `Read SCRIPTS.md` 找到对应段，
+    再按段中的调用约定显式执行；防止意外 execute
+  - git 跟踪策略：默认跟踪；启用 git 时跟 wiki 一起 commit；未启用 git 时跟 wiki 走纯目录树
+- 不适用：llm-wiki-management skill 自带的 `lint_wiki.py` / `ingest_diff.py` / `log_format.py`
+  ——这些脚本版本由 skill 仓管，**不**复制进 `scripts/`（避免版本漂移）
+- 完整契约与设计动机见 [`../wiki-spec.md`](../wiki-spec.md) §14
+
 ## 二、页面类型与 frontmatter 约定
 
 > **权威定义在 [`../page-templates.md`](../page-templates.md) §二（页面模板 + 字段定义）**——
@@ -129,27 +157,26 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 
 ### Tag Taxonomy（防 tag 漂移）
 
-`tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 维护一份
-**有限 tag 字典**，写在初始化时由 LLM 与用户共同确认（10-20 个一级 tag，按主题分类）。
-
-<!-- 本段示例：按主题替换。常见领域分类参考： -->
-
-- 模型：model / architecture / benchmark / training
-- 组织：person / company / lab / open-source
-- 技术：optimization / fine-tuning / inference / alignment / data
-- 元：comparison / timeline / controversy / prediction
+`tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 的 tag
+白名单放在 [`wiki/tags.md`](wiki/tags.md)（**0.8.0+ 起从此处迁出，原先嵌在 CLAUDE.md
+的 `### Tag Taxonomy` 段由 `--check-version --apply` 自动迁移）；本 wiki 创建时由
+workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分类（10-20 个一级 tag）。
 
 **规则**：
 
-- 新增 tag 必须**先扩本段再使用**——不要"先用后补"，否则字典永远追不上漂移
+- agent 在 ingest / query 时遇到新 tag → **直接追加**到 `wiki/tags.md`（无需询问用户），保持字典随 wiki 生长
 - 单页 `tags` 建议 3-7 个；过多说明页面主题过散，考虑拆分或聚焦
 - tag 取值严格小写 + kebab-case，与文件名命名一致
-- `lint_wiki.py` 应对 `tags` 中**不**在本表的值报 `tag-not-in-taxonomy`（info 级，不阻断）
+- **审计循环**：用户可在 `wiki/tags.md` 中**直接删除**误判的 bullet；下次 lint 把
+  `tag-not-in-taxonomy`（info）报到所有还引用已删 tag 的页面，由用户裁定二选一：
+  重新加回 / 从页面删除 tag
+- `lint_wiki.py` 对 `tags` 中**不**在 wiki/tags.md 白名单的值报
+  `tag-not-in-taxonomy`（info 级，不阻断）
 
-> **格式约束（影响 lint 解析）**：本段 tag 列表必须是**裸 bullet**（每行 `- ...`），
-> 不能包在 code block / HTML comment 里——`parse_tag_taxonomy` 只读裸文本。
+> **格式约束（影响 lint 解析）**：`wiki/tags.md` 的 tag 列表必须是**裸 bullet**
+> （每行 `- ...`），不能包在 code block / HTML comment 里——`parse_tag_taxonomy` 只读裸文本。
 > 格式示例：`- 模型：model / architecture`（中文 / 英文分隔符都支持）。
-> 多个 tag 用 `/` `，` `,` 任意一种分隔。`lint_wiki.py` 找不到 Tag Taxonomy 段或
+> 多个 tag 用 `/` `，` `,` 任意一种分隔。`lint_wiki.py` 找不到任何 tag 来源或
 > 解析出 0 个 tag 时**静默跳过**（不报错），避免新 setup 的 wiki 必报错。
 
 ### Page Thresholds（建页/追加/归档决策）

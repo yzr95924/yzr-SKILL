@@ -4,7 +4,7 @@
 与 `references/fixtures/`（CLI init 时刻的字节模板 + `references/canonical/` 字节金标准）
 **概念不同**——这里是测试脚本的输入样例，不是 CLI 的生成模板。
 
-## 4 套场景
+## 5 套场景
 
 | 场景 | 目录 | 期望 |
 |---|---|---|
@@ -12,6 +12,7 @@
 | 老版本 + 老 confidence 字段 | `older-confidence/` | `comparison: older`, plan 含 `frontmatter-rename` actions |
 | 老版本 + 冲突页 | `older-conflict/` | plan 把冲突页归入 `skipped_conflicts` |
 | wiki 比 SKILL 新 | `newer-than-skill/` | 告警但**不**写 plan |
+| 老版本（0.7.0） + CLAUDE.md 仍含 `### Tag Taxonomy` 段（0.8.0+ 迁移目标） | `tag-section-legacy/` | `claudemd-tag-section` pattern 触发；plan 含 `tag-taxonomy-migrate` action（写 wiki/tags.md + 删 CLAUDE.md 段） |
 
 ## 用法
 
