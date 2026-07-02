@@ -7,6 +7,7 @@ lint_wiki.py — deterministic 健康检查
 
 用法：
   python3 lint_wiki.py [<WIKI_ROOT>] [--severity <LEVEL>] [--no-git] [--migrate-confidence]
+  python3 lint_wiki.py [<WIKI_ROOT>] --check-version [--json] [--apply]
 
 --severity 过滤：error | warn | info | all（默认 all）
 --no-git 跳过 raw/ 的 git status 检查（CI 或裸仓场景）。默认**自动检测**：
@@ -14,10 +15,15 @@ lint_wiki.py — deterministic 健康检查
   裸目录树 / 无 git / raw 未纳入 git → 自动跳过并打印提示（不报错，不阻断）。
 --migrate-confidence 一次性迁移老 `confidence:` 字段（0.5.0 引入）到新
   `reviewed` + `reviewed_at`（0.7.0+）。互斥模式，不做常规 lint。
+  已被 `--check-version --apply` 覆盖；保留仅供旧用法兼容。
+--check-version 扫描当前 wiki 的 spec 版本（解析 CLAUDE.md §八 "Wiki Spec 版本"），
+  与 SKILL 仓 metadata.wiki_spec_version 比对，列出老格式 legacy 现场。默认仅打印报告
+  （不动任何文件）；加 `--apply` 会落盘 `<wiki-root>/.migration-plan.json` 供 agent 按
+  wiki-spec.md 附录 B 规则用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
 
 退出码：
-- 0 = 全部指定严重性级别内无 finding
-- 1 = 有 finding
+- 0 = 全部指定严重性级别内无 finding / --check-version 报告完成（无论是否需迁移）
+- 1 = 有 finding（仅常规 lint 模式）
 - 2 = 运行错误
 """
 
@@ -45,6 +51,22 @@ ANCHOR_FILENAME = ".symlink-anchor.json"
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
 SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+# Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
+# SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
+# 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
+CURRENT_WIKI_SPEC = "0.7.0"
+
+# --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
+MIGRATION_PLAN_FILENAME = ".migration-plan.json"
+
+# 已知 legacy pattern 的"pattern key"——为后续扩展预留，每个 key 是一类迁移动作。
+# rule_ref 指向 wiki-spec.md 附录 B 的对应行；agent 修复时按此引用。
+LEGACY_PATTERN_KEYS = {
+    "confidence-field": "wiki-spec.md#附录-b-0-7-0",
+    "memory-readme-file": "wiki-spec.md#附录-b-0-6-0",
+    "type-memory-value": "wiki-spec.md#附录-b-0-6-0",
+}
 
 # 严重性等级
 SEV_RANK = {"error": 0, "warn": 1, "info": 2}
@@ -1041,6 +1063,365 @@ def _migrate_confidence_in_text(text: str, conf_value: str, today: str) -> str:
     return "---\n" + new_fm + "---\n" + body
 
 
+# ---------------------------------------------------------------------------
+# --check-version：扫描 wiki 的 spec 版本 + 老格式 legacy 现场
+# 设计见 llm-wiki-management/docs/superpowers/specs/<date>-migrate-design.md
+# 职责：纯探测（不动 wiki 内容）；agent 拿到 plan 后按 wiki-spec.md 附录 B 走 Edit/Write 修复。
+# ---------------------------------------------------------------------------
+
+# CLAUDE.md §八 表格行匹配：
+# | Wiki Spec 版本 | 0.7.0 |
+# 兼容用户编辑后的格式变体（多余空格、备注尾部等）；semver 走单独正则抓取。
+CLAUDE_VERSION_ROW_RE = re.compile(r"^\s*\|\s*Wiki Spec 版本\s*\|\s*([^|]+?)\s*\|")
+SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
+
+
+def parse_claude_md_version(wiki_root: Path) -> Optional[str]:
+    """从 <wiki-root>/CLAUDE.md §八 表里抽 "Wiki Spec 版本"。
+
+    返回 semver 字符串（如 "0.7.0"）；找不到或解析失败返回 None。
+
+    设计权衡：仅解析 §八 表的"Wiki Spec 版本"行，不扫描全文（避免误抓正文里出现的
+    版本号）。用户编辑表格时若格式被破坏（例如把"Wiki Spec 版本"改成"Wiki 版本"），
+    解析失败——提示用户人工填回，而不是猜。
+    """
+    claude_md = wiki_root / "CLAUDE.md"
+    if not claude_md.is_file():
+        return None
+    try:
+        text = claude_md.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        m = CLAUDE_VERSION_ROW_RE.match(line)
+        if not m:
+            continue
+        cell = m.group(1).strip()
+        # 单元格可能含备注（如 "0.7.0 (current)"），抓首个 semver
+        semver = SEMVER_RE.search(cell)
+        if semver:
+            return semver.group(0)
+        # 单元格写了非 semver 文本——视为解析失败
+        return None
+    return None
+
+
+def _has_confidence_field(text: str) -> bool:
+    """frontmatter 顶层 `confidence: <value>` 行——不递归嵌套对象，匹配现存写法。"""
+    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+    if not m:
+        return False
+    for line in m.group(1).splitlines():
+        if re.match(r"^\s*confidence:\s*\S+", line):
+            return True
+    return False
+
+
+def _has_legacy_confidence_conflict(text: str) -> bool:
+    """冲突页：同时含老 confidence 字段与新 reviewed 字段——agent 跳过 + 转人工。"""
+    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+    if not m:
+        return False
+    has_confidence = False
+    has_reviewed = False
+    for line in m.group(1).splitlines():
+        if re.match(r"^\s*confidence:\s*\S+", line):
+            has_confidence = True
+        if re.match(r"^\s*reviewed:\s*\S+", line):
+            has_reviewed = True
+    return has_confidence and has_reviewed
+
+
+def _has_type_memory(text: str) -> bool:
+    """frontmatter `type: memory`——0.6.0 删 reserved memory；MEMORY 索引改为无 frontmatter。"""
+    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+    if not m:
+        return False
+    for line in m.group(1).splitlines():
+        if re.match(r"^\s*type:\s*memory\s*$", line):
+            return True
+    return False
+
+
+def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
+    """扫已知 legacy 现场，按 pattern key 分组 + 标记冲突。
+
+    返回结构（供 build_migration_plan 与 --json 输出复用）：
+    {
+      "patterns": {
+        "confidence-field":   [{"file": "wiki/sources/x.md", "conflict": False}, ...],
+        "memory-readme-file": [{"file": "wiki/MEMORY/README.md", "conflict": False}],
+        "type-memory-value":  [{"file": "wiki/MEMORY/old-x.md", "conflict": False}],
+      },
+      "conflicts": [
+        {"file": "wiki/sources/llama-2.md", "reason": "同时含 confidence + reviewed 字段"}
+      ],
+    }
+    """
+    pages = find_md_files(wiki_root)
+    out = {
+        "patterns": {k: [] for k in LEGACY_PATTERN_KEYS},  # type: Dict[str, List[Dict[str, object]]]
+        "conflicts": [],  # type: List[Dict[str, str]]
+    }  # type: Dict[str, object]
+
+    # 扫所有内容页 + MEMORY 经验条目（不含 MEMORY.md 索引本身）
+    candidates = []  # type: List[Path]
+    for sub in WIKI_SUBDIRS:
+        candidates.extend(pages[sub])
+    for p in pages["memory"]:
+        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
+            continue
+        candidates.append(p)
+
+    for p in candidates:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        rel = p.relative_to(wiki_root).as_posix()
+
+        if _has_confidence_field(text):
+            conflict = _has_legacy_confidence_conflict(text)
+            out["patterns"]["confidence-field"].append({"file": rel, "conflict": conflict})  # type: ignore
+            if conflict:
+                out["conflicts"].append(  # type: ignore
+                    {"file": rel, "reason": "同时含 legacy confidence 字段与 reviewed 字段——agent 跳过 + 转人工裁定"}
+                )
+
+        if _has_type_memory(text):
+            out["patterns"]["type-memory-value"].append({"file": rel, "conflict": False})  # type: ignore
+
+    # 文件级 legacy：MEMORY/README.md 存在
+    memory_readme = wiki_root / "wiki" / MEMORY_SUBDIR / "README.md"
+    if memory_readme.is_file():
+        out["patterns"]["memory-readme-file"].append(  # type: ignore
+            {"file": "wiki/MEMORY/README.md", "conflict": False}
+        )
+
+    return out
+
+
+def _compare_semver(current: Optional[str], skill: str) -> str:
+    """返回 'equal' / 'older' / 'newer' / 'unknown'。semver 简单元组比较；缺值=unknown。"""
+    if not current:
+        return "unknown"
+
+    def parse(v: str) -> Optional[tuple]:
+        m = SEMVER_RE.search(v)
+        if not m:
+            return None
+        try:
+            return tuple(int(x) for x in m.group(0).split("."))
+        except ValueError:
+            return None
+
+    c = parse(current)
+    s = parse(skill)
+    if not c or not s:
+        return "unknown"
+    if c < s:
+        return "older"
+    if c > s:
+        return "newer"
+    return "equal"
+
+
+def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: Dict[str, object]) -> Dict[str, object]:
+    """把 detect_legacy_patterns 的发现组织成 agent 可执行的 plan。
+
+    每个 action 含 file / type / rule_ref / 具体 remove & add_or_modify；
+    agent 按 wiki-spec.md 附录 B 引用 rule_ref 走 Edit/Write。
+    """
+    today = date.today().isoformat()
+    actions = []  # type: List[Dict[str, object]]
+
+    # confidence-field → 0.5.0/0.7.0 迁移规则
+    for entry in legacy["patterns"]["confidence-field"]:  # type: ignore
+        if entry["conflict"]:  # type: ignore
+            continue  # 冲突页不进 plan
+        fpath = entry["file"]  # type: ignore
+        # 读 frontmatter 拿 confidence 值——决定 migrated vs removed
+        full = wiki_root / fpath
+        text = full.read_text(encoding="utf-8", errors="replace")
+        fm = parse_frontmatter_simple(text)
+        conf_value = str(fm.get("confidence", "")).strip().strip("\"'").lower()
+        action = {
+            "file": fpath,
+            "type": "frontmatter-rename",
+            "rule_ref": LEGACY_PATTERN_KEYS["confidence-field"],
+            "remove": ["confidence"],
+            "add_or_modify": {},
+        }  # type: Dict[str, object]
+        if conf_value == "high":
+            action["add_or_modify"] = {"reviewed": True, "reviewed_at": today}  # type: ignore
+        actions.append(action)
+
+    # memory-readme-file → 0.6.0 迁移规则
+    for entry in legacy["patterns"]["memory-readme-file"]:  # type: ignore
+        fpath = entry["file"]  # type: ignore
+        actions.append(
+            {
+                "file": fpath,
+                "type": "file-move",
+                "rule_ref": LEGACY_PATTERN_KEYS["memory-readme-file"],
+                "from": fpath,
+                "to_action": (
+                    "读取 README.md 内容（若有 MEMORY 经验条目清单），"
+                    "在同目录新建 MEMORY.md（无 frontmatter，索引格式见 wiki-spec.md §5.1），"
+                    "从 README.md 提取每条 *.md 列一行 `- <slug> — <一句话> → [正文](<slug>.md)`，"
+                    "删除 README.md"
+                ),
+            }
+        )
+
+    # type-memory-value → 0.6.0 迁移规则
+    for entry in legacy["patterns"]["type-memory-value"]:  # type: ignore
+        fpath = entry["file"]  # type: ignore
+        actions.append(
+            {
+                "file": fpath,
+                "type": "frontmatter-retype",
+                "rule_ref": LEGACY_PATTERN_KEYS["type-memory-value"],
+                "remove": ["type"],
+                "add_or_modify": {"type": "memory-entry"},  # 新占位类型——具体语义 wiki-spec §5.2 兜底
+                "note": "0.6.0 起 MEMORY/*.md 不再写 reserved `type: memory`；agent 视上下文决定是否需要改 type 值或仅删字段",
+            }
+        )
+
+    plan = {
+        "generated_at": today,
+        "from_version": current_spec,
+        "to_version": CURRENT_WIKI_SPEC,
+        "skill_path": "llm-wiki-management/SKILL.md",
+        "spec_doc": "llm-wiki-management/references/wiki-spec.md",
+        "rule_doc": "llm-wiki-management/references/wiki-spec.md#附录-b-版本历史",
+        "actions": actions,
+        "skipped_conflicts": legacy.get("conflicts", []),  # type: ignore
+        "agent_rules": [
+            "按 actions[] 顺序逐项修；每个 action 前打印依据 rule_ref",
+            "frontmatter-rename：用 Edit 改 frontmatter（删老字段、加新字段；不动 updated）",
+            "file-move：先读源 → 写目标 → 删源；不要 Write 覆盖原 MEMORY/README.md",
+            "frontmatter-retype：按 action.note 与 wiki-spec §5.2 决定具体改法",
+            "skipped_conflicts[] 永远不自动覆盖——转人工",
+            "改完后用 Edit 把 CLAUDE.md §八 Wiki Spec 版本行改为 to_version",
+            "不写 log 条目（迁移是脚本运行，不是 wiki 操作事件）",
+            "不调 ingest / query / lint——保持职责单一",
+        ],
+    }  # type: Dict[str, object]
+    return plan
+
+
+def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
+    """--check-version 子命令主入口。
+
+    - 解析 CLAUDE.md §八 wiki_spec_version
+    - 探测已知 legacy 现场
+    - 默认打印人读报告（不写文件）
+    - --json 输出机器可读 JSON
+    - --apply 落盘 <wiki-root>/.migration-plan.json（agent 修复路径的依据）
+    """
+    current_spec = parse_claude_md_version(wiki_root)
+    comparison = _compare_semver(current_spec, CURRENT_WIKI_SPEC)
+    legacy = detect_legacy_patterns(wiki_root)
+
+    # 数 legacy pattern 总数（不算 conflicts，因为 conflicts 不进 plan）
+    total_patterns = 0
+    for entries in legacy["patterns"].values():  # type: ignore
+        total_patterns += len(entries)  # type: ignore
+    needs_migration = (comparison == "older") or (total_patterns > 0)
+
+    report = {
+        "current_spec": current_spec,
+        "skill_spec": CURRENT_WIKI_SPEC,
+        "comparison": comparison,
+        "needs_migration": needs_migration,
+        "legacy_patterns": legacy["patterns"],  # type: ignore
+        "conflicts": legacy["conflicts"],  # type: ignore
+    }
+
+    if json_mode:
+        # JSON 模式：输出 report；apply 时再附 plan
+        if apply:
+            plan = build_migration_plan(wiki_root, current_spec, legacy)
+            report["migration_plan"] = plan
+            plan_path = wiki_root / MIGRATION_PLAN_FILENAME
+            if plan_path.exists():
+                print(
+                    f"ERROR: {plan_path} 已存在；为防误覆盖请先删除或改名",
+                    file=sys.stderr,
+                )
+                return 2
+            plan_path.write_text(
+                __import__("json").dumps(plan, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        print(__import__("json").dumps(report, indent=2, ensure_ascii=False))
+        return 0
+
+    # 人读模式
+    print("=== Wiki Spec 版本检查 ===")
+    print(f"  current_spec : {current_spec or '(解析失败)'}")
+    print(f"  skill_spec   : {CURRENT_WIKI_SPEC}")
+    print(f"  comparison   : {comparison}")
+    print(f"  needs_migration: {needs_migration}")
+    print()
+
+    # 当前版本比 SKILL 新 → 告警，不阻断
+    if comparison == "newer":
+        print(f"[WARN] wiki 用比 SKILL 更新的 spec（{current_spec} > {CURRENT_WIKI_SPEC}）")
+        print("       请升级 SKILL 仓；本子命令不会修改 wiki")
+        print()
+        return 0
+
+    # 解析失败 → 提示用户填 CLAUDE.md §八
+    if current_spec is None:
+        print("[WARN] 无法解析 <wiki-root>/CLAUDE.md §八 'Wiki Spec 版本'")
+        print("       请确认该行存在且格式为: | Wiki Spec 版本 | 0.x.y |")
+        print("       解析失败不影响 legacy pattern 探测（下方继续输出）")
+        print()
+
+    # legacy pattern 列表
+    if total_patterns == 0 and not legacy["conflicts"]:  # type: ignore
+        print("No legacy patterns found. ✓")
+        return 0
+
+    print(f"[LEGACY] 共 {total_patterns} 处老格式现场")
+    for pattern_key, entries in legacy["patterns"].items():  # type: ignore
+        if not entries:  # type: ignore
+            continue
+        rule_ref = LEGACY_PATTERN_KEYS.get(pattern_key, "?")
+        print(f"  - {pattern_key} ({len(entries)}) → {rule_ref}")
+        for entry in entries:  # type: ignore
+            flag = " [CONFLICT]" if entry.get("conflict") else ""  # type: ignore
+            print(f"      {entry['file']}{flag}")  # type: ignore
+
+    if legacy["conflicts"]:  # type: ignore
+        print()
+        print(f"[CONFLICTS] {len(legacy['conflicts'])} 处冲突页——agent 不自动覆盖")  # type: ignore
+        for c in legacy["conflicts"]:  # type: ignore
+            print(f"  - {c['file']}: {c['reason']}")  # type: ignore
+
+    # apply 时落盘 plan
+    if apply:
+        plan_path = wiki_root / MIGRATION_PLAN_FILENAME
+        if plan_path.exists():
+            print(f"\nERROR: {plan_path} 已存在；为防误覆盖请先删除或改名", file=sys.stderr)
+            return 2
+        plan = build_migration_plan(wiki_root, current_spec, legacy)
+        plan_path.write_text(
+            __import__("json").dumps(plan, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(f"\n[PLAN] 落盘 {plan_path}")
+        print(f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}")
+        print("       agent 现在可按 plan.actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）")
+    else:
+        print()
+        print("[HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复（默认 dry-run）")
+        print("       加 --json  输出机器可读 JSON")
+
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deterministic health check for a local LLM wiki.")
     parser.add_argument("wiki_root", nargs="?", help="wiki 根目录；默认从 $LLM_WIKI_ROOT 读")
@@ -1051,7 +1432,22 @@ def main() -> int:
     parser.add_argument(
         "--migrate-confidence",
         action="store_true",
-        help="一次性迁移老 confidence 字段到新 reviewed + reviewed_at（互斥模式，不做常规 lint）",
+        help="一次性迁移老 confidence 字段到新 reviewed + reviewed_at（互斥模式，不做常规 lint）。已被 --check-version --apply 覆盖；保留仅供旧用法兼容。",
+    )
+    parser.add_argument(
+        "--check-version",
+        action="store_true",
+        help="扫描 wiki 的 spec 版本（CLAUDE.md §八）与已知 legacy 老格式现场；默认 dry-run。加 --apply 落盘 .migration-plan.json，加 --json 输出机器可读 JSON。互斥模式。",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="与 --check-version 联用：输出机器可读 JSON 而不是人读报告",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="与 --check-version 联用：落盘 <wiki-root>/.migration-plan.json 供 agent 修复",
     )
     args = parser.parse_args()
 
@@ -1075,6 +1471,10 @@ def main() -> int:
     # --migrate-confidence 是互斥模式：跑迁移，不跑常规 lint
     if args.migrate_confidence:
         return migrate_confidence(wiki_root)
+
+    # --check-version 是互斥模式：跑版本扫描，不跑常规 lint
+    if args.check_version:
+        return cmd_check_version(wiki_root, apply=args.apply, json_mode=args.json)
 
     # 跑所有检查
     all_findings = []  # type: List[str]

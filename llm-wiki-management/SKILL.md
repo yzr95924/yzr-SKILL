@@ -34,6 +34,8 @@ metadata:
 - 用户在对话中说"摄取/归档到 wiki / ingest to wiki / 把这篇文章整理进 wiki"
 - 用户在对话中说"wiki 里有 X 吗 / 在 wiki 里搜一下 / 总结 wiki 中关于 Y 的内容"
 - 用户在对话中说"lint wiki / wiki 健康检查 / 找矛盾 / 找孤儿页"
+- 用户在对话中说"升级 wiki / 迁移到最新 spec / 检查 wiki 版本 / 老格式 / reformat"——
+  走 §5 Migrate
 - 用户指向 `<wiki-root>/raw/` 里新出现 / 未归档的文件
 - 用户首次提到"我想搭一个 wiki 用来管理 X 的研究 / 读书笔记 / 项目"
 - 用户提到"CLAUDE.md 怎么写 / raw/ 和 wiki/ 的边界"
@@ -59,7 +61,7 @@ metadata:
 | --- | --- | --- |
 | Wiki 根目录 | `LLM_WIKI_ROOT` 环境变量，或交互时问 | 例 `~/wiki/llm-systems` |
 | 主题名 | setup 时一次性指定，写入 `CLAUDE.md` | 例 "LLM Systems" |
-| 操作类型 | 用户自然语言 | ingest / query / lint / setup |
+| 操作类型 | 用户自然语言 | ingest / query / lint / migrate / setup |
 | 触发资料 | ingest 时给文件路径或目录 | 必须在 `raw/` 内 |
 
 ### 操作产物
@@ -72,6 +74,9 @@ metadata:
   或 `wiki/syntheses/<slug>.md`
 - **lint** → `log` 中报告：raw/ 是否被改、孤儿页、断裂交叉引用、过期摘要、缺
   frontmatter、log.md 格式
+- **migrate** → 跑 `scripts/lint_wiki.py --check-version` 输出 spec 版本 + legacy 现场
+  报告；`--apply` 落盘 `<wiki-root>/.migration-plan.json` 供 agent 按 `wiki-spec.md`
+  附录 B 走 Edit/Write 修复；详见 §5 Migrate
 
 ## 设计决策
 
@@ -96,16 +101,19 @@ metadata:
    一处，是 LLM 维护 wiki 的"宪法"。没有它，LLM 会退化成普通聊天机器人；有它，
    LLM 是"纪律严明的 wiki 维护者"。
 
-### 三个核心操作——为什么是三个
+### 四个核心操作——为什么是四个
 
 | 操作 | 输入 | 输出 | 价值 |
 | --- | --- | --- | --- |
 | **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
 | **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
 | **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
+| **migrate** | 整个 wiki（含 CLAUDE.md §八） | legacy 报告 + `.migration-plan.json` + agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
 
 每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
-不会越积越乱。**单独跑任一个都亏**——这就是"复利"的本质。
+不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
+这就是"复利"的本质。migrate 与其他三个不同——它是**周期触发**而非每次 wiki 操作触发
+（spec 升版本时才跑），但缺了它老 wiki 会**腐烂在格式层**而不是内容层，更难察觉。
 
 ### 为什么不用云端
 
@@ -395,6 +403,96 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 - 写新文件时**保留**原文件的 `created` 字段；只更新 `updated`
 - 用户**不**直接编辑 MEMORY/——若用户想补充，先转告 agent 由 agent 写入
 
+### 5. Migrate（升级 wiki spec）
+
+**触发**：用户说"升级 wiki / 迁移 / 检查 wiki 版本 / 老格式 / spec 升级 / 是否需要
+reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 warn。
+
+**为什么需要这一步**：[`wiki-spec.md` §10](references/wiki-spec.md#10-版本钉死) 规定
+每个 wiki 仓在 `<wiki-root>/CLAUDE.md` §八 钉一份 `Wiki Spec 版本`（CLI init 时从
+SKILL 仓 `metadata.wiki_spec_version` 镜像）。spec 演进时（0.5.0 → 0.6.0 → 0.7.0…）
+老 wiki 会**有意识地保留**部分旧字段（如 `confidence`）与文件形态（如 `MEMORY/README.md`）
+——避免一刀切破坏用户沉淀的内容。本节定义**检测 + 自动修复**的 workflow：让用户/agent
+对着一份"按 spec 升级的清单"逐项把 wiki 推到与 SKILL 仓一致的格式。
+
+**职责切分**（**关键**——避免与 ingest / lint 混淆）：
+
+- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / 落盘
+  `.migration-plan.json`，**不**改任何 wiki 内容
+- **agent**（本节定义）= 修复者。按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用
+  Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 CLAUDE.md §八
+- **`wiki-spec.md` 附录 B** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
+- **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
+
+**流程**（agent 驱动，与 §1-§4 风格一致）：
+
+1. **操作前置**：跑 orient ritual（CLAUDE.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
+2. **跑探测**：
+
+   ```bash
+   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
+   ```
+
+   - 解析 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"——拿到 `current_spec`
+   - 与 SKILL 仓 `metadata.wiki_spec_version`（`scripts/lint_wiki.py` 顶部常量
+     `CURRENT_WIKI_SPEC`）比对：相等 / 老 / 新
+   - 扫已知 legacy 现场：老字段（`confidence`）+ 老文件（`wiki/MEMORY/README.md`）
+     - 退役 `type` 值（`type: memory`）
+   - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，**agent 不覆盖**
+3. **dry-run 报告**（默认必走）：
+   - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec.md 附录 B 哪行"
+   - 冲突页单独标红，**绝不自动覆盖**——等用户裁定
+   - 询问用户：应用全部 / 部分应用 / 仅看清单
+4. **生成 plan**（用户同意应用时）：
+
+   ```bash
+   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
+   ```
+
+   落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]`（每个含 file / type /
+   rule_ref / remove / add_or_modify）+ `skipped_conflicts[]` + `agent_rules[]`。
+   若 plan 已存在 → 拒绝覆盖，提示用户删除或改名。
+5. **执行修复**（agent 用 Edit/Write）：
+   - 按 `actions[]` 顺序逐项修；每个 action 前打印依据 `rule_ref`
+   - `frontmatter-rename`：Edit 改 frontmatter（删老字段、加新字段；**不动 `updated`**）
+   - `file-move`：先读源 → 写目标 → 删源；**不要 Write 覆盖原 MEMORY/README.md**
+   - `frontmatter-retype`：按 `action.note` 与 `wiki-spec §5.2` 决定具体改法
+   - **跳过 `skipped_conflicts[]`**——永不自动覆盖人工决策
+6. **改 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"**：
+   - 用 Edit 替换为 `to_version`（其它字段不动）
+   - 这是**迁移本身**的操作，**不**触及 reviewed 戳机制（CLAUDE.md 不参与 §核心原则 §10
+     的 `reviewed-stale` 兜底）
+7. **验证**：重跑 `lint_wiki.py --check-version`：
+   - 若 `needs_migration == false` 且无残留 legacy → 告知用户完成
+   - 若仍有 → 报告残留 pattern + 转人工
+8. **不**追加 log 条目 / **不**触发 ingest / query / lint（保持职责单一）
+
+**`--json` 联用**：把报告 + plan 一起输出 JSON，给 agent 程序化消费（CI / 编排场景）。
+默认人读报告（含 `[LEGACY]` / `[CONFLICTS]` 分组 + `[HINT]` 提示加 `--apply`）。
+
+**边界**：
+
+- **不**修改 `raw/` 下任何文件（即便用户要求）——延续 §核心原则 §1 的 LLM 只读纪律
+- **不**删除 wiki 内容（即便 raw 已不存在 source 页）——用 `archived: true` 替代
+- **不**对 MEMORY 索引做"自动补行"以外的改动——MEMORY.md 是 LLM 私有记忆清单
+- **不**改 `wiki/log.md` / `wiki/index.md` frontmatter（4 字段 reserved，迁移不触及）
+- **不**在迁移过程中调用 ingest / query / lint（保持职责单一）
+- **冲突页绝不自动覆盖**（已在 step 3 / step 5 双重保险）
+- **不**给迁移追加 log 条目——迁移是脚本运行，不是 wiki 操作事件
+- **`current_spec > skill_spec`**（wiki 比 SKILL 新）：**不**阻断，告警用户升级 SKILL 仓；
+  **不**改 wiki
+
+**与现有 lint 检查的协同**：
+
+- 迁移后会**自然清理** `legacy-confidence-field` warn（lint §二.13.C）
+- 迁移**不**触及 `reviewed-stale` warn（页面正文未改，仅字段重命名；按 §核心原则 §10
+  "LLM 修改页面正文"边界，本操作属于元数据重命名，不算正文修改——但若用户谨慎，可在迁移
+  后跑 `lint_wiki.py --severity warn` 让人工审视 reviewed 戳）
+- 与 `--migrate-confidence`（0.5.0→0.7.0 单点硬编码迁移）的关系：`--migrate-confidence`
+  保留仅供旧用法兼容；新流程一律走 `--check-version --apply`（覆盖其功能 + 范围更广）
+
+**样例见**：[`## 参考样例`](SKILL.md#参考样例) §五。
+
 ## 参考样例
 
 ### 样例一：setup 一个 LLM Systems 主题的 wiki
@@ -481,6 +579,52 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 3. agent 补充半定性观察：
    - sources/llama-3.md 与 sources/llama-2.md 对 "context window" 的描述不一致
 4. 整理成结构化报告，问用户先修哪些
+```
+
+### 样例五：检查 wiki 是否需要升级到最新 spec
+
+**用户指令**："我这个 wiki 是去年搭的，老格式了，能不能升级到最新 spec"
+
+**执行**：
+
+```text
+1. 跑操作前置：Read ~/wiki/llm-systems/CLAUDE.md (看到 §八 Wiki Spec 版本 = 0.5.0) +
+   wiki/index.md + wiki/log.md 最近 30 行
+2. 跑探测：
+   python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version
+   脚本报告：
+     current_spec : 0.5.0
+     skill_spec   : 0.7.0
+     comparison   : older
+     needs_migration: true
+     [LEGACY] 共 17 处老格式现场
+       - confidence-field (12) → wiki-spec.md#附录-b-0-7-0
+           wiki/sources/llama-2.md  [CONFLICT] ← 同时有 reviewed，需人工裁定
+           wiki/sources/llama-3.md
+           ...
+       - memory-readme-file (1)  → wiki-spec.md#附录-b-0-6-0
+           wiki/MEMORY/README.md
+       - type-memory-value (4)   → wiki-spec.md#附录-b-0-6-0
+           wiki/MEMORY/foo.md, ...
+     [CONFLICTS] 1 处冲突页——agent 不自动覆盖
+       - wiki/sources/llama-2.md: 同时含 legacy confidence 字段与 reviewed 字段
+     [HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复
+3. agent 把报告转成对话式清单 + 询问用户:
+   "应用全部（除 1 处冲突转人工）/ 部分应用 / 仅看清单?"
+   用户: "应用全部"
+4. 生成 plan：
+   python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version --apply
+   → 落盘 ~/wiki/llm-systems/.migration-plan.json
+5. agent 读 plan.actions[] 逐项 Edit/Write 修复:
+   - 12 处 frontmatter-rename（其中 11 处直接改，1 处冲突跳过转人工）
+   - 1 处 file-move: 读 wiki/MEMORY/README.md → 新建 wiki/MEMORY/MEMORY.md
+     索引 → 删 README.md
+   - 4 处 frontmatter-retype: 按 wiki-spec §5.2 改 type 值或仅删 type 字段
+6. Edit 改 ~/wiki/llm-systems/CLAUDE.md §八 "Wiki Spec 版本" 0.5.0 → 0.7.0
+7. 重跑 lint_wiki.py --check-version 验证:
+     needs_migration: false ✓ 完成
+     报告残留: wiki/sources/llama-2.md [CONFLICT] 等待用户裁定
+8. 告诉用户完成 + 1 处冲突转人工
 ```
 
 ## 与 OKF（Open Knowledge Format）的关系

@@ -19,7 +19,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity err
 
 退出码：0 = 干净；1 = 有问题（看输出）。
 
-### 子命令 `--migrate-confidence`（0.7.0+）
+### 子命令 `--migrate-confidence`（0.7.0+，**仅供旧用法兼容**）
 
 老 wiki 中 `confidence: high/medium/low` 字段（0.5.0 引入，0.7.0 退役）一次性迁移到
 新 `reviewed` + `reviewed_at`：
@@ -40,6 +40,39 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --migrate-conf
 
 - 不带 `--migrate-confidence` 时：见到 `confidence:` 字段给 `legacy-confidence-field` warn（§二.13.C）
 - 带 `--migrate-confidence` 时：**不**做常规 lint 检查，**只**做迁移（互斥模式）
+
+**与 `--check-version` 的关系**：`--migrate-confidence` 是 0.5.0→0.7.0 单点硬编码迁移；
+新流程一律走 `--check-version --apply`（覆盖其功能 + 范围更广）。保留 `--migrate-confidence`
+仅供旧脚本/CI 调用兼容；详见 SKILL.md §5 Migrate。
+
+### 子命令 `--check-version`（0.7.0+ 推荐）
+
+扫当前 wiki 的 spec 版本（解析 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"）与已知
+legacy 老格式现场：
+
+```bash
+python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
+# 加 --json 输出机器可读 JSON（agent 程序化消费）
+python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --json
+# 加 --apply 落盘 .migration-plan.json 供 agent 按 wiki-spec.md 附录 B 走 Edit/Write 修复
+python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
+```
+
+行为：
+
+- 默认 **dry-run**——只打印人读报告，不动任何文件
+- 解析 CLAUDE.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
+  比对（脚本常量 `CURRENT_WIKI_SPEC`）
+- 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `memory-readme-file`
+  （0.6.0 前用 `MEMORY/README.md`）+ `type-memory-value`（0.6.0 删 reserved memory）
+- 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，agent 跳过 + 转人工
+- `--apply` 落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]` / `skipped_conflicts[]`
+  / `agent_rules[]`；若 plan 已存在拒绝覆盖（防误覆盖）
+- **不**做常规 lint 检查（互斥模式）
+- **不**写 log 条目（迁移是脚本运行，不是 wiki 操作事件）
+
+完整 agent 修复路径、边界、与 lint 检查的协同见 [SKILL.md §5 Migrate](../SKILL.md#5-migrate升级-wiki-spec)。
+规则 SSOT 见 [`wiki-spec.md` 附录 B](wiki-spec.md#附录-b版本历史)。
 
 ## 二、Deterministic 检查清单（脚本执行）
 
