@@ -1,8 +1,8 @@
 # Fixtures
 
-CLI 实现 wiki 仓时落盘的 `wiki/index.md` / `wiki/log.md` / `MEMORY/MEMORY.md`
-/ `scripts/SCRIPTS.md` / `.gitignore` 五个文件的**字面量金标准**（`scripts/SCRIPTS.md`
-于 0.9.0+ 引入）。
+CLI 实现 wiki 仓时落盘的 `wiki/index.md` / `wiki/log.md` / `wiki/tags.md`
+/ `MEMORY/MEMORY.md` / `scripts/SCRIPTS.md` / `.gitignore` 六个文件的**字面量金标准**
+（`wiki/tags.md` 于 0.8.0+ 引入；`scripts/SCRIPTS.md` 于 0.9.0+ 引入）。
 
 ## 用法
 
@@ -16,9 +16,10 @@ CLI 实现时,把 fixtures 视为**带占位符的字节模板**,把 `references
 
 cmp -s $TMP/wiki/index.md         canonical/index.md
 cmp -s $TMP/wiki/log.md            canonical/log.md
+cmp -s $TMP/wiki/tags.md           canonical/tags.md          # 0.8.0+；裸 bullet 列表,无 frontmatter / 无占位符
 cmp -s $TMP/MEMORY/MEMORY.md       canonical/memory-index.md
-cmp -s $TMP/scripts/SCRIPTS.md     <fixture>/scripts.md.txt  # 0.9.0+；无占位符,直接 fixture 比对（与 gitignore 同款）
-cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占位符,直接 fixture 比对
+cmp -s $TMP/scripts/SCRIPTS.md     canonical/scripts.md       # 0.9.0+；无 frontmatter / 无占位符,Markdown 结构走 canonical 留演化空间
+cmp -s $TMP/.gitignore             <fixture>/gitignore.txt    # .gitignore 纯文本常量,fixture 比对足够
 ```
 
 任何一个不一致 → CLI 实现有 bug,应 fail 退出。
@@ -39,12 +40,13 @@ cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占
 
 两者必须**同步**：spec §3 描述 index.md 的 frontmatter 字段时，fixture/index.md.txt 的实际 frontmatter 必须与之匹配。任一不一致 → review 时立即暴露。
 
-## 五个 fixture 对应的"角色"
+## 六个 fixture 对应的"角色"
 
 | fixture | CLI 何时生成 | 后续谁维护 |
 |---|---|---|
 | `index.md.txt` | init 时刻 | **LLM agent**（每次 ingest / 重写 / 归档同步） |
 | `log.md.txt` | init 时刻（首条 setup 条目） | **LLM agent**（只 append ingest/query/lint 条目） |
+| `tags.md.txt`（0.8.0+） | init 时刻 | **LLM agent**（按需追加 tag bullet；用户可删误判 bullet 触发 lint `tag-not-in-taxonomy` 审计循环） |
 | `memory-index.txt` | init 时刻 | **LLM agent**（追加经验条目到 MEMORY/ 下 + 同步 MEMORY.md 索引） |
 | `scripts.md.txt`（0.9.0+） | init 时刻 | **用户 + LLM agent**（添加 / 修改脚本与同步 SCRIPTS.md 段是原子动作；与 MEMORY/tags.md 同形态——无 frontmatter） |
 | `gitignore.txt` | init 时刻 | **不动**（除非用户手动调） |
@@ -56,7 +58,9 @@ cmp -s $TMP/.gitignore             <fixture>/gitignore.txt   # .gitignore 无占
 fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
 - 主题名占位符：`{{TOPIC_NAME}}`
 - 日期占位符：`{{SETUP_DATE}}`
-- `.gitignore` / `scripts.md.txt`（0.9.0+）无占位符,直接落盘
+- `.gitignore` / `wiki/tags.md`（0.8.0+） / `scripts.md.txt`（0.9.0+）无占位符,直接落盘
+  （三者形态一致——无 frontmatter、纯 Markdown；`tags.md.txt` 与 `memory-index.txt` 一样属于
+  wiki 根级文件，不带 wiki 名占位）
 
 CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD>}` 做替换，
 **不**做替换的占位符会在落盘后被 lint 立即报错(spec §11)。

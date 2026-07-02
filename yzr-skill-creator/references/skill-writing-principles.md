@@ -26,6 +26,13 @@
 写 / 改 SKILL.md 正文时遵循：
 
 - **progressive disclosure 三级加载**：元数据（name + description）始终在上下文；SKILL.md 正文触发时加载；捆绑资源按需加载。**正文长度权威上限 = 5000 词**（本仓库只在此处给出该指标，其它位置只引用不重抄，参见下方”指标单一来源”原则）；接近上限就抽一层到 `references/`，并给出清晰的”何时去读”指引；> 300 行的 reference 文件要带目录。
+  - **模板文件例外**：CLI 字面拷贝给目标仓的模板文件（如 `references/claude-md-template.md`
+    经 `cp` 拷到 `<wiki-root>/CLAUDE.md` 这类）**不**适用 "> 300 行要带目录" 规则。
+    **两个原因**：(1) 模板读者是**顺序消费**——agent 读 CLAUDE.md 是一次性顺序读,不是按 TOC 跳读,
+    TOC 在小文档里反而占 token 无收益;(2) **产物形态固定**——CLI 按字面拷贝 + 占位符替换,
+    加 TOC 会把目录段带进目标仓 CLAUDE.md,破坏"按模板字面拷贝"语义。
+    **审计识别方法**：文件名带 `-template.md` / `-template.txt` 后缀,或路径在 `references/` 下
+    但被 spec 标为"CLI init 拷贝"。
 - **正文超长根因诊断路径**（接 progressive disclosure 上限）：触到或超过 5000 词时，常见反应用 Edit 在 SKILL.md 直接删字——但根因常是”references 内容被复制到 SKILL.md” + “次级 workflow 步骤没下放”，删字只治标。**诊断三步**：(1) **全节重抄检测**——grep 同一规则关键词在 SKILL.md + references/ 出现 ≥ 2 次且内容相似 = 重抄信号（详见正文描述一致性 + 跨文件重复检测子原则）；(2) **次级 workflow 步骤未下放**——“### 1. <Op>” / “### 2. <Op>” 等多步操作单步超过 30 行 = 应下放到 `references/<op>-workflow.md`；(3) **冗长参考样例**——“## 参考样例” / “## Examples” 段超过 80 行 = 应下放到 `references/examples.md`。**修法优先级**：先”加新 references 文件”（正向，不破坏现有结构）而非”在 SKILL.md 删字”（负向，易丢上下文）。预期收益：加新 references 文件 -800 ~ -1500 词（低风险）；压 §核心原则段为”title + 1 句话 + reference” -200 ~ -500 词（中风险）；直接删字 -100 ~ -300 词（高风险）。
 - **语言**：正文以中文为主，关键名词 / 流程可用英文辅助；说明性文字优先祈使语气。
 - **解释"为什么"而非堆砌 MUST**：尽量讲清楚每条要求背后的原因；全大写的 ALWAYS / NEVER 或僵化结构是黄灯，能用"为什么"替代就替代。运用心理揣摩让 skill 通用，不过度绑定到具体例子；先写草稿，再用新眼光复审。

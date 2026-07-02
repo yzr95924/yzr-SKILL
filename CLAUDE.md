@@ -13,7 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 每个 skill 目录名（kebab-case）必须与 `SKILL.md` frontmatter 的 `name` 一致。
 - 每个 skill 目录**必须**包含 `SKILL.md`；可选 `scripts/`、`references/`、`assets/`、`eval/` 子目录。
 - 全部 Markdown 文件需经格式化 + lint，行宽 ≤ 120 字符（`.markdownlint.jsonc`，MD013 已放宽）。
-- 跨会话需要持久化的"为什么"与边界规则写入根目录 `MEMORY/`（`MEMORY.md` 是索引，正文与索引同级）。
+- 跨会话需要持久化的"为什么"与边界规则写入根目录 `MEMORY/`（`MEMORY.md` 是索引）。两种条目形式按事实颗粒度选：
+  - **完整 memory**：含设计决策 / 工作流约束 / 跨文件关系 → 建 `MEMORY/<slug>.md`（含 frontmatter 与正文），`MEMORY.md` 加 `[Title](slug.md)` 指针
+  - **短 memory**：一句话能讲清的纯事实 / 单一偏好 / 无需 why+how 的提醒——直接以 `- 一行事实` 索引行承载，不单独建 `<slug>.md`
+  - 判别尺度交给事实本身：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
 - frontmatter `quick_validate.py` 的 `ALLOWED_PROPERTIES = {name, description, license, allowed-tools, metadata, compatibility}`。`dependencies` 字段曾被 `paper-summary` 试用过，但与 allowlist 冲突；该 skill 已被整体删除。
 
 ## 常用命令
@@ -85,7 +88,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ```
 .
 ├── README.md              # 设计原则 / 依赖 / SKILLs 分类占位
-├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引，正文同级）
+├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引；完整条目正文同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── design-doc-edit/             # 设计文档写作 skill（强制骨架 + 场景/方案分析）
 ├── llm-wiki-management/         # 本地单 wiki 维护（llm-workspace-management 的内层）

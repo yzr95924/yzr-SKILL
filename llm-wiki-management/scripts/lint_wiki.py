@@ -938,6 +938,9 @@ def check_memory_index(wiki_root: Path) -> List[str]:
     MEMORY.md 不存在时静默跳过（老 wiki 迁移期 / spec <0.6.0，不报错）。
     severity = info（轻量索引非强制入口，类比 tag-not-in-taxonomy）。
 
+    短条目（0.10.0+ 引入，与项目 CLAUDE.md 同步）：MEMORY.md 索引行可无对应 .md 文件
+    （`- 一句话事实` 格式），不进本检查范围——只兜底"有 .md 但未索引"。
+
     0.10.0+ 路径变更：MEMORY/ 从 wiki/ 下移到 <wiki-root>/MEMORY/（与 wiki/ 平级）。
     """
     findings = []  # type: List[str]

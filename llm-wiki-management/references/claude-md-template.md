@@ -92,13 +92,19 @@
 - 路径：`<wiki-root>/MEMORY/`
 - 性质：LLM agent 在 ingest / query / lint 过程中沉淀的**经验、踩坑、用户偏好**——
   不是 wiki 内容、不是操作时间线，而是 agent 私有记忆；对应 SKILL §四层架构第 3 层
+- **条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` 同步）：
+  - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
+    建 `MEMORY/<slug>.md`（frontmatter 5 必填 + 正文）+ 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
+  - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 索引行直接 `- 一句话事实`，
+    不单独建 `.md` 文件
+  - 两种格式可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底"有 .md 但未索引"
 - 纪律：
   - 用户**不**直接编辑 MEMORY/（这是 agent 私有记录）
-  - 任何 MEMORY/ 下的经验条目 `*.md` **必须**含 frontmatter 5 必填（title / type / created / updated / tags），
-    与 wiki 内容页规则一致
+  - 任何 `MEMORY/*.md`（**仅完整条目**）**必须**含 frontmatter 5 必填
+    （title / type / created / updated / tags），与 wiki 内容页规则一致
   - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——被本文件顶部的 `@MEMORY/MEMORY.md`
-    import 内联、会话常驻；写每条经验条目时**同步追加索引一行**
-    （`- <slug> — <一句话> → [正文](<slug>.md)`），否则下次会话读不到（lint `memory-not-indexed` 兜底）
+    import 内联、会话常驻；写每条时**同步追加索引一行**（按上"条目形式"选格式），
+    否则下次会话读不到
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
   - **不**要求 inbound 链接
   - 目录结构与契约详见 [`../wiki-spec.md`](../wiki-spec.md) §5

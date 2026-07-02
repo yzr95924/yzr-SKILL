@@ -403,13 +403,17 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 **流程**（agent 主动）：
 
 1. 决定是否值得写——是否能让未来的自己 / 未来的 agent 工作更顺？
-2. 在 `MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
-3. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
-4. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
-5. **同步追加 `MEMORY/MEMORY.md` 索引一行**：`- <slug> — <一句话> → [正文](<slug>.md)`——
-   这是 MEMORY 能被下次会话读到的前提（索引被 CLAUDE.md `@` import 常驻；漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
-6. **不**追加 log 条目——MEMORY 不是操作时间线
-7. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束（入口是 MEMORY.md 索引，见步骤 5）
+2. **判别条目形式**（与仓库根 `MEMORY/` 同步）：
+   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→ 走步骤 3-6 完整格式
+   - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 直接跳到步骤 6 短格式
+3. 在 `MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
+4. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
+5. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
+6. **同步追加 `MEMORY/MEMORY.md` 索引一行**——格式按条目形式选：
+   - 完整条目：`- <slug> — <一句话> → [正文](<slug>.md)`（步骤 3 文件必须存在；漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
+   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 CLAUDE.md `@` import 常驻即可达未来会话）
+7. **不**追加 log 条目——MEMORY 不是操作时间线
+8. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束（入口是 MEMORY.md 索引）
 
 **纪律**：
 

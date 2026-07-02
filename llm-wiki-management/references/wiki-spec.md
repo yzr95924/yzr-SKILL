@@ -215,6 +215,14 @@
   （lint 校验实现见 SKILL 仓 `scripts/lint_wiki.py`，不归本 spec）
 - **MEMORY 不在 `wiki/index.md` 中强制列出**——它是 agent 私有入口，不需要 wiki 单一入口约束；
   但每条 `*.md` **必须**在 `MEMORY/MEMORY.md` 索引中列出一行（lint `memory-not-indexed` 兜底漏列）
+- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/MEMORY.md` 同步——见项目 `CLAUDE.md`）：
+  - **完整条目**：含上下文 / 解决步骤 / 未来如何避免 → 建 `MEMORY/<slug>.md`（走 §5.2 规则）
+    + 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
+  - **短条目**：一句话提醒 / 单一偏好 / 无需解释"为什么" → 索引行直接 `- 一句话事实`，
+    不单独建 `.md` 文件
+  - 判别尺度：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
+  - 短条目与完整条目可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底
+    "有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
 
 ### §5.1 MEMORY/MEMORY.md（索引）
 
@@ -223,7 +231,10 @@
   不是 wiki 内容页（对齐仓库根 `MEMORY/MEMORY.md` 形态）。lint 把它当 reserved 跳过 frontmatter /
   tag / 命名校验
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §4，**不**重复以免口径分裂）+
-  `## 索引` 段；每条一行：`- <slug> — <一句话摘要> → [正文](<slug>.md)`
+  `## 索引` 段。索引行两种格式共存：
+  - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §5.2 的 `MEMORY/<slug>.md`）
+  - **短条目**：`- <一句话事实>`（无链接，对应无 `.md` 文件的索引行 reminder）
+  - 判别尺度见 §5 总段「条目形式按事实颗粒度选」
 - **加载机制**：agent 在 wiki 根目录工作时，Claude Code 自动加载根 `CLAUDE.md`，
   `@MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLM_WIKI_ROOT`
   读 CLAUDE.md）时，`@` 不自动展开，由 SKILL 的 orient ritual 显式 Read MEMORY.md 补齐
@@ -543,7 +554,7 @@ raw/external/*
 - **骨架**(CLI init 时刻拷贝):
 
   ```markdown
-  # {{TOPIC_NAME}} Scripts
+  # Scripts
 
   > 本目录存放本 wiki 自维护的脚本（项目级 ingest 扩展 / 外部 CLI 胶水 / 自动化 hook）。
   > 索引文件被 `<wiki-root>/CLAUDE.md` 用 `@scripts/SCRIPTS.md` import 会话常驻;
@@ -558,7 +569,9 @@ raw/external/*
   ```
 
 - 字面量模板进 `references/fixtures/scripts.md.txt`(CLI init 拷贝)
-- 占位符 `{{TOPIC_NAME}}` 同 §2 / §3 处理方式
+- **无**占位符——SCRIPTS.md 是 CLAUDE.md 上下文里的"内部索引",与 `MEMORY/MEMORY.md`
+  / `wiki/tags.md` 同族(均无 frontmatter、wiki 名由 CLAUDE.md §1 承载,SCRIPTS.md
+  不重复)
 
 ### §14.4 每工具一段的契约(LLM / 用户共同维护)
 
@@ -604,7 +617,7 @@ raw/external/*
 升级至 0.9.0 后 CLI 需补的动作(由 workspace CLI 负责,**不**属本 skill 范围):
 
 1. 创建 `scripts/` 目录
-2. 拷贝 `references/fixtures/scripts.md.txt`(渲染 `{{TOPIC_NAME}}`)到 `scripts/SCRIPTS.md`
+2. 拷贝 `references/fixtures/scripts.md.txt` 到 `scripts/SCRIPTS.md`（无占位符,直接落盘）
 3. 在 `<wiki-root>/CLAUDE.md` 顶部 References 段中加入 `@scripts/SCRIPTS.md` import 行
    (参考 §2 模板 `### Wiki-local scripts` 段)
 4. **不**对老 wiki 自动创任何脚本文件(避免污染用户目录)
