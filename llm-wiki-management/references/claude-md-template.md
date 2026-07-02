@@ -12,7 +12,7 @@
 > 按需读取它——所以**不依赖 symlink**，多 wiki / 跨项目都能用。
 
 <!-- 下一行 @import 把 MEMORY 索引内联进本文件，会话常驻；agent 写 memory 时同步更新它 -->
-@wiki/MEMORY/MEMORY.md
+@MEMORY/MEMORY.md
 
 <!-- 0.9.0+：下一行 @import 把 scripts/ 索引内联进本文件，会话常驻；
      agent 添加/修改/删除脚本时同步更新它。详见 [wiki-spec §14](../wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090) -->
@@ -87,16 +87,16 @@
   - 每条带链接 + 一句话摘要
   - 每次 wiki 内容变更后**必须**同步（宁可多改）
 
-### `wiki/MEMORY/` —— LLM agent 的持久化记忆
+### `MEMORY/` —— LLM agent 的持久化记忆
 
-- 路径：`<wiki-root>/wiki/MEMORY/`
+- 路径：`<wiki-root>/MEMORY/`
 - 性质：LLM agent 在 ingest / query / lint 过程中沉淀的**经验、踩坑、用户偏好**——
-  不是 wiki 内容、不是操作时间线，而是 agent 私有记忆
+  不是 wiki 内容、不是操作时间线，而是 agent 私有记忆；对应 SKILL §四层架构第 3 层
 - 纪律：
   - 用户**不**直接编辑 MEMORY/（这是 agent 私有记录）
   - 任何 MEMORY/ 下的经验条目 `*.md` **必须**含 frontmatter 5 必填（title / type / created / updated / tags），
     与 wiki 内容页规则一致
-  - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——被本文件顶部的 `@wiki/MEMORY/MEMORY.md`
+  - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——被本文件顶部的 `@MEMORY/MEMORY.md`
     import 内联、会话常驻；写每条经验条目时**同步追加索引一行**
     （`- <slug> — <一句话> → [正文](<slug>.md)`），否则下次会话读不到（lint `memory-not-indexed` 兜底）
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
@@ -160,7 +160,8 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 `tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 的 tag
 白名单放在 [`wiki/tags.md`](wiki/tags.md)（**0.8.0+ 起从此处迁出，原先嵌在 CLAUDE.md
 的 `### Tag Taxonomy` 段由 `--check-version --apply` 自动迁移）；本 wiki 创建时由
-workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分类（10-20 个一级 tag）。
+workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分类（**10-20 个一级 tag 是建议值，
+非权威阈值**——具体数量由用户/agent 共同裁定，按主题复杂度伸缩）。
 
 **规则**：
 

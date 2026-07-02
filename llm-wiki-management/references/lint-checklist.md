@@ -4,6 +4,35 @@ Lint 让 wiki **不腐烂**。Karpathy 原话："The tedious part of maintaining
 base is not the reading or the thinking — it's the bookkeeping." Lint 把 bookkeeping
 的一部分自动化。
 
+## 目录
+
+- [一、调用方式](#一调用方式)
+- [二、Deterministic 检查清单（脚本执行）](#二deterministic-检查清单脚本执行)
+  - [1. `raw/` 不可变性](#1-raw-不可变性)
+  - [2. frontmatter 完整性](#2-frontmatter-完整性)
+  - [3. frontmatter 来源（source / synthesis 页）](#3-frontmatter-来源source--synthesis-页)
+  - [4. 路径引用完整性](#4-路径引用完整性)
+  - [5. index.md 覆盖](#5-indexmd-覆盖)
+  - [6. log.md 格式](#6-logmd-格式)
+  - [7. 过期摘要](#7-过期摘要)
+  - [8. 文件名规范](#8-文件名规范)
+  - [9. 重复标题](#9-重复标题)
+  - [10. log.md 条目数（log-rotation）](#10-logmd-条目数log-rotation)
+  - [11. Tag Taxonomy 校验（0.8.0+）](#11-tag-taxonomy-校验080)
+  - [12. 页面体量](#12-页面体量)
+  - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
+  - [14. MEMORY.md 索引一致性](#14-memorymd-索引一致性)
+- [三、半定性检查（agent 执行）](#三半定性检查agent-执行)
+  - [14. 矛盾主张](#14-矛盾主张)
+  - [15. 缺失交叉引用](#15-缺失交叉引用)
+  - [16. 缺失 entity / concept 页](#16-缺失-entity--concept-页)
+  - [17. 调查方向建议](#17-调查方向建议)
+  - [18. 资料投放口是否堆积](#18-资料投放口是否堆积)
+- [四、报告格式](#四报告格式)
+- [五、lint 之后](#五lint-之后)
+- [六、lint 频率](#六lint-频率)
+- [七、lint 的边界](#七lint-的边界)
+
 Lint 分**两层**：
 
 1. **Deterministic**（脚本检查，可程序化）——`scripts/lint_wiki.py`
@@ -63,8 +92,8 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - 默认 **dry-run**——只打印人读报告，不动任何文件
 - 解析 CLAUDE.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
   比对（脚本常量 `CURRENT_WIKI_SPEC`）
-- 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `memory-readme-file`
-  （0.6.0 前用 `MEMORY/README.md`）+ `type-memory-value`（0.6.0 删 reserved memory）
+- 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `type-memory-value`
+  （0.6.0 删 reserved memory）
 - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，agent 跳过 + 转人工
 - `--apply` 落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]` / `skipped_conflicts[]`
   / `agent_rules[]`；若 plan 已存在拒绝覆盖（防误覆盖）
@@ -89,7 +118,9 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 2. frontmatter 完整性
 
-- 扫所有 `wiki/**/*.md`（排除 `index.md`、`log.md` 和 `MEMORY/MEMORY.md`——索引无 frontmatter）
+- 扫 `wiki/**` 下所有 `.md`（排除 `index.md` / `log.md`）**+** 扫 `<wiki-root>/MEMORY/*.md`
+  （与 `wiki/` 平级、单独子树扫；排除 `MEMORY.md` 本身——索引无 frontmatter）；两条子树的 frontmatter
+  校验与同名 warning 都走同一份实现
 - 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
   （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
 - `type` 必须是 `entity` / `concept` / `source` / `comparison` / `synthesis` 之一
@@ -138,7 +169,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 10. log.md 条目数（log-rotation）
 
-- `wiki/log.md` 当前文件条目数 > 阈值（默认 500）→ 报告 `log-rotation-recommended`
+- `wiki/log.md` 当前文件条目数 > 阈值（默认 `LOG_ROTATION_THRESHOLD`）→ 报告 `log-rotation-recommended`
 - 阈值由 `scripts/lint_wiki.py` 顶部 `LOG_ROTATION_THRESHOLD` 常量控制
 - **不**自动 rotate——lint 只建议；rotate 流程见 [wiki-spec §4.1](wiki-spec.md#41-log-rotation防-logmd-无限增长)
 - 归档文件 `log-YYYY.md` 不计入（它们是只读归档，不需要再次 rotate）
@@ -210,10 +241,10 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 14. MEMORY.md 索引一致性
 
-- `wiki/MEMORY/MEMORY.md` 是被 `<wiki-root>/CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 的轻量
+- `MEMORY/MEMORY.md` 是被 `<wiki-root>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 的轻量
   索引（无 frontmatter），让 agent 每次会话都能看到 MEMORY 里有哪些条目——避免 MEMORY 沦为
   只写不读的死库
-- 扫 `wiki/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
+- 扫 `<wiki-root>/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
   列出** → 报 `memory-not-indexed`
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
@@ -276,7 +307,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 [WARN] legacy-confidence-field: wiki/sources/llama-2.md 含已退役 confidence 字段——请运行 --migrate-confidence
 [INFO] missing-xref: wiki/sources/abc.md mentions 'self-attention' but doesn't link to concepts/self-attention.md
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
-[INFO] memory-not-indexed: wiki/MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
+[INFO] memory-not-indexed: MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
 [INFO] pending-review: wiki/concepts/flash-attention.md 未审核 — 待人工复审后置 reviewed: true
 ```
 

@@ -9,4 +9,4 @@ updated: 2026-06-01
 
 # Test Wiki (older)
 
-> 老版本 fixture: 含 confidence 字段、wiki/MEMORY/README.md、type: memory 各一处。
+> 老版本 fixture: 含 confidence 字段。

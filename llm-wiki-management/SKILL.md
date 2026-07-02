@@ -1,15 +1,18 @@
 ---
 name: llm-wiki-management
 description: 用户在搭建或维护本地、单用户的复利型个人 wiki
-  （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill —— 把
-  参考资料摄入 wiki、做跨页综合查询、跑矛盾 / 孤儿 lint、围绕新主题搭 wiki。
-  不用于云端协作 wiki（Notion / Confluence / Outline / GitHub Wiki）——
-  那些走 outline-wiki-upload（写）/ outline-wiki-search（搜读）。
+  （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill
+  ——把原始资料（论文 / 文章 / 剪藏 / 笔记）持续摄入本地 wiki、做跨页综合查询、
+  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题从零搭 wiki，按 git 可选 opt-in 的
+  纯目录树 + Markdown 工作流维护。不用于云端协作 wiki（Notion / Confluence /
+  Outline Wiki / GitHub Wiki）——那些走 outline-wiki-upload（写 / 编辑）/
+  outline-wiki-search（搜 / 读）；不用于一次性文档生成、强结构化数据库、
+  多人实时协作。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-02
-  wiki_spec_version: 0.9.0
+  wiki_spec_version: 0.10.0
 ---
 
 # LLM Wiki Management
@@ -67,7 +70,7 @@ metadata:
 ### 操作产物
 
 - **setup** → 由外部 workspace CLI 完成（按 [`references/wiki-spec.md`](references/wiki-spec.md) 落盘），
-  本 skill 不实现创建逻辑；产物形态为目录结构 + CLAUDE.md + wiki/index.md + wiki/log.md + wiki/MEMORY/MEMORY.md + .gitignore
+  本 skill 不实现创建逻辑；产物形态为目录结构 + CLAUDE.md + wiki/index.md + wiki/log.md + MEMORY/MEMORY.md + .gitignore
 - **ingest** → 新增 / 更新 `wiki/sources/<slug>.md` + 同步实体 / 概念页 + 追加
   `log.md` 条目 + 更新 `index.md`
 - **query** → 对话中给出答案（带引用），**可选**把答案归档为 `wiki/comparisons/`
@@ -93,10 +96,12 @@ metadata:
    `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
    wiki 内容，只读 + 提问题。每次摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
-3. **`wiki/MEMORY/` agent 持久化记忆**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
-   与 wiki/ 同归属（LLM 写、用户不写）但**不**走单一入口约束。其中 `MEMORY.md` 是索引，被
-   `CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
-   详细规则见 spec §5。
+3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
+   物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
+   同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
+   是索引，被 `CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
+   为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
+   MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`CLAUDE.md` 纪律配置**——把"wiki 怎么写 / 写什么 / 不写什么"的约定集中到
    一处，是 LLM 维护 wiki 的"宪法"。没有它，LLM 会退化成普通聊天机器人；有它，
    LLM 是"纪律严明的 wiki 维护者"。
@@ -140,11 +145,11 @@ metadata:
 >
 > 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds；CLAUDE.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——
->    见本节 §核心原则 §11），但**含** `@wiki/MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md`
+>    见本节 §核心原则 §11），但**含** `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md`
 >    import（0.9.0+ 起），不要去 CLAUDE.md 里找这些索引的物理内容。在 wiki 根目录内工作时
->    Claude Code 自动加载（含 `@wiki/MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` 索引——MEMORY
+>    Claude Code 自动加载（含 `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` 索引——MEMORY
 >    条目 / 本 wiki 工具列表随之常驻）；别处由 skill 按需读 CLAUDE.md 时 `@` **不**自动展开，
->    需额外 `Read <$LLM_WIKI_ROOT>/wiki/MEMORY/MEMORY.md` + 视情况
+>    需额外 `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况
 >    `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
@@ -169,7 +174,7 @@ metadata:
    **为什么是这 5 个**见 [wiki-spec.md §9「通用必填字段」](references/wiki-spec.md#通用必填字段5-项)
    （OKF §9 字段齐全性 × lint 校验一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
-   `wiki/MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 CLAUDE.md `@` import
+   `MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 CLAUDE.md `@` import
    的索引片段，后者是 tag 白名单）——权威定义见 [spec §3 / §4 / §5.1 / §9.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
@@ -182,56 +187,17 @@ metadata:
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
-9. **`wiki/MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
+9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
    时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
    必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 CLAUDE.md `@` import 会话常驻，否则下次
    读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-wikimemory)
-10. **LLM 修改已审核页必须清 `reviewed` 戳**——按
-    [`page-templates.md` §一「生命周期规则」](references/page-templates.md#生命周期规则llm-必读)：
-    任何对页面正文的 LLM 修改（含 ingest 重摄取、query 归档、refine、任何 Edit/Write
-    触碰正文）都会让戳失效，必须**删除** `reviewed` + `reviewed_at` 两个字段回到默认
-    未审核状态，由人重新审；`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在
-    且 `updated > reviewed_at` 时给 warn）兜底。
+10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 / query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且 `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
 
-    > **注**：同样的规则也会出现在 [`references/claude-md-template.md`](references/claude-md-template.md) §二
-    > 「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板，必须自包含（不能跨仓
-    > 引到本 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
+    > **注**：同样的规则也会出现在 [`references/claude-md-template.md`](references/claude-md-template.md) §二「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板必须自包含（跨仓引不到 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
-11. **tag 白名单在 `wiki/tags.md`，LLM 按需自加 + 用户审计把关**（0.8.0+ 起，详
-    [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）。
-    - **白名单位置**：`<wiki-root>/wiki/tags.md`——无 frontmatter（与 MEMORY.md 同形态）、
-      裸 bullet 列表，**LLM 拥有**；CLAUDE.md 是 schema "宪法" 不含 tag 字典
-    - **agent 行为**：ingest / query 遇到新 tag 时**直接 append bullet** 到 `wiki/tags.md`
-      并同步写入该 page frontmatter——**不**询问用户、不打断流程；批处理 ingest 在结束时
-      一次性追加所有新 tag（避免每页重复改文件）。typo / 弱分类由 lint `tag-not-in-taxonomy`
-      兜底（覆盖用户手工编辑漏注册 + 本原则漏写两场景）
-    - **审计循环**（核心机制）：用户可在 `wiki/tags.md` 中**直接删除**任意 bullet——下次
-      lint 把所有还引用已删 tag 的页面以 `tag-not-in-taxonomy`（info）报回来，用户据此
-      裁定二选一：(a) 重新加回 tag（"我之前不该删"）/ (b) 从所有引用页面删除该 tag
-      （"确实误判"）。这条循环让"自加"模式长期不漂移，无需给每次新 tag 加闸门
-    - **不**给 `wiki/tags.md` 加 frontmatter / `type` 之类的 enum 扩展——它是元数据不是
-      内容页（与 `wiki/MEMORY/MEMORY.md` 同），lint 按路径识别，不参与 `tag-not-in-taxonomy` 校验
-    - **迁移**（跨 spec 升级）：老 wiki 的 CLAUDE.md 含 `### Tag Taxonomy` 段时，跑
-      `lint_wiki.py --check-version --apply` 自动写 `wiki/tags.md` + 删 CLAUDE.md 段；
-      没迁移前 lint `parse_tag_taxonomy` 仍**fallback**到 CLAUDE.md 段读取——过渡期不阻断
+11. **tag 白名单在 `wiki/tags.md`**（0.8.0+ 起，详 [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）——LLM auto-extend bullet + 用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无 frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。`claude-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
 
-12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，
-    详 [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）。
-    - **位置**：`<wiki-root>/scripts/` 顶层目录，CLI init 时刻**始终创建**
-      （与 `raw/articles/` 同原则）；每条工具在 `scripts/SCRIPTS.md` 列一段
-    - **CLAUDE.md import**：`scripts/SCRIPTS.md` 被 wiki 根目录的 `CLAUDE.md` 用
-      `@scripts/SCRIPTS.md` import 会话常驻——同 `wiki/MEMORY/MEMORY.md` /
-      `wiki/tags.md` 模式；agent 通过索引"知道有什么工具"
-    - **agent 行为**：执行非内置工作流（批量 ingest / 一键预处理 / 跑外部 CLI /
-      写 hook）时**先 `Read` `scripts/SCRIPTS.md`**——找到对应段、按段中"调用约定"
-      显式执行；**不**自动遍历 `scripts/` 跑任何文件，防止意外 execute 未审脚本
-    - **添加 / 修改 / 删除脚本与同步更新 `SCRIPTS.md` 段是原子动作**——完成时两者必须同时一致；
-      **不**在 SCRIPTS.md 出现未对应文件名的"幽灵段"，**不**在 `scripts/` 出现未被索引的孤儿脚本
-    - **git 策略**：默认跟踪；启用 git 时跟 wiki 同进仓；未启用 git 时跟 wiki 走纯目录树
-    - **不**复制 llm-wiki-management skill 自带脚本到 `scripts/`（lint_wiki.py /
-      ingest_diff.py / log_format.py 由 skill 仓管）——版本漂移风险 + 失去 spec 0.9.0+ 升级路径
-    - **不**为 scripts/ 写 frontmatter（**不**走 §5 5 必填、**不**参与 `lint_wiki.py` 扫描；
-      scripts/ 是代码不是 wiki 内容页）
+12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，详 [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md` 被 wiki 仓 `CLAUDE.md` 用 `@scripts/SCRIPTS.md` import 会话常驻；agent **必须**先 `Read SCRIPTS.md` 找段、再按"调用约定"显式执行，**不**自动遍历 `scripts/`；脚本与索引段修改是**原子动作**。`scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。`claude-md-template.md`「Wiki-local scripts」段自包含同样规则。
 
 ### 边界
 
@@ -278,7 +244,7 @@ workspace wiki init "LLM Systems"
 
 # CLI 按 wiki-spec.md 落盘：
 #   - 目录结构（raw/{articles,assets}/ + wiki/{entities,concepts,sources,comparisons,syntheses}/
-#     + wiki/MEMORY/ + wiki/tags.md + scripts/SCRIPTS.md（0.9.0+））
+#     + MEMORY/ + wiki/tags.md + scripts/SCRIPTS.md（0.9.0+））
 #   - <wiki-root>/CLAUDE.md（按 references/claude-md-template.md 模板，含 @scripts/SCRIPTS.md import 行）
 #   - wiki/index.md（5 段空类别占位 + okf_version: "0.1"）
 #   - wiki/log.md（首条 setup 条目）
@@ -437,7 +403,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 **流程**（agent 主动）：
 
 1. 决定是否值得写——是否能让未来的自己 / 未来的 agent 工作更顺？
-2. 在 `wiki/MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
+2. 在 `MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
 3. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
 4. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
 5. **同步追加 `MEMORY/MEMORY.md` 索引一行**：`- <slug> — <一句话> → [正文](<slug>.md)`——
@@ -456,224 +422,31 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 **触发**：用户说"升级 wiki / 迁移 / 检查 wiki 版本 / 老格式 / spec 升级 / 是否需要
 reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 warn。
 
-**为什么需要这一步**：[`wiki-spec.md` §10](references/wiki-spec.md#10-版本钉死) 规定
-每个 wiki 仓在 `<wiki-root>/CLAUDE.md` §八 钉一份 `Wiki Spec 版本`（CLI init 时从
-SKILL 仓 `metadata.wiki_spec_version` 镜像）。spec 演进时（0.5.0 → 0.6.0 → 0.7.0…）
-老 wiki 会**有意识地保留**部分旧字段（如 `confidence`）与文件形态（如 `MEMORY/README.md`）
-——避免一刀切破坏用户沉淀的内容。本节定义**检测 + 自动修复**的 workflow：让用户/agent
-对着一份"按 spec 升级的清单"逐项把 wiki 推到与 SKILL 仓一致的格式。
+**职责切分**（避免与 ingest / lint 混淆）：
 
-**职责切分**（**关键**——避免与 ingest / lint 混淆）：
+- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
+- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 CLAUDE.md §八
+- **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）
+- **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
-- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / 落盘
-  `.migration-plan.json`，**不**改任何 wiki 内容
-- **agent**（本节定义）= 修复者。按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用
-  Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 CLAUDE.md §八
-- **`wiki-spec.md` 附录 B** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
-- **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
+**简要流程**（agent 驱动；详细 8 步 + 边界 + 与 lint 协同见
+[`references/migrate-workflow.md`](references/migrate-workflow.md)）：
 
-**流程**（agent 驱动，与 §1-§4 风格一致）：
+1. orient ritual（CLAUDE.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
+2. 跑 `scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version`——dry-run 报告 + legacy pattern 分组 + 冲突页标红
+3. 询问用户"应用全部 / 部分 / 仅看清单"
+4. 用户同意 → `scripts/lint_wiki.py ... --check-version --apply` 落盘 `.migration-plan.json`（已存在则拒绝覆盖）
+5. agent 按 `actions[]` 顺序 Edit/Write 修复，跳过 `skipped_conflicts[]`（永不自动覆盖人工决策）
+6. Edit 改 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本" 为 `to_version`
+7. 重跑 `lint_wiki.py --check-version` 验证；`needs_migration == false` 即完成
+8. **不**追加 log 条目 / **不**触发 ingest / query / lint
 
-1. **操作前置**：跑 orient ritual（CLAUDE.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
-2. **跑探测**：
-
-   ```bash
-   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
-   ```
-
-   - 解析 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"——拿到 `current_spec`
-   - 与 SKILL 仓 `metadata.wiki_spec_version`（`scripts/lint_wiki.py` 顶部常量
-     `CURRENT_WIKI_SPEC`）比对：相等 / 老 / 新
-   - 扫已知 legacy 现场：老字段（`confidence`）+ 老文件（`wiki/MEMORY/README.md`）
-     - 退役 `type` 值（`type: memory`）
-   - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，**agent 不覆盖**
-3. **dry-run 报告**（默认必走）：
-   - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec.md 附录 B 哪行"
-   - 冲突页单独标红，**绝不自动覆盖**——等用户裁定
-   - 询问用户：应用全部 / 部分应用 / 仅看清单
-4. **生成 plan**（用户同意应用时）：
-
-   ```bash
-   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
-   ```
-
-   落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]`（每个含 file / type /
-   rule_ref / remove / add_or_modify）+ `skipped_conflicts[]` + `agent_rules[]`。
-   若 plan 已存在 → 拒绝覆盖，提示用户删除或改名。
-5. **执行修复**（agent 用 Edit/Write）：
-   - 按 `actions[]` 顺序逐项修；每个 action 前打印依据 `rule_ref`
-   - `frontmatter-rename`：Edit 改 frontmatter（删老字段、加新字段；**不动 `updated`**）
-   - `file-move`：先读源 → 写目标 → 删源；**不要 Write 覆盖原 MEMORY/README.md**
-   - `frontmatter-retype`：按 `action.note` 与 `wiki-spec §5.2` 决定具体改法
-   - **跳过 `skipped_conflicts[]`**——永不自动覆盖人工决策
-6. **改 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"**：
-   - 用 Edit 替换为 `to_version`（其它字段不动）
-   - 这是**迁移本身**的操作，**不**触及 reviewed 戳机制（CLAUDE.md 不参与 §核心原则 §10
-     的 `reviewed-stale` 兜底）
-7. **验证**：重跑 `lint_wiki.py --check-version`：
-   - 若 `needs_migration == false` 且无残留 legacy → 告知用户完成
-   - 若仍有 → 报告残留 pattern + 转人工
-8. **不**追加 log 条目 / **不**触发 ingest / query / lint（保持职责单一）
-
-**`--json` 联用**：把报告 + plan 一起输出 JSON，给 agent 程序化消费（CI / 编排场景）。
-默认人读报告（含 `[LEGACY]` / `[CONFLICTS]` 分组 + `[HINT]` 提示加 `--apply`）。
-
-**边界**：
-
-- **不**修改 `raw/` 下任何文件（即便用户要求）——延续 §核心原则 §1 的 LLM 只读纪律
-- **不**删除 wiki 内容（即便 raw 已不存在 source 页）——用 `archived: true` 替代
-- **不**对 MEMORY 索引做"自动补行"以外的改动——MEMORY.md 是 LLM 私有记忆清单
-- **不**改 `wiki/log.md` / `wiki/index.md` frontmatter（4 字段 reserved，迁移不触及）
-- **不**在迁移过程中调用 ingest / query / lint（保持职责单一）
-- **冲突页绝不自动覆盖**（已在 step 3 / step 5 双重保险）
-- **不**给迁移追加 log 条目——迁移是脚本运行，不是 wiki 操作事件
-- **`current_spec > skill_spec`**（wiki 比 SKILL 新）：**不**阻断，告警用户升级 SKILL 仓；
-  **不**改 wiki
-
-**与现有 lint 检查的协同**：
-
-- 迁移后会**自然清理** `legacy-confidence-field` warn（lint §二.13.C）
-- 迁移**不**触及 `reviewed-stale` warn（页面正文未改，仅字段重命名；按 §核心原则 §10
-  "LLM 修改页面正文"边界，本操作属于元数据重命名，不算正文修改——但若用户谨慎，可在迁移
-  后跑 `lint_wiki.py --severity warn` 让人工审视 reviewed 戳）
-- 与 `--migrate-confidence`（0.5.0→0.7.0 单点硬编码迁移）的关系：`--migrate-confidence`
-  保留仅供旧用法兼容；新流程一律走 `--check-version --apply`（覆盖其功能 + 范围更广）
-
-**样例见**：[`## 参考样例`](SKILL.md#参考样例) §五。
+**完整样例**：[`references/examples.md`](references/examples.md) §五（"检查 wiki 是否需要升级到最新 spec"）。
 
 ## 参考样例
 
-### 样例一：setup 一个 LLM Systems 主题的 wiki
-
-**用户指令**："我想搭一个 wiki 用来跟踪 LLM Systems 主题的研究资料"
-
-**执行**：
-
-```text
-1. 告知用户：本 skill 不直接创建 wiki 仓；wiki 创建由 workspace CLI 负责
-   → 推荐路径建议在 ~/wiki/llm-systems
-2. 用户调 workspace CLI（具体命令以 CLI 文档为准）：
-   workspace wiki init "LLM Systems" --root ~/wiki/llm-systems
-   → CLI 按 wiki-spec.md 落盘目录 + CLAUDE.md + index.md + log.md + .gitignore
-   → CLI 默认不建 git（用户 --git opt-in 时才 init + commit）
-3. LLM agent 接管后：
-   → 读 ~/wiki/llm-systems/CLAUDE.md 确认主题名替换正确
-   → 验证 wiki/index.md / wiki/log.md 存在且 frontmatter 完整
-   → 提示用户：raw/articles/ 作为"资料投放口"，可放剪藏 / PDF / 笔记
-4. 提示用户：wiki 根目录内的 CLAUDE.md 会被 Claude Code 自动加载；
-   别处工作时 skill 经 $LLM_WIKI_ROOT 按需读取，不必 symlink
-```
-
-### 样例二：ingest 一篇论文摘要
-
-**用户指令**："raw/articles/ 里有一篇 'attention-is-all-you-need.md'，把它摄取到 wiki"
-
-**执行**：
-
-```text
-1. ingest_diff.py 确认这是未摄取文件
-2. Read raw/articles/attention-is-all-you-need.md 全文
-3. 在 wiki/sources/attention-is-all-you-need.md 写摘要页：
-   - frontmatter: type=source, sources=[raw/articles/...md], tags=[transformer, attention]
-   - 正文：摘要 + 关键贡献 + 架构要点 + 与其他论文的关系
-4. 检查 concepts/transformer.md, concepts/self-attention.md 是否已存在
-   - 不存在：创建并把本次贡献写进
-   - 存在：追加"参考来源"段
-5. 更新 wiki/index.md：sources/ 段加一条；concepts/ 段同步
-6. 追加 log.md：## [2026-06-24] ingest | Attention Is All You Need
-7. 若启用 git，建议 commit；裸目录树 wiki 跳过此步
-```
-
-### 样例三：query 一个跨实体问题
-
-**用户指令**："wiki 里 Transformer 和 Mamba 的对比是什么样的？"
-
-**执行**：
-
-```text
-1. 读 wiki/index.md，找到 concepts/transformer.md 和 concepts/mamba.md
-2. 读两个 concept 页
-3. 综合答案，引用形式：
-   "Transformer 用 self-attention 捕获长依赖（来源 sources/attention-is-all-you-need.md）；
-   Mamba 用 state space model 线性复杂度推理（来源 sources/mamba.md）..."
-4. 询问用户："这段对比适合归档为 wiki/comparisons/transformer-vs-mamba.md 吗？"
-5. 用户同意后：
-   - 用 references/page-templates.md#comparison 模板
-   - 写 wiki/comparisons/transformer-vs-mamba.md
-   - 更新 index.md
-   - 追加 log.md：## [2026-06-24] query | Transformer vs Mamba
-```
-
-### 样例四：lint 发现腐烂迹象
-
-**用户指令**："lint 一下这个 wiki"
-
-**执行**：
-
-```text
-1. python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems
-2. 脚本报告：
-   - raw/ 干净（启用 git 时 git status clean；未启用时此项自动跳过 + 输出顶部
-     `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）` 提示）
-   - 3 个页面缺 updated 字段
-   - 1 个失效引用：concepts/transformer.md 链到 sources/bigtable.md 但后者不存在
-   - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist §二.7](references/lint-checklist.md#7-过期摘要)），建议复查
-   - 1 个孤儿页：concepts/scaling-laws.md 没有任何 inbound link
-   - 1 个 `contested-page`：sources/llama-3.md 与 sources/llama-2.md 对 context window
-     说法冲突、已双向标注 `contested: true`——需与用户裁定后移除标记
-   - 7 个 `pending-review`：默认未审核页面（新常态，info）
-   - 1 个 `reviewed-stale`：sources/llama-2.md reviewed=true reviewed_at=2026-06-01 但
-     updated=2026-06-25——LLM 修改后漏清 reviewed 戳，建议重新审核
-3. agent 补充半定性观察：
-   - sources/llama-3.md 与 sources/llama-2.md 对 "context window" 的描述不一致
-4. 整理成结构化报告，问用户先修哪些
-```
-
-### 样例五：检查 wiki 是否需要升级到最新 spec
-
-**用户指令**："我这个 wiki 是去年搭的，老格式了，能不能升级到最新 spec"
-
-**执行**：
-
-```text
-1. 跑操作前置：Read ~/wiki/llm-systems/CLAUDE.md (看到 §八 Wiki Spec 版本 = 0.5.0) +
-   wiki/index.md + wiki/log.md 最近 30 行
-2. 跑探测：
-   python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version
-   脚本报告：
-     current_spec : 0.5.0
-     skill_spec   : 0.7.0
-     comparison   : older
-     needs_migration: true
-     [LEGACY] 共 17 处老格式现场
-       - confidence-field (12) → wiki-spec.md#附录-b-0-7-0
-           wiki/sources/llama-2.md  [CONFLICT] ← 同时有 reviewed，需人工裁定
-           wiki/sources/llama-3.md
-           ...
-       - memory-readme-file (1)  → wiki-spec.md#附录-b-0-6-0
-           wiki/MEMORY/README.md
-       - type-memory-value (4)   → wiki-spec.md#附录-b-0-6-0
-           wiki/MEMORY/foo.md, ...
-     [CONFLICTS] 1 处冲突页——agent 不自动覆盖
-       - wiki/sources/llama-2.md: 同时含 legacy confidence 字段与 reviewed 字段
-     [HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复
-3. agent 把报告转成对话式清单 + 询问用户:
-   "应用全部（除 1 处冲突转人工）/ 部分应用 / 仅看清单?"
-   用户: "应用全部"
-4. 生成 plan：
-   python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version --apply
-   → 落盘 ~/wiki/llm-systems/.migration-plan.json
-5. agent 读 plan.actions[] 逐项 Edit/Write 修复:
-   - 12 处 frontmatter-rename（其中 11 处直接改，1 处冲突跳过转人工）
-   - 1 处 file-move: 读 wiki/MEMORY/README.md → 新建 wiki/MEMORY/MEMORY.md
-     索引 → 删 README.md
-   - 4 处 frontmatter-retype: 按 wiki-spec §5.2 改 type 值或仅删 type 字段
-6. Edit 改 ~/wiki/llm-systems/CLAUDE.md §八 "Wiki Spec 版本" 0.5.0 → 0.7.0
-7. 重跑 lint_wiki.py --check-version 验证:
-     needs_migration: false ✓ 完成
-     报告残留: wiki/sources/llama-2.md [CONFLICT] 等待用户裁定
-8. 告诉用户完成 + 1 处冲突转人工
-```
+5 个完整样例（setup / ingest / query / lint / migrate）下放到
+[`references/examples.md`](references/examples.md)——按需 Read。
 
 ## 与 OKF（Open Knowledge Format）的关系
 

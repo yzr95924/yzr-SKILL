@@ -55,7 +55,7 @@ SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
-CURRENT_WIKI_SPEC = "0.8.0"
+CURRENT_WIKI_SPEC = "0.10.0"
 
 # --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
 MIGRATION_PLAN_FILENAME = ".migration-plan.json"
@@ -64,7 +64,6 @@ MIGRATION_PLAN_FILENAME = ".migration-plan.json"
 # rule_ref 指向 wiki-spec.md 附录 B 的对应行；agent 修复时按此引用。
 LEGACY_PATTERN_KEYS = {
     "confidence-field": "wiki-spec.md#附录-b-0-7-0",
-    "memory-readme-file": "wiki-spec.md#附录-b-0-6-0",
     "type-memory-value": "wiki-spec.md#附录-b-0-6-0",
     "claudemd-tag-section": "wiki-spec.md#附录-b-0-8-0",
 }
@@ -100,8 +99,8 @@ def find_md_files(wiki_root: Path) -> Dict[str, List[Path]]:
         if d.is_dir():
             for p in sorted(d.glob("*.md")):
                 out[sub].append(p)
-    # MEMORY/ 单独扫：含 MEMORY.md（索引）+ 其它经验条目 .md
-    mem_dir = wiki_dir / MEMORY_SUBDIR
+    # MEMORY/ 单独扫：0.10.0+ 起与 wiki/ 平级、位于 <wiki-root>/MEMORY/（不在 wiki/ 下）
+    mem_dir = wiki_root / MEMORY_SUBDIR
     if mem_dir.is_dir():
         for p in sorted(mem_dir.glob("*.md")):
             out["memory"].append(p)
@@ -938,9 +937,11 @@ def check_memory_index(wiki_root: Path) -> List[str]:
 
     MEMORY.md 不存在时静默跳过（老 wiki 迁移期 / spec <0.6.0，不报错）。
     severity = info（轻量索引非强制入口，类比 tag-not-in-taxonomy）。
+
+    0.10.0+ 路径变更：MEMORY/ 从 wiki/ 下移到 <wiki-root>/MEMORY/（与 wiki/ 平级）。
     """
     findings = []  # type: List[str]
-    mem_dir = wiki_root / "wiki" / MEMORY_SUBDIR
+    mem_dir = wiki_root / MEMORY_SUBDIR  # 0.10.0+ 移到 wiki 根下；老 wiki 走 --check-version --apply
     memory_index = mem_dir / "MEMORY.md"
     if not memory_index.is_file():
         return findings
@@ -968,7 +969,7 @@ def check_memory_index(wiki_root: Path) -> List[str]:
         if p.name not in indexed:
             rel = p.relative_to(wiki_root).as_posix()
             findings.append(
-                f"memory-not-indexed: {rel} 未在 wiki/MEMORY/MEMORY.md 索引中列出；"
+                f"memory-not-indexed: {rel} 未在 MEMORY/MEMORY.md 索引中列出；"
                 f"该条目下次会话读不到（追加一行：- <slug> — <一句话> → [正文](<slug>.md)）"
             )
     return findings
@@ -1193,9 +1194,9 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
     返回结构（供 build_migration_plan 与 --json 输出复用）：
     {
       "patterns": {
-        "confidence-field":   [{"file": "wiki/sources/x.md", "conflict": False}, ...],
-        "memory-readme-file": [{"file": "wiki/MEMORY/README.md", "conflict": False}],
-        "type-memory-value":  [{"file": "wiki/MEMORY/old-x.md", "conflict": False}],
+        "confidence-field":     [{"file": "wiki/sources/x.md", "conflict": False}, ...],
+        "type-memory-value":    [{"file": "<任意内容页>", "conflict": False}],
+        "claudemd-tag-section": [{"file": "CLAUDE.md", "conflict": False}],
       },
       "conflicts": [
         {"file": "wiki/sources/llama-2.md", "reason": "同时含 confidence + reviewed 字段"}
@@ -1233,13 +1234,6 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
 
         if _has_type_memory(text):
             out["patterns"]["type-memory-value"].append({"file": rel, "conflict": False})  # type: ignore
-
-    # 文件级 legacy：MEMORY/README.md 存在
-    memory_readme = wiki_root / "wiki" / MEMORY_SUBDIR / "README.md"
-    if memory_readme.is_file():
-        out["patterns"]["memory-readme-file"].append(  # type: ignore
-            {"file": "wiki/MEMORY/README.md", "conflict": False}
-        )
 
     # 文件级 legacy：CLAUDE.md 仍含 `### Tag Taxonomy` 段（0.8.0+ 移到 wiki/tags.md）
     # 只要 heading 行存在就报 legacy——含 bullets 时迁移内容；空段只清 heading
@@ -1312,24 +1306,6 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
             action["add_or_modify"] = {"reviewed": True, "reviewed_at": today}  # type: ignore
         actions.append(action)
 
-    # memory-readme-file → 0.6.0 迁移规则
-    for entry in legacy["patterns"]["memory-readme-file"]:  # type: ignore
-        fpath = entry["file"]  # type: ignore
-        actions.append(
-            {
-                "file": fpath,
-                "type": "file-move",
-                "rule_ref": LEGACY_PATTERN_KEYS["memory-readme-file"],
-                "from": fpath,
-                "to_action": (
-                    "读取 README.md 内容（若有 MEMORY 经验条目清单），"
-                    "在同目录新建 MEMORY.md（无 frontmatter，索引格式见 wiki-spec.md §5.1），"
-                    "从 README.md 提取每条 *.md 列一行 `- <slug> — <一句话> → [正文](<slug>.md)`，"
-                    "删除 README.md"
-                ),
-            }
-        )
-
     # type-memory-value → 0.6.0 迁移规则
     for entry in legacy["patterns"]["type-memory-value"]:  # type: ignore
         fpath = entry["file"]  # type: ignore
@@ -1380,7 +1356,7 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
         "agent_rules": [
             "按 actions[] 顺序逐项修；每个 action 前打印依据 rule_ref",
             "frontmatter-rename：用 Edit 改 frontmatter（删老字段、加新字段；不动 updated）",
-            "file-move：先读源 → 写目标 → 删源；不要 Write 覆盖原 MEMORY/README.md",
+            "file-move：先读源 → 写目标 → 删源",
             "frontmatter-retype：按 action.note 与 wiki-spec §5.2 决定具体改法",
             "skipped_conflicts[] 永远不自动覆盖——转人工",
             "改完后用 Edit 把 CLAUDE.md §八 Wiki Spec 版本行改为 to_version",

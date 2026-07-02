@@ -22,7 +22,7 @@
 > | `<wiki-root>/CLAUDE.md` | CLI 按 §2 拷贝模板 | 用户（schema 是用户宪法） |
 > | `wiki/index.md` | CLI 按 §3 写入初始骨架 | **LLM agent**（ingest / 重写 / 归档时同步） |
 > | `wiki/log.md` | CLI 按 §4 写入首条 setup 条目 | **LLM agent**（只 append，不删改） |
-> | `wiki/MEMORY/` | CLI 按 §5 创建空目录 + 写 MEMORY.md（索引） | **LLM agent**（append 经验条目 + 同步 MEMORY.md 索引） |
+> | `MEMORY/` | CLI 按 §5 创建空目录 + 写 MEMORY.md（索引） | **LLM agent**（append 经验条目 + 同步 MEMORY.md 索引） |
 > | `scripts/`（0.9.0+） | CLI 按 §14 创建空目录 + 写 SCRIPTS.md（索引） | **用户 + LLM agent**（添加 / 修改脚本与同步 SCRIPTS.md 段是原子动作） |
 >
 > CLI **不**参与 index.md / log.md / MEMORY / scripts 的后续追加；无 "add log entry" /
@@ -34,7 +34,7 @@
 - [§2 CLAUDE.md](#2-claudemd)
 - [§3 wiki/index.md](#3-wikiindexmd)
 - [§4 wiki/log.md](#4-wikilogmd)
-- [§5 wiki/MEMORY/](#5-wikimemory)
+- [§5 MEMORY/](#5-memory)
   - [§5.1 MEMORY/MEMORY.md（索引）](#51-memorymemorymd索引)
   - [§5.2 MEMORY/*.md（非 MEMORY.md）](#52-memorymd-非-memorymd)
 - [§6 .gitignore](#6-gitignore)
@@ -55,14 +55,14 @@
 <wiki-root>/
 ├── .gitignore
 ├── CLAUDE.md
+├── MEMORY/                    # 0.10.0+：agent 持久化记忆目录（详 §5）
+│   └── MEMORY.md              # MEMORY 索引；CLAUDE.md 用 @MEMORY/MEMORY.md import 会话常驻
 ├── raw/
 │   ├── articles/
 │   └── assets/
 ├── scripts/                   # 0.9.0+：本 wiki 自维护脚本目录（详 §14）
 │   └── SCRIPTS.md             # scripts/ 索引；被 CLAUDE.md 用 @scripts/SCRIPTS.md import
 └── wiki/
-    ├── MEMORY/
-    │   └── MEMORY.md
     ├── comparisons/
     ├── concepts/
     ├── entities/
@@ -75,18 +75,21 @@
 
 - 5 个内容页子目录名固定，**字母序**（`comparisons` → `concepts` → `entities` → `sources` → `syntheses`），
   CLI 必须按此顺序创建（利于阅读、diff 稳定、跨工具兼容）
-- **`wiki/MEMORY/` 是 wiki 仓的"agent 持久化记忆"目录**——LLM agent 写入，用于沉淀跨
-  ingest / query / lint 的工作经验、踩坑记录、用户偏好；与 `wiki/` 下 5 个内容页子目录并列，
-  走相同的 frontmatter 5 必填 lint（详见 §5）。其中 `MEMORY.md` 是索引，被
-  `<wiki-root>/CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为
-  只写不读的死库
+- **`MEMORY/` 是 wiki 仓的"agent 持久化记忆"目录**（0.10.0+ 起与 `wiki/` **平级**，
+  不再嵌在 `wiki/` 下）——LLM agent 写入，用于沉淀跨 ingest / query / lint 的工作经验、
+  踩坑记录、用户偏好；走与 5 类内容页相同的 frontmatter 5 必填 lint（详见 §5）。
+  其中 `MEMORY.md` 是索引，被 `<wiki-root>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import
+  会话常驻——避免 MEMORY 沦为只写不读的死库。**为什么移到 `<wiki-root>/MEMORY/`**：
+  对应 §四层架构第 3 层（独立于 wiki/ 内容，物理位置跟逻辑分层对齐）；未来 publish 时
+  MEMORY 自然留作私有层不外传
 - **`wiki/tags.md` 是 wiki 仓的"tag 白名单"（0.8.0+）**——LLM agent 拥有，存放本 wiki
   允许使用的 tag 集合；裸 bullet 列表，**无 frontmatter**（与 MEMORY.md 同——元数据不是
   wiki 内容页）；不在 `wiki/index.md` 强制列出；CLI init 时刻按 `references/fixtures/`
   生成空白模板，LLM 与用户共同确认主题分类后填充。详见 §9「§9.1 tag 白名单来源」
 - `raw/articles/` 与 `raw/assets/` 是默认占位；用户在 wiki 仓内可自由新增其他子目录
   （如 `podcasts/` / `papers/` / `clippings/` / `external/`——后者语义见 §13），CLI 不必预创建
-- `index.md` / `log.md` / `MEMORY/MEMORY.md` 是 `wiki/` 下的文件，不是子目录
+- `index.md` / `log.md` 是 `wiki/` 下的文件（不是子目录）；`MEMORY/MEMORY.md` 在 `<wiki-root>/MEMORY/`
+  下（0.10.0+ 起与 `wiki/` 平级），不是 `wiki/` 下的文件
 - `comparisons/` 等 5 个内容页子目录在初始化时为空目录——空目录对纯目录树 wiki 无副作用；
   仅当用户 `--git` opt-in 时，CLI 在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7）
 - **`scripts/` 是 wiki 仓的本机扩展脚本目录（0.9.0+）**——CLI init 时刻**始终创建**
@@ -179,7 +182,7 @@
 > **维护方**：**LLM agent** 在 lint / 主动观察时触发；**CLI 不参与**（一次性行为，
 > 无 CLI 命令语义）。本节不是"必须自动 rotate"的硬规则，是"鼓励按需 rotate"的指引。
 
-- **触发条件**：`log.md` 条目数 ≥ 500（按正则 `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含
+- **触发条件**：`log.md` 条目数 ≥ `LOG_ROTATION_THRESHOLD`（按正则 `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含
   frontmatter 与空白行）——此时 log 越长越难读，索引 / grep 也开始吃力
 - **rotate 流程**（agent 手动）：
   1. 重命名 `wiki/log.md` → `wiki/log-YYYY.md`（YYYY = 当前年，如 `log-2026.md`）
@@ -195,19 +198,19 @@
 - **lint 行为**：`lint_wiki.py` 当前**未**实现 log-rotation 自动检测；agent 在 lint
   报告末尾补一条手动建议（"log.md 已 N 条目，建议 rotate"），或后续扩展 lint 实现
 
-## §5 wiki/MEMORY/
+## §5 MEMORY/
 
 > **维护方**：CLI 在 init 时刻创建**空目录**并按 §5.1 写入 `MEMORY/MEMORY.md`（索引）；
 > 后续 MEMORY 下的经验条目 `*.md` 由 **LLM agent** 写入，并**同步追加 MEMORY.md 索引一行**。
 > 用户**不**直接编辑 MEMORY——它是 agent 私有记录。
 > CLI 不参与 MEMORY 的后续写入。
 
-- 路径：`<wiki-root>/wiki/MEMORY/`
+- 路径：`<wiki-root>/MEMORY/`
 - 目录名 `MEMORY` **大写**，区别于 `raw/` `wiki/` `wiki/index.md` 等小写目录/文件——这是为了
   在文件浏览器里一眼区分"agent 私有记忆"与"wiki 内容"
 - **`MEMORY/MEMORY.md`（索引）——CLI init 时刻写入**（fixtures 字面量见
   `references/fixtures/memory-index.txt`）；被 `<wiki-root>/CLAUDE.md` 用
-  `@wiki/MEMORY/MEMORY.md` import，会话常驻。详见 §5.1
+  `@MEMORY/MEMORY.md` import，会话常驻。详见 §5.1
 - 其余 `*.md` 经验条目由 LLM 在工作中追加，**文件命名 + frontmatter 5 必填 与 wiki 内容页规则一致**
   （lint 校验实现见 SKILL 仓 `scripts/lint_wiki.py`，不归本 spec）
 - **MEMORY 不在 `wiki/index.md` 中强制列出**——它是 agent 私有入口，不需要 wiki 单一入口约束；
@@ -215,21 +218,21 @@
 
 ### §5.1 MEMORY/MEMORY.md（索引）
 
-- 路径：`<wiki-root>/wiki/MEMORY/MEMORY.md`
-- **无 frontmatter**——它是被 `CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 内联的索引片段，
+- 路径：`<wiki-root>/MEMORY/MEMORY.md`
+- **无 frontmatter**——它是被 `CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 内联的索引片段，
   不是 wiki 内容页（对齐仓库根 `MEMORY/MEMORY.md` 形态）。lint 把它当 reserved 跳过 frontmatter /
   tag / 命名校验
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §4，**不**重复以免口径分裂）+
   `## 索引` 段；每条一行：`- <slug> — <一句话摘要> → [正文](<slug>.md)`
 - **加载机制**：agent 在 wiki 根目录工作时，Claude Code 自动加载根 `CLAUDE.md`，
-  `@wiki/MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLM_WIKI_ROOT`
+  `@MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLM_WIKI_ROOT`
   读 CLAUDE.md）时，`@` 不自动展开，由 SKILL 的 orient ritual 显式 Read MEMORY.md 补齐
 - **字面量见 fixtures**：`references/fixtures/memory-index.txt`（与 `references/canonical/memory-index.md`
   一致——MEMORY.md 无占位符，fixtures 与 canonical 内容相同）
 
 ### §5.2 MEMORY/*.md（非 MEMORY.md）
 
-- 路径：`<wiki-root>/wiki/MEMORY/<slug>.md`
+- 路径：`<wiki-root>/MEMORY/<slug>.md`
 - 命名约束：与 wiki 内容页一致，kebab-case `^[a-z0-9][a-z0-9-]*$`
 - frontmatter：**5 必填**（`title` / `type` / `created` / `updated` / `tags`）+ 推荐 `description`
 - `type` 取值：与 5 类内容页枚举相同（`entity` / `concept` / `source` / `comparison` / `synthesis`），
@@ -418,9 +421,9 @@ CLI 仓跟随升级。
 
 | 维度 | 规则 | 适用对象 |
 |---|---|---|
-| 文件名 kebab-case | `^[a-z0-9][a-z0-9-]*$` | `wiki/{entities,concepts,sources,comparisons,syntheses,MEMORY}/*.md`（index/log/tags 除外；MEMORY/MEMORY.md 不在此约束） |
+| 文件名 kebab-case | `^[a-z0-9][a-z0-9-]*$` | `wiki/{entities,concepts,sources,comparisons,syntheses}/*.md` + `MEMORY/*.md`（index/log/tags/MEMORY.md 除外） |
 | 子目录名 | 固定字母序（§1） | 5 个内容页子目录 |
-| 特殊目录名 `MEMORY` | **大写**（区别于小写 `raw` / `wiki` 等） | `wiki/MEMORY/` |
+| 特殊目录名 `MEMORY` | **大写**（区别于小写 `raw` / `wiki` 等）；与 `wiki/` 平级（不再嵌在 `wiki/` 下） | `<wiki-root>/MEMORY/` |
 | 元数据文件 tags.md（0.8.0+） | 与 index.md / log.md 同——**无** frontmatter，裸 Markdown；lint 不走 frontmatter 校验（按 `MEMORY.md` 同形态） | `wiki/tags.md` |
 | 索引文件 SCRIPTS.md（0.9.0+） | 与 tags.md / MEMORY/MEMORY.md 同——**无** frontmatter，裸 Markdown；CLAUDE.md `@` import 目标 | `scripts/SCRIPTS.md` |
 | frontmatter 字段名 | 严格小写 + 下划线（`okf_version`、`created`、`updated`） | 所有 frontmatter |
@@ -534,9 +537,9 @@ raw/external/*
 
 ### §14.3 索引 `SCRIPTS.md`(CLAUDE.md `@` import 目标)
 
-- **文件名**:`SCRIPTS.md`(大写,镜像 `wiki/MEMORY/MEMORY.md` "目录专属索引" 命名模式)
+- **文件名**:`SCRIPTS.md`(大写,镜像 `MEMORY/MEMORY.md` "目录专属索引" 命名模式)
 - **路径**:`<wiki-root>/scripts/SCRIPTS.md`
-- **形态**:**无 frontmatter**(与 `wiki/MEMORY/MEMORY.md` 同),纯 Markdown
+- **形态**:**无 frontmatter**(与 `MEMORY/MEMORY.md` 同),纯 Markdown
 - **骨架**(CLI init 时刻拷贝):
 
   ```markdown
@@ -575,8 +578,9 @@ raw/external/*
 - **frontmatter**:**不**写——scripts/ 是代码,非 wiki 内容页(`scripts/*.py` 走 PEP 723
   inline metadata 或 shebang,不由本 spec 规定)
 - **lint**:scripts/ **不**参与 `lint_wiki.py` 扫描(`find_md_files` 自然不递归
-  `scripts/`,且 §9 5 必填只对 `wiki/{entities,concepts,sources,comparisons,syntheses}`
-  与 `MEMORY/*.md` 走)——脚本的代码质量由用户 / agent 自行负责,不在 SKILL 范围内
+  `scripts/`,且 §9 5 必填只对 `wiki/{entities,concepts,sources,comparisons,syntheses}/*.md`
+  与 `<wiki-root>/MEMORY/*.md`（0.10.0+ 移到 wiki/ 外）走）——脚本的代码质量由用户 / agent 自行负责,
+  不在 SKILL 范围内
 - **可执行权限**:`.sh` 必须 `chmod +x`(CLI 不批量 chmod,免得给用户跑陌生 binary
   留通道);`.py` 走 `python3 scripts/<name>.py` 不依赖 +x
 - **不安全默认**:agent **不会自动遍历** `scripts/` 跑任何东西——必须先 `Read` SCRIPTS.md
@@ -586,9 +590,9 @@ raw/external/*
 
 ### §14.6 与已有索引模式对照
 
-| | `wiki/MEMORY/MEMORY.md` | `wiki/tags.md` | `scripts/SCRIPTS.md` (本) |
+| | `MEMORY/MEMORY.md` | `wiki/tags.md` | `scripts/SCRIPTS.md` (本) |
 | --- | --- | --- | --- |
-| import 方式 | `@wiki/MEMORY/MEMORY.md` | `@wiki/tags.md` | `@scripts/SCRIPTS.md` |
+| import 方式 | `@MEMORY/MEMORY.md` | `@wiki/tags.md` | `@scripts/SCRIPTS.md` |
 | 形态 | 无 frontmatter | 无 frontmatter | 无 frontmatter |
 | 维护方 | LLM agent | LLM agent(用户审计) | 用户 + LLM agent |
 | 何时引入 | §5 (0.2.0) | §9.1 (0.8.0) | §14 (0.9.0) |
@@ -620,19 +624,20 @@ CLI 在生成完成后，可执行以下验证：
 2. **正则自检**：生成的 `wiki/log.md` 首条条目匹配 §4 正则
 3. **frontmatter 解析**：生成的 `wiki/index.md` / `wiki/log.md` 能被
    `scripts/ingest_diff.py` 的 `parse_frontmatter_simple()` 正确解析（MEMORY.md 无 frontmatter，不在此列）
-4. **结构自检**：5 个内容页子目录 + `wiki/MEMORY/` 全部存在；MEMORY 目录含 MEMORY.md
+4. **结构自检**：5 个内容页子目录 + `MEMORY/` 全部存在；MEMORY 目录含 MEMORY.md
 5. **lint 跑通**：生成的 wiki 仓跑 `scripts/lint_wiki.py` 应返回 exit code 0
 
 ## 附录 B：版本历史
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
+| 0.10.0 | 2026-07-02 | §1 目录树新增 `<wiki-root>/MEMORY/`（与 `wiki/` **平级、不嵌在 `wiki/` 下**）；CLAUDE.md 顶部 `@MEMORY/MEMORY.md` import 行由 CLI 在 init 时刻写入；`scripts/lint_wiki.py` 扫描范围拆成 `wiki/**/*.md` **+** `<wiki-root>/MEMORY/*.md` 两条子树；§11 命名约束新拆 `wiki/{5 类}/*.md + MEMORY/*.md` 两段。SKILL.md frontmatter `metadata.wiki_spec_version` 同步升至 0.10.0。**当前不做迁移通路**——老 wiki 由 workspace CLI 自行处理；本 skill 暂不提供 `--check-version --apply` 的 MEMORY path 类 action，等用户有需要时再加 |
 | 0.9.0 | 2026-07-02 | §1 目录树新增 `<wiki-root>/scripts/` + `scripts/SCRIPTS.md`（顶层，本 wiki 自维护脚本目录）；§11 命名约束新增 `SCRIPTS.md` 行；§14 新增「scripts/——本 wiki 仓扩展脚本目录」全文（设计动机 / 路径约定 / SCRIPTS.md 契约 / 每工具段 4 要素 / 6 条纪律 / 与 MEMORY/tags 索引对照表 / 老 wiki 迁移）。关键纪律：`scripts/` 与 `raw/articles/` 同原则始终创建；`SCRIPTS.md` 无 frontmatter、被 `<wiki-root>/CLAUDE.md` `@scripts/SCRIPTS.md` import 会话常驻；scripts/ **不**走 §9 5 必填、**不**参与 `lint_wiki.py` 扫描（`find_md_files` 自然不递归）；agent **不**自动遍历 scripts/ 跑任何东西，必须先 `Read` SCRIPTS.md；新加脚本必须与 SCRIPTS.md 段同步（原子动作）。`SKILL.md` `metadata.wiki_spec_version` 同步升至 0.9.0；`claude-md-template.md` 新增 `### Wiki-local scripts` 段。**老 wiki 迁移**：CLI init 0.9.0+ 时自动建 `scripts/` + 拷贝 `SCRIPTS.md` 模板 + 注入 CLAUDE.md import 行；已 init 的 0.8.0 老 wiki 不自动迁移（`--check-version --apply` 不为此出 legacy pattern，scripts/ 是 opt-in 扩展） |
 | 0.8.0 | 2026-07-02 | §1 目录树新增 `wiki/tags.md`（tag 白名单，LLM 拥有）；新增 §9.1「tag 白名单来源」段。**tag 字典从 CLAUDE.md 的 `### Tag Taxonomy` 段迁出到 `wiki/tags.md`**——CLAUDE.md 是 schema "宪法"（LLM 不编辑，[§2](#2-claudemd)），tag 字典是内容元数据。`scripts/lint_wiki.py` `parse_tag_taxonomy` Read 主路径改为 `wiki/tags.md`，CLAUDE.md Tag Taxonomy 段保留作 fallback（仅过渡期）；`tag-not-in-taxonomy`（info）保留，覆盖用户审计删除 + 手工漏注册 + auto-extend 失败。新增 `--check-version` legacy pattern `claudemd-tag-section`，`--apply` 含 `tag-taxonomy-migrate` action（写 `wiki/tags.md` + Edit 删除 CLAUDE.md 段；空段只删 heading；冲突转人工）。**老 wiki 迁移**：跑 `lint_wiki.py --check-version --apply` |
 | 0.7.0 | 2026-07-02 | §9 新增「可选可信度信号」`reviewed` / `reviewed_at`（人工审核背书）；`confidence`（0.5.0 引入）退役，被 `reviewed` 二态替代；lint 新增 `pending-review`（info）/ `reviewed-stale`（warn）/ `invalid-reviewed-value`（warn）/ `reviewed-at-missing`（warn）/ `reviewed-at-orphan`（warn）/ `index-review-badge-drift`（warn）/ `legacy-confidence-field`（warn）；新增 `--migrate-confidence` 子命令把老 `confidence: high/medium/low` 一次性迁移到新字段。**老 wiki 迁移**：跑 `lint_wiki.py --migrate-confidence`（`confidence: high` → `reviewed: true` + `reviewed_at=today`；`medium/low` → 删除） |
-| 0.6.0 | 2026-07-01 | §5 重构：`MEMORY/README.md`（type:memory reserved）→ `MEMORY/MEMORY.md`（无 frontmatter 索引，被 `<wiki-root>/CLAUDE.md` 用 `@wiki/MEMORY/MEMORY.md` import 会话常驻，避免 MEMORY 沦为只写不读死库）；§9 删 reserved `memory`（只剩 index/log）；§5.2 要求每条 `*.md` 在 MEMORY.md 索引列一行；lint 新增 `memory-not-indexed`（info）。**老 wiki 迁移**：删 `MEMORY/README.md` + 新建 `MEMORY/MEMORY.md` 索引并把现有 `*.md` 各补一行 |
+| 0.6.0 | 2026-07-01 | §5 MEMORY 索引改名为 `MEMORY.md`（无 frontmatter、被 `<wiki-root>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 加载，避免 MEMORY 沦为只写不读死库）；§9 删 reserved `memory` type（只剩 index/log）；§5.2 要求每条 `*.md` 在 MEMORY.md 索引列一行 |
 | 0.5.0 | 2026-07-01 | §9 新增「可选认知质量字段」`confidence` / `contested` / `contradictions`（全部可选，LLM 按需标注弱主张）；字段语义权威在 SKILL 仓 page-templates.md §一，spec 仅列 CLI 自检用的字段类型 |
 | 0.4.0 | 2026-07-01 | 新增 §13 `raw/external/` 外部代码仓 symlink 接入：`.symlink-anchor.json` schema + 用户责任 + `.gitignore` 例外规则；§6 `.gitignore` 模板加 `raw/external/*` 排除 |
 | 0.3.0 | 2026-06-29 | git 初始化改为 opt-in（§7）：默认落盘纯目录树，仅 `--git` 时才 init + commit；§1 空目录 `.gitkeep` 仅 opt-in 时放；§6 `.gitignore` 无条件生成 |
-| 0.2.0 | 2026-06-28 | 新增 §5 `wiki/MEMORY/` 目录（agent 持久化记忆）；type 取值新增 reserved `memory`；fixtures 新增 `memory-readme.txt` |
+| 0.2.0 | 2026-06-28 | 新增 §5 MEMORY 目录（agent 持久化记忆）；type 取值新增 reserved `memory` |
 | 0.1.0 | 2026-06-28 | 初始版本：原 `setup_wiki.py` 行为字面量化为 spec |
