@@ -334,6 +334,7 @@
   - **重复 entity 跨 wiki**: <wiki-a>::<entity-x> ↔ <wiki-b>::<entity-y>
   - **未注册的 wiki 子目录**: <list>（workspace.toml 中没有但磁盘上存在的 wiki 目录）
   - **STATS.md 过期**: <yes/no>（与最近一次 scan 的时间差）
+  - **MEMORY 索引一致性**: <list of `memory-not-indexed`>（MEMORY/*.md 未在 MEMORY.md 索引列出）
   - **其他**: ...
   ```
 
@@ -359,6 +360,14 @@
 - 路径：`<workspace-root>/MEMORY/`
 - 目录名 `MEMORY` **大写**，区别于小写 `raw` / `wiki` / `cross_queries` 等目录
 - **MEMORY 不在 `INDEX.md` 中强制列出**——它是 agent 私有入口，不需要 workspace 单一入口约束
+- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/` / wiki-spec §5 MEMORY/ 同步）：
+  - **完整条目**：含上下文 / 解决步骤 / 未来如何避免 → 建 `MEMORY/<slug>.md`（走 §9.2 规则），
+    索引行 `- <slug> — 一句话摘要 → [正文](<slug>.md)`
+  - **短条目**：一句话提醒 / 单一偏好 / 无需解释"为什么" → 索引行直接 `- 一句话事实`，
+    不单独建 `.md` 文件
+  - 判别尺度：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
+  - 短条目与完整条目可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底
+    "有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
 - 命名约束：详见 §15
 
 ### §9.1 MEMORY/MEMORY.md（索引）
@@ -374,7 +383,12 @@
   `@MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLMW_WORKSPACE`
   读 CLAUDE.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
-  口径分裂）+ `## 索引` 段；每条一行：`- <slug> — <一句话摘要> → [正文](<slug>.md)`
+  口径分裂）+ `## 索引` 段。索引行两种格式共存：
+  - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §9.2 的 `MEMORY/<slug>.md`）
+  - **短条目**：`- <一句话事实>`（无链接，对应无 `.md` 文件的索引行 reminder）
+  - 判别尺度见 §9 总段「条目形式按事实颗粒度选」
+- lint `memory-not-indexed` 兜底——`MEMORY/*.md`（排除 `MEMORY.md`）未在索引列出时报该项；
+  短条目无 `.md` 不进该检查
 - **内容来源 / 字面量**：[`references/fixtures/memory-index.txt`](fixtures/memory-index.txt)
   （与 [`references/canonical/memory-index.md`](canonical/memory-index.md) 一致——MEMORY.md 无占位符，
   fixtures 与 canonical 内容相同）。CLI init **逐字拷贝**生成 `<workspace>/MEMORY/MEMORY.md`——与
@@ -401,7 +415,9 @@
   - **不**要求有 inbound 链接
   - 正文无长度上限（agent 经验沉淀可以很长）
   - LLM agent **必须**创建（user 不写）
-  - **必须**在 `MEMORY/MEMORY.md` 索引列出一行（skill 写 memory 时同步追加）
+  - **必须**在 `MEMORY/MEMORY.md` 索引列出一行（skill 写 memory 时同步追加；
+    lint `memory-not-indexed` 兜底漏列——severity = info，不阻断但提示）
+  - 短条目无对应 `.md` 文件，frontmatter 5 必填仅约束完整条目；判别尺度见 §9 总段
 
 ### §9.3 何时写 / 不写
 

@@ -243,7 +243,7 @@ venue: NeurIPS 2017
 # Attention Is All You Need
 
 **作者**：Vaswani et al. (2017)
-**来源**：[raw/articles/attention-is-all-you-need.md](../../raw/articles/attention-is-all-you-need.md)
+**来源**：[raw/articles/attention-is-all-you-need.md](../raw/articles/attention-is-all-you-need.md)
 
 ## 摘要
 

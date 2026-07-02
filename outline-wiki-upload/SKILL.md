@@ -22,8 +22,8 @@ metadata:
 中**最重**的一个——含核心写能力 2 个 + 扩展写能力 5 项 + 风格映射
 （ProseMirror 节点映射表）+ 风格 checklist（9 大类）。
 
-读 / 搜由 [`outline-wiki-search`](../outline-wiki-search/SKILL.md) 负责；
-MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
+读 / 搜由 `outline-wiki-search` SKILL.md 负责；
+MCP 配置由 `outline-wiki-setup` SKILL.md 负责。
 
 ## 何时使用 / 不使用
 
@@ -40,9 +40,9 @@ MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
 
 ### 不使用
 
-- **搜 / 读 outline 文档**——走 [`outline-wiki-search`](../outline-wiki-search/SKILL.md)
+- **搜 / 读 outline 文档**——走 `outline-wiki-search` SKILL.md
 - **配置 outline MCP**（首次接入 / 重启后看不到 / 401）——走
-  [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)
+  `outline-wiki-setup` SKILL.md
 - **写前 search 查重 / 定位**——也是 `outline-wiki-search` 范畴（search + read
   是 read-only，与本 skill 的写配合形成"先搜后写"完整流程）
 - 用户使用其他 wiki / 知识库产品（Notion / Confluence / Obsidian / GitHub Wiki）
@@ -59,7 +59,7 @@ MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
 启动时需具备以下**前置条件**——这些由 `outline-wiki-setup` 负责：
 
 - **MCP 已注册**：当前 session 能调 `mcp__outline__*` 系列工具
-  （若未注册，**先走 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)**，
+  （若未注册，**先走 `outline-wiki-setup` SKILL.md**，
   跑完重启后再回来）
 - **Collection ID**（写文档必传；如 schema 允许按名称引用，按 schema 调用）
 - **用户自然语言指令**：新建 / 编辑指令、文档内容、目标 Collection
@@ -93,7 +93,7 @@ MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
 > 依赖一个可机读的元数据头 + 可预测的正文结构。OKF = Open Knowledge Format
 > （"markdown + frontmatter、人 / agent 都能读"），权威实现是
 > [`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)；
-> 本仓库 [`llm-wiki-management`](../llm-wiki-management/SKILL.md) 落地了 v0.1
+> 本仓库 `llm-wiki-management` SKILL.md 落地了 v0.1
 > 子集，本 skill 沿用**同一定义**，只为 Outline 做载体适配。
 
 **载体选型（实测）**：OKF 标准用 `---...---` frontmatter，但 Outline 的 MCP 把
@@ -160,7 +160,7 @@ Collection 管理、移动 / 删除等扩展工具。本 skill 因此**不写死
 ## 能力清单
 
 按"工具来源"分两组。**核心能力**对应官方文档明列的 4 个高层操作中的
-create / edit 两个（search / read 由 [`outline-wiki-search`](../outline-wiki-search/SKILL.md)
+create / edit 两个（search / read 由 `outline-wiki-search` SKILL.md
 负责）；**扩展能力**对应官方文档未明列但本会话实测可用、且在不同 self-hosted
 部署里通常也暴露的工具。扩展能力**强烈建议**先用 `tools/list` 确认目标
 server 是否暴露对应工具，再做调用。
@@ -330,7 +330,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 1. **核实配置与工具**：会话开始时——
    - 确认 outline 相关 MCP 工具在当前 session 已注册；若未注册，**先走
-     [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)**，跑完重启后
+     `outline-wiki-setup` SKILL.md**，跑完重启后
      再回来
    - 调 MCP `tools/list` 取实际工具清单（核心能力 + 扩展能力各自对应的
      真实工具名、参数 schema）
@@ -359,7 +359,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 > 能渲染的图片"。**不**管图片怎么来：
 >
 > - 截图 / 配图 / logo 等任意本地图片：直接走下面 3 步
-> - **论文关键架构图**：图源不归本 skill——用 [`gemini-paper-summary`](../../gemini-paper-summary/SKILL.md)
+> - **论文关键架构图**：图源不归本 skill——用 `gemini-paper-summary` SKILL.md
 >   的 `--extract-figures` 抽到本地 `figures/*.png` 后，再走本 skill 的 attachment 3 步
 
 **完整 3 步流程**（每张图独立走一遍）：
@@ -496,7 +496,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 ### 客户端接入（首次使用）
 
 > **本节只是一句话索引**——首次接入 / 重启验证 / 故障排查的完整流程由
-> [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。本 skill 假设
+> `outline-wiki-setup` SKILL.md 负责。本 skill 假设
 > MCP 已注册可用；若不可用先走 setup skill 跑完重启再回来。
 
 ### 故障排查
@@ -576,13 +576,13 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ## 相关参考
 
-- [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) — 配套：MCP 配置与首次接入
-- [`outline-wiki-search`](../outline-wiki-search/SKILL.md) — 配套：搜 / 读 outline 文档
+- `outline-wiki-setup` SKILL.md — 配套：MCP 配置与首次接入
+- `outline-wiki-search` SKILL.md — 配套：搜 / 读 outline 文档
   （本 skill 的"写前 search 查重"协作方）
 - [`references/doc_style.md`](references/doc_style.md) — Markdown ↔ ProseMirror
   节点映射（§1-§13）+ 图片附件上传流程（§12）+ @mention（§13）+ OKF agent
   可读基线（上传格式控制）+ 进阶
 - [`references/style_checklist.md`](references/style_checklist.md) — 写前必跑的
   风格 checklist（§0 OKF 元数据 + §1-§9 风格）
-- [`llm-wiki-management`](../llm-wiki-management/SKILL.md) — OKF v0.1 子集的仓库
+- `llm-wiki-management` SKILL.md — OKF v0.1 子集的仓库
   锚点（本 skill 的 OKF 上传格式沿用同一定义）

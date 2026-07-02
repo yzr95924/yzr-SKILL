@@ -289,7 +289,7 @@ metadata:
      - Gemini 输出: `![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> bbox=<x0,y0,x1,y1>)`
      - 脚本图导出处理后（quick 默认）: `![图 N: <中文翻译+总结>](figures/figure-pX-fN.png "=WxH")`
      - 推到 outline 后: `![图 N: <中文翻译+总结>](/api/attachments.redirect?id=<uuid> "=WxH")`
-       （走 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的 attachment 3 步）
+       （走 `outline-wiki-upload` SKILL.md 的 attachment 3 步）
    - `=WxH` 由脚本 `embed_figure_refs` 在 `render_figures_to_pngs` 拿到精确像素尺寸后自动注入
    - `fig.N` 是论文里的 Figure 编号，与 alt 文本中的"图 N"对应
    - `bbox=<x0,y0,x1,y1>`（可选，**强烈建议给**）是图在 PDF 中的边界框，
@@ -527,7 +527,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 > **本 skill 只产出本地文件**——A' 节默认带图截下来的
 > PNG 全部落在本地 `figures/` 目录，**不会**自动上传到 outline-wiki。
 > **上传到 outline-wiki 不归本 skill 管**，请走
-> [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) 的
+> `outline-wiki-upload` SKILL.md 的
 > attachment 3 步流程（`create_attachment` → `curl` 上传 → Markdown 引用
 > `/api/attachments.redirect?id=...`）。
 

@@ -294,7 +294,7 @@ conversation flow"——agent 中途失败需要回退到 curl REST API。
 
 **退路**：被拦之后临时绕开走 outline REST API：`POST
 /api/documents.update` + `Authorization: Bearer <key>`，不影响 doc
-落盘；详见 [`outline-wiki-upload/SKILL.md`](../outline-wiki-upload/SKILL.md)
+落盘；详见 `outline-wiki-upload` SKILL.md
 的 curl REST 退路。
 
 ## 旧版配置清理

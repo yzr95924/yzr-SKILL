@@ -1,7 +1,7 @@
 # Fixtures
 
 workspace CLI init 时落盘的 `<workspace>/MEMORY/MEMORY.md` 的**字面量金标准**。与
-[`llm-wiki-management`](../../../llm-wiki-management/references/) 的 fixtures/canonical 机制同构
+`llm-wiki-management` SKILL.md 的 fixtures/canonical 机制同构
 （兄弟 skill，同一套字节金标准约定）。
 
 ## 范围

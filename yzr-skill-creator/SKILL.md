@@ -538,12 +538,13 @@ agent 根据描述决定是否查阅该 skill，需要知道的一点是：agent
    - **【新】跨文件重复检测**：对每条核心原则的关键词（如”tag 白名单”/”scripts/SCRIPTS.md”/”reviewed 戳”/”frontmatter 必填字段”等概念性短语）用 grep 在所有 `.md` 文件查，按出现次数 + self-aware 注释存在性分类——1 次 = 通过；2 次且一方是自包含模板（带 self-aware 注释）= 通过；2 次且都无注释 = 警告，agent 读两段对比；3+ 次且都无 self-aware 注释 = 违反”跨文件重复检测操作步骤”子原则（原则 D）。**典型高频违规概念**重点 grep 短语见原则 D。
    - **【新】scripts/ 常量与 prose 一致性**：grep 阈值/版本号裸数字（”300” / “500” / “0.X.Y” 形式）是否在 prose 出现——出现应改为常量名引用（`` `PAGE_SIZE_THRESHOLD` `` / `` `LOG_ROTATION_THRESHOLD` `` / `` `metadata.wiki_spec_version` ``），违反”脚本常量作 SSOT 时的 prose 引用规范”子原则（原则 B）。
    - **【新】自包含例外合理性**：grep 各 `references/*.md` 文件中”自包含理由 + SSOT 指针” self-aware 注释是否存在——缺失则按”自包含例外规范”子原则（原则 A）重审该段是否属于”无意识重抄”。
+   - **【新】跨 skill 相对路径引用**：grep `\]\(\.\./\.\./[a-z]`（markdown 链接 target 以 `../../<skill-name>/` 开头）在所有 `.md` 出现 → 报，违反”跨 skill 相对路径引用禁止（链接 target 只限本 skill 目录）”原则；同 skill 内引用（`./` / `references/` / `../scripts/`）无此问题。默认修法是去掉链接、改成纯文本（"X 侧 spec §Y"），不保留链接 target。
    其余原则（”解释为什么而非 MUST”、”语言”、”跨 skill 依赖单向”等的语义判断）靠 agent 判断。
 4. 产出报告：每条原则 pass / fail + 证据 + 建议修法。**只审计、不改写**；要修让用户点头再动（或转入口 2 的改进流程）。
 
 > 写作**原则**的权威清单在 `references/skill-writing-principles.md`；新增原则后本入口的 checklist 自动覆盖到，无需改这里。但上面”能程序化查的就程序化查”列出的**检查工具**（quick_validate / check_skill_dependencies 等）需手动维护——新增或改动工具时同步更新这条清单。
 >
-> **新加 3 条检查**（跨文件重复 / scripts/ 常量与 prose 一致性 / 自包含例外合理性）当前**不**配套脚本——靠 agent 跑 grep 一两条关键词即可，过度工程化无收益。若未来发现”grep 步骤人工跑易出错”或”同类违规高频出现”再考虑加 `scripts/check_ssot.py`，届时同步更新此清单。
+> **新加 4 条检查**（跨文件重复 / scripts/ 常量与 prose 一致性 / 自包含例外合理性 / 跨 skill 相对路径引用）当前**不**配套脚本——靠 agent 跑 grep 一两条关键词即可，过度工程化无收益。若未来发现”grep 步骤人工跑易出错”或”同类违规高频出现”再考虑加 `scripts/check_ssot.py`，届时同步更新此清单。
 
 ## 参考文件
 

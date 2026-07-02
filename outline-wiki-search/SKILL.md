@@ -19,8 +19,8 @@ metadata:
 文档、拿 Markdown 原文与元数据。本 skill 是 outline-wiki-* 家族中**最小**
 的一个——只有核心能力的 1 / 2（search / read），无任何写操作。
 
-写 / 编辑 / 上传相关操作由 [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md)
-负责；MCP 配置由 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) 负责。
+写 / 编辑 / 上传相关操作由 `outline-wiki-upload` SKILL.md
+负责；MCP 配置由 `outline-wiki-setup` SKILL.md 负责。
 
 ## 何时使用 / 不使用
 
@@ -36,9 +36,9 @@ metadata:
 
 - **写 / 编辑 / 上传 outline 文档**（含图片附件 / @mention / 评论 /
   Collection 管理 / 移动 / 删除 / 归档）——走
-  [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md)
+  `outline-wiki-upload` SKILL.md
 - **配置 outline MCP**（首次接入 / 重启后看不到 / 401）——走
-  [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)
+  `outline-wiki-setup` SKILL.md
 - 用户使用其他 wiki / 知识库产品（Notion / Confluence / Obsidian / GitHub Wiki）
 - 分享、导出、权限调整（官方 MCP 文档未列、server 通常也未暴露）——
   走 Outline Wiki 自身 UI 或直接调 REST API
@@ -52,7 +52,7 @@ metadata:
 启动时需具备以下**前置条件**——这些由 `outline-wiki-setup` 负责：
 
 - **MCP 已注册**：当前 session 能调 `mcp__outline__*` 系列工具
-  （若未注册，**先走 [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)，
+  （若未注册，**先走 `outline-wiki-setup` SKILL.md**，
   跑完重启后再回来**）
 - **用户自然语言指令**：搜索关键词 / 文档 ID
 
@@ -149,7 +149,7 @@ body）在 Claude Code 里读不到**——见下方"正文读取"说明。
 
 1. **核实配置与工具**：会话开始时——
    - 确认 outline 相关 MCP 工具在当前 session 已注册；若未注册，**先走
-     [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md)**，跑完重启后
+     `outline-wiki-setup` SKILL.md**，跑完重启后
      再回来
    - 调 MCP `tools/list` 取 search / read 的实际工具名、参数 schema
 2. **理解意图**：把用户的自然语言指令映射到 search 或 read
@@ -243,8 +243,8 @@ curl -sS -X POST "<base>/api/documents.info" \
 
 ## 相关参考
 
-- [`outline-wiki-setup`](../outline-wiki-setup/SKILL.md) — 配套：MCP 配置与首次接入
-- [`outline-wiki-upload`](../outline-wiki-upload/SKILL.md) — 配套：写 / 编辑 outline 文档
+- `outline-wiki-setup` SKILL.md — 配套：MCP 配置与首次接入
+- `outline-wiki-upload` SKILL.md — 配套：写 / 编辑 outline 文档
 - **不在本 skill 范围内**：
   - 文档风格（`outline-wiki-upload/references/doc_style.md`）—— 写时参考
   - 风格 checklist（`outline-wiki-upload/references/style_checklist.md`）—— 写时核对

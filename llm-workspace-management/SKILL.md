@@ -22,7 +22,7 @@ metadata:
 
 按 [`workspace-spec.md`](references/workspace-spec.md) 维护一个**本地**、**多 wiki**
 工作区的"全局视图"和跨 wiki 编排能力——单个 wiki 的 ingest / query / lint 仍走
-[`llm-wiki-management`](../llm-wiki-management/SKILL.md) skill。本 skill 站在所有 wiki
+`llm-wiki-management` SKILL.md skill。本 skill 站在所有 wiki
 之上，做需要跨 wiki 判断的事情。
 
 本 skill 提供三块交付物：
@@ -48,7 +48,7 @@ metadata:
 
 ### 不使用
 
-- **单个 wiki 的 ingest / query / lint**——走 [`llm-wiki-management`](../llm-wiki-management/SKILL.md)
+- **单个 wiki 的 ingest / query / lint**——走 `llm-wiki-management` SKILL.md
 - **workspace / wiki 元数据 CRUD**（init / add / remove / config / enter / model
   add / remove / set-default）——走 workspace CLI（如 `llmw`）
 - **云端协作 wiki**（Notion / Confluence / Outline Wiki / GitHub Wiki）——走
@@ -249,7 +249,7 @@ spec 文件做契约对齐。
 - 用户说"哪个 / 属于哪里 / 应该放哪" → **route**
 - 其余 → **synthesis**
 
-**good query 必有"是否归档"环节**——参考 [`llm-wiki-management` query 流程](../llm-wiki-management/SKILL.md)
+**good query 必有"是否归档"环节**——参考 `llm-wiki-management` query 流程 SKILL.md
 的"是否归档"原则。归档位置：
 
 - 答案涉及**单 wiki** → 归档到 `<wiki>/wiki/syntheses/<slug>.md`（走 `llm-wiki-management`）
@@ -286,6 +286,9 @@ spec 文件做契约对齐。
    - 未注册的 wiki 子目录（磁盘上有 `<wiki>/CLAUDE.md` 但 workspace.toml 没有注册）
    - workspace.toml 注册但磁盘上不存在的 wiki（孤儿注册）
    - STATS.md 与 INDEX.md 的 wiki 列表是否一致
+   - MEMORY 索引一致性：扫 `<workspace>/MEMORY/*.md`（排除 `MEMORY.md`），任一文件未在
+     `MEMORY/MEMORY.md` 索引列出 → 报 `memory-not-indexed`（severity = info，与 wiki 侧
+     lint-checklist §14 对齐）
 2. **本 skill 做的半定性检查**：
    - 主题重叠的 wiki 是否需要合并
    - tag 体系是否混乱（同名 tag 含义不同 / 同含义 tag 命名不一）
@@ -318,16 +321,23 @@ spec 文件做契约对齐。
 
 1. 识别一个值得沉淀的跨 wiki 观察
 2. **scope 自检**——确认是跨 wiki 视角（不只涉及单个 wiki）
-3. 生成 slug（kebab-case 短标题，例 `user-prefers-time-based-wikis`）
-4. 检查目标 MEMORY 文件是否已存在：
+3. **判别条目形式**（与仓库根 `MEMORY/` / wiki 侧 MEMORY 同步）：
+   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
+     走步骤 4-7 完整格式
+   - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 直接跳到步骤 6 短格式
+4. 生成 slug（kebab-case 短标题，例 `user-prefers-time-based-wikis`）——仅完整条目需要
+5. 检查目标 MEMORY 文件是否已存在（仅完整条目）：
    - 不存在 → `Write` 新文件（5 必填 frontmatter：`title` / `type`（用 `workspace-memory`） /
      `created` / `updated` / `tags`；推荐 `wikis` 数组 + `description`）
    - 已存在 → `Edit` 更新正文 + `updated` 字段，`created` 保留原值
-5. **同步 `MEMORY.md` 索引一行**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（`MEMORY.md`
-   由 CLI init 建骨架，agent 追加索引——这是 MEMORY 不沦为死库的关键）
-6. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口；但**必须**在
+6. **同步 `MEMORY.md` 索引一行**——格式按条目形式选：
+   - 完整条目：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（步骤 5 文件必须存在；
+     漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
+   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 CLAUDE.md `@` import
+     常驻即可达未来会话）
+7. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口；但**必须**在
    `MEMORY.md` 索引列出，见上一步）
-7. **不写** log.md（MEMORY 没有 workspace-level log）
+8. **不写** log.md（MEMORY 没有 workspace-level log）
 
 **MEMORY 骨架不由 skill 建**：`<workspace>/MEMORY/` 目录 + `MEMORY.md` 索引由 **CLI init** 创建
 （[spec §9](references/workspace-spec.md#9-workspace-memoryskill-维护) §9.1）；skill 不重建（已存在即
@@ -390,9 +400,9 @@ spec 文件做契约对齐。
   9 类文件的归属 + schema 权威定义（含 §4 CLAUDE.md + §9 MEMORY/）
 - **必读**：[`references/workspace-claude-md-template.md`](references/workspace-claude-md-template.md)——
   `<workspace>/CLAUDE.md` 的 canonical 模板字节金标准（CLI init 时按此拷）
-- **必读**：[`../llm-wiki-management/references/wiki-spec.md`](../llm-wiki-management/references/wiki-spec.md)——
+- **必读**：`llm-wiki-management` SKILL.md 的 `references/wiki-spec.md`——
   单 wiki 内的目录 / frontmatter / 命名约束（本 skill 操作 wiki 时遵循）
-- **委托目标**：[`../llm-wiki-management/SKILL.md`](../llm-wiki-management/SKILL.md)——
+- **委托目标**：`llm-wiki-management` SKILL.md——
   单 wiki ingest / query / lint / memory 工作流（本 skill 的单 wiki 操作委托给它）
 - **CLI 文档**：workspace CLI 仓（当前为 `~/llm_workspace_cli/`，命令 `llmw`）——本 skill
   **不直接调**，但用户的 `init / add / remove / config / enter / model ...` 命令参考此处
