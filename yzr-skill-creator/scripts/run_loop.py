@@ -26,6 +26,10 @@ from scripts.improve_description import improve_description
 from scripts.run_eval import find_project_root, run_eval
 from scripts.utils import parse_skill_md
 
+# SSOT for the train/test split ratio. Prose references this constant instead of
+# writing the literal 0.4 so future tweaks don't drift docs vs. code.
+DEFAULT_HOLDOUT_RATIO = 0.4
+
 
 def split_eval_set(eval_set: List[dict], holdout: float, seed: int = 42) -> Tuple[List[dict], List[dict]]:
     """Split eval set into train and test sets, stratified by should_trigger."""
@@ -264,7 +268,10 @@ def main():
     parser.add_argument("--runs-per-query", type=int, default=3, help="Number of runs per query")
     parser.add_argument("--trigger-threshold", type=float, default=0.5, help="Trigger rate threshold")
     parser.add_argument(
-        "--holdout", type=float, default=0.4, help="Fraction of eval set to hold out for testing (0 to disable)"
+        "--holdout",
+        type=float,
+        default=DEFAULT_HOLDOUT_RATIO,
+        help=f"Fraction of eval set to hold out for testing (0 to disable, default: {DEFAULT_HOLDOUT_RATIO})",
     )
     parser.add_argument("--model", required=True, help="Model for improvement")
     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")

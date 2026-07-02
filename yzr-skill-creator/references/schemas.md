@@ -104,7 +104,7 @@ side, and `scripts/generate_report.py::generate_html` for the consumer side).
 - `skill_path`: Absolute path to the skill directory
 - `model`: Model id used for both evaluation and improvement
 - `iterations_run`: Number of iterations actually executed (may be less than `max_iterations` if early-stopped)
-- `train_size` / `test_size`: Sizes of the train/holdout split (60/40 by default)
+- `train_size` / `test_size`: Sizes of the train/holdout split (default `DEFAULT_HOLDOUT_RATIO`, SSOT in `scripts/run_loop.py`)
 - `trigger_threshold`: Trigger rate below which a query is counted as "not triggered"
 - `best_description`: The description with the best test pass rate (or train pass rate as tiebreaker)
 - `history[].iteration`: 0-based iteration index
