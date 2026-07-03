@@ -1,6 +1,6 @@
 # 改写规则 R1–R5
 
-> 本文件是「迁移时怎么改写每段内容」的 SSOT。Step 2 / 3 / 4 改写、Step 5 生成薄壳时读它。
+> 本文件是「迁移时怎么改写每段内容」的 SSOT。Step 2 / 3 改写、Step 4 生成薄壳时读它。
 > SKILL.md 只给摘要 + 指针，不重抄。
 
 ## R1 — 工具无关化（去品牌绑定）
@@ -28,13 +28,15 @@
 ## R2 — @import 位置
 
 `@MEMORY/MEMORY.md` 必须写在 `AGENTS.md` 内（标题之后第一行），**不**写在 CLAUDE.md 内。
-原因：`AGENTS.md` 是两边共同加载的真源，import 放这里才能保证 Claude Code（经 `@AGENTS.md` 展开）
-和 Qoder（原生读 AGENTS.md）都拿到记忆索引。
+原因：`AGENTS.md` 是两边共同加载的真源。Claude Code 经 `@AGENTS.md` 递归展开一定加载 `@MEMORY`；
+读 `AGENTS.md` 的其它 agent 能否展开内部的 `@import` 不确定（官方多未文档化）——但 `@MEMORY/MEMORY.md`
+这行留在 AGENTS.md 里至少是显式指针，最坏情况是用户手动 `Read` MEMORY 正文。故 import 写在 AGENTS.md
+（Claude Code 侧一定生效，其它 agent 侧尽力）。
 
 ## R3 — 行宽不变
 
 原文遵守的行宽约束（本仓库是 ≤ 120 字符，见 `.markdownlint.jsonc` MD013）在改写后继续遵守。
-改写时若加了文字，注意回行；最后 Step 6 跑 `markdownlint` 复核 0 error。
+改写时若加了文字，注意回行；最后 Step 5 跑 `markdownlint` 复核 0 error。
 
 ## R4 — MEMORY 改写
 
@@ -59,7 +61,7 @@
 **不要**把"只是提到 Claude Code 名字"的内容塞进逃生舱——那些 R1 去品牌后归 L1 即可。逃生舱只收
 "点名才能执行"的硬依赖。
 
-### CLAUDE.md 薄壳模板（Step 5 用）
+### CLAUDE.md 薄壳模板（Step 4 用）
 
 ```markdown
 # CLAUDE.md
@@ -93,7 +95,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Outline 大文档整篇重写走 REST 绕开 `update_document` 换行吞字 bug（Claude Code 特有 MCP 行为）。
 ```
 
-### 薄壳验证（Step 5 自检）
+### 薄壳验证（Step 4 自检）
 
 - 总行数 ≤ 30（含注释标记）
 - `@AGENTS.md` 存在
