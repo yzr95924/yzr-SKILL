@@ -14,6 +14,7 @@
 写 / 改 skill 的 description（触发描述）时遵循：
 
 - **别过拟合到具体查询**：不要把当前看到的失败 case 逐条列进描述。从失败里归纳出更宽泛的"用户意图类别 / 适用场景"，而非不断追加"该 / 不该触发的具体查询"。原因有二：(1) 避免过拟合；(2) description 会被注入到**所有**查询里，且 skill 可能很多，不要在单个 description 上占太多篇幅。
+- **agent 中立（默认不与具体 agent 强绑定）**：description 默认写成 agent 无关——不 presume 用户跑在某个 agent 上（Claude Code / Qoder / Cursor / Windsurf / Codex 等），也不用"为 X 设计"框死适用范围；需要提到 agent 概念时用泛指（"AI coding agent" / "某些 agent" / "读 AGENTS.md 的 agent"）。原因：(1) description 是触发信号且常驻所有查询上下文，绑死某个 agent 会让用其它 agent 的同类用户无法触发本该触发的 skill；(2) skill 常在多 agent 环境分发，中立描述覆盖面更广、寿命更长。**例外**：skill 本就是针对某 agent 的**特有机制**设计的（如 Qoder 的 `.qoder/rules/` type 系统、Claude Code 的 hooks / `@import` 递归展开），这时点名是准确而非违规——但正文要讲清"为什么必须点名这个 agent"（是它的特有行为，不是泛化措辞偷懒）。审计 grep：`grep -niE "claude ?code|qoder|cursor|windsurf|codex" <skill>/SKILL.md` 命中即**逐处**复核——确认每处是"特有机制必须点名"还是"可泛化却写死"，后者改泛指。
 - **长度**：约 100–200 词；硬上限 `DESCRIPTION_MAX_CHARS`（见 `scripts/utils.py`，超出会被截断），保持在上限之内留有余量。
 - **祈使语气**：用 "Use this skill for…" 这类主动说法，而非 "this skill does…"。
 - **聚焦用户意图**：写用户想达成什么，而不是 skill 的实现细节。

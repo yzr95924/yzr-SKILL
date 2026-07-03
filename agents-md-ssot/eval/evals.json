@@ -1,0 +1,32 @@
+{
+  "skill_name": "agents-md-ssot",
+  "evals": [
+    {
+      "id": 1,
+      "name": "full-realistic-with-memory",
+      "prompt": "我一直用 Claude Code 维护这个项目（根目录有 CLAUDE.md 和 MEMORY/），现在想也在 Qoder 里打开它用。帮我把项目上下文转成 Qoder 能识别的格式，最好两个 IDE 都能正常加载同一套内容，别让我维护两份。",
+      "expected_output": "生成去品牌化的 AGENTS.md（含 @MEMORY/MEMORY.md import、≤1500 词、grep 不到 'claude code'/'.claude/'）；CLAUDE.md 收敛成薄壳（@AGENTS.md + 逃生舱，≤30 行）；MEMORY/ 去品牌化但结构与文件数不变；覆盖率 ≈100%。Step 1 给出分类表、Step 3 判断是否拆 .qoder/rules/（这个项目大概率不拆或拆 1-2 个）、逃生舱内容征求确认。",
+      "files": [
+        "fixture = 把本仓库（/root/my_SKILL）当前的 CLAUDE.md + MEMORY/ 复制到 workspace 的一个临时项目目录；eval 子 agent 在该副本上迁移，不动真身"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "small-no-memory",
+      "prompt": "帮我把这个小工具项目（pdf-toc-extractor）的 CLAUDE.md 迁移成 AGENTS.md，让它在 Qoder 里也能用。项目没有 MEMORY 目录。",
+      "expected_output": "生成 AGENTS.md（去品牌：'Claude Code (claude.ai/code)'→'AI coding agent'；含 @MEMORY/MEMORY.md import 行即便 MEMORY 不存在）；CLAUDE.md 薄壳化（@AGENTS.md + 逃生舱）；scripts/run_eval.py 调 claude -p 这条按 R5 进逃生舱（AGENTS.md 写泛化版 'agent CLI 子进程'，CLAUDE.md 尾部留具体实现）；Step 4 跳过（无 MEMORY）；precheck + coverage 脚本跑通；覆盖率 ≈100%。",
+      "files": [
+        "fixture = eval/fixtures/small-project/CLAUDE.md（已提交；无 MEMORY/）"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "existing-agents-md-escape-hatch",
+      "prompt": "这个项目我已经有一份 AGENTS.md 了，但 CLAUDE.md 也还在，两边内容有重叠还各有 Claude 专属的部分。帮我整理成单一真源 + 薄壳共存。",
+      "expected_output": "skill 在 Step 0/1 检测到已有 AGENTS.md → 停下来让用户确认覆盖（不静默覆盖）；把 CLAUDE.md 里无法泛化的 Claude 专属内容（如 .claude/settings.local.json 权限、claude -p 子进程）按 R5 进薄壳逃生舱；AGENTS.md 去品牌化；CLAUDE.md 收敛成薄壳；冲突点（同一规则两边口径不同）显式标出让用户裁定（呼应 Qoder 'rules precedence' ）。",
+      "files": [
+        "fixture = 合成项目：已有 AGENTS.md（部分去品牌、与 CLAUDE.md 有重叠 + 口径冲突）+ CLAUDE.md（含 TOOL_SPECIFIC 段）；eval 时临时构造"
+      ]
+    }
+  ]
+}
