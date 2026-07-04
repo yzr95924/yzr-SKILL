@@ -134,10 +134,8 @@ x-outline:
   bundle）、`title`（Outline 字段承载）。
 - **`x-outline` 扩展块**（可选）：Outline 专属溯源（collection / docId / 来源
   skill），走 OKF `x-<producer>` 私有键；标准字段能表达的别塞这里。
-- **type 枚举**：知识页类 `entity` / `concept` / `source` / `comparison` /
-  `synthesis`（同 wiki，跨 skill 一致）+ Outline 专属 `design-doc` /
-  `paper-note` / `runbook` / `reference` / `guide`；都不属于时可自定义
-  kebab-case 并在 `description` 说明。
+- **type 枚举**：SSOT 在 [`references/doc_style.md` §type 枚举](references/doc_style.md#type-枚举)；
+  本表不复列以免 drift。都不属于时可自定义 kebab-case 并在 `description` 说明。
 - **正文结构纪律**：yaml 块是正文第一个块（前面无任何内容）；标题从 `##`
   起、不跳级、同级不重名（agent 用标题做分块锚点）；一篇一主题；链接用
   Outline 链接 / 绝对 URL，不裸写本地相对路径。
@@ -248,11 +246,11 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 | 元素 | 仓库约定 | 说明 |
 | --- | --- | --- |
-| OKF 元数据块 | 正文首块 ```yaml（硬门槛 `type`；推荐 `description`/`tags`/`created`/`updated`/`x-outline`） | agent 可读基线，详见 doc_style OKF 小节 |
+| OKF 元数据块 | 正文首块 ```yaml 元数据块；硬门槛 `type`（要求与字段详见 §OKF 上传格式） | agent 可读基线 |
 | OKF title | 走 Outline 原生 title 字段，**不**进 yaml 块 | 避免重复 |
 | OKF `okf_version` | 单篇文档**不写**（标准只在 bundle 根 `index.md` 声明） | 单篇无 bundle |
 | 顶部结构 | 正文首块 = OKF yaml；其后若用 Reference 段走 `## Reference` | 标准 + OKF 约束 |
-| 标题层级 | `#` / `##` / `###` 表达逻辑层级；**正文不要 H1**（title 单独传） | 标准 + MCP 约束 |
+| 标题层级 | `#` / `##` / `###` 表达逻辑层级；正文从 `##` 起不跳级（title 单独传，详见 §OKF 上传格式） | 标准 + MCP 约束 |
 | Bullet marker | `*`（不用 `-` / `+`） | 仓库统一 |
 | 高亮 | `==text==` 标记关键术语 / 参数 / 状态 | 仓库指纹（默认色） |
 | 代码块语言 | 必填（`bash` / `python` / ...） | 习惯 |
@@ -265,7 +263,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ### 反模式（写之前先看）
 
-- 正文首块不是 OKF ```yaml 元数据块，或块内缺非空 `type`（agent 读回的唯一硬门槛）
+- 正文首块不是 OKF ```yaml 元数据块，或块内缺非空 `type`（agent 读回被跳过；硬门槛说明见 §OKF 上传格式）
 - 把 OKF `title` 重复写进 yaml 块（title 已由 Outline 字段承载）
 - 在 yaml 块写 `okf_version`（标准只在 bundle 根 `index.md` 声明，单篇文档不该有）
 - 正文裸写 `---...---` frontmatter——Outline 往返会吃掉 `---`、YAML 泄漏成可见正文（实测确认）
@@ -341,9 +339,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 4. **执行操作**：
    - 调用对应工具
    - **组织正文**：写新文档 / 大幅改写时，正文**首块**写 OKF ```yaml 元数据
-     块（硬门槛 `type`；推荐 `description` / `tags` / `created` / `updated` +
-     可选 `x-outline`；title 走 Outline 字段，**不**写 `okf_version`），标题从
-     `##` 起不跳级（详见上文"OKF 上传格式"）
+     块（要求与字段详见 §OKF 上传格式），标题从 `##` 起不跳级
    - 图片场景走"create_attachment → curl 上传 → Markdown 引用 attachment URL"
      3 步（详见下方"图片插入 / 文件附件工作流"）
    - 评论场景先 `list_comments` 看现有讨论再决定新建还是回复

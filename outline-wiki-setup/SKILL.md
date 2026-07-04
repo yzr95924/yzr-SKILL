@@ -1,11 +1,12 @@
 ---
 name: outline-wiki-setup
-description: 用于把 Outline Wiki 接入 Claude Code——①outline MCP 工具未在
-  session 注册（工具列里看不到 `mcp__outline__*`）；②首次配置 outline MCP，或
-  已拿到 endpoint + API key / OAuth 想连上；③配置阶段排查：MCP 端点未启用 /
-  401 / 403 / 重启后仍看不到 server。**不**用于搜读写编辑 outline 文档（走
-  outline-wiki-search / outline-wiki-upload）；**不**用于 Notion / Confluence /
-  Obsidian / GitHub Wiki。重启约束等运行细节见 SKILL.md 正文。
+description: 用于把 Outline Wiki 内置 MCP 服务接入 Claude Code CLI（落盘到
+  `~/.claude.json` / `.mcp.json`；其它 MCP 客户端走 references/auth.md）——①outline
+  MCP 工具未在 session 注册（工具列看不到 `mcp__outline__*`）；②首次配置 outline
+  MCP，或已拿到 endpoint + API key / OAuth 想连上；③配置阶段排查：MCP 端点
+  未启用 / 401 / 403 / 重启后仍看不到 server。**不**用于搜读写编辑 outline
+  文档（走 outline-wiki-search / outline-wiki-upload）；**不**用于 Notion /
+  Confluence / Obsidian / GitHub Wiki。重启约束等运行细节见 SKILL.md 正文。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -14,7 +15,9 @@ metadata:
 
 # Outline Wiki Setup
 
-把 Outline Wiki 内置 MCP 服务接入 Claude Code 的**一次性配置** skill。
+把 Outline Wiki 内置 MCP 服务接入 Claude Code CLI 的**一次性配置** skill
+（本 skill 落盘到 Claude Code CLI 的 `~/.claude.json` / `.mcp.json`；其它 MCP
+客户端——Claude Desktop / Cursor / 通用 JSON——走 [`references/auth.md`](references/auth.md)）。
 本 skill 解决"工具列里看不到 `mcp__outline__*`"这一类**配置阶段**问题——
 搜 / 读 / 写 / 编辑的具体文档操作，分别由 `outline-wiki-search` SKILL.md
 和 `outline-wiki-upload` SKILL.md 负责。
