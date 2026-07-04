@@ -108,7 +108,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引；完整条目正文
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
-├── design-doc-edit/             # 设计文档写作 skill（强制骨架 + 场景/方案分析）
 ├── llm-wiki-management/         # 本地单 wiki 维护（llm-workspace-management 的内层）
 ├── llm-workspace-management/    # 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
 │                                # Q&A / lint）
@@ -172,8 +171,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
   截断 MCP 多 content block 的缺陷（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持多
   block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先
   在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
-- `design-doc-edit` 输出**有强制章节骨架**（概述 → 场景分析 → 方案选择 → 核心设计 → 文件
-  归属），章节可增删但顺序不可打乱；行宽同样受 `.markdownlint.jsonc` MD013 约束。
 - `gemini-paper-summary` ↔ `outline-wiki-upload` 构成本地论文管线，单向流动：
   - `gemini-paper-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
     （`--extract-figures` 模式产物）

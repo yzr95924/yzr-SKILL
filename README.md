@@ -45,17 +45,23 @@ python3 scripts/install-dev-deps.py
 
 > 每个子目录即一个独立 skill。完整名单与简介见 [CLAUDE.md](./CLAUDE.md) 顶层结构。
 
-按职责分三类：
+按职责分四类：
 
 - **知识库**（本地 / 私有，复利累积型）：
   - `llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
   - `llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
-- **写作**：
-  - `design-doc-edit` —— 设计文档写作（强制骨架 + 场景/方案分析）
-- **元 skill**：
+- **论文 / 阅读**：
+  - `gemini-paper-summary` —— 本地 PDF 论文 → 中文结构化总结（Gemini 多模态直读，含图表 / 公式）
+- **outline 工具**（远程 wiki 协作）：
+  - `outline-wiki-setup` —— Outline Wiki MCP 接入（一次性配置 + 重启验证）
+  - `outline-wiki-search` —— Outline Wiki 搜 / 读文档
+  - `outline-wiki-upload` —— Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
+- **元 skill**（项目上下文 / skill 本体工程）：
+  - `claude-to-agents-ssot` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
 
-外部 skill（依赖项，非本仓所有）：`outline-wiki-{setup,search,upload}` / `gemini-paper-summary` 等按需 `npx skills add` 接入。
+外部 skill（按需）：`gemini-api-dev` / `gemini-live-api-dev` / `gemini-interactions-api`
+（来自 `google-gemini/gemini-skills`，查 Gemini API 文档时用）。
 
 ## 代码仓规范
 
@@ -65,11 +71,15 @@ python3 scripts/install-dev-deps.py
 - 一些经验可以持久化到 [`MEMORY/`](./MEMORY/)（`MEMORY.md` 是索引，正文与索引同级）
 
 ## 依赖的 MCP 和外部的 Skills
+
 ### 依赖的 MCP
-- 需要依赖 Gemini 文档的 MCP 服务：Gemini Docs MCP
+
+- `outline`（Outline Wiki MCP）—— `outline-wiki-*` 三件套必需，按 `outline-wiki-setup` 接入
+- `Gemini Docs`（Gemini API 文档 MCP）—— 查 Gemini API 文档时按需
 
 ### 依赖的 Skills
-- 有的 skills 涉及调用 Gemini 相关的 API，需要安装 Gemini API 的 skills
+
+外部 Gemini API 文档 skill 按需装（查 Gemini API 文档时）：
 ```shell
 $> npx skills add google-gemini/gemini-skills --skill gemini-api-dev
 $> npx skills add google-gemini/gemini-skills --skill gemini-live-api-dev
