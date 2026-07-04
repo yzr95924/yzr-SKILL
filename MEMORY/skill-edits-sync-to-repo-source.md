@@ -1,6 +1,6 @@
 # SKILL 描述类修改：默认同步仓库源
 
-**Why：** 本仓库是 SKILL 的"源 / 描述"载体（`outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `gemini-paper-summary/` / `yzr-skill-creator/` / `design-doc-edit/` 等顶层子目录即各 skill 源），而 Claude Code 加载的是 `.claude/skills/<name> -> ../../.agents/skills/<name>` 的软链（vendored 副本，被 `.gitignore` 排除）。两套文件**不同 inode**——`Edit` 默认改的是 vendored 副本，不在 git 跟踪范围内，会随下次 `npx skills` 同步被覆盖。
+**Why：** 本仓库是 SKILL 的"源 / 描述"载体（`outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `gemini-paper-summary/` / `yzr-skill-creator/` / `design-doc-edit/` 等顶层子目录即各 skill 源），而 agent 加载的是 `.claude/skills/<name> -> ../../.agents/skills/<name>` 的软链（vendored 副本，被 `.gitignore` 排除）。两套文件**不同 inode**——`Edit` 默认改的是 vendored 副本，不在 git 跟踪范围内，会随下次 `npx skills` 同步被覆盖。
 
 **How to apply：**
 

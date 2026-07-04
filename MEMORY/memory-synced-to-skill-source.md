@@ -7,8 +7,8 @@ metadata:
 
 # 影响 SKILL 输出的记忆必须同步到 SKILL 源
 
-**Why:** 本仓库是 SKILL 的代码仓（CLAUDE.md 顶层定义）。MEMORY/ 里记的是"为什么 +
-边界规则"，但**光放 MEMORY 不够**——SKILL.md 是 Claude Code 触发 SKILL 时实际加载的
+**Why:** 本仓库是 SKILL 的代码仓（AGENTS.md / CLAUDE.md 顶层定义）。MEMORY/ 里记的是"为什么 +
+边界规则"，但**光放 MEMORY 不够**——SKILL.md 是 agent 触发 SKILL 时实际加载的
 上下文（description + 正文），如果 MEMORY 里的设计决策**没有**在 SKILL.md / scripts /
 assets / references 里**显式落地**，下次触发 SKILL 时这个决策就丢了。
 

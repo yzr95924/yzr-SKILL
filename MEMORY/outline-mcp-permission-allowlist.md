@@ -7,7 +7,10 @@ metadata:
 
 # outline MCP 工具必须在 settings.local.json 加白名单
 
-**Why：** 2026-06-21 实测——多次 `mcp__outline__update_document` 写入大文档（≥ 3000 字符）时被 Claude Code auto mode classifier 拦下，理由 "Updating an existing Outline document with new content that the user already approved in the conversation flow"。该拦截是 false positive，但会让 agent 中途失败需要回退到 curl REST API。
+**Why：** 2026-06-21 实测——多次 `mcp__outline__update_document` 写入大文档（≥ 3000 字符）时被部分
+agent 的 auto mode classifier 拦下，理由 "Updating an existing Outline document with new content that
+the user already approved in the conversation flow"。该拦截是 false positive，但会让 agent 中途失败需要
+回退到 curl REST API。
 
 **根因**：`/home/zryang/my_SKILL/.claude/settings.local.json#permissions.allow` 之前**只**显式允许 `mcp__gemini-api-docs-mcp__*` 工具，没有 `mcp__outline__*` 任何条目。同一 session 内 outline 工具偶尔能跑（依赖 classifier 启发式判断 + 内容大小），但大内容 / 多次连续调用容易踩雷。
 

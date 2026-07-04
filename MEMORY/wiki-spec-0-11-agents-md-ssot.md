@@ -7,15 +7,15 @@ metadata:
 
 wiki-spec 0.11.0 + workspace-spec 0.4.0（2026-07-04）：wiki 产物与 workspace 产物的纪律文件从
 `<root>/CLAUDE.md` 作单一真源，改为 `<root>/AGENTS.md`（工具无关 SSOT）+ `<root>/CLAUDE.md`
-（`@AGENTS.md` 薄壳，仅供 Claude Code 自动加载）。套用 `claude-to-agents-ssot` skill 的方法
+（`@AGENTS.md` 薄壳，仅供该 agent 自动加载）。套用 `claude-to-agents-ssot` skill 的方法
 （该 skill 自身声明"不处理被拷贝的产物文件"——这里是**借其方法**到 wiki/workspace 产物这个它
 不覆盖的场景，不是调用它）。
 
 **关键决策**：
 
 - `@import`（`@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md`）写在 **AGENTS.md 内**，不进薄壳
-  （ssot R2：两边都能加载——Claude Code 经薄壳 `@AGENTS.md` 递归展开，其他 agent 能否展开
-  取决于实现，最坏当显式指针 + orient ritual 显式 Read 兜底）
+  （ssot R2：两边都能加载——agent 经薄壳 `@AGENTS.md` 递归展开，其他 agent 能否展开取决于实现，
+  最坏当显式指针 + orient ritual 显式 Read 兜底）
 - 版本号（`wiki_spec_version` / `workspace_spec_version`）在 **AGENTS.md**（wiki §八 / workspace §六），
   薄壳不持版本——`lint_wiki.py::parse_spec_version` 优先 AGENTS.md、fallback CLAUDE.md（兼容老 wiki）
 - `lint_wiki.py` 新增 `claudemd-not-thinshell` legacy pattern（CLAUDE.md 行数 > 30 且无 `@AGENTS.md`）+
@@ -23,11 +23,11 @@ wiki-spec 0.11.0 + workspace-spec 0.4.0（2026-07-04）：wiki 产物与 workspa
 - workspace 侧无 lint 脚本，老 workspace 迁移靠 workspace CLI（对齐其现有"靠 CLI"风格）
 - 模板各拆两份：`agents-md-template.md`（SSOT）+ `claude-md-template.md`（薄壳，≤ 30 行）
 
-**Why:** agent 中立性审计发现 wiki/workspace 产物的纪律机制绑死 Claude Code（`CLAUDE.md` 自动加载 +
-`@import` 递归展开），Codex / Gemini CLI 维护时"索引会话常驻"收益消失，且 skill 既未声明 Claude Code
-专属、也未提供跨 agent 路径。改 AGENTS.md SSOT + 薄壳后，一套真源、Claude Code 与读 `AGENTS.md` 的
-agent 双工具共存——产物内容本来就几乎全工具无关（§纪律正文），只有顶部读取机制段 + `@import` 是
-Claude Code 特有。
+**Why:** agent 中立性审计发现 wiki/workspace 产物的纪律机制绑死特定 agent（`CLAUDE.md` 自动加载 +
+`@import` 递归展开），Codex / Gemini CLI 等其他 agent 维护时"索引会话常驻"收益消失，且 skill 既未声明
+特定 agent 专属、也未提供跨 agent 路径。改 AGENTS.md SSOT + 薄壳后，一套真源、agent（薄壳加载 +
+直接读 `AGENTS.md`）双工具共存——产物内容本来就几乎全工具无关（§纪律正文），只有顶部读取机制段 +
+`@import` 是特定 agent 特有。
 
 **How to apply:** 改 wiki-spec 或 workspace-spec 的 SSOT 文件引用时，两 spec 是**对称设计**
 （wiki-spec §2 ↔ workspace-spec §4；模板 agents-md-template/claude-md-template 各两份；canonical/

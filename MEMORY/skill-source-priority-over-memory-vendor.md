@@ -9,7 +9,7 @@
 
 **优先级排序**（从高到低）：
 
-1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，Claude Code 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
+1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，agent 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
 2. **MEMORY**（`MEMORY/MEMORY.md` + 正文同级）—— 索引 + "为什么 + 边界规则"，**没有**实际运行效果，**也不会被 npx 分发**；只承载"为什么"注解，正文必须落到 SKILL 源
 3. **vendor**（`.agents/skills/<name>/` + `.claude/skills/<name>` 软链）—— 当前 session 加载副本，**派生**于 SKILL 源；同样**不被 npx 分发**（仅本机 session 用）
 

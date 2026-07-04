@@ -36,9 +36,9 @@ metadata:
 - 完整字段表 + 载体选型实测 + 与标准 / wiki 子集关系，见
   [`outline-wiki-upload/references/doc_style.md` → OKF agent 可读基线](../outline-wiki-upload/references/doc_style.md#okf-agent-可读基线上传格式控制)
   （SSOT 已落 skill，本条是跨会话指针，避免重跑实测 / 错误回退到 `---...---`）
-- 读 Outline 文档正文：本 server 上 `mcp__outline__fetch` 在 Claude Code 里只回
-  元数据（CC 截断多 content block，正文在第 2 个 block 被丢，见
-  [[claude-code-mcp-truncates-multiblock]]）；`mcp__outline__list_documents(query=...)`
+- 读 Outline 文档正文：本 server 上 `mcp__outline__fetch` 在 agent 里只回
+  元数据（部分 agent 截断多 content block，正文在第 2 个 block 被丢，见
+  [[agent-mcp-truncates-multiblock]]）；`mcp__outline__list_documents(query=...)`
   的 `context` 是 snippets 来源。完整正文走 REST `POST /api/documents.info` →
   `data.text`（**旧版误记"REST /api 全 404"是 GET / 缺 id 误测，已纠正**：REST POST
   走 HTTPS 443 可用）
@@ -48,6 +48,6 @@ metadata:
 - [[ddnsto-relay-https-only-quirk]] —— 同一 server 的另一类平台坑（HTTP 80 占位空
   响应）；与 REST 能否用**无关**（REST 走 HTTPS 443 正常），旧版"REST 全 404"推论
   已撤
-- [[claude-code-mcp-truncates-multiblock]] —— fetch 读不到正文的真因（CC 截断多 block）
+- [[agent-mcp-truncates-multiblock]] —— fetch 读不到正文的真因（部分 agent 截断多 block）
 - [[experience-affecting-skill-distribution-goes-to-skill-not-memory]] —— 本 finding
   的 SSOT 已落 skill（doc_style.md），MEMORY 仅作作者跨会话指针，符合该规则
