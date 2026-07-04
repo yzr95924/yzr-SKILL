@@ -1283,7 +1283,7 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         default="academic",
         choices=["academic", "full"],
         help=(
-            "总结模板；academic（默认，≤2500 字符精炼速读，6 段 ## 骨架）或 "
+            "总结模板；academic（默认，精炼速读版，6 段 ## 骨架；字符目标 SSOT 见 assets/prompt-template.md）或 "
             "full（全文级结构化转储，解除字符数约束，按 PDF 章节逐小节展开；"
             "通常配合 --full 模式使用）。"
         ),

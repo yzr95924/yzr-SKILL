@@ -1,6 +1,6 @@
 ---
 name: gemini-paper-summary
-description: 在用户给出一篇本地 PDF 论文想要快速生成中文结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 直读 PDF（含图表 / 公式，不抽 OCR）时使用本 skill。用 Gemini 多模态直读 PDF，按 outline 风格结构化模板输出中文 Markdown——开篇 3 列表格 + 团队 item + `## 3 句话总结` / 背景与动机 / 方法设计 / 代表性实验结果 / 业务启示 & 价值 / 局限与未来工作（**无 Reference / 团队背景介绍 章节**；**此为 academic / quick 模板**）；评测 / benchmark 类论文自动把"方法设计 + 代表性实验结果"替换为"评测设计 + 评测发现"。默认中文主语、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式做 PDF→Markdown 全量转写，按 PDF 原生章节顺序、不做 6 类问题归纳，作为 agent 在无 PDF 时的多轮问答底座（契约详见 [`references/full-mode-contract.md`](references/full-mode-contract.md)）。
+description: 在用户给出一篇本地 PDF 论文想要快速生成中文结构化总结、需要在多篇论文里批量过稿、或想用 Gemini 直读 PDF（含图表 / 公式，不抽 OCR）时使用本 skill。用 Gemini 多模态直读 PDF，按 outline 风格结构化模板输出中文 Markdown（开篇元信息表 + 3 句话总结 + 背景 / 方法 / 实验 / 启示 / 局限 6 段骨架；**无 Reference / 团队背景介绍 章节**）；评测 / benchmark 类论文自动把"方法 + 实验"两段替换为"评测设计 + 评测发现"。默认中文、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。不适用：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。`--full` 模式做 PDF→Markdown 全量转写，按 PDF 原生章节顺序、不做 6 类问题归纳，作为 agent 在无 PDF 时的多轮问答底座（契约详见 [`references/full-mode-contract.md`](references/full-mode-contract.md)）。
 metadata:
   author: Zuoru YANG
   modify time: 2026-06-24
@@ -324,7 +324,7 @@ metadata:
    - 若有多个相关链接，可加多行（如 paper-website、video、slides）
    - 论文**完全未提**任何 prototype 链接时，**整段省略**（不要写"无开源"或占位文本）
 8. **模型选择**：默认与"何时显式覆盖"指南见 §模型选型小节
-   （脚本 `DEFAULT_MODEL` 常量在 `scripts/gemini_paper_summary.py:65`）。实际可用模型以
+   （脚本 `DEFAULT_MODEL` 常量，见 `scripts/gemini_paper_summary.py`）。实际可用模型以
    当前 Gemini 文档为准（用 `gemini-api-docs-mcp` 的 `get_current_model` 核实）。
    **为什么不在本条重列模型名**：模型选型表是 SSOT，列在 §模型选型小节里
    - **结果质量 > 系统可用性 · 无自动 fallback**（2026-06-21 决策，2026-06-30 加固）：
@@ -372,7 +372,7 @@ metadata:
 - 只处理本地 PDF；非 PDF 一律先转 PDF
 - 不做全文翻译；不做多篇对比
 - 一次一篇论文
-- 单 PDF 大小建议 ≤ 50 MB（File API 硬上限）
+- 单 PDF 大小受 File API 硬上限约束（数值与超大文件处置见 §前置条件）
 - **实在处理不了的图不入总结**（2026-06-21 用户要求）：
   `render_figures_to_pngs` 的三层定位（Stage 2 visual_bbox → caption locator → bbox hint）
   **全失败**时，整张图从 markdown 里**整行删除**，**且**前一句"如图 N 所示" /
@@ -581,7 +581,7 @@ ls -la ~/out_with_stage2/figures/ ~/out_without_stage2/figures/
 | 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型；避免用 deprecated 系列（`gemini-2.5-*` 等） |
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`；见"模型选型"小节 |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/prompt-template.md`）/ `--focus`；后处理裁剪；不要靠 prompt 单点约束 |
-| 输出空 / 截断 | 输出 token 上限（默认 65k）撞顶 | 减小 `max_output_tokens` 不会影响——缩短 prompt 或换模型 |
+| 输出空 / 截断 | 撞输出 token 上限（quick 走模型默认；`--full` 走 `FULL_MAX_OUTPUT_TOKENS`） | quick 过长 → 调 prompt 字符目标（SSOT 见 `assets/prompt-template.md`）/ `--focus`；full 截尾 → 多为模型未保真转写，换模型重跑（见 §模型选型） |
 | `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **端到端不降级**——脚本直接抛错（含 model 名 + status + 三步建议）；**agent 收到此错不得自行换模型重跑**，须如实报给用户、由用户决定是否 `--model` 显式重试。完整策略见 §核心原则 #8 |
 
 ## 参考样例

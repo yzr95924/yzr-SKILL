@@ -3,6 +3,7 @@
 > 本文是 `SKILL.md` §工作流 A' 的深度规范。
 > 读 SKILL.md 触发 `Stage 2` / `--figure-format` / `--thumbnail` 相关决策时来读本文。
 > 算法原理、caption 甄别、bbox sanity check 见 [`references/figure-extraction.md`](./figure-extraction.md)。
+> 各参数默认值真源：脚本 `parse_args()`（改默认先改 argparse，再同步本文档表）。
 
 ## 1. Stage 2: Gemini 视觉定位精修（默认开启）
 
@@ -47,7 +48,7 @@ Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
 | 参数 | 默认 | 说明 |
 | --- | --- | --- |
 | `--refine-figures` / `--no-refine-figures` | `True` | 是否启用 Stage 2。关闭后回到 Stage 1 bbox hint + 本地 caption 定位 |
-| `--refine-dpi` | `2.0` | Stage 2 渲染页面的 DPI 倍率（脚本 argparse 默认值见 `scripts/gemini_paper_summary.py:1191`）。增大可提升定位精度但增加 token 成本 |
+| `--refine-dpi` | `2.0` | Stage 2 渲染页面的 DPI 倍率。增大可提升定位精度但增加 token 成本 |
 
 ### Stage 2 失败行为（单页失败不影响其他页）
 
@@ -84,13 +85,13 @@ Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
 
 | 参数 | 类型 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `--figure-format` | `{png,webp,jpeg}` | `png`（脚本 `line 1146`） | 输出格式。WebP/JPEG 有损压缩，体积更小 |
-| `--figure-quality` | int 1-100 | `85`（脚本 `line 1152`） | WebP/JPEG 质量（pymupdf 内部用 `jpg_quality`），PNG 无效 |
+| `--figure-format` | `{png,webp,jpeg}` | `png` | 输出格式。WebP/JPEG 有损压缩，体积更小 |
+| `--figure-quality` | int 1-100 | `85` | WebP/JPEG 质量（pymupdf 内部用 `jpg_quality`），PNG 无效 |
 | `--max-width` | int | None | 最大宽度（像素）。超过则等比缩放；None 不限制 |
 | `--max-size-kb` | int | None | 最大体积（KB）。超限自动降级：先降 quality → 再换格式（PNG→WebP）→ 再降 scale |
 | `--thumbnail` | flag | 关 | 同时生成缩略图，Markdown 引用缩略图、点击跳原图 |
-| `--thumbnail-width` | int | `400`（脚本 `line 1175`） | 缩略图宽度（像素） |
-| `--figure-dpi` | float | `2.0`（脚本 `line 1140`） | 最终输出图的渲染倍率（`2.0 = 144 DPI`；想要更清晰用 `3.0 / 4.0`） |
+| `--thumbnail-width` | int | `400` | 缩略图宽度（像素） |
+| `--figure-dpi` | float | `2.0` | 最终输出图的渲染倍率（`2.0 = 144 DPI`；想要更清晰用 `3.0 / 4.0`） |
 
 ### 自动 fallback
 

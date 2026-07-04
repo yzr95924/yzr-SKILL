@@ -285,7 +285,7 @@ inline element 撑成"长句"不易扫读。
 > 启示 / 局限",直接做 PDF→Markdown 全量转写。
 >
 > **设计决策 SSOT**(为什么从"6 H2 骨架"翻面到"PDF 原生章节顺序"):见
-> [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) §4。
+> 仓库内 `MEMORY/gemini-paper-summary-full-mode-design.md` §4（仓库内设计文档，不随 npx 分发）。
 >
 > **2026-06-30 重新定位**:删除 6 H2 骨架 + 三句话总结 / 业务启示 / 局限三个
 > summary 段;章节顺序按 PDF 原生;加 Definition/Theorem/Algorithm 标注 + 公式
@@ -303,7 +303,7 @@ inline element 撑成"长句"不易扫读。
 > 引用。理由:full 是给 agent 用的 Q&A 底座,agent 多模态能力不可假设;
 > mermaid/表格是 100% agent 通用,PNG 仅 ~50% agent 能消费。quick 模板 +
 > `--extract-figures` 仍落 PNG,服务于人类用户。详见
-> [`../../MEMORY/gemini-paper-summary-full-mode-design.md`](../../MEMORY/gemini-paper-summary-full-mode-design.md) §0 / §5 / §7。
+> 仓库内 `MEMORY/gemini-paper-summary-full-mode-design.md` §0 / §5 / §7（仓库内设计文档，不随 npx 分发）。
 >
 > **quick.md 不受本翻面影响**:quick 仍走 academic 模板 + 三句话总结 +
 > `![图 N]` 引用 + 落 PNG,服务于"快速浏览 + 未来 publish skill 消费"。

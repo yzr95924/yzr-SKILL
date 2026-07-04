@@ -104,15 +104,15 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   跑 quick 模式（默认）或 `--extract-figures`
 - **mermaid 块语法**：` ```mermaidjs `（不是 ` ```mermaid `）——与 academic 模板
   风格约定一致；SSOT 见 `assets/prompt-template.md` 基础要求段（line 192-193）
-- **Output token 上限**：`FULL_MAX_OUTPUT_TOKENS` 模块常量（`scripts/gemini_paper_summary.py:77`）。
+- **Output token 上限**：`FULL_MAX_OUTPUT_TOKENS` 模块常量（`scripts/gemini_paper_summary.py`）。
   `_run_full_mode` 第二次调用显式传该常量。quick summary 走默认 token 上限
 - **后置内容自检**：`_run_full_mode` 写完 `.full.md` 后跑 `self_check_full_content`，
   校验 6 项（H2 ≥ 3 / `### Section X.Y` ≥ 5 / Definition+Theorem+Lemma+Algorithm
   标注数 / `$$...$$` block 数 / **字符下限 `min_chars`** / **"原文未明确"占位比例
   `placeholder_ratio_warn`**）——前两个阈值与 6 个参数默认值的 SSOT 都在
   `scripts/gemini_paper_summary.py:self_check_full_content` 函数签名
-  （`min_h2=3` / `min_sections=5` / `min_chars=8000` / `placeholder_ratio_warn=0.5`
-  @ line 1995-1996）。任一失败 stderr WARN/FAIL，**不阻塞**（非阻塞是设计选择，
+  （`min_h2=3` / `min_sections=5` / `min_chars=8000` / `placeholder_ratio_warn=0.5`）。
+  任一失败 stderr WARN/FAIL，**不阻塞**（非阻塞是设计选择，
   见 SKILL.md §核心原则 #8）
 - **`--refine-figures` / `--thumbnail` 在 full 模式是哑参数**（2026-06-30）：
   full 不消费这些 flag；quick 模式默认带图时生效（`--no-figures` 关闭则都不跑）。
@@ -124,7 +124,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
   `## Section 3` 的 `### Section 3.2 Gating` 子节下，而不是全文末尾。quick 模式
   仍走 FOCUS_INJECTION（末尾追加 "## 启发 / 追问" 段）。脚本实现见
   `scripts/gemini_paper_summary.py` 的 `FOCUS_INJECTION_FULL` 常量
-  （`FOCUS_INJECTION_FULL` @ line 202） + `build_prompt` 的 template 切换；
+  以及 `build_prompt` 的 template 切换；
   契约测试见 `eval/evals.json` test #2 assertion 2
 
 ## 反模式
