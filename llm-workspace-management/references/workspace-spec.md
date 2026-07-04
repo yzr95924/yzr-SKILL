@@ -150,7 +150,7 @@
 
 > **agent 中立设计**（0.4.0+）：workspace 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
 > 收敛为薄壳（`@AGENTS.md` + 声明），仅供 Claude Code 经自动加载约定读到 SSOT。读 `AGENTS.md` 的其他
-> agent（Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
+> agent（Qoder / Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
 >
 > **维护方**：CLI 在 init 时刻按 [`workspace-agents-md-template.md`](workspace-agents-md-template.md)
 > （SSOT）+ [`workspace-claude-md-template.md`](workspace-claude-md-template.md)（薄壳）拷两份模板生成。
@@ -396,8 +396,9 @@
   索引片段，不是 workspace 内容页（对齐仓库根 `MEMORY/MEMORY.md` / wiki-spec §5.1 形态）。
   lint / scan 把它当索引跳过 frontmatter / type 校验
 - **加载机制（agent 中立）**：agent 在 workspace 根目录工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md`
-  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent 原生读
-  SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
+  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent
+  （Qoder / Codex / Gemini CLI 等）原生读 SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读
+  AGENTS.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
   口径分裂）+ `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §9.2 的 `MEMORY/<slug>.md`）

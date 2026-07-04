@@ -199,8 +199,9 @@ spec 文件做契约对齐。
    跑 `llmw init` 初始化"（**不**替用户跑）
 3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时——Claude Code 经薄壳 `<workspace>/CLAUDE.md`
    → `@AGENTS.md` 自动加载 SSOT，`@MEMORY/MEMORY.md` 已把索引内联会话常驻；读 `AGENTS.md` 的其他 agent
-   原生读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md，`@` 不自动展开）→ 显式
-   `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，知晓已有哪些跨 wiki 记忆
+   （Qoder / Codex / Gemini CLI 等）原生读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
+   读 AGENTS.md，`@` 不自动展开）→ 显式 `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，
+   知晓已有哪些跨 wiki 记忆
 4. **不**自动跑 `scan`——等用户给操作意图
 
 ### 1. Scan / refresh-index

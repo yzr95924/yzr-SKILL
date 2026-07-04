@@ -9,7 +9,7 @@
 >
 > **读取机制（agent 中立）**：维护本 wiki 的 agent 应在每次操作前读本文件。在 wiki 根目录内工作时——
 > **Claude Code** 经同目录薄壳 `CLAUDE.md`（`@AGENTS.md` 递归展开）自动加载本文件；**读 `AGENTS.md` 的其他
-> agent**（Codex / Gemini CLI 等）原生直读本文件。在别处工作时，由 skill 经 `$LLM_WIKI_ROOT` 按需读取——
+> agent**（Qoder / Codex / Gemini CLI 等）原生直读本文件。在别处工作时，由 skill 经 `$LLM_WIKI_ROOT` 按需读取——
 > **不依赖 symlink**，多 wiki / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于 Claude Code 自动加载约定，无独立纪律。）
 
 <!-- @import 写在 SSOT 内（两边都能加载）：Claude Code 下经薄壳 CLAUDE.md → @AGENTS.md 递归展开后会话常驻；

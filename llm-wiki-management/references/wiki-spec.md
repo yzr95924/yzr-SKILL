@@ -105,16 +105,17 @@
 
 > **agent 中立设计**（0.11.0+）：wiki 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
 > 收敛为薄壳（`@AGENTS.md` + 声明），仅供 Claude Code 经自动加载约定读到 SSOT。读 `AGENTS.md` 的其他
-> agent（Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
+> agent（Qoder / Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
 >
 > **维护方**：CLI 在 init 时刻按本节模板拷贝两份；后续修改由 **用户** 完成（AGENTS.md 是 wiki 的
 > schema，是用户的"宪法"）。LLM agent 不得编辑 AGENTS.md / CLAUDE.md；如需变更 schema，**先与用户确认**。
 >
 > **0.11.0+**：`CLAUDE.md`（SSOT）→ 拆为 `AGENTS.md`（SSOT，工具无关）+ `CLAUDE.md`（薄壳）。
 > `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 两行 import 从原 CLAUDE.md 顶部移入 AGENTS.md 顶部
-> （@import 写在 SSOT 内，两边都能加载：Claude Code 经薄壳 CLAUDE.md → @AGENTS.md 递归展开加载；其他
-> agent 能否展开 @import 取决于实现，最坏由 orient ritual 显式 Read 兜底）。老 wiki（CLAUDE.md 仍是 SSOT
-> 形态）由 `lint_wiki.py --check-version --apply` 的 `claudemd-to-agents-md-split` action 迁移。
+> （@import 写在 SSOT 内，两边都能加载：Claude Code 经薄壳 CLAUDE.md → @AGENTS.md 递归展开加载；
+> Qoder / Codex 等读 `AGENTS.md` 的 agent 原生读，@import 能否展开取决于实现，最坏由 orient ritual
+> 显式 Read 兜底）。老 wiki（CLAUDE.md 仍是 SSOT 形态）由 `lint_wiki.py --check-version --apply`
+> 的 `claudemd-to-agents-md-split` action 迁移。
 >
 > **0.8.0+**：SSOT 模板的 `### Tag Taxonomy` 段已被移除——tag 白名单现归
 > [`wiki/tags.md`](#91-tag-白名单来源080) 维护；CLI init 不再向 AGENTS.md 写入
@@ -235,7 +236,7 @@
   （lint 校验实现见 SKILL 仓 `scripts/lint_wiki.py`，不归本 spec）
 - **MEMORY 不在 `wiki/index.md` 中强制列出**——它是 agent 私有入口，不需要 wiki 单一入口约束；
   但每条 `*.md` **必须**在 `MEMORY/MEMORY.md` 索引中列出一行（lint `memory-not-indexed` 兜底漏列）
-- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/MEMORY.md` 同步——见项目 `CLAUDE.md`）：
+- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/MEMORY.md` 同步——见项目 `AGENTS.md` 工具规则段）：
   - **完整条目**：含上下文 / 解决步骤 / 未来如何避免 → 建 `MEMORY/<slug>.md`（走 §5.2 规则）
     + 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
   - **短条目**：一句话提醒 / 单一偏好 / 无需解释"为什么" → 索引行直接 `- 一句话事实`，
@@ -256,9 +257,10 @@
   - **短条目**：`- <一句话事实>`（无链接，对应无 `.md` 文件的索引行 reminder）
   - 判别尺度见 §5 总段「条目形式按事实颗粒度选」
 - **加载机制（agent 中立）**：agent 在 wiki 根目录工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md`
-  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent 原生读
-  SSOT，能否展开 `@import` 取决于实现。agent 在别处工作（skill 经 `$LLM_WIKI_ROOT` 读 AGENTS.md）时，
-  `@` 不自动展开，由 SKILL 的 orient ritual 显式 Read MEMORY.md 补齐
+  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent
+  （Qoder / Codex / Gemini CLI 等）原生读 SSOT，能否展开 `@import` 取决于实现。agent 在别处工作
+  （skill 经 `$LLM_WIKI_ROOT` 读 AGENTS.md）时，`@` 不自动展开，由 SKILL 的 orient ritual 显式
+  Read MEMORY.md 补齐
 - **字面量见 fixtures**：`references/fixtures/memory-index.txt`（与 `references/canonical/memory-index.md`
   一致——MEMORY.md 无占位符，fixtures 与 canonical 内容相同）
 

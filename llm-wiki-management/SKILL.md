@@ -105,9 +105,10 @@ metadata:
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
    集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
    `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
-   （Codex / Gemini CLI 等）原生直读。没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明
-   的 wiki 维护者"。**为什么 AGENTS.md 作 SSOT + CLAUDE.md 薄壳**（套用 `claude-to-agents-ssot` 方法）：
-   一套真源、Claude Code 与读 `AGENTS.md` 的 agent 双工具共存——`@import` 写在 SSOT 内，两边都能加载。
+   （Qoder / Codex / Gemini CLI 等）原生直读。没有它，LLM 会退化成普通聊天机器人；有它，LLM 是
+   "纪律严明的 wiki 维护者"。**为什么 AGENTS.md 作 SSOT + CLAUDE.md 薄壳**（套用
+   `claude-to-agents-ssot` 方法）：一套真源、Claude Code / Qoder 等 agent 双工具共存——`@import`
+   写在 SSOT 内，两边都能加载。
 
 ### 四个核心操作——为什么是四个
 
@@ -151,8 +152,9 @@ metadata:
 >    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11），但**含**
 >    `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` import（0.9.0+ 起，写在 SSOT 内）。在 wiki 根目录内
 >    工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载 SSOT（含索引）；读 `AGENTS.md`
->    的其他 agent 原生读 SSOT；别处由 skill 按需读 AGENTS.md 时 `@` **不**自动展开，需额外
->    `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况 `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
+>    的其他 agent（Qoder / Codex / Gemini CLI 等）原生读 SSOT；别处由 skill 按需读 AGENTS.md 时 `@`
+>    **不**自动展开，需额外 `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况
+>    `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
@@ -280,7 +282,8 @@ cp ~/Downloads/some-article.md ~/wiki/<topic-name>/raw/articles/
 1. 验证 CLI 落盘——读 `<wiki-root>/AGENTS.md` 确认主题名 + 日期替换正确；`wiki/index.md` /
    `wiki/log.md` 存在且 frontmatter 完整；`<wiki-root>/CLAUDE.md` 是薄壳（`@AGENTS.md`，行数 ≤ 30）
 2. **理解 schema**——`<wiki-root>/AGENTS.md` 是本 wiki 的"宪法"（SSOT）：
-   - 在 wiki 根目录内工作时，Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载它；读 `AGENTS.md` 的其他 agent 原生读
+   - 在 wiki 根目录内工作时，Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载它；读 `AGENTS.md`
+     的其他 agent（Qoder / Codex / Gemini CLI 等）原生读
    - 在别处工作时由 skill 经 `$LLM_WIKI_ROOT` 按需读取
    - **不依赖 symlink**
 3. 询问用户是否做首次 ingest——若是，把第一份资料路径给 agent
