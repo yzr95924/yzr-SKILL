@@ -76,7 +76,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --migrate-conf
 
 ### 子命令 `--check-version`（0.7.0+ 推荐）
 
-扫当前 wiki 的 spec 版本（解析 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"）与已知
+扫当前 wiki 的 spec 版本（解析 `<wiki-root>/AGENTS.md` §八；老 wiki fallback `<wiki-root>/CLAUDE.md` §八）与已知
 legacy 老格式现场：
 
 ```bash
@@ -90,7 +90,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 行为：
 
 - 默认 **dry-run**——只打印人读报告，不动任何文件
-- 解析 CLAUDE.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
+- 解析 AGENTS.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
   比对（脚本常量 `CURRENT_WIKI_SPEC`）
 - 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `type-memory-value`
   （0.6.0 删 reserved memory）
@@ -178,7 +178,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 ### 11. Tag Taxonomy 校验（0.8.0+）
 
 - 解析 `<wiki-root>/wiki/tags.md`（**0.8.0+ 主流位置**）的裸 bullet 列表，提取允许的 tag 集合；
-  若不存在则 fallback 解析 `<wiki-root>/CLAUDE.md` 的 `### Tag Taxonomy` 段（**仅过渡期**，
+  若不存在则 fallback 解析 SSOT（`<wiki-root>/AGENTS.md`；老 wiki `<wiki-root>/CLAUDE.md`）的 `### Tag Taxonomy` 段（**仅过渡期**，
   老 wiki 跨 spec 迁移用；详见 `wiki-spec.md` §9.1）
 - 文件 / 段必须是**裸 bullet**（每行 `- ...`），不能包在 code block / HTML comment 里——
   包了就解析不出 0 个 tag，lint 静默跳过（视为未启用约束）
@@ -199,8 +199,8 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 ### 12. 页面体量
 
 - 5 类内容页（entities / concepts / sources / comparisons / syntheses）正文**非空行数** >
-  阈值（SSOT = `scripts/lint_wiki.py` 的 `PAGE_SIZE_THRESHOLD`，默认 ~300 行）→ 报 `oversized-page`
-- 阈值与 CLAUDE.md「Page Thresholds」段的「拆分页」行对齐（`claude-md-template.md` 也引用此 SSOT）
+  阈值（SSOT = `scripts/lint_wiki.py` 的 `PAGE_SIZE_THRESHOLD`）→ 报 `oversized-page`
+- 阈值与 AGENTS.md「Page Thresholds」段的「拆分页」行对齐（`agents-md-template.md` 也引用此 SSOT）
 - `MEMORY/*` 豁免——按 wiki-spec §5.2「正文无长度上限」（agent 经验沉淀可长）
 - 计**非空行**（纯空行不计），避免空行撑大计数
 - **严重性：warning**——不是 error，但单页过长 = 主题过散，建议拆成子主题页 + cross-link
@@ -241,7 +241,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 14. MEMORY.md 索引一致性
 
-- `MEMORY/MEMORY.md` 是被 `<wiki-root>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 的轻量
+- `MEMORY/MEMORY.md` 是被 `<wiki-root>/AGENTS.md` 用 `@MEMORY/MEMORY.md` import 的轻量
   索引（无 frontmatter），让 agent 每次会话都能看到 MEMORY 里有哪些条目——避免 MEMORY 沦为
   只写不读的死库
 - 扫 `<wiki-root>/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
@@ -334,4 +334,4 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - **不**自动修——只报告；修由用户 / agent 决定
 - **不**评估内容质量（不是 fact-checker）——只看结构和纪律
 - **不**评估 frontmatter 的语义是否合理（只检查字段存在性 + 类型合法）
-- **不**取代 schema（`CLAUDE.md`）——schema 是源头，lint 是脚本化检查
+- **不**取代 schema（`AGENTS.md`）——schema 是源头，lint 是脚本化检查

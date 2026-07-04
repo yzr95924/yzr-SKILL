@@ -34,7 +34,7 @@
 的多模态读只付一次，之后所有提问都在廉价文本层反复榨取——这是 Karpathy
 "复利"在**单篇论文内部**的重演。
 
-> raw/ 的 LLM 只读纪律**保持不变**（见 `wiki-spec.md` §一 + `claude-md-template.md` §一）。
+> raw/ 的 LLM 只读纪律**保持不变**（见 `wiki-spec.md` §一 + `agents-md-template.md` §一）。
 > 本 profile 不破坏这条——gemini 输出的全量抽取仍由 LLM 视为只读底座。
 
 ## 3. 命名约定
@@ -226,6 +226,6 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 - [`wiki-spec.md`](wiki-spec.md) — 通用 wiki 仓契约（SSOT，本 profile 在其之上变体）
 - [`page-templates.md`](page-templates.md) — frontmatter 与 page 模板权威定义
-- [`claude-md-template.md`](claude-md-template.md) — wiki 宪法（`raw/` LLM 只读等纪律的本源）
+- [`agents-md-template.md`](agents-md-template.md) — wiki 宪法（`raw/` LLM 只读等纪律的本源）
 - [`../SKILL.md`](../SKILL.md) — skill 主入口；本 profile 由其"与其他 skill 的边界"段引用
 - `../gemini-paper-summary/SKILL.md` — 上游抽 PDF 工具（**独立 skill**，本 profile 不复刻其内容）

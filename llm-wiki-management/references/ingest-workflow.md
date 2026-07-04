@@ -54,7 +54,7 @@ python3 llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-stal
 覆盖、不要重建 entity / concept 的"参考来源"段（只追加新来源）：
 
 > **若重摄发现新内容与已有 entity / concept 页主张矛盾**——不要静默覆盖旧说法，走
-> CLAUDE.md「矛盾处理 Update Policy」（双方设 `contested: true` + `contradictions` 互指、
+> AGENTS.md「矛盾处理 Update Policy」（双方设 `contested: true` + `contradictions` 互指、
 > 正文显式记录两种说法）。这是 `contested` 信号最常见的产生时机。
 >
 > **生命周期纪律（stale-raw / 重摄取）**：被更新的 source 页如果原来 `reviewed: true`，

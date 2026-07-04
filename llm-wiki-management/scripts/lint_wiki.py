@@ -55,7 +55,7 @@ SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
-CURRENT_WIKI_SPEC = "0.10.0"
+CURRENT_WIKI_SPEC = "0.11.0"
 
 # --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
 MIGRATION_PLAN_FILENAME = ".migration-plan.json"
@@ -66,6 +66,7 @@ LEGACY_PATTERN_KEYS = {
     "confidence-field": "wiki-spec.md#附录-b-0-7-0",
     "type-memory-value": "wiki-spec.md#附录-b-0-6-0",
     "claudemd-tag-section": "wiki-spec.md#附录-b-0-8-0",
+    "claudemd-not-thinshell": "wiki-spec.md#附录-b-0-11-0",
 }
 
 # 严重性等级
@@ -562,11 +563,13 @@ def parse_tag_taxonomy(wiki_root: Path) -> Set[str]:
     if primary.is_file():
         text = primary.read_text(encoding="utf-8", errors="replace")
         return _parse_tag_bullets(text)
-    # Legacy fallback：CLAUDE.md 的 Tag Taxonomy 段
-    claude_md = wiki_root / "CLAUDE.md"
-    if claude_md.is_file():
+    # Legacy fallback（0.11.0+）：SSOT 的 Tag Taxonomy 段——优先 AGENTS.md，再老 CLAUDE.md
+    for candidate in ("AGENTS.md", "CLAUDE.md"):
+        spec_file = wiki_root / candidate
+        if not spec_file.is_file():
+            continue
         try:
-            text = claude_md.read_text(encoding="utf-8", errors="replace")
+            text = spec_file.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return set()
         section = _extract_claudemd_tag_section(text)
@@ -1124,33 +1127,37 @@ CLAUDE_VERSION_ROW_RE = re.compile(r"^\s*\|\s*Wiki Spec 版本\s*\|\s*([^|]+?)\s
 SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
 
 
-def parse_claude_md_version(wiki_root: Path) -> Optional[str]:
-    """从 <wiki-root>/CLAUDE.md §八 表里抽 "Wiki Spec 版本"。
+def parse_spec_version(wiki_root: Path) -> Optional[str]:
+    """从 wiki 纪律 SSOT §八 表里抽 "Wiki Spec 版本"。
 
-    返回 semver 字符串（如 "0.7.0"）；找不到或解析失败返回 None。
+    0.11.0+：SSOT 是 <wiki-root>/AGENTS.md（薄壳 CLAUDE.md 不持版本）。
+    老 wiki（0.10.0-）：SSOT 是 <wiki-root>/CLAUDE.md，按候选顺序 fallback 兼容。
+
+    返回 semver 字符串（如 "0.11.0"）；找不到或解析失败返回 None。
 
     设计权衡：仅解析 §八 表的"Wiki Spec 版本"行，不扫描全文（避免误抓正文里出现的
     版本号）。用户编辑表格时若格式被破坏（例如把"Wiki Spec 版本"改成"Wiki 版本"），
     解析失败——提示用户人工填回，而不是猜。
     """
-    claude_md = wiki_root / "CLAUDE.md"
-    if not claude_md.is_file():
-        return None
-    try:
-        text = claude_md.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return None
-    for line in text.splitlines():
-        m = CLAUDE_VERSION_ROW_RE.match(line)
-        if not m:
+    for candidate in ("AGENTS.md", "CLAUDE.md"):
+        spec_file = wiki_root / candidate
+        if not spec_file.is_file():
             continue
-        cell = m.group(1).strip()
-        # 单元格可能含备注（如 "0.7.0 (current)"），抓首个 semver
-        semver = SEMVER_RE.search(cell)
-        if semver:
-            return semver.group(0)
-        # 单元格写了非 semver 文本——视为解析失败
-        return None
+        try:
+            text = spec_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            m = CLAUDE_VERSION_ROW_RE.match(line)
+            if not m:
+                continue
+            cell = m.group(1).strip()
+            # 单元格可能含备注（如 "0.7.0 (current)"），抓首个 semver
+            semver = SEMVER_RE.search(cell)
+            if semver:
+                return semver.group(0)
+            # 单元格写了非 semver 文本——视为解析失败
+            return None
     return None
 
 
@@ -1250,6 +1257,14 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
             out["patterns"]["claudemd-tag-section"].append(  # type: ignore
                 {"file": "CLAUDE.md", "conflict": False}
             )
+        # claudemd-not-thinshell（0.11.0+）：CLAUDE.md 仍是 SSOT 形态——不含 `@AGENTS.md` 薄壳行
+        # 且行数 > 30（薄壳模板 ≤ 30 行）→ 老 wiki 未拆 SSOT，由 claudemd-to-agents-md-split 迁移
+        claude_lines = claude_text.splitlines()
+        has_agents_import = any(line.strip() == "@AGENTS.md" for line in claude_lines)
+        if not has_agents_import and len(claude_lines) > 30:
+            out["patterns"]["claudemd-not-thinshell"].append(  # type: ignore
+                {"file": "CLAUDE.md", "conflict": False}
+            )
 
     return out
 
@@ -1347,6 +1362,25 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
             }
         )
 
+    # claudemd-not-thinshell → 0.11.0+ 迁移：老 CLAUDE.md（SSOT）拆为 AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
+    if legacy["patterns"]["claudemd-not-thinshell"]:  # type: ignore
+        actions.append(
+            {
+                "file": "AGENTS.md",
+                "type": "claudemd-to-agents-md-split",
+                "rule_ref": LEGACY_PATTERN_KEYS["claudemd-not-thinshell"],
+                "from_file": "CLAUDE.md",
+                "to_action": (
+                    "把 <wiki_root>/CLAUDE.md 的全部纪律正文（SSOT 内容）搬到 <wiki_root>/AGENTS.md。"
+                    "AGENTS.md 顶部按 references/agents-md-template.md 的说明块格式：SSOT 声明 + agent 中立"
+                    "读取机制段 + @import 行（@MEMORY/MEMORY.md + @scripts/SCRIPTS.md），随后接原 CLAUDE.md"
+                    "正文（§一~§八）。然后把 <wiki_root>/CLAUDE.md 重写为薄壳（@AGENTS.md + 薄壳声明，"
+                    "参考 references/claude-md-template.md），保留已替换的主题名。若 AGENTS.md 已存在——内容"
+                    "相同则跳过；不同给迁移冲突，转人工。AGENTS.md §八 Wiki Spec 版本由后续通用步骤改为 to_version。"
+                ),
+            }
+        )
+
     plan = {
         "generated_at": today,
         "from_version": current_spec,
@@ -1362,7 +1396,8 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
             "file-move：先读源 → 写目标 → 删源",
             "frontmatter-retype：按 action.note 与 wiki-spec §5.2 决定具体改法",
             "skipped_conflicts[] 永远不自动覆盖——转人工",
-            "改完后用 Edit 把 CLAUDE.md §八 Wiki Spec 版本行改为 to_version",
+            "claudemd-to-agents-md-split：老 CLAUDE.md 正文搬到 AGENTS.md + CLAUDE.md 重写为薄壳",
+            "改完后用 Edit 把 AGENTS.md §八 Wiki Spec 版本行改为 to_version",
             "不写 log 条目（迁移是脚本运行，不是 wiki 操作事件）",
             "不调 ingest / query / lint——保持职责单一",
         ],
@@ -1373,13 +1408,13 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
 def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
     """--check-version 子命令主入口。
 
-    - 解析 CLAUDE.md §八 wiki_spec_version
+    - 解析 AGENTS.md（老 wiki fallback CLAUDE.md）§八 wiki_spec_version
     - 探测已知 legacy 现场
     - 默认打印人读报告（不写文件）
     - --json 输出机器可读 JSON
     - --apply 落盘 <wiki-root>/.migration-plan.json（agent 修复路径的依据）
     """
-    current_spec = parse_claude_md_version(wiki_root)
+    current_spec = parse_spec_version(wiki_root)
     comparison = _compare_semver(current_spec, CURRENT_WIKI_SPEC)
     legacy = detect_legacy_patterns(wiki_root)
 
@@ -1434,7 +1469,7 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
 
     # 解析失败 → 提示用户填 CLAUDE.md §八
     if current_spec is None:
-        print("[WARN] 无法解析 <wiki-root>/CLAUDE.md §八 'Wiki Spec 版本'")
+        print("[WARN] 无法解析 <wiki-root>/AGENTS.md（老 wiki CLAUDE.md）§八 'Wiki Spec 版本'")
         print("       请确认该行存在且格式为: | Wiki Spec 版本 | 0.x.y |")
         print("       解析失败不影响 legacy pattern 探测（下方继续输出）")
         print()

@@ -24,14 +24,14 @@
    → 推荐路径建议在 ~/wiki/llm-systems
 2. 用户调 workspace CLI（具体命令以 CLI 文档为准）：
    workspace wiki init "LLM Systems" --root ~/wiki/llm-systems
-   → CLI 按 wiki-spec.md 落盘目录 + CLAUDE.md + index.md + log.md + .gitignore
+   → CLI 按 wiki-spec.md 落盘目录 + AGENTS.md（SSOT）+ CLAUDE.md（薄壳）+ index.md + log.md + .gitignore
    → CLI 默认不建 git（用户 --git opt-in 时才 init + commit）
 3. LLM agent 接管后：
-   → 读 ~/wiki/llm-systems/CLAUDE.md 确认主题名替换正确
+   → 读 ~/wiki/llm-systems/AGENTS.md 确认主题名替换正确（CLAUDE.md 是薄壳，行数 ≤ 30）
    → 验证 wiki/index.md / wiki/log.md 存在且 frontmatter 完整
    → 提示用户：raw/articles/ 作为"资料投放口"，可放剪藏 / PDF / 笔记
-4. 提示用户：wiki 根目录内的 CLAUDE.md 会被 Claude Code 自动加载；
-   别处工作时 skill 经 $LLM_WIKI_ROOT 按需读取，不必 symlink
+4. 提示用户：wiki 根目录内的 AGENTS.md 在 Claude Code 下经薄壳 CLAUDE.md 自动加载、
+   在其他 agent（Codex / Gemini CLI 等）下原生直读；别处工作时 skill 经 $LLM_WIKI_ROOT 按需读取，不必 symlink
 ```
 
 ---
@@ -114,7 +114,7 @@
 **执行**：
 
 ```text
-1. 跑操作前置：Read ~/wiki/llm-systems/CLAUDE.md (看到 §八 Wiki Spec 版本 = 0.5.0) +
+1. 跑操作前置：Read ~/wiki/llm-systems/AGENTS.md (看到 §八 Wiki Spec 版本 = 0.5.0；老 wiki 版本在 CLAUDE.md §八) +
    wiki/index.md + wiki/log.md 最近 30 行
 2. 跑探测：
    python3 llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version
@@ -140,7 +140,7 @@
 5. agent 读 plan.actions[] 逐项 Edit/Write 修复:
    - 12 处 frontmatter-rename（其中 11 处直接改，1 处冲突跳过转人工）
    - 0 处其它（`type-memory-value` 已退役，老 wiki 中 `type: memory` 由 lint `invalid-type` 单独报）
-6. Edit 改 ~/wiki/llm-systems/CLAUDE.md §八 "Wiki Spec 版本" 0.5.0 → 0.7.0
+6. Edit 改 ~/wiki/llm-systems/AGENTS.md §八 "Wiki Spec 版本" 0.5.0 → 0.7.0
 7. 重跑 lint_wiki.py --check-version 验证:
      needs_migration: false ✓ 完成
      报告残留: wiki/sources/llama-2.md [CONFLICT] 等待用户裁定

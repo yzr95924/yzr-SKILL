@@ -12,7 +12,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-02
-  wiki_spec_version: 0.10.0
+  wiki_spec_version: 0.11.0
 ---
 
 # LLM Wiki Management
@@ -27,7 +27,7 @@ metadata:
 - **SKILL.md（本文）**——工作流 + 纪律的"宪法"
 - **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py，把高频 deterministic
   任务固化下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI 负责）
-- **references/**——按需加载：CLAUDE.md schema 模板、各操作详细流程、页面模板、
+- **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）
 
 ## 何时使用 / 不使用
@@ -41,7 +41,7 @@ metadata:
   走 §5 Migrate
 - 用户指向 `<wiki-root>/raw/` 里新出现 / 未归档的文件
 - 用户首次提到"我想搭一个 wiki 用来管理 X 的研究 / 读书笔记 / 项目"
-- 用户提到"CLAUDE.md 怎么写 / raw/ 和 wiki/ 的边界"
+- 用户提到"AGENTS.md 怎么写 / raw/ 和 wiki/ 的边界"
 - 用户想把外部代码仓（Linux kernel / Ray 源码等）作为语料纳入 wiki——走
   `raw/external/<source-name>/` 的 symlink + `.symlink-anchor.json` 路径（详见
   [wiki-spec §13](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)）
@@ -63,14 +63,14 @@ metadata:
 | 信息 | 来源 | 备注 |
 | --- | --- | --- |
 | Wiki 根目录 | `LLM_WIKI_ROOT` 环境变量，或交互时问 | 例 `~/wiki/llm-systems` |
-| 主题名 | setup 时一次性指定，写入 `CLAUDE.md` | 例 "LLM Systems" |
+| 主题名 | setup 时一次性指定，写入 `AGENTS.md` | 例 "LLM Systems" |
 | 操作类型 | 用户自然语言 | ingest / query / lint / migrate / setup |
 | 触发资料 | ingest 时给文件路径或目录 | 必须在 `raw/` 内 |
 
 ### 操作产物
 
 - **setup** → 由外部 workspace CLI 完成（按 [`references/wiki-spec.md`](references/wiki-spec.md) 落盘），
-  本 skill 不实现创建逻辑；产物形态为目录结构 + CLAUDE.md + wiki/index.md + wiki/log.md + MEMORY/MEMORY.md + .gitignore
+  本 skill 不实现创建逻辑；产物形态为目录结构 + AGENTS.md（SSOT）+ CLAUDE.md（薄壳）+ wiki/index.md + wiki/log.md + MEMORY/MEMORY.md + .gitignore
 - **ingest** → 新增 / 更新 `wiki/sources/<slug>.md` + 同步实体 / 概念页 + 追加
   `log.md` 条目 + 更新 `index.md`
 - **query** → 对话中给出答案（带引用），**可选**把答案归档为 `wiki/comparisons/`
@@ -90,8 +90,8 @@ metadata:
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
    对 LLM 只读。**纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
-   raw 为准 4 条）见 `<wiki-root>/CLAUDE.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
-   模板见 [`references/claude-md-template.md`](references/claude-md-template.md)）。
+   raw 为准 4 条）见 `<wiki-root>/AGENTS.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
+   模板见 [`references/agents-md-template.md`](references/agents-md-template.md)）。
    `raw/` 下子目录自由组织——CLI 默认建 `articles/` + `assets/`，但 `podcasts/` /
    `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
@@ -99,12 +99,15 @@ metadata:
 3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
    物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
    同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
-   是索引，被 `CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
+   是索引，被 `AGENTS.md` 用 `@MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
    为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
-4. **`CLAUDE.md` 纪律配置**——把"wiki 怎么写 / 写什么 / 不写什么"的约定集中到
-   一处，是 LLM 维护 wiki 的"宪法"。没有它，LLM 会退化成普通聊天机器人；有它，
-   LLM 是"纪律严明的 wiki 维护者"。
+4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
+   集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
+   `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
+   （Codex / Gemini CLI 等）原生直读。没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明
+   的 wiki 维护者"。**为什么 AGENTS.md 作 SSOT + CLAUDE.md 薄壳**（套用 `claude-to-agents-ssot` 方法）：
+   一套真源、Claude Code 与读 `AGENTS.md` 的 agent 双工具共存——`@import` 写在 SSOT 内，两边都能加载。
 
 ### 四个核心操作——为什么是四个
 
@@ -113,7 +116,7 @@ metadata:
 | **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
 | **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
 | **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
-| **migrate** | 整个 wiki（含 CLAUDE.md §八） | legacy 报告 + `.migration-plan.json` + agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
+| **migrate** | 整个 wiki（含 AGENTS.md §八） | legacy 报告 + `.migration-plan.json` + agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
 
 每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
 不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
@@ -143,14 +146,13 @@ metadata:
 > **操作前置（orient ritual，所有操作通用）**：每次 ingest / query / lint 启动前，**不依赖 symlink**
 > ——按以下顺序读完四件套再动手：
 >
-> 1. `Read <$LLM_WIKI_ROOT>/CLAUDE.md`——拿到本 wiki 的主题名、边界配置、
->    Page Thresholds；CLAUDE.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——
->    见本节 §核心原则 §11），但**含** `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md`
->    import（0.9.0+ 起），不要去 CLAUDE.md 里找这些索引的物理内容。在 wiki 根目录内工作时
->    Claude Code 自动加载（含 `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` 索引——MEMORY
->    条目 / 本 wiki 工具列表随之常驻）；别处由 skill 按需读 CLAUDE.md 时 `@` **不**自动展开，
->    需额外 `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况
->    `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
+> 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
+>    Page Thresholds（0.11.0+: 纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
+>    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11），但**含**
+>    `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` import（0.9.0+ 起，写在 SSOT 内）。在 wiki 根目录内
+>    工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载 SSOT（含索引）；读 `AGENTS.md`
+>    的其他 agent 原生读 SSOT；别处由 skill 按需读 AGENTS.md 时 `@` **不**自动展开，需额外
+>    `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况 `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
@@ -161,12 +163,12 @@ metadata:
 > 四件套任一未读完不写任何 wiki 内容。100+ 页的 wiki 还应在 `wiki/` 全域
 > `Grep "<topic>"` 补一次——单看 index.md 可能漏掉 entity/concept 页之间的引用关系。
 
-1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/CLAUDE.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
+1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/AGENTS.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
-2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 CLAUDE.md 除外，那是 schema）
-3. **CLAUDE.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
-4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/CLAUDE.md` §一（正则见
+2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
+3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
+4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
    [`references/page-templates.md`](references/page-templates.md) §7；脚本以
    `scripts/lint_wiki.py` 为准）
 5. **每页必带 YAML frontmatter**——共有必填 5 字段（`title` / `type` / `created` /
@@ -174,14 +176,14 @@ metadata:
    **为什么是这 5 个**见 [wiki-spec.md §9「通用必填字段」](references/wiki-spec.md#通用必填字段5-项)
    （OKF §9 字段齐全性 × lint 校验一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
-   `MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 CLAUDE.md `@` import
+   `MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 AGENTS.md `@` import
    的索引片段，后者是 tag 白名单）——权威定义见 [spec §3 / §4 / §5.1 / §9.1](references/wiki-spec.md)。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
    同步以该处为准。**`tags` 取值管理见 §核心原则 §11**（白名单在 `wiki/tags.md`，agent 按需自加）。
    **可选可信度与认知质量信号**（`reviewed` / `reviewed_at` / `contested` / `contradictions`，
    全部可选）——语义同样在 page-templates.md §一；**`reviewed: true` + `reviewed_at: <date>`
-   表示"人工已审核该页"**，query 时优先采信；ingest 遇到与已有页矛盾时按 CLAUDE.md「矛盾处理
+   表示"人工已审核该页"**，query 时优先采信；ingest 遇到与已有页矛盾时按 AGENTS.md「矛盾处理
    Update Policy」双向标注 `contested` + `contradictions`。lint 触发条件与严重性见
    [`lint-checklist.md` §二.13](references/lint-checklist.md#13-可信度与认知质量信号reviewed--contested--contradictions)。
 6. **交叉引用走相对路径**——`[link](sources/bigtable.md)`，不用绝对路径，不用 wikilink
@@ -189,22 +191,37 @@ metadata:
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
    时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
-   必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 CLAUDE.md `@` import 会话常驻，否则下次
+   必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 AGENTS.md `@` import 会话常驻，否则下次
    读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-memory)
-10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 / query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且 `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
+10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
+   query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**
+   回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
+   `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
 
-    > **注**：同样的规则也会出现在 [`references/claude-md-template.md`](references/claude-md-template.md) §二「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板必须自包含（跨仓引不到 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
+    > **注**：同样的规则也会出现在
+    > [`references/agents-md-template.md`](references/agents-md-template.md)
+    > §二「认知质量信号」末段——那里是 wiki 自带的 AGENTS.md 模板必须自包含（跨仓引不到 SKILL.md）；
+    > 两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
-11. **tag 白名单在 `wiki/tags.md`**（0.8.0+ 起，详 [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）——LLM auto-extend bullet + 用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无 frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。`claude-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
+11. **tag 白名单在 `wiki/tags.md`**（0.8.0+ 起，详
+   [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）——LLM auto-extend bullet +
+   用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无
+   frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。
+   `agents-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
 
-12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，详 [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md` 被 wiki 仓 `CLAUDE.md` 用 `@scripts/SCRIPTS.md` import 会话常驻；agent **必须**先 `Read SCRIPTS.md` 找段、再按"调用约定"显式执行，**不**自动遍历 `scripts/`；脚本与索引段修改是**原子动作**。`scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。`claude-md-template.md`「Wiki-local scripts」段自包含同样规则。
+12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，详
+   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md`
+   被 wiki 仓 `AGENTS.md` 用 `@scripts/SCRIPTS.md` import 会话常驻；agent **必须**先
+   `Read SCRIPTS.md` 找段、再按"调用约定"显式执行，**不**自动遍历 `scripts/`；脚本与索引段修改是
+   **原子动作**。`scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本
+   （版本漂移风险）。`agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
 
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件（含 `raw/external/` 的 symlink + anchor）——
   LLM 只读；用户可改，改后由 ingest 重新消化
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
-- **不**绕过 `CLAUDE.md` 自创约定——若 CLAUDE.md 没说的，**先问用户**再写
+- **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
 - **不**忽略 lint 报告——长期不 lint 的 wiki 一定会腐烂
 - **不**用 git 操作破坏 raw/ 不可变性——`git clean` / `git checkout -- raw/` 仅在启用 git
@@ -245,7 +262,8 @@ workspace wiki init "LLM Systems"
 # CLI 按 wiki-spec.md 落盘：
 #   - 目录结构（raw/{articles,assets}/ + wiki/{entities,concepts,sources,comparisons,syntheses}/
 #     + MEMORY/ + wiki/tags.md + scripts/SCRIPTS.md（0.9.0+））
-#   - <wiki-root>/CLAUDE.md（按 references/claude-md-template.md 模板，含 @scripts/SCRIPTS.md import 行）
+#   - <wiki-root>/AGENTS.md（SSOT，按 references/agents-md-template.md 模板，含 @MEMORY/MEMORY.md + @scripts/SCRIPTS.md import）
+#   - <wiki-root>/CLAUDE.md（薄壳，按 references/claude-md-template.md 模板，仅 @AGENTS.md）
 #   - wiki/index.md（5 段空类别占位 + okf_version: "0.1"）
 #   - wiki/log.md（首条 setup 条目）
 #   - .gitignore（忽略 OS / Obsidian / 临时文件）
@@ -259,10 +277,10 @@ cp ~/Downloads/some-article.md ~/wiki/<topic-name>/raw/articles/
 
 **LLM agent 接管后做什么**：
 
-1. 验证 CLI 落盘——读 `<wiki-root>/CLAUDE.md` 确认主题名 + 日期替换正确；`wiki/index.md` /
-   `wiki/log.md` 存在且 frontmatter 完整
-2. **理解 schema**——`<wiki-root>/CLAUDE.md` 是本 wiki 的"宪法"：
-   - 在 wiki 根目录内工作时，Claude Code 会自动加载它
+1. 验证 CLI 落盘——读 `<wiki-root>/AGENTS.md` 确认主题名 + 日期替换正确；`wiki/index.md` /
+   `wiki/log.md` 存在且 frontmatter 完整；`<wiki-root>/CLAUDE.md` 是薄壳（`@AGENTS.md`，行数 ≤ 30）
+2. **理解 schema**——`<wiki-root>/AGENTS.md` 是本 wiki 的"宪法"（SSOT）：
+   - 在 wiki 根目录内工作时，Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载它；读 `AGENTS.md` 的其他 agent 原生读
    - 在别处工作时由 skill 经 `$LLM_WIKI_ROOT` 按需读取
    - **不依赖 symlink**
 3. 询问用户是否做首次 ingest——若是，把第一份资料路径给 agent
@@ -375,7 +393,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 失效的相对路径引用（`[link](sources/missing.md)` 之类的断链）
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`；权威正则见 [page-templates.md §7](references/page-templates.md#7-logmdlog)）
    - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
-   - 页面体量——5 类内容页非空行 > `PAGE_SIZE_THRESHOLD`（默认 300）行（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
+   - 页面体量——5 类内容页非空行 > `PAGE_SIZE_THRESHOLD` 行（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
    - 认知质量信号（`contested: true` / `contradictions` 断链或非对称）+ 可信度信号
      （`pending-review` info / `reviewed-stale` warn / `reviewed` 取值非法 / `reviewed_at`
      与 `reviewed` 不成对 / `index-review-badge-drift` / `legacy-confidence-field`
@@ -411,7 +429,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 5. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
 6. **同步追加 `MEMORY/MEMORY.md` 索引一行**——格式按条目形式选：
    - 完整条目：`- <slug> — <一句话> → [正文](<slug>.md)`（步骤 3 文件必须存在；漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
-   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 CLAUDE.md `@` import 常驻即可达未来会话）
+   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 AGENTS.md `@` import 常驻即可达未来会话）
 7. **不**追加 log 条目——MEMORY 不是操作时间线
 8. **不**在 wiki/index.md 列出——MEMORY 不走单一入口约束（入口是 MEMORY.md 索引）
 
@@ -429,19 +447,19 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 **职责切分**（避免与 ingest / lint 混淆）：
 
 - **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
-- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 CLAUDE.md §八
+- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
 - **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
 **简要流程**（agent 驱动；详细 8 步 + 边界 + 与 lint 协同见
 [`references/migrate-workflow.md`](references/migrate-workflow.md)）：
 
-1. orient ritual（CLAUDE.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
+1. orient ritual（AGENTS.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
 2. 跑 `scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version`——dry-run 报告 + legacy pattern 分组 + 冲突页标红
 3. 询问用户"应用全部 / 部分 / 仅看清单"
 4. 用户同意 → `scripts/lint_wiki.py ... --check-version --apply` 落盘 `.migration-plan.json`（已存在则拒绝覆盖）
 5. agent 按 `actions[]` 顺序 Edit/Write 修复，跳过 `skipped_conflicts[]`（永不自动覆盖人工决策）
-6. Edit 改 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本" 为 `to_version`
+6. Edit 改 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本" 为 `to_version`
 7. 重跑 `lint_wiki.py --check-version` 验证；`needs_migration == false` 即完成
 8. **不**追加 log 条目 / **不**触发 ingest / query / lint
 

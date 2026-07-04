@@ -10,7 +10,7 @@ updated: 2026-06-28
 # Test Wiki
 
 > 本 wiki 由 LLM 维护，用户只读 + 提供 raw 资料 + 提问题。
-> Schema 见 [`../CLAUDE.md`](../CLAUDE.md)。
+> Schema 见 [`../AGENTS.md`](../AGENTS.md)。
 
 ## Comparisons
 

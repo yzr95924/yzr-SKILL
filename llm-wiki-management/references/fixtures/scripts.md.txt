@@ -1,7 +1,7 @@
 # Scripts
 
 > 本目录存放本 wiki 自维护的脚本（项目级 ingest 扩展 / 外部 CLI 胶水 / 自动化 hook）。
-> 索引文件被 `<wiki-root>/CLAUDE.md` 用 `@scripts/SCRIPTS.md` import，会话常驻；
+> 索引文件被 `<wiki-root>/AGENTS.md` 用 `@scripts/SCRIPTS.md` import，会话常驻；
 > 新增 / 修改 / 删除脚本必须同步更新本索引段，否则 agent 视为不可见。
 >
 > 何时写 / 编排纪律见 `llm-wiki-management/SKILL.md` §核心原则 §12（本文件不重复，

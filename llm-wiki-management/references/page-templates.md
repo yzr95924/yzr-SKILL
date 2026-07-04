@@ -100,9 +100,9 @@ LLM 修改都会让戳失效。纪律：
 
 **两道闸门**：
 
-1. **纪律闸门**——本节是唯一权威；其它文件（SKILL.md / claude-md-template.md / ingest-workflow.md /
-   wiki-spec.md）只引用、不重抄（例外：`claude-md-template.md` 必须自包含完整纪律——它是 wiki
-   自带的 CLAUDE.md 模板，会被拷到每个 wiki 仓，不能跨仓引 SKILL.md）
+1. **纪律闸门**——本节是唯一权威；其它文件（SKILL.md / agents-md-template.md / ingest-workflow.md /
+   wiki-spec.md）只引用、不重抄（例外：`agents-md-template.md` 必须自包含完整纪律——它是 wiki
+   自带的 AGENTS.md 模板，会被拷到每个 wiki 仓，不能跨仓引 SKILL.md）
 2. **lint 兜底**——`reviewed-stale` 触发条件：`reviewed: true` 存在 **且** `updated > reviewed_at`，
    把 LLM 漏清戳的页面拎出来提示人复审
 
@@ -114,7 +114,7 @@ LLM 修改都会让戳失效。纪律：
 - 已审过的页被 LLM 修改后，回到默认未审核状态，等人再次复审
 
 **矛盾处理的完整 Update Policy**（ingest 时遇到"新资料与已有页冲突"怎么做）见
-[`claude-md-template.md`](claude-md-template.md)「矛盾处理 Update Policy」段——本节只定义字段语义。
+[`agents-md-template.md`](agents-md-template.md)「矛盾处理 Update Policy」段——本节只定义字段语义。
 
 ## 二、各类型模板
 
@@ -433,7 +433,7 @@ updated: 2026-06-24
 # <Topic> Wiki
 
 > 本 wiki 由 LLM 维护，用户只读 + 提供 raw 资料 + 提问题。
-> Schema 见 [`../CLAUDE.md`](../CLAUDE.md)。
+> Schema 见 [`../AGENTS.md`](../AGENTS.md)。
 
 ## Entities
 

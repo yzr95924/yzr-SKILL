@@ -23,7 +23,7 @@
 - [§1 目录结构](#1-目录结构)
 - [§2 workspace.toml](#2-workspacetoml)
 - [§3 workspace_models.toml](#3-workspace_modelstoml)
-- [§4 workspace CLAUDE.md（CLI init，用户所有）](#4-workspace-claudemdcli-init用户所有)
+- [§4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）](#4-workspace-agentsmdssot--claudemd薄壳)
 - [§5 INDEX.md（skill 维护）](#5-indexmdskill-维护)
 - [§6 STATS.md（skill 维护）](#6-statsmdskill-维护)
 - [§7 cross_queries/（skill 维护，可选）](#7-cross_queriesskill-维护可选)
@@ -46,7 +46,8 @@
 ├── .gitignore                      # CLI init 时写（§10）
 ├── workspace.toml                  # CLI init 时写（§2）
 ├── workspace_models.toml           # CLI init 时写（§3，gitignored）
-├── CLAUDE.md                       # CLI init 时按 §4 拷模板；用户所有
+├── AGENTS.md                       # CLI init 时按 §4 拷 SSOT 模板；用户所有（工具无关纪律）
+├── CLAUDE.md                       # CLI init 时按 §4 拷薄壳模板（@AGENTS.md）；供 Claude Code 自动加载
 ├── INDEX.md                        # skill scan 时建 + 维护（§5）
 ├── STATS.md                        # skill scan 时建 + 维护（§6）
 ├── cross_queries/                  # skill 可选建（§7）
@@ -62,7 +63,8 @@
 | `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
 | `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + 全局默认；skill **不写** |
 | `workspace_models.toml` | CLI 写 | **CLI**（`model add / remove / set-default`） | 模型注册表（API key 等敏感信息）；skill **不写** |
-| `CLAUDE.md` | CLI 按 §4 模板拷贝 | **用户**（schema 是用户的宪法）；skill **只读** | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
+| `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读** | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
+| `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读** | 仅供 Claude Code 自动加载 SSOT |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
 | `STATS.md` | CLI **不写**（留空） | **skill**（scan 时一并刷新） | workspace 结构化统计 |
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
@@ -71,7 +73,7 @@
 | `<wiki-name>/` | CLI 写（按 [wiki-spec §1](wiki-spec.md#1-目录结构)） | **CLI** 写元数据 + **skill**（或 `llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
 > **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_models.toml`、
-> `CLAUDE.md`（按模板拷贝）、`.gitignore` 四份根级文件 + `MEMORY/`（init 建空目录 + 写
+> `AGENTS.md`（SSOT 模板拷贝）+ `CLAUDE.md`（薄壳模板拷贝）、`.gitignore` 五份根级文件 + `MEMORY/`（init 建空目录 + 写
 > `MEMORY.md` 索引占位，见 §9）+ `<wiki-name>/` 子树（按 wiki-spec）。
 > **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` + `MEMORY/*.md` 经验条目**——
 > 这些是 workspace skill 的领地。
@@ -80,7 +82,7 @@
 > `cross_queries/` 四份 workspace 级文件 + `MEMORY/*.md` 经验条目（并同步追加 `MEMORY.md`
 > 索引一行；`MEMORY.md` 骨架由 CLI init 写）+ 各 `<wiki-name>/wiki/**`（通过
 > `llm-wiki-management`）。**skill 绝不写 `workspace.toml` / `workspace_models.toml` /
-> `.gitignore` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后一份是用户的宪法。skill 也不写
+> `.gitignore` / `AGENTS.md` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后两份是用户的宪法。skill 也不写
 > `<wiki-name>/raw/`（用户所有）。
 
 ## §2 workspace.toml
@@ -144,26 +146,40 @@
 - **CLI 写入场景**：`init` / `model add` / `model remove` / `model set-default` / `model unset-default`
 - **skill 写入场景**：**无**——完全无关
 
-## §4 workspace CLAUDE.md（CLI init，用户所有）
+## §4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
 
-> **维护方**：CLI 在 init 时刻按 [`workspace-claude-md-template.md`](workspace-claude-md-template.md)
-> 拷模板生成。后续修改由 **用户** 完成（CLAUDE.md 是 workspace 的 schema，是用户的"宪法"）。
-> LLM agent **不得编辑** CLAUDE.md；如需变更 schema，**先与用户确认**。
+> **agent 中立设计**（0.4.0+）：workspace 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
+> 收敛为薄壳（`@AGENTS.md` + 声明），仅供 Claude Code 经自动加载约定读到 SSOT。读 `AGENTS.md` 的其他
+> agent（Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
 >
-> 本 spec 只规定存在性 + 维护方；模板内容（含占位符）见 `workspace-claude-md-template.md`，
-> 是权威 canonical。
+> **维护方**：CLI 在 init 时刻按 [`workspace-agents-md-template.md`](workspace-agents-md-template.md)
+> （SSOT）+ [`workspace-claude-md-template.md`](workspace-claude-md-template.md)（薄壳）拷两份模板生成。
+> 后续修改由 **用户** 完成（AGENTS.md 是 workspace 的 schema，是用户的"宪法"）。
+> LLM agent **不得编辑** AGENTS.md / CLAUDE.md；如需变更 schema，**先与用户确认**。
 
-- 路径：`<workspace-root>/CLAUDE.md`
-- 内容来源：本仓 `references/workspace-claude-md-template.md`（**权威 canonical 模板**）
+### AGENTS.md（SSOT）
+
+- 路径：`<workspace-root>/AGENTS.md`
+- 内容来源：本仓 `references/workspace-agents-md-template.md`（**权威 canonical 模板**）
 - CLI 实现时必须**逐字拷贝**该模板，仅做以下替换：
   - `{{WORKSPACE_DISPLAY_NAME}}` → workspace display name（默认取 `workspace.toml.created_at` 那天
     或人类指定字符串，如 `"LLM Wiki Workspace"`）
   - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD`
-  - `{{WORKSPACE_SPEC_VERSION}}` → CLI 当前兼容的 workspace spec 版本号（如 `0.2.0`）
+  - `{{WORKSPACE_SPEC_VERSION}}` → CLI 当前兼容的 workspace spec 版本号（如 `0.4.0`）
   - `{{CLI_VERSION}}` → CLI 自身版本号
-- 模板顶部关于"本文件由 ... 初始化时生成"的反向引用，CLI **不得修改**
-- **不带 frontmatter**——CLAUDE.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/CLAUDE.md` 一致
-- **CLI 写入场景**：`init`（重 init 时若 `CLAUDE.md` 已存在，§12 拒绝覆盖）
+- 模板顶部说明块的"本文件 ... 按 workspace-spec.md §4 拷贝生成"反向引用，CLI **不得修改**
+- **不带 frontmatter**——AGENTS.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/AGENTS.md` 一致
+
+### CLAUDE.md（薄壳）
+
+- 路径：`<workspace-root>/CLAUDE.md`
+- 内容来源：本仓 `references/workspace-claude-md-template.md`（薄壳模板，`@AGENTS.md` + 声明，≤ 30 行）
+- CLI 实现时**逐字拷贝**该模板，仅替换 `{{WORKSPACE_DISPLAY_NAME}}`（薄壳不持 spec 版本——版本在 AGENTS.md §六）
+- 不含纪律正文、不含 `@MEMORY` import（那条在 AGENTS.md 内）；仅 `@AGENTS.md` 一行
+
+### 共同约束
+
+- **CLI 写入场景**：`init`（重 init 时若 `AGENTS.md` / `CLAUDE.md` 已存在，§12 拒绝覆盖）
 - **skill 写入场景**：**无**——只读
 
 ## §5 INDEX.md（skill 维护）
@@ -376,12 +392,12 @@
 > `MEMORY/MEMORY.md` 同构——本目录的索引文件。
 
 - 路径：`<workspace-root>/MEMORY/MEMORY.md`
-- **无 frontmatter**——它是被 `<workspace>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 内联的
+- **无 frontmatter**——它是被 `<workspace>/AGENTS.md` 用 `@MEMORY/MEMORY.md` import 内联的
   索引片段，不是 workspace 内容页（对齐仓库根 `MEMORY/MEMORY.md` / wiki-spec §5.1 形态）。
   lint / scan 把它当索引跳过 frontmatter / type 校验
-- **加载机制**：agent 在 workspace 根目录工作时，Claude Code 自动加载根 `CLAUDE.md`，
-  `@MEMORY/MEMORY.md` 随之展开 → 索引常驻；agent 在别处工作（skill 经 `$LLMW_WORKSPACE`
-  读 CLAUDE.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
+- **加载机制（agent 中立）**：agent 在 workspace 根目录工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md`
+  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent 原生读
+  SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
   口径分裂）+ `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §9.2 的 `MEMORY/<slug>.md`）
@@ -393,7 +409,7 @@
   （与 [`references/canonical/memory-index.md`](canonical/memory-index.md) 一致——MEMORY.md 无占位符，
   fixtures 与 canonical 内容相同）。CLI init **逐字拷贝**生成 `<workspace>/MEMORY/MEMORY.md`——与
   wiki-spec §5.1 走相同的 fixtures/canonical 字节金标准模式（无占位符字面量文件进 fixtures/canonical；
-  有占位符的 `CLAUDE.md` 模板仍在 references/ 根，走 §4 内容级验证）。初始索引为空，注释用纯文字
+  有占位符的 `AGENTS.md` / `CLAUDE.md` 模板仍在 references/ 根，走 §4 内容级验证）。初始索引为空，注释用纯文字
   描述格式，不含真实 `[](...)` 链接以免被未来 lint 当死链
 
 ### §9.2 MEMORY/*.md（非 MEMORY.md）
@@ -470,7 +486,7 @@ workspace_models.toml
 *.bak
 ```
 
-**必须不忽略**：`workspace.toml`、`CLAUDE.md`、`INDEX.md`、`STATS.md`、`cross_queries/`、
+**必须不忽略**：`workspace.toml`、`AGENTS.md`、`CLAUDE.md`、`INDEX.md`、`STATS.md`、`cross_queries/`、
 `LINT.md`、`MEMORY/`、`<wiki-name>/`（wiki 仓的内容由 wiki-spec §6 各自的 `.gitignore` 处理）。
 
 `.gitignore` **总是生成**——git 仓由用户外部创建（§11），与是否启用 git 无关；无 git 时无害，便于用户后续随时补 git。
@@ -495,7 +511,8 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | 触发条件 | 错误信息建议 |
 | --- | --- |
 | `workspace.toml` 已存在且非 CLI 自己写的 | `"workspace.toml 已存在；拒绝覆盖"` |
-| `CLAUDE.md` 已存在 | `"CLAUDE.md 已存在；拒绝覆盖（schema 是用户所有，若需更新请手动编辑）"` |
+| `AGENTS.md` 已存在 | `"AGENTS.md 已存在；拒绝覆盖（schema 是用户所有）"` |
+| `CLAUDE.md`（薄壳）已存在 | `"CLAUDE.md 已存在；拒绝覆盖（schema 是用户所有，若需更新请手动编辑）"` |
 | 试图 `wiki add` 到已存在的子目录 | `"<wiki-name>/ 已存在；拒绝覆盖"` |
 | 试图 `wiki add` 时 `wiki-name` 与现存 wiki 重复 | `"wiki <name> 已注册；拒绝重复"` |
 
@@ -555,7 +572,7 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 
 CLI 在生成 `<workspace>/workspace.toml` 时把 `templates_version` 字段写为
 `workspace_spec = <WORKSPACE_SPEC_VERSION>; wiki_spec = <WIKI_SPEC_VERSION>`（或类似编码）；
-CLI 在生成 `<workspace>/CLAUDE.md` 时把上述占位符按本表替换。
+CLI 在生成 `<workspace>/AGENTS.md` 时把上述占位符按本表替换（薄壳 CLAUDE.md 仅替换 `{{WORKSPACE_DISPLAY_NAME}}`）。
 
 skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 顶部声明的
 当前版本——不一致时**警告用户**（不阻断；旧 spec 的产物仍可读）。
@@ -592,12 +609,12 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 CLI 在生成完成后，可执行以下验证：
 
 1. **字节级对比**：CLI 渲染的 `workspace.toml` 与本 spec §2 schema 一致；`workspace_models.toml`
-   与 §3 schema 一致；`CLAUDE.md` 与 §4 模板字面一致（占位符替换后）；`MEMORY/MEMORY.md` 与
+   与 §3 schema 一致；`AGENTS.md` 与 §4 SSOT 模板字面一致 + `CLAUDE.md` 与薄壳模板字面一致（占位符替换后）；`MEMORY/MEMORY.md` 与
    `references/canonical/memory-index.md` 字节一致（无占位符，直接 `cmp`，流程同 wiki fixtures）；`.gitignore` 与 §10 一致
 2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项（含 `MEMORY/MEMORY.md`）；`<wiki-name>/` 子目录按
    [wiki-spec §1](wiki-spec.md#1-目录结构) 落盘
 3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
-   到已存在目录，应非零退出；尝试 `init` 时 `CLAUDE.md` 已存在，应非零退出（§12）
+   到已存在目录，应非零退出；尝试 `init` 时 `AGENTS.md` / `CLAUDE.md` 已存在，应非零退出（§12）
 4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；`*/.claude/settings.local.json` 在 `.gitignore` 中
 5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`
    **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§8 约定建）；但 `<workspace>/MEMORY/`
@@ -607,6 +624,7 @@ CLI 在生成完成后，可执行以下验证：
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
+| 0.4.0 | 2026-07-04 | **agent 中立化**：workspace 纪律 SSOT 从 `<workspace>/CLAUDE.md` 拆为 `<workspace>/AGENTS.md`（工具无关 SSOT）+ `<workspace>/CLAUDE.md`（薄壳，`@AGENTS.md`，仅供 Claude Code 自动加载）。`@MEMORY/MEMORY.md` import 从原 CLAUDE.md 顶部移入 AGENTS.md 顶部（@import 写在 SSOT 内）。模板拆为 `references/workspace-agents-md-template.md`（SSOT）+ `references/workspace-claude-md-template.md`（薄壳）。§1 目录树 / ownership / 写入限制、§4、§9.1 加载机制、§10、§12、§14、附录 A 同步。**老 workspace 迁移**：靠 workspace CLI（本 spec 不含 lint 脚本，迁移由 CLI/用户手动） |
 | 0.3.0 | 2026-07-01 | **breaking**：§9 MEMORY 重构——`MEMORY/README.md`（type:memory）→ `MEMORY/MEMORY.md`（无 frontmatter 索引，**CLI init 创建**，被 `<workspace>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 会话常驻）；§1 ownership `MEMORY/` 改 CLI init 建骨架；§13 删 wiki reserved `memory` 引用（跟齐 wiki-spec 0.6.0）。**老 workspace 迁移**：删 `MEMORY/README.md` + 新建 `MEMORY/MEMORY.md` 索引并把现有 `*.md` 各补一行 |
 | 0.2.0 | 2026-06-30 | **breaking**：新增 §4 `CLAUDE.md`（CLI init 按模板拷，用户所有）+ §9 `MEMORY/`；新增 `workspace-memory` reserved frontmatter type；§1 ownership 6 → 9 类；§12 拒绝条件新增 CLAUDE.md 已存在则拒绝 |
 | 0.1.0 | 2026-06-30 | 初始：6 类文件归属 + INDEX/STATS/LINT/cross_queries schema + CLI/skill 边界 + 3 类 reserved type |

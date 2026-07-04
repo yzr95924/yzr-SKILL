@@ -1,6 +1,6 @@
 # MEMORY
 
-> LLM agent 的持久化记忆索引。本文件被 `<wiki-root>/CLAUDE.md` 用 `@MEMORY/MEMORY.md`
+> LLM agent 的持久化记忆索引。本文件被 `<wiki-root>/AGENTS.md` 用 `@MEMORY/MEMORY.md`
 > import，会话常驻；正文按需 Read。
 >
 > 何时写 / 文件命名 / 维护纪律见 SKILL §4 Memory（本文件不重复，避免口径分裂）。

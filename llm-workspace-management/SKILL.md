@@ -15,7 +15,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-06-30
-  workspace_spec_version: 0.3.0
+  workspace_spec_version: 0.4.0
 ---
 
 # LLM Workspace Management
@@ -86,7 +86,7 @@ metadata:
 │ workspace CLI (如 llmw)                                          │
 │   - 确定性元数据操作：init / add / remove / config / enter        │
 │   - 写 workspace.toml / workspace_models.toml / .gitignore       │
-│   - init 时按模板拷 CLAUDE.md（用户所有，schema 宪法）           │
+│   - init 时按模板拷 AGENTS.md(SSOT)+CLAUDE.md(薄壳)            │
 │   - 写 <wiki>/wiki_metadata.toml + wiki 仓骨架（按 wiki-spec）   │
 │   - init 建 MEMORY/ + 写 MEMORY.md 索引（§9）                    │
 │   - 不读不写 INDEX/STATS/LINT/cross_queries + MEMORY/*.md 经验   │
@@ -100,7 +100,7 @@ metadata:
 │   - 写 INDEX/STATS/LINT/cross_queries + MEMORY/*.md（同步索引）  │
 │   - 写 <wiki>/wiki/** （通过 llm-wiki-management 委托）           │
 │   - 不写 workspace.toml / workspace_models.toml / .gitignore      │
-│   - 不写 <workspace>/CLAUDE.md（用户所有 schema）                  │
+│   - 不写 <workspace>/AGENTS.md / CLAUDE.md（用户 schema）        │
 │   - 不写 <wiki>/raw/                                              │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -110,7 +110,7 @@ metadata:
 │ llm-wiki-management                                              │
 │   - 单 wiki ingest / query / lint / memory                       │
 │   - 写 <wiki>/wiki/{entities,concepts,sources,...}                │
-│   - 不写 <wiki>/CLAUDE.md（用户所有）                              │
+│   - 不写 <wiki>/AGENTS.md（用户所有）                              │
 │   - 不写 <wiki>/raw/                                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -149,7 +149,8 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<workspace>/workspace.toml` | workspace CLI | 只读 |
 | `<workspace>/workspace_models.toml` | workspace CLI | 只读（甚至不读；不感知 model 配置） |
 | `<workspace>/.gitignore` | workspace CLI | 只读 |
-| `<workspace>/CLAUDE.md` | 用户（CLI init 时拷模板） | 只读（schema 宪法；改前先与用户确认） |
+| `<workspace>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读（schema 宪法；改前先与用户确认） |
+| `<workspace>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读 |
 | `<workspace>/INDEX.md` | 本 skill | 写 |
 | `<workspace>/STATS.md` | 本 skill | 写 |
 | `<workspace>/cross_queries/` | 本 skill | 写 |
@@ -158,12 +159,13 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<wiki>/wiki_metadata.toml` | workspace CLI | 只读 |
 | `<wiki>/wiki/{entities,concepts,sources,...}` | `llm-wiki-management` | 通过它写 |
 | `<wiki>/wiki/MEMORY/` | `llm-wiki-management` | 通过它写（单 wiki 私有记忆） |
-| `<wiki>/CLAUDE.md` | 用户（CLI init 时拷模板） | 只读 |
+| `<wiki>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读 |
+| `<wiki>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读 |
 | `<wiki>/raw/` | 用户 | 只读 |
 
 完整归属表见 [spec §1](references/workspace-spec.md#1-目录结构)。**违反归属 = bug**：
 本 skill 写 `workspace.toml` 属越权；CLI 写 `INDEX.md` 属越权；skill 写
-`<workspace>/CLAUDE.md` 属越权（用户宪法）。**MEMORY 跨边界混淆**：本 skill **禁止**写
+`<workspace>/AGENTS.md` / `CLAUDE.md` 属越权（用户宪法）。**MEMORY 跨边界混淆**：本 skill **禁止**写
 `<wiki>/wiki/MEMORY/`，单 wiki 记忆归 `llm-wiki-management`；同样禁止把跨 wiki 观察
 写到单 wiki MEMORY——按 [spec §9 scope 边界](references/workspace-spec.md#9-workspace-memoryskill-维护)。
 
@@ -195,10 +197,10 @@ spec 文件做契约对齐。
 1. 定位 workspace 路径：`$LLMW_WORKSPACE` → 默认 `~/yzr_llm_wiki_workspace` → 交互问
 2. 验证 `<workspace>/workspace.toml` 存在——不存在提示用户 "workspace 还没 init，
    跑 `llmw init` 初始化"（**不**替用户跑）
-3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时，`<workspace>/CLAUDE.md` 自动加载
-   且 `@MEMORY/MEMORY.md` 已把索引内联会话常驻；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
-   读 CLAUDE.md，`@` 不自动展开）→ 显式 `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，
-   知晓已有哪些跨 wiki 记忆
+3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时——Claude Code 经薄壳 `<workspace>/CLAUDE.md`
+   → `@AGENTS.md` 自动加载 SSOT，`@MEMORY/MEMORY.md` 已把索引内联会话常驻；读 `AGENTS.md` 的其他 agent
+   原生读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md，`@` 不自动展开）→ 显式
+   `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，知晓已有哪些跨 wiki 记忆
 4. **不**自动跑 `scan`——等用户给操作意图
 
 ### 1. Scan / refresh-index
@@ -210,7 +212,7 @@ spec 文件做契约对齐。
 1. 读 `<workspace>/workspace.toml` 拿 `[wikis]` 注册表
 2. 对每个 wiki：
    - 读 `<wiki>/wiki_metadata.toml`（CLI 维护，schema v2）
-   - 读 `<wiki>/CLAUDE.md` §0（拿主题名）+ §一（拿边界）
+   - 读 `<wiki>/AGENTS.md` §0（拿主题名）+ §一（拿边界）
    - 读 `<wiki>/wiki/index.md`（已有内容 + 段落骨架）
    - 扫 `<wiki>/wiki/{entities,concepts,sources,comparisons,syntheses}/` 拿 page counts
    - 扫 `<wiki>/raw/` 递归拿原始资料数（仅 `find` + 计数，不读内容）
@@ -283,7 +285,7 @@ spec 文件做契约对齐。
    - 重复 entity 跨 wiki（同名 + 不同 slug 的对）
    - 失效跨 wiki 链接（cross_queries/*.md 的 `sources` 路径不存在；`<wiki>/wiki/**`
      中的 `../<another-wiki>/...` 路径不存在）
-   - 未注册的 wiki 子目录（磁盘上有 `<wiki>/CLAUDE.md` 但 workspace.toml 没有注册）
+   - 未注册的 wiki 子目录（磁盘上有 `<wiki>/AGENTS.md` 但 workspace.toml 没有注册）
    - workspace.toml 注册但磁盘上不存在的 wiki（孤儿注册）
    - STATS.md 与 INDEX.md 的 wiki 列表是否一致
    - MEMORY 索引一致性：扫 `<workspace>/MEMORY/*.md`（排除 `MEMORY.md`），任一文件未在
@@ -333,7 +335,7 @@ spec 文件做契约对齐。
 6. **同步 `MEMORY.md` 索引一行**——格式按条目形式选：
    - 完整条目：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（步骤 5 文件必须存在；
      漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
-   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 CLAUDE.md `@` import
+   - 短条目：`- <一句话事实>`（无链接、无对应 .md 文件；索引被 AGENTS.md `@` import
      常驻即可达未来会话）
 7. **不要**追加 `INDEX.md`（MEMORY 是 agent 私有入口，不进 workspace 单一入口；但**必须**在
    `MEMORY.md` 索引列出，见上一步）
@@ -397,9 +399,10 @@ spec 文件做契约对齐。
 ## 参考文件
 
 - **必读**：[`references/workspace-spec.md`](references/workspace-spec.md)——workspace 根
-  9 类文件的归属 + schema 权威定义（含 §4 CLAUDE.md + §9 MEMORY/）
-- **必读**：[`references/workspace-claude-md-template.md`](references/workspace-claude-md-template.md)——
-  `<workspace>/CLAUDE.md` 的 canonical 模板字节金标准（CLI init 时按此拷）
+  9 类文件的归属 + schema 权威定义（含 §4 AGENTS.md / CLAUDE.md + §9 MEMORY/）
+- **必读**：[`references/workspace-agents-md-template.md`](references/workspace-agents-md-template.md)——
+  `<workspace>/AGENTS.md`（SSOT）的 canonical 模板字节金标准（CLI init 时按此拷）；薄壳 `<workspace>/CLAUDE.md`
+  见 [`workspace-claude-md-template.md`](references/workspace-claude-md-template.md)
 - **必读**：`llm-wiki-management` SKILL.md 的 `references/wiki-spec.md`——
   单 wiki 内的目录 / frontmatter / 命名约束（本 skill 操作 wiki 时遵循）
 - **委托目标**：`llm-wiki-management` SKILL.md——

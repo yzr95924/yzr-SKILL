@@ -6,8 +6,8 @@
 > 重新加回 / 从页面删除 tag。
 >
 > 维护纪律与 lint 解析约束见 `llm-wiki-management/references/wiki-spec.md` §9.1 / §11；
-> 模板同步段在 [`../CLAUDE.md`](../CLAUDE.md)「Tag Taxonomy」（0.8.0+ 起 tags.md
-> 为白名单主流位置，CLAUDE.md 段保留作 fallback 提示路径）。
+> 模板同步段在 [`../AGENTS.md`](../AGENTS.md)「Tag Taxonomy」（0.8.0+ 起 tags.md
+> 为白名单主流位置，AGENTS.md 段（老 wiki 为 CLAUDE.md）保留作 fallback 提示路径）。
 
 <!-- 每行一条 bullet：`- <tag>`；裸 bullet 不能包在 code block / HTML comment 里——lint 只读裸文本 -->
 （暂无 tag —— 在此追加 `- <tag>` bullet）

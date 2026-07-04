@@ -12,7 +12,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 ## 为什么需要这一步
 
 [`wiki-spec.md` §10](wiki-spec.md#10-版本钉死) 规定每个 wiki 仓在
-`<wiki-root>/CLAUDE.md` §八 钉一份 `Wiki Spec 版本`（CLI init 时从 SKILL 仓
+`<wiki-root>/AGENTS.md` §八 钉一份 `Wiki Spec 版本`（CLI init 时从 SKILL 仓
 `metadata.wiki_spec_version` 镜像）。spec 演进时（0.5.0 → 0.6.0 → 0.7.0…）
 老 wiki 会**有意识地保留**部分旧字段（如 `confidence`）——避免一刀切破坏用户沉淀的内容。
 本节定义**检测 + 自动修复**的 workflow：让用户/agent 对着一份"按 spec 升级的清单"逐项
@@ -23,20 +23,20 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / 落盘
   `.migration-plan.json`，**不**改任何 wiki 内容
 - **agent**（本节定义）= 修复者。按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用
-  Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 CLAUDE.md §八
+  Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
 - **`wiki-spec.md` 附录 B** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
 - **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
 
 ## 流程（agent 驱动，与 SKILL.md §1-§4 风格一致）
 
-1. **操作前置**：跑 orient ritual（CLAUDE.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
+1. **操作前置**：跑 orient ritual（AGENTS.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
 2. **跑探测**：
 
    ```bash
    python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
    ```
 
-   - 解析 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"——拿到 `current_spec`
+   - 解析 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本"——拿到 `current_spec`
    - 与 SKILL 仓 `metadata.wiki_spec_version`（`scripts/lint_wiki.py` 顶部常量
      `CURRENT_WIKI_SPEC`）比对：相等 / 老 / 新
    - 扫已知 legacy 现场：老字段（`confidence`）+ 其它受 spec 演进影响的内容（详见
@@ -62,9 +62,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - `file-move`：先读源 → 写目标 → 删源
    - `frontmatter-retype`：按 `action.note` 与 `wiki-spec §5.2` 决定具体改法
    - **跳过 `skipped_conflicts[]`**——永不自动覆盖人工决策
-6. **改 `<wiki-root>/CLAUDE.md` §八 "Wiki Spec 版本"**：
+6. **改 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本"**：
    - 用 Edit 替换为 `to_version`（其它字段不动）
-   - 这是**迁移本身**的操作，**不**触及 reviewed 戳机制（CLAUDE.md 不参与 SKILL.md
+   - 这是**迁移本身**的操作，**不**触及 reviewed 戳机制（AGENTS.md 不参与 SKILL.md
      核心原则 §10 的 `reviewed-stale` 兜底）
 7. **验证**：重跑 `lint_wiki.py --check-version`：
    - 若 `needs_migration == false` 且无残留 legacy → 告知用户完成

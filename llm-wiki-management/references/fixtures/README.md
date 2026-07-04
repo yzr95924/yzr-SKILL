@@ -67,22 +67,23 @@ fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
 CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD>}` 做替换，
 **不**做替换的占位符会在落盘后被 lint 立即报错(spec §11)。
 
-## CLAUDE.md 占位符（不在 fixture 范围）
+## AGENTS.md / CLAUDE.md 占位符（不在 fixture 范围）
 
-`CLAUDE.md` 由 workspace CLI 拷贝 `references/claude-md-template.md` 生成，**不在** fixture 覆盖范围
-（fixture 只覆盖 CLI init 时刻的"成品"，CLAUDE.md 是模板替换产物）。CLI 必须替换的占位符：
+0.11.0+ 起 wiki 根有两份模板产物：**`AGENTS.md`（SSOT）** 由 CLI 拷 `references/agents-md-template.md`、
+**`CLAUDE.md`（薄壳）** 由 CLI 拷 `references/claude-md-template.md`。两者都**不在** fixture 覆盖范围
+（fixture 只覆盖 CLI init 时刻的"成品"，AGENTS.md / CLAUDE.md 是模板替换产物）。CLI 必须替换的占位符：
 
-| 占位符 | 替换为 |
-|---|---|
-| `{{TOPIC_NAME}}` | 用户传入的主题名 |
-| `{{SETUP_DATE}}` | 当天日期 `YYYY-MM-DD` |
-| `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本 |
-| `{{CLI_VERSION}}` | CLI 自身版本号 |
+| 占位符 | 替换为 | 出现在 |
+|---|---|---|
+| `{{TOPIC_NAME}}` | 用户传入的主题名 | AGENTS.md + CLAUDE.md（薄壳） |
+| `{{SETUP_DATE}}` | 当天日期 `YYYY-MM-DD` | AGENTS.md |
+| `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本 | AGENTS.md §八（薄壳不持版本） |
+| `{{CLI_VERSION}}` | CLI 自身版本号 | AGENTS.md |
 
 CLI 替换后做内容级验证（不能用 fixture 字节比对）：
 
-1. 4 个 `{{...}}` 占位符**全部被替换**——`grep -c '{{' CLAUDE.md` 应为 0
-2. 生成的 CLAUDE.md §八 "Wiki Spec 版本" 与 SKILL 仓 `metadata.wiki_spec_version` 一致
+1. AGENTS.md 的 4 个 `{{...}}` 占位符 + 薄壳 CLAUDE.md 的 `{{TOPIC_NAME}}` **全部被替换**——`grep -c '{{' AGENTS.md CLAUDE.md` 应为 0
+2. 生成的 AGENTS.md §八 "Wiki Spec 版本" 与 SKILL 仓 `metadata.wiki_spec_version` 一致
 
 ## 字节级一致性证据(渲染后)
 
