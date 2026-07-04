@@ -73,8 +73,11 @@ Stage 2 视觉定位/坐标约定/caption 写 alt/quick 默认带图等图片提
 
 ### wiki-spec ↔ workspace-spec type enum 耦合
 
-workspace-spec §13 type 表"复用 wiki-spec §9"——改 wiki-spec type enum（如 0.6.0 删 type:memory）时必须同步查 workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-workspace-spec-type-coupling.md)
+workspace-spec §13 type 表"复用 wiki-spec §9"——改 wiki-spec type enum（如 0.6.0 删 type:memory）时必须同步查
+workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-workspace-spec-type-coupling.md)
 
 ### wiki/workspace 纪律文件 AGENTS.md SSOT + CLAUDE.md 薄壳（0.11.0/0.4.0）
 
-套用 claude-to-agents-ssot 方法：纪律 SSOT 从 `<root>/CLAUDE.md` 改 `AGENTS.md`（工具无关）+ `CLAUDE.md` 薄壳；@import 归 AGENTS.md、版本在 AGENTS.md；lint 优先 AGENTS.md fallback CLAUDE.md + `claudemd-to-agents-md-split` 迁移。两 spec 对称，改 SSOT 引用同步两 skill + 模板 + canonical/fixtures。 → [正文](wiki-spec-0-11-agents-md-ssot.md)
+套用 claude-to-agents-ssot 方法：纪律 SSOT 从 `<root>/CLAUDE.md` 改 `AGENTS.md`（工具无关）+ `CLAUDE.md` 薄壳；
+@import 归 AGENTS.md、版本在 AGENTS.md；lint 优先 AGENTS.md fallback CLAUDE.md + `claudemd-to-agents-md-split` 迁移。
+两 spec 对称，改 SSOT 引用同步两 skill + 模板 + canonical/fixtures。 → [正文](wiki-spec-0-11-agents-md-ssot.md)
