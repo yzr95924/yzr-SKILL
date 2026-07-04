@@ -13,8 +13,8 @@ workspace CLI init 时落盘的 `<workspace>/MEMORY/MEMORY.md` 的**字面量金
 **不在 fixture 范围**：
 
 - `AGENTS.md`（SSOT）+ `CLAUDE.md`（薄壳）——有 `{{WORKSPACE_DISPLAY_NAME}}` 等占位符，走 spec §4 内容级验证（模板在
-  `../workspace-agents-md-template.md` + `../workspace-claude-md-template.md`），与 wiki 的 `agents-md-template.md` / `claude-md-template.md` 同（占位符模板不进
-  fixtures）
+  `../workspace-agents-md-template.md` + `../workspace-claude-md-template.md`），与 wiki 的
+  `agents-md-template.md` / `claude-md-template.md` 同（占位符模板不进 fixtures）
 - `workspace.toml` / `workspace_models.toml` / `.gitignore`——TOML / gitignore，schema 在 spec
   §2 / §3 / §10，不走 markdown fixture
 

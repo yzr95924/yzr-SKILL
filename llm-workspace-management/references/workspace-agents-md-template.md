@@ -17,6 +17,13 @@
      其他 agent 能否展开 @import 取决于实现，最坏由启动检查显式 Read 兜底。agent 写 memory 时同步更新本索引。 -->
 @MEMORY/MEMORY.md
 
+<!-- 本段（§一归属表 / §二跨 wiki 约定 / §三查询纪律 / §四 lint / §五 Memory）与
+     `llm-workspace-management/SKILL.md` 的"文件归属"/三层职责/Memory 工作流、以及
+     `references/workspace-spec.md` §1（ownership）/ §9（MEMORY）是**重抄的精简版**——
+     本文件是 workspace CLI 拷给目标仓的 AGENTS.md 模板（target 跨仓无法回引 SKILL/spec），
+     必须自包含。SSOT：归属 → workspace-spec §1；MEMORY 纪律 → workspace-spec §9 + SKILL.md §5。
+     本模板与 SSOT 措辞故意对齐；改 SSOT 时同步改本模板，否则目标 workspace 与本 skill 行为脱节。 -->
+
 ## 一、本 workspace 的边界
 
 ### workspace 根的 9 类文件 / 目录

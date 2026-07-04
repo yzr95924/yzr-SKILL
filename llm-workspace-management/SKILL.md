@@ -14,7 +14,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-06-30
+  last_modified: 2026-07-05
   workspace_spec_version: 0.4.0
 ---
 
@@ -28,7 +28,7 @@ metadata:
 本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 边界的"宪法"
-- **references/workspace-spec.md**——workspace 根 6 类文件的归属 + schema 权威定义
+- **references/workspace-spec.md**——workspace 根 9 类文件的归属 + schema 权威定义
   （CLI 与 skill 都按它落盘 / 维护）
 - **scripts/**——把高频 deterministic 任务固化下来（**不**含 `init`——workspace 的
   init 由 workspace CLI 负责）
@@ -407,5 +407,5 @@ spec 文件做契约对齐。
   单 wiki 内的目录 / frontmatter / 命名约束（本 skill 操作 wiki 时遵循）
 - **委托目标**：`llm-wiki-management` SKILL.md——
   单 wiki ingest / query / lint / memory 工作流（本 skill 的单 wiki 操作委托给它）
-- **CLI 文档**：workspace CLI 仓（当前为 `~/llm_workspace_cli/`，命令 `llmw`）——本 skill
+- **CLI 文档**：workspace CLI 仓（命令 `llmw`，仓路径由用户在外部维护）——本 skill
   **不直接调**，但用户的 `init / add / remove / config / enter / model ...` 命令参考此处

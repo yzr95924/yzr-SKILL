@@ -94,6 +94,12 @@
 - 路径：`<wiki-root>/MEMORY/`
 - 性质：LLM agent 在 ingest / query / lint 过程中沉淀的**经验、踩坑、用户偏好**——
   不是 wiki 内容、不是操作时间线，而是 agent 私有记忆；对应 SKILL §四层架构第 3 层
+
+> **本段 SSOT 反指**：MEMORY 条目形式（完整 vs 短）的权威定义在仓库根
+> `MEMORY/MEMORY.md`「规则」段；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标
+> wiki 根，跨仓引不到 SKILL.md / 仓库根 MEMORY.md），必须自包含。与 SSOT 措辞故意保持一致，
+> 改 SSOT 时同步改本段。
+
 - **条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` 同步）：
   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
     建 `MEMORY/<slug>.md`（frontmatter 5 必填 + 正文）+ 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
@@ -229,6 +235,10 @@ workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分
 任何对页面正文的 LLM 修改都会让戳失效——必须**删除** `reviewed` + `reviewed_at` 回到默认未审核状态，
 由人重新审。`lint_wiki.py` 用 `reviewed-stale` 兜底：`reviewed: true` 存在且
 `updated > reviewed_at` 时给 warn，把漏清戳的页面拎出来。
+
+> **本段 SSOT 反指**：reviewed 戳生命周期的权威定义在仓库 `page-templates.md` §一
+> 「生命周期规则」；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
+> 跨仓引不到 SKILL.md），必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
 
 ### 矛盾处理 Update Policy（ingest 遇到"新资料与已有页冲突"时）
 

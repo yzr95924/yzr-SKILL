@@ -23,7 +23,7 @@
 - [§1 目录结构](#1-目录结构)
 - [§2 workspace.toml](#2-workspacetoml)
 - [§3 workspace_models.toml](#3-workspace_modelstoml)
-- [§4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）](#4-workspace-agentsmdssot--claudemd薄壳)
+- [§4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）](#4-workspace-agentsmdssot-claudemd薄壳)
 - [§5 INDEX.md（skill 维护）](#5-indexmdskill-维护)
 - [§6 STATS.md（skill 维护）](#6-statsmdskill-维护)
 - [§7 cross_queries/（skill 维护，可选）](#7-cross_queriesskill-维护可选)
@@ -32,16 +32,16 @@
 - [§10 .gitignore](#10-gitignore)
 - [§11 Git 仓（用户外部创建，CLI 不碰）](#11-git-仓用户外部创建cli-不碰)
 - [§12 拒绝条件（强约束）](#12-拒绝条件强约束)
-- [§13 Frontmatter 字段约定（skill 写 §5–§9 时用）](#13-frontmatter-字段约定skill-写-5-9-时用)
+- [§13 Frontmatter 字段约定（skill 写 §5–§9 时用）](#13-frontmatter-字段约定skill-写-59-时用)
 - [§14 版本钉死](#14-版本钉死)
 - [§15 命名约束](#15-命名约束)
 - [§16 不在本 spec 范围内](#16-不在本-spec-范围内)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
-- [附录 B：版本历史](#附录-b-版本历史)
+- [附录 B：版本历史](#附录-b版本历史)
 
 ## §1 目录结构
 
-```
+```text
 <workspace-root>/
 ├── .gitignore                      # CLI init 时写（§10）
 ├── workspace.toml                  # CLI init 时写（§2）
@@ -53,7 +53,7 @@
 ├── cross_queries/                  # skill 可选建（§7）
 ├── LINT.md                         # skill lint 时写（§8）
 ├── MEMORY/                         # CLI init 建空目录 + 写 MEMORY.md 索引（§9）
-└── <wiki-name>/                    # 每个 wiki 一个子目录，遵循 [wiki-spec.md §1](wiki-spec.md#1-目录结构)
+└── <wiki-name>/                    # 每个 wiki 一个子目录，遵循 wiki-spec §1 目录结构
 ```
 
 **workspace 根的 9 类文件 / 目录各自归属**：
@@ -70,14 +70,14 @@
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
 | `LINT.md` | CLI **不写**（留空） | **skill**（lint 时写） | workspace 级 lint 报告（最近一次） |
 | `MEMORY/` | CLI 写（init 建空目录 + 写 MEMORY.md 索引） | **skill**（写 `*.md` 经验 + 同步 MEMORY.md 索引） | 跨 wiki agent 私有记忆 |
-| `<wiki-name>/` | CLI 写（按 [wiki-spec §1](wiki-spec.md#1-目录结构)） | **CLI** 写元数据 + **skill**（或 `llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
+| `<wiki-name>/` | CLI 写（按 wiki-spec §1 目录结构） | **CLI** 写元数据 + **skill**（或 `llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
 > **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_models.toml`、
 > `AGENTS.md`（SSOT 模板拷贝）+ `CLAUDE.md`（薄壳模板拷贝）、`.gitignore` 五份根级文件 + `MEMORY/`（init 建空目录 + 写
 > `MEMORY.md` 索引占位，见 §9）+ `<wiki-name>/` 子树（按 wiki-spec）。
 > **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` + `MEMORY/*.md` 经验条目**——
 > 这些是 workspace skill 的领地。
-
+>
 > **skill 的写入范围限制（不变量）**：skill 只写 `INDEX.md` / `STATS.md` / `LINT.md` /
 > `cross_queries/` 四份 workspace 级文件 + `MEMORY/*.md` 经验条目（并同步追加 `MEMORY.md`
 > 索引一行；`MEMORY.md` 骨架由 CLI init 写）+ 各 `<wiki-name>/wiki/**`（通过
@@ -343,7 +343,7 @@
   - **跨 wiki 重复实体**: <list>
   - **跨 wiki 失效链接**: <list>
   - **孤立 wiki**: <yes/no + 说明>
-  - **本 wiki 内 lint**: 走 [wiki-spec §3 / §4 lint 流程](wiki-spec.md)——本 skill 不重复
+  - **本 wiki 内 lint**: 走 wiki-spec §3 / §4 lint 流程——本 skill 不重复
 
   ## Workspace-level Issues
 
@@ -363,7 +363,7 @@
 > 后续 `MEMORY/*.md` 经验条目由 **skill** 写入，并**同步追加 MEMORY.md 索引一行**。
 > skill 是 LLM agent 的**跨 wiki** 私有记忆——人类**不写** MEMORY 内容。CLI 不参与 MEMORY
 > 的后续写入（仅 init 写骨架）。
-
+>
 > **scope 严格区分**（**核心不变量**，避免变成 junk drawer）：
 >
 > - ✅ `<workspace>/MEMORY/` 写**跨 wiki** 的 LLM 经验（用户对 workspace 组织的偏好 /
@@ -437,7 +437,7 @@
 
 ### §9.3 何时写 / 不写
 
-**写**（按 [`SKILL.md` §5 memory](../../SKILL.md) 触发）：
+**写**（按 [`SKILL.md` §5 memory](../SKILL.md) 触发）：
 
 - 跨 wiki 的关联（"X 类主题放 A wiki，Y 类放 B wiki"）
 - 用户对 workspace 组织的偏好（"我更喜欢按时间线而非主题分 wiki"）
@@ -599,7 +599,7 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 - **workspace MEMORY 的工作流**（何时写 / 不写 / 怎样分类）——同上
 - **frontmatter 字段的语义**（如 `description` 推荐写法）——LLM 写作视角，非 spec 视角
 - **Obsidian / 编辑器偏好**——skill 假设通用 Markdown
-- **INGEST / 单 wiki query / 单 wiki lint**——走 [`llm-wiki-management`](wiki-spec.md) skill，
+- **INGEST / 单 wiki query / 单 wiki lint**——走 `llm-wiki-management` skill，
   本 spec 不重复
 
 ---
@@ -612,7 +612,7 @@ CLI 在生成完成后，可执行以下验证：
    与 §3 schema 一致；`AGENTS.md` 与 §4 SSOT 模板字面一致 + `CLAUDE.md` 与薄壳模板字面一致（占位符替换后）；`MEMORY/MEMORY.md` 与
    `references/canonical/memory-index.md` 字节一致（无占位符，直接 `cmp`，流程同 wiki fixtures）；`.gitignore` 与 §10 一致
 2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项（含 `MEMORY/MEMORY.md`）；`<wiki-name>/` 子目录按
-   [wiki-spec §1](wiki-spec.md#1-目录结构) 落盘
+   wiki-spec §1 目录结构 落盘
 3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
    到已存在目录，应非零退出；尝试 `init` 时 `AGENTS.md` / `CLAUDE.md` 已存在，应非零退出（§12）
 4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；`*/.claude/settings.local.json` 在 `.gitignore` 中
