@@ -194,7 +194,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
   `tag-not-in-taxonomy`（info）报到所有还引用已删 tag 的页面，由用户裁定二选一：
   重新加回 / 从页面删除 tag。`tag-not-in-taxonomy` 含义因此覆盖：(a) 用户审计删除后的
   残留引用；(b) 用户手工编辑 page 时漏注册；(c) LLM auto-extend 失败 — 详见
-  [`../page-templates.md`](../page-templates.md) §一「tags」段
+  [`page-templates.md`](page-templates.md) §一「tags」段
 
 ### 12. 页面体量
 

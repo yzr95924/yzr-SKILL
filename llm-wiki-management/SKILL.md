@@ -3,7 +3,7 @@ name: llm-wiki-management
 description: 用户在搭建或维护本地、单用户的复利型个人 wiki
   （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill
   ——把原始资料（论文 / 文章 / 剪藏 / 笔记）持续摄入本地 wiki、做跨页综合查询、
-  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题从零搭 wiki，按 git 可选 opt-in 的
+  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest，按 git 可选 opt-in 的
   纯目录树 + Markdown 工作流维护。不用于云端协作 wiki（Notion / Confluence /
   Outline Wiki / GitHub Wiki）——那些走 outline-wiki-upload（写 / 编辑）/
   outline-wiki-search（搜 / 读）；不用于一次性文档生成、强结构化数据库、
@@ -190,7 +190,7 @@ metadata:
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
    时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
    必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 CLAUDE.md `@` import 会话常驻，否则下次
-   读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-wikimemory)
+   读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-memory)
 10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 / query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且 `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
 
     > **注**：同样的规则也会出现在 [`references/claude-md-template.md`](references/claude-md-template.md) §二「认知质量信号」末段——那里是 wiki 自带的 CLAUDE.md 模板必须自包含（跨仓引不到 SKILL.md）；两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
@@ -375,7 +375,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - 失效的相对路径引用（`[link](sources/missing.md)` 之类的断链）
    - `log.md` 条目格式不合规（不符合 `## [YYYY-MM-DD] <op> | <title>`；权威正则见 [page-templates.md §7](references/page-templates.md#7-logmdlog)）
    - 过期摘要（`type: source` 且 `updated` 距今超过阈值；阈值见 [lint-checklist.md §二.7](references/lint-checklist.md#7-过期摘要)）
-   - 页面体量——5 类内容页非空行 > ~300 行阈值（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
+   - 页面体量——5 类内容页非空行 > `PAGE_SIZE_THRESHOLD`（默认 300）行（SSOT 见 `lint_wiki.py`）；`MEMORY/` 豁免——见 §二.12
    - 认知质量信号（`contested: true` / `contradictions` 断链或非对称）+ 可信度信号
      （`pending-review` info / `reviewed-stale` warn / `reviewed` 取值非法 / `reviewed_at`
      与 `reviewed` 不成对 / `index-review-badge-drift` / `legacy-confidence-field`

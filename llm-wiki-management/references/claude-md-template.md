@@ -15,7 +15,7 @@
 @MEMORY/MEMORY.md
 
 <!-- 0.9.0+：下一行 @import 把 scripts/ 索引内联进本文件，会话常驻；
-     agent 添加/修改/删除脚本时同步更新它。详见 [wiki-spec §14](../wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090) -->
+     agent 添加/修改/删除脚本时同步更新它。详见 `wiki-spec.md` §14 -->
 @scripts/SCRIPTS.md
 
 ## 一、本 wiki 的边界
@@ -74,8 +74,8 @@
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
   - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
-    `setup` 由 workspace CLI 在初始化时按 [`../wiki-spec.md`](../wiki-spec.md) §4 写入首条；
-    权威正则见 [`../page-templates.md`](../page-templates.md) §7）
+    `setup` 由 workspace CLI 在初始化时按 `wiki-spec.md` §4 写入首条；
+    权威正则见 `page-templates.md` §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
   - **不删不改**——只 append
 
@@ -107,7 +107,7 @@
     否则下次会话读不到
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
   - **不**要求 inbound 链接
-  - 目录结构与契约详见 [`../wiki-spec.md`](../wiki-spec.md) §5
+  - 目录结构与契约详见 `wiki-spec.md` §5
 
 ### `scripts/` —— 本 wiki 仓的自维护脚本目录（0.9.0+）
 
@@ -131,11 +131,11 @@
   - git 跟踪策略：默认跟踪；启用 git 时跟 wiki 一起 commit；未启用 git 时跟 wiki 走纯目录树
 - 不适用：llm-wiki-management skill 自带的 `lint_wiki.py` / `ingest_diff.py` / `log_format.py`
   ——这些脚本版本由 skill 仓管，**不**复制进 `scripts/`（避免版本漂移）
-- 完整契约与设计动机见 [`../wiki-spec.md`](../wiki-spec.md) §14
+- 完整契约与设计动机见 `wiki-spec.md` §14
 
 ## 二、页面类型与 frontmatter 约定
 
-> **权威定义在 [`../page-templates.md`](../page-templates.md) §二（页面模板 + 字段定义）**——
+> **权威定义在 `page-templates.md` §二（页面模板 + 字段定义）**——
 > 本表只是 setup 后在 wiki 内的速查。顺序与该处保持字母序一致（comparison → concept →
 > entity → source → synthesis）。
 
@@ -147,7 +147,7 @@
 | 资料页 | `sources/` | `source` | `sources`（必填，raw/ 路径） |
 | 综合页 | `syntheses/` | `synthesis` | `threads`（线索标题数组）+ `sources`（必填，wiki 内其它页路径） |
 
-**所有页面共有 frontmatter**（完整定义 + 类型特化字段见 [`../page-templates.md`](../page-templates.md) §一）：
+**所有页面共有 frontmatter**（完整定义 + 类型特化字段见 `page-templates.md` §一）：
 
 ```yaml
 ---
@@ -162,6 +162,10 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 ```
 
 ### Tag Taxonomy（防 tag 漂移）
+
+> **本段 SSOT 反指**：tag 白名单规则的权威定义在 `wiki-spec.md` §9.1「tag 白名单来源」；
+> 本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，跨仓引不到 SKILL.md），必须自包含。
+> 与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
 
 `tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 的 tag
 白名单放在 [`wiki/tags.md`](wiki/tags.md)（**0.8.0+ 起从此处迁出，原先嵌在 CLAUDE.md
@@ -203,7 +207,7 @@ workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分
 
 ### 认知质量信号（可选，防"弱主张固化成事实"）
 
-> 字段语义权威定义在 [`../page-templates.md`](../page-templates.md) §一「可选：可信度与认知质量信号」；
+> 字段语义权威定义在 `page-templates.md` §一「可选：可信度与认知质量信号」；
 > 本节是 wiki 内的速查 + 何时标的指引。四个字段**全部可选**，互不依赖。
 
 四个可选 frontmatter 字段：
