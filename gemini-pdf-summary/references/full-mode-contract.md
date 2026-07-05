@@ -2,6 +2,11 @@
 
 > **设计决策 SSOT**：本文档是 `--full` 模式边界 / 调用契约的权威实现规范（npx 分发后唯一可见的设计文档）。
 > SKILL.md 只讲"agent 在哪一步怎么做"，决策 why 在本文档正文内嵌——不依赖任何外部 MEMORY 文件。
+>
+> **产物 layout SSOT**：`raw/papers/<slug>.{quick,full}.md` 是 paper `--full` 模式**唯一**的产物布局；
+> 与 `scripts/gemini_pdf_summary.py::slug_from_path` + `_run_full_mode` 同源——改布局改脚本即可，
+> 本文档是描述镜像。manual / whitepaper / book 走**目录**形式（`raw/<type>/<slug>/summary.md` 或 `raw/<type>/<slug>/<slug>.md`），
+> 不走本文档描述的 layout。
 
 ## 目录
 
