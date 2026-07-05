@@ -102,6 +102,7 @@ response = client.models.generate_content(
 默认（`gemini-3.5-flash`），需要换模型时从 SKILL.md §模型选型 查"何时显式覆盖"。
 
 实际可用模型以当前文档为准：
+
 - `mcp__gemini-api-docs-mcp__get_current_model`
 - 或仓库内 `gemini-api-dev` skill
 
@@ -118,6 +119,6 @@ response = client.models.generate_content(
 
 ## 7. 参考链接
 
-- Gemini API 官方文档：https://ai.google.dev/gemini-api/docs
-- google-genai Python SDK：https://github.com/googleapis/python-genai
-- Python SDK 完整示例：https://ai.google.dev/gemini-api/docs/sdks
+- Gemini API 官方文档：<https://ai.google.dev/gemini-api/docs>
+- google-genai Python SDK：<https://github.com/googleapis/python-genai>
+- Python SDK 完整示例：<https://ai.google.dev/gemini-api/docs/sdks>

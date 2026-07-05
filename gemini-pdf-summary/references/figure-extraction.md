@@ -23,13 +23,19 @@
 - 双栏布局按 caption 中心 x 判断 figure 所在栏（左 / 右）
 - figure 顶部三策略按顺序尝试：
   1. **正文段落底部**：caption 上方最近的"宽+多行"正文段落底部（≥ 2 行 + 宽度 ≥ 栏宽 60%）
-  2. **annotation 顶部**：caption 上方同一栏所有"非正文"文本块（figure annotation / label / 节点编号等"窄+单行"块）的最上 y0。**专门解决 figure 上方只有 annotation 没有正文**的情形（如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label + path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来
+  2. **annotation 顶部**：caption 上方同一栏所有"非正文"文本块（figure annotation / label /
+     节点编号等"窄+单行"块）的最上 y0。**专门解决 figure 上方只有 annotation 没有正文**的情形
+     （如 ART-ICDE'13 第 5 页的 Figure 6，caption 上方全是 B/F/A/O/R/O 节点 label +
+     path compression / lazy expansion 标注），避免旧版退到 page 顶把 header 全框进来
   3. **page 顶兜底**：以上都失败时退到 page 顶（保证 figure 一定被框入，但可能含 page header）
 
 ### bbox hint fallback（精度差，最后兜底）
 
 - 直接用 Stage 1 prompt 嵌入的 `bbox=x0,y0,x1,y1` 区域裁剪，不做 caption 校验
-- **bbox sanity check**（2026-06-21，**SSOT**）：Stage 1 Gemini 自由发挥写 `bbox=...` 时容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11 Fig 16，hint 高 ~375pt，实际图只有 ~150pt）。`render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度：超过 **250pt** 且 caption locator 能算出更紧的 bbox（**≥ 50pt**）时，用 caption locator 替掉 hint
+- **bbox sanity check**（2026-06-21，**SSOT**）：Stage 1 Gemini 自由发挥写 `bbox=...` 时
+  容易把 figure 下面紧跟的整段正文都框进去（典型 case：p.11 Fig 16，hint 高 ~375pt，
+  实际图只有 ~150pt）。`render_figures_to_pngs` 在走 bbox hint fallback 前先检查高度：
+  超过 **250pt** 且 caption locator 能算出更紧的 bbox（**≥ 50pt**）时，用 caption locator 替掉 hint
 
 ### 三层全失败的处置
 

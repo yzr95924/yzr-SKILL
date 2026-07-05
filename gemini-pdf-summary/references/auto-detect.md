@@ -96,6 +96,7 @@ KEYWORD_HINTS = {
 | Gemini 调用异常（网络 / 503 等） | Layer 2 重试由 `_gemini_call_with_retry`（gemini_pdf_summary.py 已实现）负责；本脚本不重复实现 |
 
 最终 `auto_detect.detect_doc_type()` 抛 RuntimeError 时：
+
 - 错误信息含具体原因 + "请显式传 `--type <paper|manual|whitepaper|book>`"
 - gemini_pdf_summary.py main() 捕获后打印 + exit(3)
 

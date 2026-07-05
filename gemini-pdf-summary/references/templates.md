@@ -1,5 +1,9 @@
 # 4 类模板对照
 
+<!-- markdownlint-disable MD060 MD004 MD040 MD055 MD056 -->
+> 本文件含大量 markdown / mermaidjs 代码块示例（4 类模板的写作样例）。
+> `*` bullet 与无语言 closing fence、单列省略表格（如 `| ...`）等是示例内容一部分——本文件局部豁免上述规则。
+
 | 维度 | paper quick | paper full | manual（full） | whitepaper（full） | book（full） |
 |---|---|---|---|---|---|
 | 模板文件 | `assets/template-paper.md` §quick 模式 | §full 模式 | `assets/template-manual.md` | `assets/template-whitepaper.md` | `assets/template-book.md` |
@@ -12,6 +16,8 @@
 | 评测 / benchmark 分支 | 是（"方法+实验" ↔ "评测设计+发现"） | 否（按 PDF 原生） | 否 | 否 | 否 |
 | `--focus` 注入 | 末尾追加 "启发 / 追问" 段 | 在对应原生章节下追加子段（`### 用户关注点: <focus>`） | 在对应原生章节下追加子节 | 在对应原生章节下追加子节 | 在对应原生章节下追加子节 |
 | 消费对象 | **人**（唯一保留 quick 的类型） | LLM（Q&A 底座） | LLM（llm-wiki 二次 ingest） | LLM（llm-wiki 二次 ingest） | LLM（章节级 Q&A） |
+
+<!-- markdownlint-enable MD060 -->
 
 ## 模板变更规则
 
@@ -26,7 +32,7 @@
 每个模板 `## <段名>` 段名在脚本 `_load_prompt_for_type` 的 `head_patterns` 字典里：
 
 | 类型 / 模式 | 段标题 | 备注 |
-|---|---|---|
+| --- | --- | --- |
 | paper / quick | `## quick 模式（默认）` | 唯一保留 quick 风格的档位 |
 | paper / full | `## full 模式（`--full`）` | 显式 `--full` 启用 |
 | manual / full（单模板） | `## 模板` | 单模板即 full；脚本 `prompt_mode = "full"` 已硬编码 |
@@ -110,6 +116,7 @@ graph LR
 | `E-1001` | NVLink 握手失败 | 重启 + 检查插槽 |
 | `E-2003` | HBM3 ECC 不可纠正错误 | 立即停机，更换 GPU |
 | ...
+
 ```
 
 ### whitepaper（full 风格）

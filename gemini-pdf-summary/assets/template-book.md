@@ -77,7 +77,7 @@ reference manual），用**中文**输出 **PDF→Markdown 全量转写** ——
 ## 与 paper full 模式的差异
 
 | 维度 | paper full | book full |
-|---|---|---|
+| --- | --- | --- |
 | 元信息表 | Title / Venue / Topic | Title / Author / ISBN / Publisher / Edition / Year |
 | 章节结构 | 论文的 Section N.M.K 体系 | 书的 Chapter N / Part / Appendix / Index 体系 |
 | 完整性要求 | 严格（防止章节合并） | **更严格**——禁止合并 / 跳过小节；token 超限时分章详写 + 末章占位 |

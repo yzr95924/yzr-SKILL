@@ -91,7 +91,7 @@ Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
 | `--max-size-kb` | int | None | 最大体积（KB）。超限自动降级：先降 quality → 再换格式（PNG→WebP）→ 再降 scale |
 | `--thumbnail` | flag | 关 | 同时生成缩略图，Markdown 引用缩略图、点击跳原图 |
 | `--thumbnail-width` | int | `400` | 缩略图宽度（像素） |
-| `--figure-dpi` | float | `2.0` | 最终输出图的渲染倍率（`2.0 = 144 DPI`；想要更清晰用 `3.0 / 4.0`） |
+| `--figure-dpi` | float | `2.0` | 最终输出图的渲染倍率（**2.0 = 144 DPI**；`144 = 72 × 2.0` 是 PDF point → pixel 换算，非独立阈值；想要更清晰用 `3.0 / 4.0`） |
 
 ### 自动 fallback
 
@@ -109,7 +109,9 @@ Stage 1 输出: "见 PDF p.3 fig.1 / PDF p.4 fig.2 ..."
     └── ...
 ```
 
-注意：缩略图**不**走 `figures/thumbnails/` 子目录，而是与原图并列 + `.thumb` 后缀，方便一对图片保持目录一致。缩略图**不**应用 `--max-width`（`thumbnail-width` 自带尺寸上限），但仍受 `--max-size-kb` 约束（缩略图也可能意外偏大）。
+注意：缩略图**不**走 `figures/thumbnails/` 子目录，而是与原图并列 + `.thumb` 后缀，
+方便一对图片保持目录一致。缩略图**不**应用 `--max-width`（`thumbnail-width` 自带尺寸上限），
+但仍受 `--max-size-kb` 约束（缩略图也可能意外偏大）。
 
 ### Markdown 引用形式
 
