@@ -1,6 +1,6 @@
 ---
 name: gemini-pdf-summary
-description: 在用户给出一份本地 PDF 文档（学术论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档）想要用 Gemini 多模态直接读 PDF（含图表 / 公式 / 版式，不抽 OCR）并按文档类型路由到对应结构化模板输出中文 Markdown 时使用本 skill。**`--type` 必填**（paper / manual / whitepaper / book 四选一），不确定时可用 `--auto-detect`（PDF 元数据 + 首页文本启发式 + Gemini 看首页验证）。默认中文、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。paper quick 模式抽原始 PDF 图（默认开），manual / whitepaper / book + paper full 模式不抽原始图，把概念 / 架构 / 流程用 mermaid / 表格 / ASCII 在 markdown 内直接画（产物给 LLM 消费）。book 仅支持 full 模式（按 PDF 原生章节全量转写）；`--full` 模式契约详见 [`references/full-mode-contract.md`](references/full-mode-contract.md)。**不适用**：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
+description: 在用户给出一份本地 PDF 文档（学术论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档）想要用 Gemini 多模态直接读 PDF（含图表 / 公式 / 版式，不抽 OCR）并按文档类型路由到对应结构化模板输出中文 Markdown 时使用本 skill。**`--type` 必填**（paper / manual / whitepaper / book 四选一），不确定时可用 `--auto-detect`（PDF 元数据 + 首页文本启发式 + Gemini 看首页验证）。默认中文、必要时英文术语保留原文；Markdown 风格遵守仓库既定指纹（`*` bullet / `==高亮==` / ` ```mermaidjs ` block / 表格 / 行宽 ≤ 120）。paper quick 模式抽原始 PDF 图（默认开，给**人**看）— paper **唯一保留的 quick 风格**；manual / whitepaper / book + paper full 模式**不抽原始图**，按 PDF 原生章节顺序做**全文级转写**（产物给 LLM 消费并进入 llm-wiki 二次 ingest）。`--full` 模式契约详见 [`references/full-mode-contract.md`](references/full-mode-contract.md)。**不适用**：非 PDF 来源、要求逐字翻译全文、仅做关键词抽取等。
 metadata:
   author: Zuoru YANG
   modify time: 2026-07-05
@@ -111,19 +111,21 @@ metadata:
 - **paper quick**（默认）：开篇 3 列表格 → 团队 item → `## 3 句话总结` → 背景与动机 → 方法设计 → 代表性实验结果 → 业务启示 & 价值 → 局限与未来工作
   - 评测 / benchmark 类论文自动把"方法设计 + 代表性实验结果"替换为"评测设计 + 评测发现"
 - **paper full**（`--full`）：按 PDF 原文章节顺序逐小节展开（含 Definition / Theorem / Algorithm 标注 + 公式 `$...$` + 表格行级转写 + 数字精度 3 位有效数字）；不抽原始图
-- **manual**：`## 产品概述` → 关键特性 → 接口与参数 → 适用场景 → 故障排查 / 常见问题 → 附录；**不抽原始图**
-- **whitepaper**：`## 行业背景` → 挑战与机遇 → 解决方案 / 核心主张 → 客户案例 / 实证 → 商业价值 / 落地建议 → 附录；**不抽原始图**
+- **manual**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含命令清单 / 参数表 / 错误码；章节末尾的故障排查 + FAQ + 更新日志要点原样保留）；**不抽原始图**
+- **whitepaper**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含行业数据表 / 对比表 / 客户案例；章节末尾的 Conclusion + Key Takeaways + Recommendations 原样保留）；**不抽原始图**
 - **book**（仅 full）：按 PDF 原生 `Chapter` / `Section` / `Appendix` / `Index` 顺序全量转写；**不抽原始图**
 
 **字符数目标**：
 
-> **SSOT 例外说明**：本表与 `assets/template-{paper,manual,whitepaper}.md` 头部同源——
-> 模板头部是给 Gemini 看的目标，**本表是给 agent 速查的镜像**，两处必须同步改。
-> SSOT 在各模板头部（脚本 `_load_prompt_for_type` 抽该字段），本表是 SKILL.md 内的镜像。
+> **SSOT 例外说明**：本表与 `assets/template-paper.md` 头部同源——模板头部是给 Gemini 看的目标，
+> **本表是给 agent 速查的镜像**，两处必须同步改。SSOT 在模板头部（脚本 `_load_prompt_for_type`
+> 抽该字段），本表是 SKILL.md 内的镜像。
+> manual / whitepaper / book 是 **full 风格**，无字符数上限——不在 SSOT 例外范围。
 
-- paper quick ≤ 2500；manual ≤ 3000；whitepaper ≤ 3500
-- paper full / book：解除字符数上限，但 token 预算紧张时**优先精简措辞、缩具体例子**，
-  **禁止**合并整段、删除小节、跳过公式 / 定理 / 算法步骤
+- paper quick ≤ 2500
+- paper full / manual / whitepaper / book：无字符数上限；token 预算紧张时**优先精简措辞、
+  缩具体例子**，**禁止**合并整段、删除小节、跳过公式 / 定理 / 算法步骤（paper full）/
+  命令 / 参数 / 错误码（manual）/ 行业数据 / 客户案例（whitepaper）/ Chapter 内容（book）
 
 **图表处理策略**（SSOT 在 `assets/_base.md` §图表处理约定）：
 
@@ -131,13 +133,13 @@ metadata:
 | --- | --- | --- |
 | paper quick | 抽原始 PDF 图 → `figures/*.png`（默认开） | 给**人**看的速读总结，必须带图 |
 | paper full | 不抽图，mermaid / 表格 / ASCII 在 markdown 内画 | agent Q&A 底座，PNG 仅 ~50% agent 能消费 |
-| manual / whitepaper | 同 paper full | 产物主要给 LLM 消费 |
+| manual / whitepaper | 同 paper full | 产物主要给 LLM 消费，进入 llm-wiki 二次 ingest |
 | book | 同 paper full | 长篇转写，agent 后续按章节 Q&A |
 
 **不存在的章节可省略**；**默认中文**（标题、叙述、连接词），但术语、模型名、产品名、库名等必要时
 **直接保留英文**（详见下文核心原则 #4 与 #9）。
 
-> **精炼优先**（适用于 paper quick / manual / whitepaper；full / book 走全文级）：
+> **精炼优先**（仅适用于 paper quick；full 风格走全文级）：
 > **每一段、每一条 bullet 都应该能删则删**——能 1 句话讲清的事不要拆 3 句；
 > 能省略的铺垫 / 重复 / 概念定义就省略；判断标准："删掉这段读者就理解错 / 漏掉关键信息"
 > 才是"必须留"，否则一律砍。总结的密度 > 总结的篇幅。
@@ -213,7 +215,8 @@ metadata:
 - 一次一份 PDF
 - 单 PDF 大小受 File API 硬上限约束（数值与超大文件处置见 §前置条件）
 - **`--type` 与 `--auto-detect` 互斥，必传其一**；都不传 → 脚本报错并提示 agent 反问用户
-- **book 仅支持 full 模式**：自动启用 `--full`（脚本 INFO 提示）
+- **manual / whitepaper / book 仅支持 full 风格**：脚本自动启用 `--full` 风格的 prompt
+  加载（无需用户传 `--full`；full 模式契约见 `references/full-mode-contract.md`）
 - **manual / whitepaper / book + paper full 不抽原始图**：自动启用 `--no-figures`（脚本 INFO 提示）
 - **paper quick 模式图处理**：沿用 gemini-paper-summary 的三层定位（Stage 2 视觉定位 +
   caption locator + bbox hint），全失败时整图删除 + 剥呼应句
@@ -334,44 +337,47 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 产物：<output>/<slug>.quick.md + <slug>.full.md（quick 用 academic 模板 + 带图；full 自包含无图）
 ```
 
-#### manual（产品手册 / datasheet / 用户手册）
+#### manual（产品手册 / datasheet / 用户手册；full 风格全文级转写）
 
 详见 `assets/template-manual.md`。
 
 ```text
-章节顺序：
-  开篇 3 列表格（产品名称 / 类型 / 厂商）
-  + 手册版本 / 日期 item
-  + 目标读者 item
-  + 关联产品 item
-  → ## 产品概述
-  → ## 关键特性（含技术规格表 / 架构 mermaid）
-  → ## 接口与参数（命令清单 / 配置参数 / 数据格式；按文档类型选用子小节）
-  → ## 适用场景
-  → ## 故障排查 / 常见问题（仅文档有专门章节时输出）
-  → ## 附录（可选：术语表 / 参考链接 / 更新日志要点）
+章节顺序：严格按 PDF 原生目录结构逐小节展开（Section N / Section N.M / Appendix）
+          原英文标题保留（如 ## Hardware Specifications、## Installation Guide）
 
-字符目标 ≤ 3000；不含图（mermaid / 表格 / ASCII）。
+必保真元素：命令清单 / API endpoint（fenced code block）
+            参数 / 配置 / 环境变量表（markdown 表格，3 位有效数字）
+            错误码 / 异常表（markdown 表格）
+            产品参数表（型号 / 容量 / 性能 / 接口 / 协议 / 标准）
+            章节末尾的故障排查 / FAQ / 更新日志要点（manual 特色，原样保留）
+            术语表 / Glossary / 参考链接（附录）
+
+图处理：架构 / 模块关系 → mermaidjs block；数据图 → markdown 表格；装饰图省略
+字符目标：无上限；完整性 > 篇幅；token 超限时先详写前 N 章 + 末章占位
+不含原始 PNG；产物 <output>/summary.md（单文件）
 ```
 
-#### whitepaper（行业 / 技术 / vendor 白皮书）
+#### whitepaper（行业 / 技术 / vendor 白皮书；full 风格全文级转写）
 
 详见 `assets/template-whitepaper.md`。
 
 ```text
-章节顺序：
-  开篇 3 列表格（白皮书标题 / 发布方 / 主题）
-  + 发布日期 item
-  + 目标读者 item
-  + 发布立场 item（vendor 自家方案 / 行业中立 / 学术 / 政策 / 咨询）
-  → ## 行业背景
-  → ## 挑战与机遇
-  → ## 解决方案 / 核心主张（白皮书"灵魂"）
-  → ## 客户案例 / 实证
-  → ## 商业价值 / 落地建议
-  → ## 附录（可选：术语表 / 参考链接 / 关于发布方）
+章节顺序：严格按 PDF 原生目录结构逐小节展开（Executive Summary / Market Analysis /
+          Challenge / Solution / Case Studies / Conclusion 等）
+          原英文标题保留（如 ## Executive Summary、## Market Analysis）
 
-字符目标 ≤ 3500；不含图（mermaid / 表格 / ASCII）。
+必保真元素：行业数据表（市场规模 / CAGR / 渗透率，3 位有效数字）
+            对比表 / benchmark 表（vendor 对比 / 方案对比）
+            客户案例 / 实证数据（ROI / 收益 / 客户名）
+            章节末尾的 Conclusion / Key Takeaways / Recommendations（whitepaper 特色，原样保留）
+            About the Publisher / Methodology / References（附录）
+
+立场甄别：vendor 自家方案 vs 行业中立 vs 学术 / 政策 / 咨询——必须在元信息段"发布立场"标注，
+          立场影响读者如何解读结论，识别不出时写"原文未明确"
+
+图处理：架构 / 价值链 / 流程 → mermaidjs block；数据图 → markdown 表格；装饰图省略
+字符目标：无上限；完整性 > 篇幅；token 超限时先详写前 N 章 + 末章占位
+不含原始 PNG；产物 <output>/summary.md（单文件）
 ```
 
 #### book（书籍 / 长篇技术文档；仅 full 模式）
@@ -424,6 +430,7 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 | `必须传 --type 或 --auto-detect 二者之一` | 调用缺类型 | agent 反问用户确定类型（见 §工作流 §A） |
 | `--auto-detect` 都判定不出 | 启发式 + Gemini 都置信不足 | 显式传 `--type <paper\|manual\|whitepaper\|book>` |
 | `book 类型仅支持 full 模式` | 试图 `--type book` 不带 `--full` | 加 `--full`，或改用 `paper` 类型 |
+| `manual / whitepaper / book 仅支持 full 风格` | 试图 `--type manual` 等后传 `--no-figures` 关闭 mermaid | 关闭 `--no-figures`；manual / whitepaper / book 是 full 风格，不接受"压缩总结"模式 |
 | 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型 |
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview` |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/template-*.md`）/ `--focus`；后处理裁剪 |
@@ -450,7 +457,7 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --output ~/papers/summaries/attention_is_all_you_need  # 目录：summary.md + figures/*.png
 ```
 
-### 样例二：产品手册
+### 样例二：产品手册（manual · full 风格）
 
 **用户**："这是我们新硬件的 datasheet，整理一下"
 
@@ -465,10 +472,11 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --pdf ~/Downloads/h100-sxm-datasheet.pdf \
   --type manual \
   --output ~/wiki/llm-systems/raw/manuals/h100-sxm/
-# 产物：summary.md（含 mermaid 架构图 + 参数表，无 PNG）
+# 产物：summary.md（按 PDF 原生章节顺序全文级转写；含命令清单 / 参数表 / 错误码 / 故障排查；无 PNG）
+# 产物供 llm-wiki ingest_diff 二次蒸馏，不直接给人阅读
 ```
 
-### 样例三：行业白皮书
+### 样例三：行业白皮书（whitepaper · full 风格）
 
 **用户**："读一下这份 Gartner 关于 AI Infra 的报告"
 
@@ -483,7 +491,9 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --pdf ~/Downloads/gartner-ai-infra-2026.pdf \
   --type whitepaper \
   --output ~/wiki/industry/raw/whitepapers/ai-infra-2026/
-# 产物：summary.md（含行业背景 / 挑战 / 方案 / 案例 / 商业价值 5 段，无 PNG）
+# 产物：summary.md（按 PDF 原生章节顺序全文级转写；含行业数据表 / 对比表 / 客户案例 /
+#         章节末尾的 Conclusion + Key Takeaways；无 PNG；发布立场"行业中立"在元信息段标注）
+# 产物供 llm-wiki ingest_diff 二次蒸馏，不直接给人阅读
 ```
 
 ### 样例四：书籍（full 模式）

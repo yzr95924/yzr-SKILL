@@ -131,7 +131,7 @@
       "id": 5,
       "name": "manual-product-datasheet-h100",
       "prompt": "我们采购了 H100 GPU，我下了 NVIDIA H100 SXM 的 datasheet（路径 ~/Downloads/h100-sxm-datasheet.pdf），想整理成中文放到我的 wiki ~/wiki/llm-systems/raw/manuals/h100-sxm/ 下，方便后续 Q&A。",
-      "expected_output": "agent 反问输出路径（用户已说落到 ~/wiki/llm-systems/raw/manuals/h100-sxm/）→ --type manual --output <该路径>。产物:summary.md（含产品概述 / 关键特性 / 接口与参数 / 适用场景 5 段；架构用 mermaid block 画、参数用 markdown 表格；无 PNG 配套）。",
+      "expected_output": "agent 反问输出路径（用户已说落到 ~/wiki/llm-systems/raw/manuals/h100-sxm/）→ --type manual --output <该路径>。产物:summary.md（full 风格全文级转写，按 PDF 原生目录结构逐小节展开；含产品参数表 / 命令清单 / 错误码 / 章节末尾的故障排查 + FAQ；架构用 mermaid block 画、参数用 markdown 表格；无 PNG 配套；产物供 llm-wiki 二次 ingest，不直接给人看）。",
       "files": [],
       "assertions": [
         {
@@ -145,14 +145,19 @@
           "criteria": "<output>/summary.md 存在，<output>/figures/ 目录**不**存在（manual 不抽原始图）"
         },
         {
-          "name": "manual 必备 5 段章节",
+          "name": "manual full 风格——按 PDF 原生章节展开（不再固定 5 段骨架）",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 含 ## 产品概述 / ## 关键特性 / ## 接口与参数 / ## 适用场景 4 段核心（## 故障排查 / 常见问题 仅在文档有专门章节时输出，可选）"
+          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留，如 ## Hardware Specifications、## Installation）；≥ 3 个 ## + ≥ 5 个 ### 子节；不再是固定的'产品概述/关键特性/接口与参数/适用场景/故障排查'5 段骨架"
         },
         {
-          "name": "概念用 mermaid + 参数表",
+          "name": "manual 必保真元素——参数表 + 命令清单 + 错误码",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 含 ≥ 1 个 ```mermaidjs block（如架构 / 模块关系）且 ## 接口与参数 含 ≥ 1 个 markdown 表格"
+          "criteria": "summary.md 含 ≥ 5 行 markdown 表格（参数表 / 接口表 / 错误码表）+ ≥ 1 个 ```bash / ```yaml / ```json 代码块（命令清单 / API endpoint / 配置项）"
+        },
+        {
+          "name": "manual 末尾章节——故障排查 / FAQ / 更新日志要点原样保留",
+          "evidence_kind": "text_content",
+          "criteria": "summary.md 含 ## Troubleshooting / ## FAQ / ## Changelog 等 manual 特有末尾章节（按 PDF 实际章节命名）"
         },
         {
           "name": "不写 PDF 破图引用",
@@ -160,9 +165,9 @@
           "criteria": "summary.md 不含 ![图 N](PDF p.X ...) 引用（应被 strip_pdf_figure_refs 清掉或 prompt 强约束不写）"
         },
         {
-          "name": "字符数 ≤ 3000",
+          "name": "字符数 ≥ 5000（full 风格下限，反映 manual 完整转写后的最小篇幅）",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 字数 ≤ 3000 字符（manual 模板 SSOT）"
+          "criteria": "summary.md 字数 ≥ 5000 字符（不再有 ≤ 3000 上限；manual 改 full 风格后篇幅会显著变长）"
         }
       ]
     },
@@ -170,7 +175,7 @@
       "id": 6,
       "name": "manual-software-kubernetes-admin-guide",
       "prompt": "我把 Kubernetes 1.30 的 admin guide（PDF,路径 ~/Downloads/k8s-admin-guide.pdf）下载下来了，想把核心运维章节整理成中文 markdown 放到 ~/wiki/devops/raw/manuals/k8s-1.30/ 下。",
-      "expected_output": "agent 识别为 --type manual（用户明确说 admin guide）；产物 summary.md 含命令清单 / 配置参数 / 故障排查子小节（admin guide 典型结构）。",
+      "expected_output": "agent 识别为 --type manual（用户明确说 admin guide）；产物 summary.md 按 PDF 原生目录结构全文级转写（full 风格），含命令清单 / 配置参数 / 故障排查子小节（admin guide 典型结构）。",
       "files": [],
       "assertions": [
         {
@@ -179,14 +184,19 @@
           "criteria": "agent 调用包含 --type manual"
         },
         {
-          "name": "接口与参数 段含命令清单",
+          "name": "manual full 风格——按 PDF 原生章节展开",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 的 ## 接口与参数 节含 markdown 表格或 ```bash code block（命令清单格式）"
+          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留，如 ## Installation / ## Configuration / ## Troubleshooting）；≥ 3 个 ## + ≥ 5 个 ### 子节"
         },
         {
-          "name": "不写 H1",
+          "name": "manual 必保真——命令清单 / 配置代码块",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 正文不出现 '# xxx' 一级标题（仓库风格约定）"
+          "criteria": "summary.md 含 ≥ 1 个 ```bash / ```yaml / ```json 代码块（命令清单 / API endpoint / 配置项）+ ≥ 5 行 markdown 表格（参数表 / 配置表 / 错误码表）"
+        },
+        {
+          "name": "manual 不写 H1（仓库风格约定）",
+          "evidence_kind": "text_content",
+          "criteria": "summary.md 正文不出现 '# xxx' 一级标题（标题由文件名 / 上层目录承载，正文从 ## 起步）"
         }
       ]
     },
@@ -194,7 +204,7 @@
       "id": 7,
       "name": "whitepaper-industry-gartner",
       "prompt": "Gartner 刚发了 State of AI Infrastructure 2026 报告（PDF,路径 ~/Downloads/gartner-ai-infra-2026.pdf），帮我整理成中文放到 ~/wiki/industry/raw/whitepapers/ai-infra-2026/ 下，我想知道他们对这个市场的核心判断。",
-      "expected_output": "agent 反问类型（用户已说 Gartner 报告 → --type whitepaper）→ 调用 gemini_pdf_summary.py --type whitepaper --output <该路径>。产物 summary.md 含 ## 行业背景 / ## 挑战与机遇 / ## 解决方案（核心主张）/ ## 客户案例 / ## 商业价值 5 段；发布方识别为 Gartner；立场标记为'行业中立研究'。",
+      "expected_output": "agent 反问类型（用户已说 Gartner 报告 → --type whitepaper）→ 调用 gemini_pdf_summary.py --type whitepaper --output <该路径>。产物 summary.md 按 PDF 原生目录结构全文级转写（full 风格）；不再是固定 5 段骨架；含行业数据表 / 对比表 / 客户案例 / Conclusion + Key Takeaways；发布方识别为 Gartner；立场标记为'行业中立研究'。",
       "files": [],
       "assertions": [
         {
@@ -208,24 +218,29 @@
           "criteria": "<output>/summary.md 存在；<output>/figures/ 不存在"
         },
         {
-          "name": "whitepaper 必备 5 段章节",
+          "name": "whitepaper full 风格——按 PDF 原生章节展开（不再固定 5 段骨架）",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 含 ## 行业背景 / ## 挑战与机遇 / ## 解决方案（含核心主张）/ ## 商业价值 4 段核心（## 客户案例 / 实证 在文档有相关数据时输出）"
+          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留，如 ## Executive Summary / ## Market Analysis / ## Challenges）；≥ 3 个 ## + ≥ 5 个 ### 子节 + ≥ 1 个表格"
         },
         {
-          "name": "开篇表含发布方 + 主题",
+          "name": "开篇表含发布方 + 主题 + 发布立场",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 开篇 markdown 表格含发布方 'Gartner' 列"
+          "criteria": "summary.md 开篇 markdown 表格含发布方 'Gartner' 列 + * **发布立场**：行业中立研究 item"
         },
         {
-          "name": "立场标记 + 关键数字保留",
+          "name": "whitepaper 必保真——行业数据表 + mermaid 架构 / 流程图 + 关键数字保留",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 含 * **发布立场**：行业中立研究 item；市场规模等关键数字保留具体数值（非'显著增长'空话）"
+          "criteria": "summary.md 含 ≥ 5 行 markdown 表格（行业数据表 / 对比表 / 客户案例表）+ ≥ 1 个 ```mermaidjs block（架构 / 价值链 / 流程图）+ 关键数字保留具体数值（非'显著增长'空话）"
         },
         {
-          "name": "字符数 ≤ 3500",
+          "name": "whitepaper 末尾——Conclusion + Key Takeaways + Recommendations 原样保留",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 字数 ≤ 3500 字符（whitepaper 模板 SSOT）"
+          "criteria": "summary.md 含 ## Conclusion 或 ## Key Takeaways 或 ## Recommendations 等 whitepaper 特有末尾章节（按 PDF 实际章节命名）"
+        },
+        {
+          "name": "字符数 ≥ 6000（full 风格下限，反映 whitepaper 完整转写后的最小篇幅）",
+          "evidence_kind": "text_content",
+          "criteria": "summary.md 字数 ≥ 6000 字符（不再有 ≤ 3500 上限；whitepaper 改 full 风格后篇幅会显著变长）"
         }
       ]
     },
@@ -233,7 +248,7 @@
       "id": 8,
       "name": "whitepaper-vendor-tech",
       "prompt": "我们公司刚收到一份 Datadog 发来的可观测性技术白皮书（PDF,路径 ~/Downloads/datadog-observability-wp.pdf），市场部让我整理要点放到 ~/wiki/devops/raw/whitepapers/datadog-observability/ 下。",
-      "expected_output": "agent 识别为 --type whitepaper（vendor 技术白皮书）；立场标记为 'vendor 自家方案'；产物 summary.md 含 5 段核心。",
+      "expected_output": "agent 识别为 --type whitepaper（vendor 技术白皮书，full 风格全文级转写，按 PDF 原生目录结构展开）；立场标记为 'vendor 自家方案'；产物 summary.md 含 ≥ 1 个 mermaidjs block 或表格（vendor 白皮书常含架构图）。",
       "files": [],
       "assertions": [
         {
@@ -247,9 +262,9 @@
           "criteria": "summary.md 含 * **发布立场**：vendor 自家方案 item（识别为 vendor 视角）"
         },
         {
-          "name": "概念用 mermaid 画",
+          "name": "whitepaper full 风格——按 PDF 原生章节展开 + mermaid / 表格",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 至少 1 处用 ```mermaidjs block（vendor 白皮书常含架构图，需 mermaid 化）"
+          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留）+ 至少 1 处用 ```mermaidjs block 或 markdown 表格（vendor 白皮书常含架构图，需 mermaid 化或转表）"
         }
       ]
     },

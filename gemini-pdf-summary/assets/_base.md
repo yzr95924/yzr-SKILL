@@ -14,7 +14,7 @@
 - [**API 调用契约**](#api-调用契约) — Gemini 多模态直接读 PDF，不先抽文本
 - [**风格约定（仓库统一基线）**](#风格约定仓库统一基线) — bullet / 高亮 / mermaidjs / 行宽 / 不写 H1
 - [**基础要求（4 类共用）**](#基础要求4-类共用) — 忠于原文 / 英文保留 / 字符数纪律
-- [**图表处理约定**](#图表处理约定) — paper quick 抽原始图，其他 3 类用 mermaid / ASCII / 表格
+- [**图表处理约定**](#图表处理约定) — paper quick 抽原始图，paper full / manual / whitepaper / book 用 mermaid / ASCII / 表格
 - [**错误处理契约**](#错误处理契约) — 端到端不降级 / 3 次重试 / 抛错含三步建议
 <!-- markdownlint-enable MD051 -->
 
@@ -74,7 +74,9 @@ response = client.models.generate_content(
    * 度量 / 缩写 / 专有指标：BLEU、ROUGE、ACL、GPU、FLOPS、perplexity
    * 中英混排是常态（如"训练使用 LoRA（低秩适配）"）；表格中整项为英文术语时整项保持英文
 3. **引用出处**（按模板要求）：引用关键结论时点明出自 PDF 哪个章节
-4. **字符数纪律（精炼优先）**：总字符数目标由各模板头部声明（**单一来源**，不要在模板正文里再写死数值）；能 1 句话讲清的事不要拆 3 句；能省略的铺垫 / 重复 / 概念定义就省略；判断标准："删掉这段读者就理解错 / 漏掉关键信息"才是"必须留"，否则一律砍
+4. **字符数纪律**：
+   - **paper quick**（唯一精炼优先档位）：字符数 ≤ 2500（SSOT 见 `template-paper.md` 头部）——能 1 句话讲清的事不要拆 3 句；能省略的铺垫 / 重复 / 概念定义就省略；判断标准："删掉这段读者就理解错 / 漏掉关键信息"才是"必须留"，否则一律砍
+   - **paper full / manual / whitepaper / book**（full 风格）：**无字符数上限**——按 PDF 原生章节顺序逐小节展开，token 预算紧张时**优先精简措辞、缩具体例子**；**禁止**合并整段、删除小节、跳过该类型必保真的元素（paper full: 公式 / 定理 / 算法；manual: 命令 / 参数 / 错误码；whitepaper: 行业数据 / 客户案例；book: Chapter / 小结 / 思考题）
 5. **Markdown 标题分节**：每个章节标题**必须用 `##`（二级标题）**——**不要**写成 `###` / `####`；prompt 里出现的 `###`（图引用约定 / 风格约定 / 高频引用表格 / 本基础要求等）是给你的 meta 说明，**不是**输出标题；正文不写 H1（`#`）
 
 ## 图表处理约定
@@ -98,19 +100,20 @@ Gemini 输出          →  ![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> 
 
 图引用约定（caption 写到 alt / bbox 写进 url / 不要独立 `**图 N**` 行 / 不要 `— <role>` 后段等）详见 gemini-paper-summary 旧 SKILL.md §核心原则 #5 与 [`references/figure-extraction.md`](../references/figure-extraction.md)。
 
-### 4.2 其他 3 类（manual / whitepaper / book + paper full）
+### 4.2 manual / whitepaper / book + paper full（full 风格，4 类通用）
 
-**不抽原始图**。Prompt 强约束 Gemini 把图按类型分流：
+**不抽原始图**——manual / whitepaper / book 脚本自动启用 `--no-figures`，paper full 走
+`_run_full_mode`（按设计不写 `![图 N]` 引用）。Prompt 强约束 Gemini 把图按类型分流：
 
 - **架构 / 概念图**（Node 数据结构、流程图、模块关系、状态机等）→
   用 ` ```mermaidjs ` block 直接画（`graph TD` / `graph LR`）；label 用 `<br/>` 换行，关系用 `-->|文字|` 标注
-- **数据可视化图**（性能柱状图、accuracy 对比、loss 曲线、heatmap
-  等）→ 转 markdown 表格（数字精度 3 位有效数字）；图本身就是表格的
-  可视化形式，转表更准
-- **纯装饰图 / setup 截图** → 直接省略 + 在上下文写一句"图 N 是 `<场景描述>` 的示意图"，**不**画图、不写 `![图 N]` 引用
-- **接口 / API / 命令清单** → markdown 表格 + 代码块（` ```bash ` / ` ```yaml `）
+- **数据可视化图**（性能柱状图、accuracy 对比、loss 曲线、heatmap、市场份额等）→
+  转 markdown 表格（数字精度 3 位有效数字）；图本身就是表格的可视化形式，转表更准
+- **纯装饰图 / setup 截图 / logo** → 直接省略 + 在上下文写一句"图 N 是 `<场景描述>` 的示意图"，**不**画图、不写 `![图 N]` 引用
+- **接口 / API / 命令清单** → markdown 表格 + 代码块（` ```bash ` / ` ```yaml `）——manual 必保真
 
-**禁止写 `![图 N](PDF p.X ...)` 引用**——这 3 类产物自包含，无 PNG 配套；脚本后处理 `render_diagrams_as_mermaid()` 会在检测到该模式时报错并把该行整段删除（避免 outline 渲染破图）。
+**禁止写 `![图 N](PDF p.X ...)` 引用**——full 风格产物自包含，无 PNG 配套；脚本后处理
+`strip_pdf_figure_refs()` 会在检测到该模式时把该行整段删除（避免 outline 渲染破图）。
 
 ## 错误处理契约
 
@@ -123,6 +126,6 @@ google-genai 未安装          → 启动时检查；缺失则报清晰错误
 书籍 > Gemini 文件 API 上限    → 报错并提示拆 PDF；不自动降级
 Gemini 503/429/5xx 重试耗尽   → 抛 RuntimeError 含 model + status + 三步建议（不降级）
 模型 404 / 已 deprecated       → 报错并提示用 gemini-api-docs-mcp 查当前可用模型
-非 paper 类型的输出含 PDF ref  → render_diagrams_as_mermaid() 强制转 mermaid / 删除
+非 paper full / manual / whitepaper / book 类型的输出含 PDF ref → strip_pdf_figure_refs() 强制转 mermaid / 删除
 输出被 token 上限截断          → 检测到不完整章节 → 报错 + 建议缩小范围 / 换模型
 ```
