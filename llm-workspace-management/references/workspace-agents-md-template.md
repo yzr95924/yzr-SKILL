@@ -12,6 +12,17 @@
 > 工作时——**Claude Code** 经同目录薄壳 `CLAUDE.md`（`@AGENTS.md` 递归展开）自动加载本文件；**读 `AGENTS.md`
 > 的其他 agent**（Qoder / Codex / Gemini CLI 等）原生直读本文件。在别处工作时由 skill 经 `$LLMW_WORKSPACE` 按需读取——
 > **不依赖 symlink**，多终端 / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于 Claude Code 自动加载约定，无独立纪律。）
+>
+> **作用域（scope）声明**：本文件（`AGENTS.md` + 同目录 `CLAUDE.md` 薄壳）**仅约束跨 wiki
+> 工作**——即 agent cwd 在 workspace 根目录或外部 cwd 下调用 `llm-workspace-management`
+> 的场景。**当 agent cwd 落到本 workspace 下某个 `<wiki>/` 子目录内、改跑
+> `llm-wiki-management` 时，本文件不应被加载**——该目录的纪律由 `<wiki>/AGENTS.md`
+> 接管，特别要警惕 MEMORY scope 边界（workspace `MEMORY/` = 跨 wiki；`<wiki>/MEMORY/` =
+> 单 wiki）与 ingest / log 写入归属（wiki 内写 `<wiki>/wiki/` + `<wiki>/wiki/log.md`，
+> 而非 workspace 级 `INDEX.md` / `STATS.md`）。不同 agent 的 `@AGENTS.md` 级联行为各异
+>（Claude Code / Qoder / Codex / Gemini CLI 等），识别到 cwd 在本 workspace 下某个
+> `<wiki>/` 子目录时应跳过本目录的 `CLAUDE.md` / `AGENTS.md`，避免与
+> `<wiki>/AGENTS.md` 的单 wiki 纪律冲突。
 
 <!-- @import 写在 SSOT 内（两边都能加载）：Claude Code 下经薄壳 CLAUDE.md → @AGENTS.md 递归展开后会话常驻；
      其他 agent 能否展开 @import 取决于实现，最坏由启动检查显式 Read 兜底。agent 写 memory 时同步更新本索引。 -->

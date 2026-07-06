@@ -149,8 +149,8 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<workspace>/workspace.toml` | workspace CLI | 只读 |
 | `<workspace>/workspace_models.toml` | workspace CLI | 只读（甚至不读；不感知 model 配置） |
 | `<workspace>/.gitignore` | workspace CLI | 只读 |
-| `<workspace>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读（schema 宪法；改前先与用户确认） |
-| `<workspace>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读 |
+| `<workspace>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读（schema 宪法；改前先与用户确认）；**作用域 = 跨 wiki**，wiki 子目录内不加载（见"加载作用域边界"小节） |
+| `<workspace>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读；**作用域 = 跨 wiki**，wiki 子目录内不加载（同上） |
 | `<workspace>/INDEX.md` | 本 skill | 写 |
 | `<workspace>/STATS.md` | 本 skill | 写 |
 | `<workspace>/cross_queries/` | 本 skill | 写 |
@@ -202,7 +202,23 @@ spec 文件做契约对齐。
    （Qoder / Codex / Gemini CLI 等）原生读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
    读 AGENTS.md，`@` 不自动展开）→ 显式 `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，
    知晓已有哪些跨 wiki 记忆
-4. **不**自动跑 `scan`——等用户给操作意图
+4. **加载作用域边界判定**（见下方"加载作用域边界"小节）——若当前 agent cwd 在某
+   `<wiki>/` 子目录内、改跑 `llm-wiki-management`，本 skill 的纪律（含步骤 3 加载到的
+   `<workspace>/AGENTS.md` 内容）**不**接管该 agent，改由 `<wiki>/AGENTS.md` 单 wiki 纪律生效
+5. **不**自动跑 `scan`——等用户给操作意图
+
+#### 加载作用域边界
+
+`<workspace>/AGENTS.md` 与 `<workspace>/CLAUDE.md` 仅约束**跨 wiki 工作**
+（workspace 根目录或外部 cwd 下调用 `llm-workspace-management`）。当 agent cwd 在
+`<wiki>/` 或更深子目录、改调 `llm-wiki-management` 时，本 skill **不**自动加载
+workspace 顶层 AGENTS.md / CLAUDE.md——避免与 `<wiki>/AGENTS.md` 单 wiki 纪律冲突，尤其
+MEMORY scope 边界（workspace `MEMORY/` = 跨 wiki；`<wiki>/MEMORY/` = 单 wiki）、
+log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/log.md`，
+非 workspace 级 `INDEX.md` / `STATS.md`）。不同 agent 的 `@AGENTS.md` 级联行为各异
+（Claude Code / Qoder / Codex / Gemini CLI），本 skill 不替具体 agent 实现判定，统一通过
+**"在 wiki 子目录工作时 workspace skill 纪律不接管"**这条边界让 agent 自决；
+`<workspace>/AGENTS.md` 模板顶部自含 scope 声明供级联方识别。
 
 ### 1. Scan / refresh-index
 
