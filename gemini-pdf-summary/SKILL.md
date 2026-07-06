@@ -49,8 +49,9 @@ metadata:
 | 模型 ID | ✗ | 默认 `gemini-3.1-pro-preview`（不传 `--model` 即可；2026-07-06 起全 skill 统一默认走 pro-preview，长上下文注意力稳 + mermaid 架构图完整保留）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
 | 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt |
 | 输出路径 | ✗ | `--output <path>`：paper quick 默认带图时视作**目录**（写 summary.md + figures/）；非 paper 类型 / --no-figures / book / paper full 模式视作 .md 文件路径（或 raw 端目录）；不传则 stdout |
-| 模板 / 模式 | ✗ | paper quick 默认；`--full` 启用 paper full 或 book 模式；`--by-chapter` 单次调用按章节拆 N 个 .md（与 `--full` 互斥） |
-| 页范围（by-chapter 配套） | ✗ | `--pages 1-50`：先用 PyMuPDF 切页范围再交给 Gemini；与 `--by-chapter` 组合可拆超长 PDF（先按页切 + 每段内按章节拆） |
+| 模板 / 模式 | ✗ | paper quick 默认；`--full` 启用 paper full 或 book 模式；`--by-chapter` 按章节拆 N 个 .md（与 `--full` 互斥） |
+| 章节拆法（by-chapter 配套） | ✗ | `--granularity {L1\|auto}`（**默认 L1**，2026-07-06 起）：L1 按 PDF 原生 L1 章 N 次独立 API 调用 + L2 子节合并进 L1（自带 File API 缓存，节省 N-1 次上传）；auto 单次调用（仅适用 ≤ 50 页短 PDF，>50 页走 pre-flight 拒绝并推荐 L1） |
+| 页范围（auto by-chapter 配套） | ✗ | `--pages 1-50`：先用 PyMuPDF 切页范围再交给 Gemini；与 `--by-chapter --granularity auto` 组合可拆超长 PDF。**L1 模式下传 --pages 会报错**（L1 按章自动切页） |
 | 提取图片 | ✗ | 仅 paper quick 生效：`--no-figures` 关闭图导出（手动 / 白皮书 / 书默认即不开图） |
 | 渲染倍率 | ✗ | `--figure-dpi 2.0`（默认 2.0；**144 DPI = 72 × 2.0 换算值**，并非独立阈值；改 `--figure-dpi` 时本表无需同步），仅 paper quick 图导出启用时生效 |
 | 图片格式 | ✗ | `--figure-format {png,webp,jpeg}`，默认 png；webp/jpeg 时可用 `--figure-quality` 压缩 |
@@ -120,11 +121,11 @@ metadata:
 - **manual**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含命令清单 / 参数表 / 错误码；章节末尾的故障排查 + FAQ + 更新日志要点原样保留）；**不抽原始图**
 - **whitepaper**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含行业数据表 / 对比表 / 客户案例；章节末尾的 Conclusion + Key Takeaways + Recommendations 原样保留）；**不抽原始图**
 - **book**（仅 full）：按 PDF 原生 `Chapter` / `Section` / `Appendix` / `Index` 顺序全量转写；**不抽原始图**
-- **by-chapter**（`--by-chapter`，4 类文档通用）：单次 API 调用 + Gemini 结构化 JSON 输出，按 PDF 原生章节拆为 N
-  个独立 .md + 1 个 `00-index.md` TOC；产物粒度便于 llm-wiki 多次 ingest 与逐章 Q&A；与全 skill 统一默认一致走
-  `gemini-3.1-pro-preview`（3.5-flash 单调用在 JSON 结构化输出下会撞 `FULL_MAX_OUTPUT_TOKENS` 上限产生未闭合 JSON）；受
-  `FULL_MAX_OUTPUT_TOKENS` 上限约束，超长 PDF 末位章节可能截断——可叠加 `--pages` 拆段缓解；详细契约见
-  `references/full-mode-contract.md` §by-chapter
+- **by-chapter**（`--by-chapter`，4 类文档通用，**默认 L1** 模式，2026-07-06 起）：按 PDF 原生 L1 章 N 次独立 API 调用 + L2 子节合并进 L1。
+  产物 layout 是 `<output>/00-index.md`（N_L1 行 TOC）+ `<output>/01-<L1-slug>.md`（含 ## L1.title + ### L2 子节）+ ...。
+  **L1 模式自带 File API 缓存**（PDF > 20MB 走 File API upload 1 次 + N 次 `Part.from_uri()` 引用，节省 N-1 次上传 token）。
+  L2/L3 等细粒度可通过单 L1 内的 Gemini 拆分自然获得；旧 `auto` 模式（单次 API 调用，Gemini 自决粒度）保留供 ≤ 50 页短 PDF + 习惯旧行为的用户使用，
+  > 50 页走 pre-flight 拦截并推荐 L1。详细契约见 `references/full-mode-contract.md` §by-chapter
 
 **字符数目标**：
 
@@ -238,7 +239,7 @@ metadata:
 
 ### A. agent 在会话中调用（推荐流程）
 
-**Step 1 — 类型确认**（**关键**：脚本强制要求）：
+**Step 1 — 类型 + 拆法 + 输出路径 三维反问**（**关键**：脚本强制要求）：
 
 ```text
 1. 用户说"总结这个 PDF" / agent 拿到本地 .pdf 文件
@@ -251,6 +252,23 @@ metadata:
       - book       - 书籍 / 长篇技术文档
       或者让我用 --auto-detect 自动识别"
 4. 用户回答后传 --type <answer>
+```
+
+**Step 1b — 拆法反问**（**关键**：仅在 --by-chapter 模式下生效）：
+
+```text
+1. 跑 --by-chapter 前，agent 必须反问拆法（**禁止 agent 拍板粒度**——粒度差异
+   直接决定产物文件数 + 后续 ingest 路径）：
+     "希望按什么粒度拆？
+      - L1 (默认): 按 PDF 原生 L1 章 N 次独立调用 + L2 子节合并进 L1。
+        产物少、撞 token 限概率近 0、自带 File API 缓存。
+        例：98 页白皮书 14 个 L1 章 → 14 个 .md
+      - auto: 单次 API 调用，Gemini 自决粒度。仅适用 ≤ 50 页短 PDF。
+        例：98 页白皮书 1 次调用 → 35%+ 章节截断（不推荐长 PDF）"
+2. 用户回答后传 --granularity <L1|auto>（默认 L1，不传走 L1）
+3. **不**反问场景：用户已说"按章节拆"未指定粒度 → agent 仍需反问要 L1 还是 auto
+   （"按章节"是模糊诉求；体验教训：98 页白皮书直接拆出 118 个细粒度 .md，
+   后续合并丢数据，见 /root/gemini-white-paper-err.md）
 ```
 
 **Step 2 — 输出路径确认**（**关键**：避免落盘到错位置）：
@@ -282,11 +300,24 @@ metadata:
      --output <output-dir>    # 或不传 → stdout
    # paper quick 默认带图 + Stage 2 视觉定位（--refine-figures 默认开），保证图质量；
    # --no-figures 关闭图导出
+
+   # by-chapter 模式（默认 L1，2026-07-06 起）：
+   python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+     --pdf <path> \
+     --type <type> \
+     --by-chapter \
+     --granularity L1         # 默认；可省略；长 PDF 首选
+     # --granularity auto     # 单次调用，仅 ≤ 50 页短 PDF
+     --output <output-dir>
+   # L1 模式产物：<output>/00-index.md + N_L1 个 <NN>-<L1-slug>.md
 5. 把生成的 Markdown 总结（含图）呈现给用户
 6. 标注所用模型与 PDF 文件名
 7. **失败处理（重要）**：若第 4 步脚本抛 RuntimeError（503/429/5xx 重试耗尽），
    agent **不得**自行加 `--model` 换便宜模型重跑——把错误原文 + 三步建议如实
    呈现给用户并停下，换不换模型由用户决定（见 §核心原则 #8 端到端不降级）
+8. **by-chapter 失败处理**：L1 模式下若个别 L1 章失败，脚本写 FAILED-<slug>.md
+   占位 + 继续后续 L1（不中断）；00-index.md 标 ⚠FAILED 指向失败项；agent 可
+   单独用 `--pages <失败页范围> --granularity auto` 重跑失败段。
 ```
 
 也可以直接在会话里调 SDK（API 细节见 `references/api-quickstart.md`）。
@@ -359,7 +390,14 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.1-pro-preview`（默认）或 `gemini-3.5-flash` / `gemini-3.1-flash-lite` |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/template-*.md`）/ `--focus`；后处理裁剪 |
 | 输出空 / 截断 | 撞输出 token 上限 | paper quick → 调 prompt 字符目标（SSOT 见 `assets/template-paper.md`）/ `--focus`；full / book 截尾 → 多为模型未保真转写，换模型重跑或拆书；**`--by-chapter` 末位章节截断** → 已是 pro-preview 默认，用 `--pages` 拆段重跑末段（详见 `references/full-mode-contract.md` §by-chapter） |
-| `--by-chapter` 与 `--full` 互斥 | 同时传了 `--by-chapter --full` | 二选一：`--full` 走 paper 双产物（quick + full）；`--by-chapter` 走单次 API 按章节拆 N 个 .md |
+| `--by-chapter` 与 `--full` 互斥 | 同时传了 `--by-chapter --full` | 二选一：`--full` 走 paper 双产物（quick + full）；`--by-chapter` 走 N 次 API 按 L1 章拆 N 个 .md（默认 L1） |
+| `--by-chapter --granularity auto` + PDF > 50 页 + 无 `--pages` | 单次 API 调用撞 65536 token 上限 → 末位章节截断（实测 35%+） | 改用 `--granularity L1`（默认）：按 PDF 原生 L1 章 N 次独立调用，每章 ≤ 50 页撞限概率近 0 |
+| `--by-chapter --granularity L1` + `--pages` | L1 模式按章自动切页，`--pages` 不兼容 | 删 `--pages`；L1 模式按 PDF 原生 L1 章边界自动切。如需按自定义页段拆 → 改用 `--granularity auto` |
+| L1 模式缺 pymupdf | `--granularity L1` 需要 PyMuPDF 读 TOC + 切页 | `pip install --user --break-system-packages pymupdf`；或改 `--granularity auto` 走单次调用（不需 pymupdf） |
+| L1 模式 PDF 无 TOC | PDF 未嵌 bookmarks / outline | 脚本自动 fallback `--granularity auto`（stderr WARN 提示）；如需严格 L1 拆 → 重新生成 PDF 时加 bookmarks |
+| L1 模式某 L1 章失败 | 该 L1 页范围 API 调用抛错（API 限流 / PDF 损坏等） | 脚本写 `FAILED-<slug>.md` 占位 + 继续后续 L1；agent 可单独 `--pages <失败页范围> --granularity auto` 重跑 |
+| L1 模式 File API 上传失败 | PDF > 20MB 时 L1 模式依赖 File API 缓存 | 脚本直接抛错（不静默退 inline——inline 无法跨调用复用）；处置：1) 重试  2) `--granularity auto` 走单次调用  3) 缩小 PDF |
+| by-chapter 产物里出现 `< 100B` 空文件 | 模型放弃的章节（截断 / 内容缺失） | 脚本自动清理 + stderr WARN 数字（00-index.md 仍含原引用，必要时手删或重跑） |
 | `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **端到端不降级**——脚本直接抛错（含 model 名 + status + 三步建议）；**agent 收到此错不得自行换模型重跑**，须如实报给用户、由用户决定是否 `--model` 显式重试 |
 | 产出的 md 里出现 `![图 N](PDF p.X ...)` 引用 | 非 paper 类型或 paper full 模式产物 | **自动处理**：脚本 `strip_pdf_figure_refs` 在 main 末尾清理；如出现说明 prompt 漏改 |
 

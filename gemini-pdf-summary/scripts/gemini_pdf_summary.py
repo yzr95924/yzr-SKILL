@@ -1439,23 +1439,40 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         "--by-chapter",
         action="store_true",
         help=(
-            "按 PDF 原生章节拆分产物为多个 markdown 文件（单次 API 调用 + Gemini 结构化 JSON 输出）。\n"
+            "按 PDF 原生章节拆分产物为多个 markdown 文件。\n"
             "适用 manual / whitepaper / book / paper full 场景：当用户希望按章节粒度拥有独立 .md 文件、"
             "便于 llm-wiki 二次 ingest 与逐章 Q&A 时使用。\n"
-            "产物 layout: <output>/00-index.md (TOC) + <output>/01-<chapter-slug>.md + ...\n"
+            "拆法由 --granularity 控制（默认 L1：按 L1 章 N 次独立调用 + L2 子节合并进 L1）。\n"
+            "产物 layout: <output>/00-index.md (TOC) + <output>/01-<L1-slug>.md + ...\n"
             "与 --full 互斥（--by-chapter 已隐含全文级转写）。\n"
-            "与 --pages 1-50 组合使用可拆超长 PDF（先按页切 + 每段内按章节拆）。\n"
-            "受 FULL_MAX_OUTPUT_TOKENS (65536) 上限约束，超长 PDF 末位章节可能截断。"
+            "受 FULL_MAX_OUTPUT_TOKENS (65536) 上限约束；L1 模式按章拆每章 ≤ 50 页，"
+            "撞限概率近 0；auto 模式单调用撞限用 --pages 拆段缓解。"
+        ),
+    )
+    parser.add_argument(
+        "--granularity",
+        choices=("L1", "auto"),
+        default="L1",
+        help=(
+            "--by-chapter 模式的章节拆法（默认 L1）。\n"
+            "  L1   : 按 PDF 原生 L1 章 N 次独立 API 调用，每章 1 个 .md + L2 子节合并进 L1。"
+            "长 PDF 首选；自带 File API 缓存，节省 N-1 次 PDF 上传。\n"
+            "  auto : 单次 API 调用，Gemini 自决粒度（仅适用 ≤ 50 页短 PDF）；"
+            "保留旧行为以便对比。超长 PDF 撞 token 限会失败。\n"
+            "L1 模式与 --pages 互斥（L1 按章自动切页，不需要 --pages）；"
+            "auto 模式可与 --pages 组合拆段。"
         ),
     )
     parser.add_argument(
         "--pages",
         default=None,
         help=(
-            "页范围过滤（仅在 --by-chapter 模式下生效），格式 '1-30' / '31-60'。\n"
-            "用 PyMuPDF 在调用 Gemini 前切出指定页范围为临时 PDF，"
-            "配合 --by-chapter 可拆超长 PDF（先按页切 + 每段内按章节拆）。\n"
-            "示例：--pages 1-50 --by-chapter --output out/p1/ 拆前 50 页为按章节的多个 .md。"
+            "页范围过滤（仅在 --by-chapter --granularity auto 模式下生效），格式 '1-30' / '31-60'。\n"
+            "用 PyMuPDF 在调用 Gemini 前切出指定页范围为临时 PDF；"
+            "配合 --by-chapter --granularity auto 可拆超长 PDF（先按页切 + 每段内按章节拆）。\n"
+            "示例：--pages 1-50 --by-chapter --granularity auto --output out/p1/ "
+            "拆前 50 页为按章节的多个 .md。\n"
+            "L1 模式下传 --pages 会报错（L1 按 L1 章边界自动切页）。"
         ),
     )
     parser.add_argument(
@@ -1659,8 +1676,10 @@ def call_gemini(model, pdf_bytes, prompt, temperature, max_output_tokens=None): 
     return text
 
 
-def call_gemini_structured(model, pdf_bytes, prompt, schema, temperature, max_output_tokens=None):
-    # type: (str, bytes, str, dict, float, Optional[int]) -> dict
+def call_gemini_structured(
+    model, pdf_bytes, prompt, schema, temperature, max_output_tokens=None, file_part=None
+):
+    # type: (str, bytes, str, dict, float, Optional[int], Optional[object]) -> dict
     """调用 Gemini 结构化输出（response_schema 约束），返回 JSON dict。
 
     与 call_gemini 的差异：
@@ -1669,13 +1688,21 @@ def call_gemini_structured(model, pdf_bytes, prompt, schema, temperature, max_ou
     - 同样委托 _gemini_call_with_retry 走统一重试 + 不切模型策略
     - 同样走 inline Part / File API 分流（pdf_bytes > 20 MB 走 File API）
 
+    `file_part`（2026-07-06 L1 模式新增，可选）：由调用方预上传 File API 拿到的 Part
+    对象。传非 None 时直接复用（不再走 inline / 重新 upload），用于 L1 模式 N 次调用
+    共享同一上传、节省 N-1 次 PDF 上传 token。**仅在 caller 已经持有 file_part 时
+    才传**；一般场景保持 None。
+
     适用 --by-chapter 模式。
     """
     import json  # 局部 import，容错 JSON 解析失败时给更清晰的错误
 
     client = genai.Client()
 
-    if len(pdf_bytes) <= MAX_PDF_BYTES_INLINE:
+    if file_part is not None:
+        # L1 模式复用已上传 PDF：直接引用 file_part，零额外上传
+        contents = [file_part, prompt]
+    elif len(pdf_bytes) <= MAX_PDF_BYTES_INLINE:
         contents = [
             types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
             prompt,
@@ -1832,9 +1859,167 @@ def _looks_truncated_chapter(content):
     return True  # 末字符不闭合 + 走过基本检查 → 视为可能截断
 
 
+def _upload_pdf_to_file_api(pdf_bytes, display_name="by-chapter-pdf"):
+    # type: (bytes, str) -> object
+    """上传 PDF 到 File API，返回可供 `client.files.upload` / `Part.from_uri` 用的 Part。
+
+    L1 模式 N 次调用共享同一上传 → 节省 N-1 次 PDF 上传 token。失败时直接抛
+    (不静默退 inline —— L1 模式需要 Part.from_uri 引用 file API)。
+    """
+    client = genai.Client()
+    sys.stderr.write(
+        f"INFO: L1 模式预上传 PDF ({len(pdf_bytes) / 1024 / 1024:.1f}MB) 到 File API（48h 保留）。\n"
+    )
+    uploaded = client.files.upload(
+        file=pdf_bytes,
+        config={"display_name": display_name, "mime_type": "application/pdf"},
+    )
+    return uploaded
+
+
+def _read_pdf_toc(pdf_bytes):
+    # type: (bytes) -> list
+    """PyMuPDF 读 PDF 的 TOC（PDF 内嵌的 bookmarks / outline）。
+
+    返回 list of `(level, title, page_1indexed)`，缺 TOC 时返回 []。失败抛异常。
+
+    与 `--granularity L1` 配套：调用方按 level==1 过滤出 L1 章列表。L1 章末尾页
+    是到下一个 L1 章起始页 - 1（最后一章到 PDF 总页数）。
+    """
+    import fitz  # type: ignore  # noqa: F811
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        toc = doc.get_toc() or []
+    finally:
+        doc.close()
+    return toc
+
+
+def _cleanup_stub_files(out_dir, threshold=100, keep_filename="00-index.md"):
+    # type: (str, int, str) -> int
+    """清理 out_dir 下 < threshold 字节的 .md stub 文件（视为模型放弃的章节）。
+
+    返回删除的文件数。`keep_filename` 永不删（默认 00-index.md）。每个被删文件
+    写一行 stderr INFO（汇总在最后一行 WARN）。
+    """
+    removed = 0
+    for fname in sorted(os.listdir(out_dir)):
+        if not fname.endswith(".md") or fname == keep_filename:
+            continue
+        fpath = os.path.join(out_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            if os.path.getsize(fpath) < threshold:
+                os.remove(fpath)
+                removed += 1
+        except OSError:
+            # 文件 IO 异常不影响整体
+            continue
+    if removed:
+        sys.stderr.write(
+            f"WARN: 清理 {removed} 个 < {threshold}B stub 章节（疑似模型放弃）。\n"
+            "      （00-index.md 仍保留原引用，必要时手删或重跑对应页范围）\n"
+        )
+    return removed
+
+
+def _run_by_chapter_one_call(
+    pdf_bytes, model, temperature, focus, out_dir, file_part=None, label=""
+):
+    # type: (bytes, str, float, str, str, Optional[object], str) -> dict
+    """单次 by-chapter API 调用：调 Gemini + 写各章节 .md，返回 metadata。
+
+    与原 `_run_by_chapter_mode` 的核心循环等价，但**不**写 00-index.md（index 由
+    caller 写），且**不**做 stub 清理（caller 在合并后统一清理）。
+
+    返回 dict：
+        {
+          "chapters": [
+            {"title": str, "level": int, "content": str,
+             "filename": "01-<slug>.md", "truncated": bool, "slug": str},
+            ...
+          ],
+          "truncated_titles": [str, ...],
+          "raw_count": int,
+        }
+
+    参数:
+        pdf_bytes    -- PDF 二进制（整本或 --pages 切过的）
+        model / temperature / focus  -- Gemini 调用参数
+        out_dir      -- 章节 .md 写出目录（已存在；caller makedirs）
+        file_part    -- 预上传的 File API Part（L1 模式复用）；None 走 inline/File API 自分流
+        label        -- 调度标签（写 stderr 日志用，如 "L1-3/14 硬件架构"）
+    """
+    if label:
+        sys.stderr.write(f"INFO: --by-chapter 调用 {label} 开始\n")
+
+    # 构造 prompt
+    prompt = BY_CHAPTER_PROMPT
+    if focus:
+        prompt = prompt + FOCUS_INJECTION_FULL.format(focus=focus.strip())
+
+    # 调 Gemini 结构化输出
+    data = call_gemini_structured(
+        model,
+        pdf_bytes,
+        prompt,
+        CHAPTER_SCHEMA,
+        temperature,
+        max_output_tokens=FULL_MAX_OUTPUT_TOKENS,
+        file_part=file_part,
+    )
+
+    chapters = data.get("chapters") or []
+    if not isinstance(chapters, list) or not chapters:
+        # L1 模式下走"失败 L1 写占位"路径，auto 模式依然 sys.exit
+        raise ValueError(
+            f"Gemini 返回的 chapters 字段为空或非数组 (data keys: {list(data.keys())})"
+        )
+
+    used_slugs = set()
+    written = []
+    truncated_titles = []
+
+    for i, ch in enumerate(chapters, 1):
+        title = str(ch.get("title") or f"chapter-{i}").strip()
+        level = int(ch.get("level") or 2)
+        content = str(ch.get("content") or "").strip()
+
+        # 防御：content 里如果以 "# " 开头（H1 越界），剥掉首行 H1
+        content = re.sub(r"^#\s+[^\n]*\n+", "", content, count=1)
+
+        # 截断检测（仅末位章节有效）
+        is_last = i == len(chapters)
+        truncated = is_last and _looks_truncated_chapter(content)
+        if truncated:
+            truncated_titles.append(title)
+            content += "\n\n<!-- ⚠ 末位章节疑似截断（content 末尾未正常闭合）；"
+            content += "默认已走 pro-preview，建议用 --pages 拆段重跑末段 -->\n"
+
+        slug = slugify_chapter(title, used_slugs)
+        used_slugs.add(slug)
+        fname = f"{i:02d}-{slug}.md"
+        out_path = os.path.join(out_dir, fname)
+
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(content + "\n")
+        written.append(
+            {"title": title, "level": level, "content": content,
+             "filename": fname, "truncated": truncated, "slug": slug}
+        )
+
+    return {
+        "chapters": written,
+        "truncated_titles": truncated_titles,
+        "raw_count": len(chapters),
+    }
+
+
 def _run_by_chapter_mode(args):
     # type: (argparse.Namespace) -> int
-    """--by-chapter 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件。
+    """--by-chapter --granularity auto 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件。
 
     输入约定:
         args.pdf         -- PDF 路径
@@ -1853,6 +2038,7 @@ def _run_by_chapter_mode(args):
     - 走 Gemini response_schema 强制 JSON 结构，避免 delimiter 法的脆弱性
     - 末位章节若截断，写 stderr WARN + 在 00-index.md 末尾追加截断标记
     - 与 --full 互斥（已隐含全文级）；与 --pages 组合可拆超长 PDF
+    - 与 --granularity L1 互斥（auto 仅适用 ≤ 50 页短 PDF；>50 页走 pre-flight 拦截）
     """
     # 必填校验
     if not args.output:
@@ -1873,76 +2059,29 @@ def _run_by_chapter_mode(args):
     # 1) 校验输入（隐式 GEMINI_API_KEY + PDF 完整性）
     model, pdf_bytes, focus = validate_inputs(args)
 
-    # 3) 若指定 --pages，先切页范围
+    # 2) 若指定 --pages，先切页范围（仅 auto 模式支持）
     if args.pages:
         pdf_bytes = _filter_pdf_pages(pdf_bytes, args.pages)
-        # 切页后大小判定走 call_gemini_structured 内部
 
     pdf_size_mb = len(pdf_bytes) / 1024 / 1024
     sys.stderr.write(
-        f"INFO: --by-chapter 开始 (PDF {pdf_size_mb:.1f}MB, 模型 {model}, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
+        f"INFO: --by-chapter --granularity auto 开始 (PDF {pdf_size_mb:.1f}MB, 模型 {model}, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
     )
 
-    # 3) 构造 prompt（追加 focus 注入）
-    prompt = BY_CHAPTER_PROMPT
-    if focus:
-        prompt = prompt + FOCUS_INJECTION_FULL.format(focus=focus.strip())
-
-    # 4) 调用 Gemini 结构化输出
-    data = call_gemini_structured(
-        model,
-        pdf_bytes,
-        prompt,
-        CHAPTER_SCHEMA,
-        args.temperature,
-        max_output_tokens=FULL_MAX_OUTPUT_TOKENS,
+    # 3) 单次调用 + 写章节文件（提取到 _run_by_chapter_one_call）
+    result = _run_by_chapter_one_call(
+        pdf_bytes, model, args.temperature, focus, out_dir, file_part=None, label=""
     )
+    written_files = result["chapters"]
+    truncated_chapters = result["truncated_titles"]
 
-    # 5) 解析结果，写章节文件 + TOC
-    chapters = data.get("chapters") or []
-    if not isinstance(chapters, list) or not chapters:
-        sys.stderr.write(
-            f"ERROR: Gemini 返回的 chapters 字段为空或非数组 (data keys: {list(data.keys())})。\n"
-            "       可能原因：PDF 内容超出 schema 容量；或模型未严格遵守 schema。\n"
-            "       默认已走 pro-preview，建议用 --pages 拆段。\n"
-        )
-        sys.exit(3)
-
-    used_slugs = set()
+    # 4) 写 master TOC
     toc_lines = ["# 目录", ""]
-    written_files = []
-    truncated_chapters = []
+    for entry in written_files:
+        indent = "  " * max(0, entry["level"] - 1)
+        toc_marker = " ⚠" if entry["truncated"] else ""
+        toc_lines.append(f"{indent}- [{entry['title']}{toc_marker}]({entry['filename']})")
 
-    for i, ch in enumerate(chapters, 1):
-        title = str(ch.get("title") or f"chapter-{i}").strip()
-        level = int(ch.get("level") or 2)
-        content = str(ch.get("content") or "").strip()
-
-        # 防御：content 里如果以 "# " 开头（H1 越界），剥掉首行 H1
-        content = re.sub(r"^#\s+[^\n]*\n+", "", content, count=1)
-
-        # 截断检测（仅末位章节有效；中间章节靠 title 顺序判断可能不准）
-        is_last = i == len(chapters)
-        truncated = is_last and _looks_truncated_chapter(content)
-        if truncated:
-            truncated_chapters.append(title)
-            content += "\n\n<!-- ⚠ 末位章节疑似截断（content 末尾未正常闭合）；"
-            content += "默认已走 pro-preview，建议用 --pages 拆段重跑末段 -->\n"
-
-        slug = slugify_chapter(title, used_slugs)
-        used_slugs.add(slug)
-        fname = f"{i:02d}-{slug}.md"
-        out_path = os.path.join(out_dir, fname)
-
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(content + "\n")
-        written_files.append((fname, title, level, truncated))
-
-        indent = "  " * max(0, level - 1)
-        toc_marker = " ⚠" if truncated else ""
-        toc_lines.append(f"{indent}- [{title}{toc_marker}]({fname})")
-
-    # 写 master TOC
     if truncated_chapters:
         toc_lines.append("")
         toc_lines.append("## 截断告警")
@@ -1956,16 +2095,284 @@ def _run_by_chapter_mode(args):
         )
     _write_text(os.path.join(out_dir, "00-index.md"), "\n".join(toc_lines) + "\n")
 
+    # 5) Stub 清理（< 100B 文件视为模型放弃的章节，删 + WARN）
+    _cleanup_stub_files(out_dir)
+
     # 6) 总结报告
-    total_chars = sum(os.path.getsize(os.path.join(out_dir, fname)) for fname, _, _, _ in written_files)
+    total_chars = sum(
+        os.path.getsize(os.path.join(out_dir, entry["filename"]))
+        for entry in written_files
+        if os.path.isfile(os.path.join(out_dir, entry["filename"]))
+    )
+    kept = [e for e in written_files if os.path.isfile(os.path.join(out_dir, e["filename"]))]
     sys.stderr.write(
-        f"OK: --by-chapter 完成 → {out_dir}/\n"
-        f"     拆出 {len(chapters)} 个章节 + 1 个索引（{len(chapters)} 个 .md + 00-index.md）\n"
-        f"     总大小 {total_chars / 1024:.1f} KB（平均每章 {total_chars // max(len(chapters), 1) / 1024:.1f} KB）\n"
+        f"OK: --by-chapter --granularity auto 完成 → {out_dir}/\n"
+        f"     拆出 {len(kept)} 个章节 + 1 个索引（{len(kept)} 个 .md + 00-index.md）\n"
+        f"     总大小 {total_chars / 1024:.1f} KB（平均每章 {total_chars // max(len(kept), 1) / 1024:.1f} KB）\n"
     )
     if truncated_chapters:
         sys.stderr.write(
             f"WARN: {len(truncated_chapters)} 个末位章节疑似截断，详见 {out_dir}/00-index.md 截断告警段。\n"
+        )
+
+    return 0
+
+
+def _run_by_chapter_l1_orchestrator(args):
+    # type: (argparse.Namespace) -> int
+    """--by-chapter --granularity L1 模式（2026-07-06 新增，默认 by-chapter 行为）。
+
+    流程：
+      1. PyMuPDF 读 TOC（bookmarks / outline），过滤"目  录"等空 L1，取 L1 列表
+      2. PDF > 20MB → File API 预上传 1 次；后续 N 次调用复用 file_part
+      3. 对每个 L1 章串行：
+         a. PyMuPDF 切 [start_page, next_L1_start - 1] 页范围
+         b. _run_by_chapter_one_call → 拿 K_i 个子章节（L2 为主，可能有 L3）
+         c. 把 K_i 个子章节合并到 1 个 .md：## <L1.title> + ### <L2.title> + content
+         d. 失败 → 写 FAILED 占位 .md + 继续
+      4. 写 00-index.md（N_L1 行 TOC，FAILED 项标 ⚠）
+      5. Stub 清理（< 100B 文件）
+
+    产物 layout：
+        <output>/
+        ├── 00-index.md
+        ├── 01-<L1-slug>.md      （## L1.title + ### L2.title + content）
+        ├── 02-<L1-slug>.md
+        ├── ...
+        └── NN-<L1-slug>.md      （最后一章，末尾可能含 L1 截断 ⚠）
+
+    关键决策（SSOT: references/full-mode-contract.md §by-chapter §L1 模式）：
+    - 走 File API 缓存，节省 N-1 次 PDF 上传（85% 输入 token）
+    - 单个 L1 失败不中断（写 FAILED 占位 + 继续后续）
+    - TOC 读不出 / pymupdf 缺 → 报错 + 自动 fallback auto 模式
+    - 与 --pages 互斥（L1 按 L1 章边界自动切页，无需 --pages）
+    """
+    # 必填校验
+    if not args.output:
+        sys.stderr.write(
+            "ERROR: --by-chapter --granularity L1 模式必须配合 --output 使用\n"
+            "       （--output 视作输出目录，写 00-index.md + 各 L1 章 .md）。\n"
+        )
+        sys.exit(2)
+
+    # 与 --full 互斥（main() 早检查过，这里防御）
+    if args.full:
+        sys.stderr.write("ERROR: --by-chapter 与 --full 互斥，请只传一个。\n")
+        sys.exit(2)
+
+    # L1 模式与 --pages 互斥
+    if args.pages:
+        sys.stderr.write(
+            "ERROR: --by-chapter --granularity L1 模式与 --pages 互斥。\n"
+            "       L1 模式按 PDF 原生 L1 章边界自动切页，无需 --pages。\n"
+            "       若要按自定义页段拆，请用 --granularity auto。\n"
+        )
+        sys.exit(2)
+
+    out_dir = args.output
+    os.makedirs(out_dir, exist_ok=True)
+
+    # 1) 校验输入
+    model, pdf_bytes, focus = validate_inputs(args)
+
+    if not _HAS_PYMUPDF:
+        sys.stderr.write(
+            "ERROR: --by-chapter --granularity L1 需要 PyMuPDF（pymupdf），未安装。\n"
+            "       pip install --user --break-system-packages pymupdf\n"
+            "       或改用 --granularity auto 走单次调用（不需 pymupdf）。\n"
+        )
+        sys.exit(2)
+
+    # 2) 读 TOC → 取 L1 列表
+    try:
+        toc = _read_pdf_toc(pdf_bytes)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(
+            f"WARN: 读 PDF TOC 失败: {e}\n"
+            "      自动 fallback 到 --granularity auto 模式。\n"
+        )
+        args.granularity = "auto"
+        return _run_by_chapter_mode(args)
+
+    l1_list = [
+        (title, page)
+        for level, title, page in toc
+        if level == 1 and title.strip() not in ("目  录", "目录", "Table of Contents", "Contents")
+    ]
+    if not l1_list:
+        sys.stderr.write(
+            "WARN: PDF TOC 里没有 L1 章（可能 PDF 未嵌 bookmarks / 仅含封面 + 目录）。\n"
+            "      自动 fallback 到 --granularity auto 模式。\n"
+        )
+        args.granularity = "auto"
+        return _run_by_chapter_mode(args)
+
+    # 取 PDF 总页数（用于最后一章的结束页）
+    import fitz  # type: ignore  # noqa: F811
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        total_pages = doc.page_count
+    finally:
+        doc.close()
+
+    n_l1 = len(l1_list)
+    pdf_size_mb = len(pdf_bytes) / 1024 / 1024
+    sys.stderr.write(
+        f"INFO: --by-chapter --granularity L1 开始 (PDF {pdf_size_mb:.1f}MB, {total_pages} 页, "
+        f"{n_l1} 个 L1 章, 模型 {model}, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
+    )
+
+    # 3) 预上传到 File API（如需要）
+    file_part = None
+    if len(pdf_bytes) > MAX_PDF_BYTES_INLINE:
+        try:
+            file_part = _upload_pdf_to_file_api(pdf_bytes)
+        except Exception as e:  # noqa: BLE001
+            sys.stderr.write(
+                f"ERROR: File API 上传失败: {e}\n"
+                "       L1 模式依赖 File API 缓存；失败不静默退 inline（inline 无法跨调用复用）。\n"
+                "       处置：1) 重试  2) 用 --granularity auto 走单次调用  3) 缩小 PDF 后重试\n"
+            )
+            return 3
+    else:
+        sys.stderr.write(
+            "INFO: PDF < 20MB，每次调用走 inline Part（不需 File API 缓存）。\n"
+        )
+
+    # 4) 逐 L1 章串行调用
+    used_slugs = set()
+    l1_written = []  # [(filename, l1_title, l1_page, status), ...]
+    used_temp_files = []  # 临时子目录，待 L1 全部跑完一起删
+
+    for idx, (l1_title, l1_start) in enumerate(l1_list, 1):
+        # 算 L1 章的页范围
+        if idx < n_l1:
+            l1_end = l1_list[idx][1] - 1  # 下一 L1 章起始页 - 1
+        else:
+            l1_end = total_pages  # 最后一章到 PDF 末尾
+        if l1_end < l1_start:
+            l1_end = l1_start  # 0 章防御
+
+        # 切页范围到临时目录（用 PyMuPDF 走已有 helper）
+        pages_range = f"{l1_start}-{l1_end}"
+        try:
+            l1_pdf_bytes = _filter_pdf_pages(pdf_bytes, pages_range)
+        except SystemExit:
+            # _filter_pdf_pages 失败 → 标 FAILED + 继续
+            slug = slugify_chapter(l1_title, used_slugs)
+            used_slugs.add(slug)
+            failed_fname = f"{idx:02d}-FAILED-{slug}.md"
+            failed_path = os.path.join(out_dir, failed_fname)
+            with open(failed_path, "w", encoding="utf-8") as f:
+                f.write(
+                    f"# {l1_title}\n\n"
+                    f"<!-- ⚠ L1 章失败：页范围 {pages_range} 切割失败；见 stderr -->\n"
+                )
+            l1_written.append((failed_fname, l1_title, l1_start, "failed"))
+            continue
+
+        # 用临时子目录存 K_i 个子章节文件，跑完一起合并 + 删
+        import shutil
+        import tempfile
+        tmp_subdir = tempfile.mkdtemp(prefix="by-chapter-l1-")
+        used_temp_files.append(tmp_subdir)
+        label = f"L1-{idx}/{n_l1} '{l1_title}' (页 {pages_range})"
+
+        try:
+            result = _run_by_chapter_one_call(
+                l1_pdf_bytes, model, args.temperature, focus, tmp_subdir,
+                file_part=file_part, label=label,
+            )
+        except Exception as e:  # noqa: BLE001
+            # L1 调用失败 → 写 FAILED 占位 + 继续后续
+            slug = slugify_chapter(l1_title, used_slugs)
+            used_slugs.add(slug)
+            failed_fname = f"{idx:02d}-FAILED-{slug}.md"
+            failed_path = os.path.join(out_dir, failed_fname)
+            with open(failed_path, "w", encoding="utf-8") as f:
+                f.write(
+                    f"# {l1_title}\n\n"
+                    f"<!-- ⚠ L1 章失败：{type(e).__name__}: {e} -->\n"
+                    f"<!-- 页范围 {pages_range}；可单独重跑：--pages {pages_range} --granularity auto -->\n"
+                )
+            l1_written.append((failed_fname, l1_title, l1_start, "failed"))
+            sys.stderr.write(f"WARN: L1 章 {idx}/{n_l1} '{l1_title}' 失败: {e}（写 FAILED 占位 + 继续）\n")
+            continue
+
+        # 5) 合并 K_i 个子章节到 1 个 L1 .md
+        slug = slugify_chapter(l1_title, used_slugs)
+        used_slugs.add(slug)
+        l1_fname = f"{idx:02d}-{slug}.md"
+        l1_path = os.path.join(out_dir, l1_fname)
+
+        # L1 合并策略：
+        # - 第 1 个子章节若是 L1 level（1 或 2），content 已是 L1 主体（无 L1 标题行）
+        # - 把第 1 个子章节的 content 升 1 级（## L1 主标题，### L2 子节）
+        # - 后续子章节（L2/L3+）保持原 ## / ### 关系
+        # 简化实现：直接写 L1 title 作为 ## 标题 + 所有子章节 content 拼起来
+        sub = result["chapters"]
+        merged_lines = [f"## {l1_title}", ""]
+        truncated_any = False
+        if not sub:
+            # 模型返回空 → 写空 stub
+            merged_lines.append(
+                f"<!-- ⚠ L1 章 '{l1_title}' 返回空内容；页范围 {pages_range} -->\n"
+            )
+        else:
+            for j, ch in enumerate(sub):
+                sub_content = ch["content"].strip()
+                # 第一个子章节：去掉其首行 H1/H2（如果存在），主体接在 L1 标题下
+                if j == 0 and sub_content:
+                    sub_content = re.sub(r"^#{1,3}\s+[^\n]*\n+", "", sub_content, count=1)
+                if ch["truncated"]:
+                    truncated_any = True
+                if sub_content:
+                    merged_lines.append(sub_content)
+                    merged_lines.append("")
+
+        if truncated_any:
+            merged_lines.append(
+                "<!-- ⚠ 该 L1 章含截断子章节（末位章节 content 末尾未正常闭合）；"
+                "默认已走 pro-preview；L1 模式按章 ≤ 50 页时通常不会截断 -->\n"
+            )
+
+        with open(l1_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(merged_lines).rstrip() + "\n")
+        l1_written.append((l1_fname, l1_title, l1_start, "ok"))
+
+    # 6) 写 master TOC（N_L1 行）
+    toc_lines = ["# 目录", ""]
+    for fname, title, page, status in l1_written:
+        marker = " ⚠FAILED" if status == "failed" else ""
+        toc_lines.append(f"- [{title}（p.{page}）{marker}]({fname})")
+    _write_text(os.path.join(out_dir, "00-index.md"), "\n".join(toc_lines) + "\n")
+
+    # 7) Stub 清理
+    _cleanup_stub_files(out_dir)
+
+    # 8) 清理临时子目录
+    for tmp_dir in used_temp_files:
+        try:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except OSError:
+            pass
+
+    # 9) 总结报告
+    kept = [(f, t, p) for f, t, p, s in l1_written if s == "ok"]
+    failed = [(f, t, p) for f, t, p, s in l1_written if s == "failed"]
+    total_chars = sum(
+        os.path.getsize(os.path.join(out_dir, f)) for f, _, _ in kept
+        if os.path.isfile(os.path.join(out_dir, f))
+    )
+    sys.stderr.write(
+        f"OK: --by-chapter --granularity L1 完成 → {out_dir}/\n"
+        f"     {n_l1} 个 L1 章（{len(kept)} OK + {len(failed)} FAILED）+ 1 个索引（00-index.md）\n"
+        f"     总大小 {total_chars / 1024:.1f} KB（平均每 L1 {total_chars // max(len(kept), 1) / 1024:.1f} KB）\n"
+    )
+    if failed:
+        sys.stderr.write(
+            f"WARN: {len(failed)} 个 L1 章失败：{', '.join(t for _, t, _ in failed)}\n"
+            "      失败项已写 FAILED-<slug>.md 占位；可单独用 --pages 范围 + auto 重跑\n"
         )
 
     return 0
@@ -2226,8 +2633,9 @@ def main(argv=None):  # type: (Optional[list]) -> int
     if args.full and doc_type == "paper":
         return _run_full_mode(args)
 
-    # --by-chapter 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件
-    # 设计决策 SSOT：见 SKILL.md §C + references/full-mode-contract.md §by-chapter
+    # --by-chapter 模式：默认走 L1（2026-07-06 起，按 L1 章 N 次独立调用 + L2 合并），
+    # auto 保留旧单次调用行为（仅适用 ≤ 50 页短 PDF；>50 页走 pre-flight 拦截）。
+    # 设计决策 SSOT：见 SKILL.md §A Step 1 + references/full-mode-contract.md §by-chapter
     # 与 --full 互斥（--by-chapter 已隐含全文级转写，--full 是 paper 双产物路径）
     if args.by_chapter:
         if args.full:
@@ -2237,6 +2645,32 @@ def main(argv=None):  # type: (Optional[list]) -> int
                 "       --by-chapter 适用于所有 4 类文档（产 N 个章节 + 1 个 TOC）。\n"
             )
             return 2
+
+        # Pre-flight check：auto 模式 + 无 --pages + PDF > 50 页 → 拦截并推荐 L1
+        # 失败背景：单次 by-chapter 调用对长 PDF 必撞 FULL_MAX_OUTPUT_TOKENS (65536)
+        # 限，30%+ 章节截断（实测华为 OceanDisk 98 页白皮书）。
+        if args.granularity == "auto" and not args.pages and _HAS_PYMUPDF:
+            try:
+                import fitz  # type: ignore  # noqa: F811
+                _doc = fitz.open(args.pdf)
+                try:
+                    _n_pages = _doc.page_count
+                finally:
+                    _doc.close()
+                if _n_pages > 50:
+                    sys.stderr.write(
+                        f"ERROR: --by-chapter --granularity auto 仅适用 ≤ 50 页 PDF；\n"
+                        f"       {args.pdf} 共 {_n_pages} 页，单次调用必撞 65536 token 上限。\n"
+                        "       改用 --granularity L1（默认）：按 PDF 原生 L1 章 N 次独立调用，\n"
+                        "       每章 ≤ 50 页，撞限概率近 0；自带 File API 缓存。\n"
+                    )
+                    return 2
+            except Exception:  # noqa: BLE001
+                # 读 PDF 失败由后续 validate_inputs / 调用层报
+                pass
+
+        if args.granularity == "L1":
+            return _run_by_chapter_l1_orchestrator(args)
         return _run_by_chapter_mode(args)
 
     model, pdf_bytes, focus = validate_inputs(args)

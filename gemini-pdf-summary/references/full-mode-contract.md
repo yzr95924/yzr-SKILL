@@ -17,7 +17,7 @@
 - [接口约定核心](#接口约定核心)
 - [调用形式](#调用形式)
 - [产物 layout](#产物-layout)
-- [by-chapter 模式（`--by-chapter`，4 类通用）](#by-chapter-模式--by-chapter4-类通用)
+- [by-chapter 模式（`--by-chapter`，4 类通用，默认 L1）](#by-chapter-模式--by-chapter4-类通用默认-l1)
 - [关键纪律](#关键纪律)
 - [关键行为护栏](#关键行为护栏)
 - [反模式](#反模式)
@@ -118,55 +118,97 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 
 ---
 
-## by-chapter 模式（`--by-chapter`，4 类通用）
+## by-chapter 模式（`--by-chapter`，4 类通用，默认 L1）
 
-> **设计动机**：当用户希望按章节粒度拥有独立 .md 文件、便于 llm-wiki 多次 ingest
-> 与逐章 Q&A 时使用。核心思路是**单次 API 调用 + Gemini 结构化 JSON 输出 + 后处理按章节拆文件**
-> ——避免重复处理原始 PDF。
+> **设计动机（2026-07-06 翻面）**：当用户希望按章节粒度拥有独立 .md 文件、便于
+> llm-wiki 多次 ingest 与逐章 Q&A 时使用。**默认走 L1 模式**：PyMuPDF 读 PDF TOC
+> → 按 L1 章 N 次独立 API 调用 → L2 子节合并进 L1 文件，**自带 File API 缓存**
+> （PDF > 20MB 时上传 1 次 + N 次 `Part.from_uri()` 引用，节省 N-1 次 PDF 上传 token）。
 >
 > 适用 4 类文档（paper / manual / whitepaper / book）；**与 `--full` 互斥**
-> （`--by-chapter` 已隐含全文级转写）。详细决策背景见 SKILL.md §输出 by-chapter 段。
+> （`--by-chapter` 已隐含全文级转写）。详细决策背景见 SKILL.md §A Step 1b +
+> §输出 by-chapter 段。
+>
+> **历史背景**：原 L1 翻面前的"单次 API + JSON"模式已重命名为 `--granularity auto`，
+> 保留供 ≤ 50 页短 PDF 使用；长 PDF 走 pre-flight 拦截并推荐 L1（决策依据：
+> 98 页华为 OceanDisk 白皮书单次调用 → 35%+ 章节截断，详见
+> /root/gemini-white-paper-err.md）。
 
-### by-chapter 接口约定核心
+### by-chapter 接口约定核心（L1 默认）
 
 | 维度 | 约定 |
 | --- | --- |
-| 调用次数 | **1 次**（不拆段、不并行） |
+| 拆法（`--granularity`） | **`L1`（默认）** / `auto`（旧单次调用） |
+| L1 模式调用次数 | **N_L1 次**（每个 L1 章 1 次 API 调用，与 L1 章数同） |
+| L1 模式 File API 缓存 | PDF > 20MB → 预上传 1 次 → 后续 N-1 次调用复用 `file_part` |
+| L1 模式页范围 | 按 L1 章边界自动切（`[start, next_L1_start - 1]`）；无需 `--pages` |
+| auto 模式调用次数 | **1 次**（不拆段、不并行；同旧行为） |
 | API 调用方式 | Gemini `response_mime_type="application/json"` + `response_schema` 强制 JSON 结构 |
 | 输出形态 | `{"chapters": [{"title": "...", "level": N, "content": "完整 markdown"}, ...]}` |
-| 拆文件 | 脚本后处理按 `chapters[]` 切片 → 每个 chapter 写一个 `.md` + 生成 `00-index.md` TOC |
-| token 上限 | 仍受 `FULL_MAX_OUTPUT_TOKENS` (65536) 约束（输出 markdown 受限，**输入 PDF 不受限**） |
-| 适用 PDF 长度 | **≤ 100 页密集内容**；超长 PDF 末位章节可能截断——可叠加 `--pages` 拆段（默认已走 pro-preview） |
-| 产物 layout | `<output>/00-index.md`（TOC，按 level 缩进）+ `<output>/01-<chapter-slug>.md` + ... |
+| 拆文件 | L1 模式：N_L1 个 .md（每个 L1 合并其下 L2 子节）；auto 模式：N 个 .md（每个 chapter 1 个） + 1 个 `00-index.md` TOC |
+| token 上限 | L1 模式每章 ≤ 50 页，撞 65536 上限概率近 0；auto 模式仍受 65536 上限约束 |
+| 适用 PDF 长度 | L1 模式：**任意长度**（按 L1 拆每章 < 50 页）；auto 模式：**≤ 50 页**（> 50 页 pre-flight 拒绝） |
+| 产物 layout | `<output>/00-index.md`（N_L1 / N 行 TOC）+ `<output>/NN-<slug>.md` |
 | 与 `--full` 关系 | **互斥**——`--by-chapter` 已隐含全文级转写；`--full` 是 paper 双产物路径 |
+| 与 `--pages` 关系 | L1 模式：传了报错（L1 按章自动切页）；auto 模式：可用 `--pages` 拆段 |
 
 ### by-chapter 调用形式
 
 ```bash
-# manual / whitepaper / book 单次调用，按章节拆文件
+# === L1 模式（默认，2026-07-06 起，长 PDF 首选）===
+# manual / whitepaper / book
+python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+  --pdf ~/Downloads/huawei-oceandisk-1600-wp.pdf \
+  --type whitepaper \
+  --by-chapter \
+  --granularity L1 \
+  --output ~/wiki/llm-systems/raw/whitepapers/oceandisk-1600/
+# 产物：00-index.md + 14 个 <NN>-<L1-slug>.md（含 L2 子节合并）
+
+# product datasheet
 python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --pdf ~/Downloads/h100-sxm-datasheet.pdf \
   --type manual \
   --by-chapter \
   --output ~/wiki/llm-systems/raw/manuals/h100-sxm/
+# 产物：00-index.md + N_L1 个 <NN>-<L1-slug>.md
 
-# whitepaper（典型用例：vendor 技术白皮书）
-python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
-  --pdf ~/Downloads/huawei-oceandisk-1600-wp.pdf \
-  --type whitepaper \
-  --by-chapter \
-  --output ~/wiki/llm-systems/raw/whitepapers/oceandisk-1600/
-
-# paper full 也可走 by-chapter（与 --full 互斥；paper full 默认产 quick+full 双产物，
-# 走 by-chapter 时只产 N 个章节 .md，不产 quick summary）
+# paper 也可走 by-chapter（与 --full 互斥；走 by-chapter 时不产 quick summary）
 python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --pdf ~/papers/attention.pdf \
   --type paper \
   --by-chapter \
   --output ~/wiki/llm/raw/papers/attention/
+
+# === auto 模式（旧行为，保留供短 PDF + 习惯用）===
+python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+  --pdf ~/papers/short.pdf \
+  --type manual \
+  --by-chapter \
+  --granularity auto \
+  --output out/auto/
+
+# auto + --pages 拆段（超长 PDF 不推荐；走 L1 即可）
+python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+  --pdf big.pdf --type book --by-chapter --granularity auto --pages 1-50 \
+  --output out/seg1/
 ```
 
 ### by-chapter 产物 layout
+
+**L1 模式**（默认）：
+
+```text
+<output>/
+├── 00-index.md              # TOC：N_L1 行，每行 [- [L1 标题（p.X）](NN-slug.md)]
+├── 01-<L1-slug>.md          # 第 1 个 L1 章：## L1.title + ### L2 子节 + content
+├── 02-<L1-slug>.md          # 第 2 个 L1 章
+├── ...
+├── NN-<L1-slug>.md          # 第 N 个 L1 章
+└── NN-FAILED-<L1-slug>.md   # 某 L1 章调用失败时（写占位 + 继续后续 L1）
+```
+
+**auto 模式**（旧行为，≤ 50 页短 PDF 用）：
 
 ```text
 <output>/
@@ -177,44 +219,55 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 └── NN-<chapter-slug>.md     # 第 N 章 markdown
 ```
 
-典型产物（98 页华为 OceanDisk whitepaper 实测，gemini-3.1-pro-preview 默认）：
+典型产物（98 页华为 OceanDisk whitepaper，L1 模式，gemini-3.1-pro-preview 默认）：
 
 ```text
 /tmp/by-chapter-test/
-├── 00-index.md              (666 B)
-├── 01-1-摘要.md             (1102 B)
-├── 02-2-简介.md             (1661 B)
-├── 03-3-硬件架构.md         (11 KB，含 8 张表 + 1 mermaid block)
-├── 04-4-软件架构.md         (5 KB)
+├── 00-index.md                 (N_L1 行 TOC)
+├── 01-摘要.md                  (~2 KB)
+├── 02-简介.md                  (~3 KB)
+├── 03-硬件架构.md              (~20 KB，含 8 张表 + 1 mermaid block；L2 子节合并在 ### 下)
+├── 04-软件架构.md              (~12 KB)
 ├── ...
-└── 14-14-缩略语.md          (1.8 KB，33 行缩写表)
+└── 14-缩略语.md                (~2 KB)
 ```
 
-总产物 ≈ 41 KB（14 章），无截断告警，单次 API 调用。
+总产物 ≈ 50-80 KB（N_L1 个文件），L2 子节自动合并到对应 L1，无 1B 空文件（脚本自动清理），N 次 API 调用复用同一 File API upload。
 
 ### by-chapter 关键纪律
 
-- **不抽原始 PNG**：与 manual / whitepaper / book full 风格一致——架构图直接 ```mermaid block```、数据图转 markdown 表格、装饰图省略 + 文字一句
+- **L1 模式不抽原始 PNG**：与 manual / whitepaper / book full 风格一致——架构图直接 ```mermaid block```、数据图转 markdown 表格、装饰图省略 + 文字一句
+- **L1 章内容合并**：每个 L1 .md = `## <L1.title>` + 各 L2/L3 子节 content（首个子章节的 H1/H2 标题行被剥掉避免重复）
 - **章节拆分贴合 PDF 原生层级**（Chapter / Section / Subsection / Appendix / Index），**不要**把整本塞进一个对象
 - **不写 H1**：每个章节的 `title` 字段承载标题，`content` 字段从 `##` 或 `###` 起步（与 full 风格一致，H1 由文件名 / outline 字段承载）
 - **章节末尾特色内容原样保留**：manual 故障排查 / FAQ / 更新日志；whitepaper Conclusion /
   Key Takeaways / Recommendations；book 小结 / 思考题 / 参考文献 / 索引 term → page
 - **不输出 summary / TLDR / 整体归纳段**：每个章节 content 是该章节的完整转写，**不**做跨章节归纳
 - **关键数字精度保留**：不要"约""大约"模糊化（如 `160 万 IOPS` `4 GB/s` `≤ 2 ms`）
-- **与 `--pages` 组合**：超长 PDF 先按页切段、每段内按章节拆——产物会形成
-  `<output>/p1/00-index.md + N 章 .md` + `<output>/p2/00-index.md + M 章 .md` ...，
-  跨段拼接由消费端 skill 处理
+- **L1 模式与 `--pages` 互斥**：L1 按 L1 章边界自动切页；传 `--pages` 报错（"L1 模式无需 --pages"）。auto 模式可与 `--pages` 组合拆段
+- **Stub 清理**：`< 100B` 的 .md 视为模型放弃的章节，脚本自动 `os.remove` + stderr WARN 数字
 
 ### 与现有 4 类 full 模式的差异
 
-| 维度 | manual / whitepaper / book full | paper `--full` | **by-chapter** |
-| --- | --- | --- | --- |
-| 调用次数 | 1 | 2（quick + full） | **1** |
-| 产物形态 | 1 个 .md | 2 个 .md（quick + full） | **N + 1 个 .md**（N 章 + 1 个 TOC） |
-| 章节粒度 | 全文级单文件 | 全文级双文件 | **逐章独立文件** |
-| 适用场景 | 普通全文转写 | paper 双产物路径 | **llm-wiki 多次 ingest / 逐章 Q&A** |
-| token 上限 | `FULL_MAX_OUTPUT_TOKENS` | `FULL_MAX_OUTPUT_TOKENS`（full 那次） | **`FULL_MAX_OUTPUT_TOKENS`（更紧：JSON 格式增加 ~3% 开销）** |
-| 与 `--pages` 组合 | N/A | N/A | **支持（拆超长 PDF）** |
+| 维度 | manual / whitepaper / book full | paper `--full` | **by-chapter L1**（默认） | **by-chapter auto**（旧） |
+| --- | --- | --- | --- | --- |
+| 调用次数 | 1 | 2（quick + full） | **N_L1** | 1 |
+| 产物形态 | 1 个 .md | 2 个 .md（quick + full） | **N_L1 + 1 个 .md**（N 个 L1 + 1 个 TOC） | **N + 1 个 .md**（N 章 + 1 个 TOC） |
+| 章节粒度 | 全文级单文件 | 全文级双文件 | **逐 L1 文件 + L2 合并** | **逐章独立文件** |
+| 适用场景 | 普通全文转写 | paper 双产物路径 | **llm-wiki 多次 ingest / 逐章 Q&A（长 PDF）** | **短 PDF 单次过** |
+| token 上限 | `FULL_MAX_OUTPUT_TOKENS` | `FULL_MAX_OUTPUT_TOKENS`（full 那次） | **每章 < 50 页几乎不撞** | **`FULL_MAX_OUTPUT_TOKENS`（更紧：JSON 格式增加 ~3% 开销）** |
+| 与 `--pages` 组合 | N/A | N/A | **不支持**（按章自动切） | **支持（拆超长 PDF）** |
+| File API 缓存 | 单调用（按需） | 单调用（按需） | **N-1 次调用复用**（节省 85% 输入 token） | N/A（单调用） |
+
+### L1 模式失败处理（2026-07-06 新增）
+
+| 失败场景 | 处置 |
+| --- | --- |
+| PyMuPDF 缺 | 报错退出（"L1 模式需要 pymupdf"）；agent 可改 `--granularity auto` |
+| PDF 无 TOC（无 bookmarks / outline） | stderr WARN + 自动 fallback `auto` 模式 |
+| File API 上传失败 | 报错退出（**不**静默退 inline——inline 无法跨调用复用）；agent 可改 `auto` 或重试 |
+| 单个 L1 章 API 调用失败 | 写 `<idx>-FAILED-<slug>.md` 占位 + 继续后续 L1；00-index.md 标 ⚠FAILED |
+| 单个 L1 章页范围切割失败 | 写 `<idx>-FAILED-<slug>.md` 占位 + 继续 |
 
 ### 截断检测 + 处置
 
@@ -223,18 +276,30 @@ by-chapter 模式受 `FULL_MAX_OUTPUT_TOKENS`（65536）上限约束。脚本内
 1. **API 层**：`call_gemini_structured` 读 `response.usage_metadata.candidates_token_count`，
    若 ≥ 65530 写 stderr WARN，建议用 `--pages` 拆段（默认已走 pro-preview）
 2. **末位章节层**：`_looks_truncated_chapter` 启发式检测 content 末尾未正常闭合
-   （末字符不在 `.。!！？\`)]>|*#` 等闭合符集合内 + 未闭合代码块 / 表格行），标记 ⚠ 在 `00-index.md` 末尾追加"截断告警"段
+   （末字符不在 `.。!！？\`)]>|*#` 等闭合符集合内 + 未闭合代码块 / 表格行），
+   标记 ⚠ 在 `00-index.md` 末尾追加"截断告警"段
+
+**L1 模式**（默认）：每章 ≤ 50 页 → 撞 65536 token 上限概率近 0；如有截断，WARN
+指向失败 L1 章 + 建议 `--pages <失败页范围> --granularity auto` 单独重跑。
+
+**auto 模式**（旧）：单次调用撞限概率与 PDF 长度正相关，> 50 页必截断；pre-flight
+会主动拦截并推荐 L1。
 
 **典型处置策略**：
 
 ```bash
-# 1. 默认已走 pro-preview；单次调用撞上限 → 按页拆段（每段内按章节拆）
-python3 gemini_pdf_summary.py --pdf big.pdf --type book --by-chapter --pages 1-200 --output out/p1/
-python3 gemini_pdf_summary.py --pdf big.pdf --type book --by-chapter --pages 201-400 --output out/p2/
+# 1. 默认已走 pro-preview；auto 单次调用撞上限 → 按页拆段（每段内按章节拆）
+python3 gemini_pdf_summary.py --pdf big.pdf --type book --by-chapter --granularity auto --pages 1-200 --output out/p1/
+python3 gemini_pdf_summary.py --pdf big.pdf --type book --by-chapter --granularity auto --pages 201-400 --output out/p2/
 # 产物：out/p1/00-index.md + N 章 .md + out/p2/00-index.md + M 章 .md
 # 跨段拼接（如需合并成一份大目录）由消费端 skill 处理
 
-# 2. 末位章节确实截断 → 用 --pages 单独重跑末段，保留前段结果
+# 2. L1 模式某章截断 → 用 --pages 单独重跑该章范围（auto 模式调用），保留前段结果
+python3 gemini_pdf_summary.py --pdf big.pdf --type whitepaper --by-chapter --granularity auto \
+  --pages 35-50 --output /tmp/refill/  # 跑出 <NN>-<L2-slug>.md
+# 手动合并进原 L1 文件（纯本地操作，详见 SKILL.md §A Step 3 失败处理）
+
+# 3. 末位章节确实截断 → 用 --pages 单独重跑末段，保留前段结果
 #    （脚本默认不覆盖已存在文件，与 --full 不冲突；by-chapter 无内置覆盖保护，需要手动 rm 后重跑）
 ```
 
