@@ -6,13 +6,13 @@
 > 维护规则：模板变更需同步更新 SKILL.md "输出"小节里的章节骨架。
 >
 > 风格基线遵守仓库既定指纹：`*` bullet / `==高亮==` /
-> ` ```mermaidjs ` block-level / 表格 / 行宽 ≤ 120。
+> ` ```mermaid ` block-level / 表格 / 行宽 ≤ 120。
 
 <!-- markdownlint-disable MD051 -->
 ## 目录
 
 - [**API 调用契约**](#api-调用契约) — Gemini 多模态直接读 PDF，不先抽文本
-- [**风格约定（仓库统一基线）**](#风格约定仓库统一基线) — bullet / 高亮 / mermaidjs / 行宽 / 不写 H1
+- [**风格约定（仓库统一基线）**](#风格约定仓库统一基线) — bullet / 高亮 / mermaid / 行宽 / 不写 H1
 - [**基础要求（4 类共用）**](#基础要求4-类共用) — 忠于原文 / 英文保留 / 字符数纪律
 - [**图表处理约定**](#图表处理约定) — paper quick 抽原始图，paper full / manual / whitepaper / book 用 mermaid / ASCII / 表格
 - [**错误处理契约**](#错误处理契约) — 端到端不降级 / 3 次重试 / 抛错含三步建议
@@ -56,7 +56,7 @@ response = client.models.generate_content(
 1. **bullet marker**: 一律用 `*`，**不要**用 `-` 或 `+`
 2. **高亮术语**: 关键概念 / 参数 / 状态用 `==text==`（默认色）
    - Markdown 无法写彩色高亮，**不要**硬造颜色语法
-3. **Mermaid**: 复杂结构 / 概念关系用 fenced code block，块名**统一用 `mermaidjs`**
+3. **Mermaid**: 复杂结构 / 概念关系用 fenced code block，块名**统一用 `mermaid`**
    （标准 Markdown 渲染器也兼容，对 outline-wiki / Obsidian 直接可用），仅用 `graph` 系列
    （TD / LR）；仓库内**不**用 sequenceDiagram / classDiagram / stateDiagram / erDiagram。
    放在 bullet **之外**（block-level），不要嵌在 bullet 子项内。
@@ -104,7 +104,7 @@ response = client.models.generate_content(
 >
 > - **paper quick**：给**人**看的速读总结（含图才能扫），**抽原始 PDF 图** → `figures/*.png`
 > - **paper full / manual / whitepaper / book**：产物主要给 **agent / LLM** 消费（无 PDF 时 Q&A 底座），
->   **不抽原始图**，把概念 / 架构 / 流程类信息用 ` ```mermaidjs ` block / markdown 表格 /
+>   **不抽原始图**，把概念 / 架构 / 流程类信息用 ` ```mermaid ` block / markdown 表格 /
 >   ASCII 示意图在正文里直接画
 
 ### 4.1 paper quick 模式（保留原 gemini-paper-summary 行为）
@@ -129,7 +129,7 @@ Gemini 输出          →  ![图 N: <中文翻译+总结>](PDF p.<页> fig.<N> 
 `_run_full_mode`（按设计不写 `![图 N]` 引用）。Prompt 强约束 Gemini 把图按类型分流：
 
 - **架构 / 概念图**（Node 数据结构、流程图、模块关系、状态机等）→
-  用 ` ```mermaidjs ` block 直接画（`graph TD` / `graph LR`）；label 用 `<br/>` 换行，关系用 `-->|文字|` 标注
+  用 ` ```mermaid ` block 直接画（`graph TD` / `graph LR`）；label 用 `<br/>` 换行，关系用 `-->|文字|` 标注
 - **数据可视化图**（性能柱状图、accuracy 对比、loss 曲线、heatmap、市场份额等）→
   转 markdown 表格（数字精度 3 位有效数字）；图本身就是表格的可视化形式，转表更准
 - **纯装饰图 / setup 截图 / logo** → 直接省略 + 在上下文写一句"图 N 是 `<场景描述>` 的示意图"，**不**画图、不写 `![图 N]` 引用

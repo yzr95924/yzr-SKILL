@@ -230,7 +230,7 @@
         {
           "name": "whitepaper 必保真——行业数据表 + mermaid 架构 / 流程图 + 关键数字保留",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 含 ≥ 5 行 markdown 表格（行业数据表 / 对比表 / 客户案例表）+ ≥ 1 个 ```mermaidjs block（架构 / 价值链 / 流程图）+ 关键数字保留具体数值（非'显著增长'空话）"
+          "criteria": "summary.md 含 ≥ 5 行 markdown 表格（行业数据表 / 对比表 / 客户案例表）+ ≥ 1 个 ```mermaid block（架构 / 价值链 / 流程图）+ 关键数字保留具体数值（非'显著增长'空话）"
         },
         {
           "name": "whitepaper 末尾——Conclusion + Key Takeaways + Recommendations 原样保留",
@@ -248,7 +248,7 @@
       "id": 8,
       "name": "whitepaper-vendor-tech",
       "prompt": "我们公司刚收到一份 Datadog 发来的可观测性技术白皮书（PDF,路径 ~/Downloads/datadog-observability-wp.pdf），市场部让我整理要点放到 ~/wiki/devops/raw/whitepapers/datadog-observability/ 下。",
-      "expected_output": "agent 识别为 --type whitepaper（vendor 技术白皮书，full 风格全文级转写，按 PDF 原生目录结构展开）；立场标记为 'vendor 自家方案'；产物 summary.md 含 ≥ 1 个 mermaidjs block 或表格（vendor 白皮书常含架构图）。",
+      "expected_output": "agent 识别为 --type whitepaper（vendor 技术白皮书，full 风格全文级转写，按 PDF 原生目录结构展开）；立场标记为 'vendor 自家方案'；产物 summary.md 含 ≥ 1 个 mermaid block 或表格（vendor 白皮书常含架构图）。",
       "files": [],
       "assertions": [
         {
@@ -264,7 +264,7 @@
         {
           "name": "whitepaper full 风格——按 PDF 原生章节展开 + mermaid / 表格",
           "evidence_kind": "text_content",
-          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留）+ 至少 1 处用 ```mermaidjs block 或 markdown 表格（vendor 白皮书常含架构图，需 mermaid 化或转表）"
+          "criteria": "summary.md 按 PDF 原生目录结构逐小节展开（原英文标题保留）+ 至少 1 处用 ```mermaid block 或 markdown 表格（vendor 白皮书常含架构图，需 mermaid 化或转表）"
         }
       ]
     },

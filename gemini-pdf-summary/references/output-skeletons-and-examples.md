@@ -60,7 +60,7 @@
 章节顺序：严格按 PDF 原生 Section N / Section N.M / Section N.M.K 顺序展开
 必保真元素：Definition / Theorem / Lemma / Corollary / Algorithm 标注 + 公式 $...$ +
             表格行级转写 + 数字精度 3 位有效数字
-图处理：mermaidjs block（架构 / 概念）/ markdown 表格（数据可视化）/ 文字一句（装饰图省略）
+图处理：mermaid block（架构 / 概念）/ markdown 表格（数据可视化）/ 文字一句（装饰图省略）
 字符目标：解除上限；token 紧张时优先精简措辞、缩例子；禁止合并整段 / 删小节 / 跳公式
 产物：<output>/<slug>.quick.md + <slug>.full.md（quick 用 academic 模板 + 带图；full 自包含无图）
 ```
@@ -80,7 +80,7 @@
             章节末尾的故障排查 / FAQ / 更新日志要点（manual 特色，原样保留）
             术语表 / Glossary / 参考链接（附录）
 
-图处理：架构 / 模块关系 → mermaidjs block；数据图 → markdown 表格；装饰图省略
+图处理：架构 / 模块关系 → mermaid block；数据图 → markdown 表格；装饰图省略
 字符目标：无上限；完整性 > 篇幅；token 超限时先详写前 N 章 + 末章占位
 不含原始 PNG；产物 <output>/summary.md（单文件）
 ```
@@ -103,7 +103,7 @@
 立场甄别：vendor 自家方案 vs 行业中立 vs 学术 / 政策 / 咨询——必须在元信息段"发布立场"标注，
           立场影响读者如何解读结论，识别不出时写"原文未明确"
 
-图处理：架构 / 价值链 / 流程 → mermaidjs block；数据图 → markdown 表格；装饰图省略
+图处理：架构 / 价值链 / 流程 → mermaid block；数据图 → markdown 表格；装饰图省略
 字符目标：无上限；完整性 > 篇幅；token 超限时先详写前 N 章 + 末章占位
 不含原始 PNG；产物 <output>/summary.md（单文件）
 ```
@@ -199,10 +199,9 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
   --pdf ~/books/crafting-interpreters.pdf \
   --type book \
-  --model gemini-3.1-pro-preview \
   --output ~/wiki/llm-systems/raw/books/crafting-interpreters/
 # 产物：<slug>.md（按 Chapter / Part / Appendix 顺序全量转写）
-# book 默认 token 预算高，建议显式传 --model pro-preview
+# book 长篇不需额外传 --model（默认已走 pro-preview）
 ```
 
 ### 样例五：不确定类型（auto-detect）

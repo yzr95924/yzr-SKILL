@@ -1,9 +1,9 @@
 ---
 name: gemini-pdf-summary
-description: 用户给出一份本地 PDF（论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档），需要按文档类型路由到对应模板、用 Gemini 多模态直读 PDF（含图表 / 公式 / 版式，不抽 OCR）输出中文结构化 Markdown 时使用本 skill。`--type` 必填（paper / manual / whitepaper / book 四选一；不确定用 `--auto-detect`）。**不适用**：非 PDF 来源、逐字翻译、关键词抽取、多份对比。
+description: 用户给出一份本地 PDF（论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档），需要按文档类型路由到对应模板、用 Gemini 多模态直读 PDF（含图表 / 公式 / 版式，不抽 OCR）输出中文结构化 Markdown 时使用本 skill。`--type` 必填（paper / manual / whitepaper / book 四选一；不确定用 `--auto-detect`）。支持 5 种产物模式：paper quick（精炼速读带图）/ paper full（全文转写双产物）/ manual/whitepaper/book single-full（单文件全文级）/ by-chapter（单次 API 调用 + JSON 结构化输出，按章节拆 N 个 .md + TOC，供 llm-wiki 多次 ingest）。**不适用**：非 PDF 来源、逐字翻译、关键词抽取、多份对比。常见触发："老板扔来一份英文产品 datasheet 让我先做中文速读" / "把这本技术书的章节拆成 N 个 .md 方便 wiki ingest" / "这个 PDF 里有大量架构图和公式，纯文本抽取会丢" / "我不确定这 PDF 是论文还是手册，先自动识别一下"。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-07-05
+  modify time: 2026-07-06
   category: pdf-reading
   supersedes: gemini-paper-summary
 ---
@@ -46,10 +46,11 @@ metadata:
 | PDF 路径 | ✓ | 本地 `.pdf` 文件，绝对或相对路径均可 |
 | 文档类型 | ✓ | `--type <paper\|manual\|whitepaper\|book>` 二选一；不确定用 `--auto-detect`（脚本自动判） |
 | `GEMINI_API_KEY` | ✓ | 环境变量 |
-| 模型 ID | ✗ | 默认 `gemini-3.5-flash`（不传 `--model` 即可）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
+| 模型 ID | ✗ | 默认 `gemini-3.1-pro-preview`（不传 `--model` 即可；2026-07-06 起全 skill 统一默认走 pro-preview，长上下文注意力稳 + mermaid 架构图完整保留）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
 | 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt |
 | 输出路径 | ✗ | `--output <path>`：paper quick 默认带图时视作**目录**（写 summary.md + figures/）；非 paper 类型 / --no-figures / book / paper full 模式视作 .md 文件路径（或 raw 端目录）；不传则 stdout |
-| 模板 / 模式 | ✗ | paper quick 默认；`--full` 启用 paper full 或 book 模式 |
+| 模板 / 模式 | ✗ | paper quick 默认；`--full` 启用 paper full 或 book 模式；`--by-chapter` 单次调用按章节拆 N 个 .md（与 `--full` 互斥） |
+| 页范围（by-chapter 配套） | ✗ | `--pages 1-50`：先用 PyMuPDF 切页范围再交给 Gemini；与 `--by-chapter` 组合可拆超长 PDF（先按页切 + 每段内按章节拆） |
 | 提取图片 | ✗ | 仅 paper quick 生效：`--no-figures` 关闭图导出（手动 / 白皮书 / 书默认即不开图） |
 | 渲染倍率 | ✗ | `--figure-dpi 2.0`（默认 2.0；**144 DPI = 72 × 2.0 换算值**，并非独立阈值；改 `--figure-dpi` 时本表无需同步），仅 paper quick 图导出启用时生效 |
 | 图片格式 | ✗ | `--figure-format {png,webp,jpeg}`，默认 png；webp/jpeg 时可用 `--figure-quality` 压缩 |
@@ -63,27 +64,32 @@ metadata:
 
 ### 模型选型
 
-> **默认 = 不传 `--model`**。脚本默认值 `gemini-3.5-flash` 是经过选型的
-> （stable、无 shutdown 日期、官方作为 deprecated 2.5 系列的推荐替代），
+> **默认 = 不传 `--model`**。脚本默认值 `gemini-3.1-pro-preview` 是全 skill 统一默认
+> （2026-07-06 决策）：
+>
+> - 3.5-flash 在 `--by-chapter` 单调用 + JSON 结构化输出下撞 `FULL_MAX_OUTPUT_TOKENS` 上限实测不可用
+> - pro-preview 长上下文注意力更稳、mermaid 架构图完整保留（flash 在结构化输出下会默默丢 mermaid block）
+> - 4 类文档（paper / manual / whitepaper / book）统一走 pro-preview，不再按模式特判
+>
 > **不知道选什么 / 没特殊理由 → 直接用默认**。
 
 **判断流程**：
 
 ```text
-1. 跑 gemini_pdf_summary.py（不传 --model，用默认）
+1. 跑 gemini_pdf_summary.py（不传 --model，用默认 pro-preview）
 2. 输出不满意？
    ├─ 否 → 用默认就好
    └─ 是 → 先调 prompt（--focus 或改 template-*.md），再考虑换模型
 3. 真要换模型 → 从下方"当前推荐"里按场景选；不要凭印象写 model 字符串
 ```
 
-**当前推荐（基于 gemini-api-docs-mcp 实测，2026-06）**：
+**当前推荐（基于 gemini-api-docs-mcp 实测 + 本地 by-chapter 实测，2026-07）**：
 
 | 模型 | 状态 | 定位 | 何时显式覆盖（vs 默认） |
 | --- | --- | --- | --- |
-| `gemini-3.5-flash`（**默认**） | Stable | 通用质量/成本最优 | 大多数场景下不传 `--model` 即可 |
-| `gemini-3.1-flash-lite` | Stable | 最便宜、轻量 | 批量过稿 / 简单综述 / 上下文大但要求低 |
-| `gemini-3.1-pro-preview` | Preview | 复杂推理最强 | book full / 长篇 / 形式化证明 / 难数学 |
+| `gemini-3.1-pro-preview`（**默认，全 skill 统一**） | Preview | 复杂推理最强 + 长上下文稳 | 大多数场景下不传 `--model` 即可 |
+| `gemini-3.5-flash` | Stable | 通用质量/成本最优 | 批量过稿 / 简单综述 / 上下文大但要求低（**已知风险**：结构化输出下会丢 mermaid block，--by-chapter 单调用易撞 `FULL_MAX_OUTPUT_TOKENS` 上限） |
+| `gemini-3.1-flash-lite` | Stable | 最便宜、轻量 | 海量低成本过稿 / 摘要 / 内容探索 |
 
 > **主模型不可用 → 报错退出，端到端不降级**（2026-06-30 强化，2026-07-01 补 agent 盲区）：
 > 上表里**任一**模型遇到 503 / 429 / 5xx，脚本走 3 次重试后**直接抛错**给上层——
@@ -114,6 +120,11 @@ metadata:
 - **manual**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含命令清单 / 参数表 / 错误码；章节末尾的故障排查 + FAQ + 更新日志要点原样保留）；**不抽原始图**
 - **whitepaper**：按 PDF 原生目录结构逐小节展开（full 风格全文级转写，含行业数据表 / 对比表 / 客户案例；章节末尾的 Conclusion + Key Takeaways + Recommendations 原样保留）；**不抽原始图**
 - **book**（仅 full）：按 PDF 原生 `Chapter` / `Section` / `Appendix` / `Index` 顺序全量转写；**不抽原始图**
+- **by-chapter**（`--by-chapter`，4 类文档通用）：单次 API 调用 + Gemini 结构化 JSON 输出，按 PDF 原生章节拆为 N
+  个独立 .md + 1 个 `00-index.md` TOC；产物粒度便于 llm-wiki 多次 ingest 与逐章 Q&A；与全 skill 统一默认一致走
+  `gemini-3.1-pro-preview`（3.5-flash 单调用在 JSON 结构化输出下会撞 `FULL_MAX_OUTPUT_TOKENS` 上限产生未闭合 JSON）；受
+  `FULL_MAX_OUTPUT_TOKENS` 上限约束，超长 PDF 末位章节可能截断——可叠加 `--pages` 拆段缓解；详细契约见
+  `references/full-mode-contract.md` §by-chapter
 
 **字符数目标**：
 
@@ -173,7 +184,7 @@ metadata:
      caption 写到 markdown image 的 alt 字段（`![图 N: <中文翻译+总结>](<url> "=WxH")`）；
      bbox 写在 PDF reference 字符串里供脚本精确截取
    - **其他 3 类（manual / whitepaper / book + paper full）**：不抽原始图，
-     概念用 ` ```mermaidjs ` block（架构 / 流程图）/ markdown 表格（数据可视化图）/
+     概念用 ` ```mermaid ` block（架构 / 流程图）/ markdown 表格（数据可视化图）/
      文字一句（装饰图省略）在 markdown 内直接画
 6. **GitHub 风格的 paper 相关工作 / 高频引用**：仅 paper quick 输出，作为"业务启示 & 价值"子段
    - 论文有引言 / 相关工作章节时**才**输出；无相关工作时整段省略
@@ -195,7 +206,7 @@ metadata:
 9. **Markdown 风格约定（仓库统一基线）**
    - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`
    - **关键术语用 `==text==` 高亮**（默认色），不要硬造彩色语法
-   - **Mermaid 块 block-level**：` ```mermaidjs ` 放在 bullet 之外，不要嵌在 bullet 子项内
+   - **Mermaid 块 block-level**：` ```mermaid ` 放在 bullet 之外，不要嵌在 bullet 子项内
    - **代码块语言必填**：` ```bash ` / ` ```python ` / ` ```json ` / ` ```yaml ` ，
      **不要**写空语言 ` ``` `
    - **表格 vs bullet**：数据示例 / 概念对比 / 字段定义用 table；其他场景优先 bullet
@@ -345,9 +356,10 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 | `book 类型仅支持 full 模式` | 试图 `--type book` 不带 `--full` | 加 `--full`，或改用 `paper` 类型 |
 | `manual / whitepaper / book 仅支持 full 风格` | 试图 `--type manual` 等后传 `--no-figures` 关闭 mermaid | 关闭 `--no-figures`；manual / whitepaper / book 是 full 风格，不接受"压缩总结"模式 |
 | 模型 404 | 模型名拼错或已下线 | 用 `gemini-api-docs-mcp` 的 `get_current_model` 查当前可用模型 |
-| 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview` |
+| 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.1-pro-preview`（默认）或 `gemini-3.5-flash` / `gemini-3.1-flash-lite` |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/template-*.md`）/ `--focus`；后处理裁剪 |
-| 输出空 / 截断 | 撞输出 token 上限 | paper quick → 调 prompt 字符目标（SSOT 见 `assets/template-paper.md`）/ `--focus`；full / book 截尾 → 多为模型未保真转写，换模型重跑或拆书 |
+| 输出空 / 截断 | 撞输出 token 上限 | paper quick → 调 prompt 字符目标（SSOT 见 `assets/template-paper.md`）/ `--focus`；full / book 截尾 → 多为模型未保真转写，换模型重跑或拆书；**`--by-chapter` 末位章节截断** → 已是 pro-preview 默认，用 `--pages` 拆段重跑末段（详见 `references/full-mode-contract.md` §by-chapter） |
+| `--by-chapter` 与 `--full` 互斥 | 同时传了 `--by-chapter --full` | 二选一：`--full` 走 paper 双产物（quick + full）；`--by-chapter` 走单次 API 按章节拆 N 个 .md |
 | `503 UNAVAILABLE` / `429 RESOURCE_EXHAUSTED` 重试 3 次后仍失败 | 主模型暂时不可用 / 限流 | **端到端不降级**——脚本直接抛错（含 model 名 + status + 三步建议）；**agent 收到此错不得自行换模型重跑**，须如实报给用户、由用户决定是否 `--model` 显式重试 |
 | 产出的 md 里出现 `![图 N](PDF p.X ...)` 引用 | 非 paper 类型或 paper full 模式产物 | **自动处理**：脚本 `strip_pdf_figure_refs` 在 main 末尾清理；如出现说明 prompt 漏改 |
 

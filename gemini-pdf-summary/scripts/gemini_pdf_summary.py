@@ -87,7 +87,14 @@ except ImportError:  # pragma: no cover
 # 常量
 # ----------------------------------------------------------------------------
 
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.1-pro-preview"
+# 全 skill 统一默认走 pro-preview(2026-07-06 决策):
+# - --by-chapter 单调用 + JSON 结构化输出下,3.5-flash 实测撞 FULL_MAX_OUTPUT_TOKENS
+#   (65536) 上限导致 JSON 未闭合;pro-preview 长上下文注意力更稳
+# - pro-preview 在 full 风格(manual/whitepaper/book/paper --full)下 mermaid 架构图
+#   完整保留;flash 在结构化输出下会默默丢 mermaid block
+# - 全 skill 统一默认(不再按 by-chapter 特判),减少 agent 推理"哪个模式走哪个模型"
+#   的认知负担;代价是 flash 性价比优势消失,4 类 PDF 全部按 preview 计费
 # 503/429 等高并发 / 限流错误:走 3 次重试(2s/4s 退避),终失败**直接抛**给用户,
 # 不静默降级到便宜模型(2026-06-21 决策)。理由:不同模型对 v3.2 prompt 模板的
 # 输出质量差异显著(alt 字段偏差、表格行数错位、章节遗漏等),silent fallback 用户
@@ -219,6 +226,79 @@ FOCUS_INJECTION_FULL = (
     "(例如 `### 用户关注点: <focus>` 子节),"
     "\n\n{focus}\n"
 )
+
+
+# ----------------------------------------------------------------------------
+# --by-chapter 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件
+# ----------------------------------------------------------------------------
+
+# Gemini response_schema：强制每个章节独立 {title, level, content}
+# 适用 manual / whitepaper / book / paper 全文级拆分；不适用于 paper quick 速读
+CHAPTER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "chapters": {
+            "type": "array",
+            "description": "PDF 全部章节，按 PDF 原生顺序",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "章节标题，保留 PDF 原语言（中文/英文保留原文，**不要**翻译）",
+                    },
+                    "level": {
+                        "type": "integer",
+                        "description": "章节层级：1=Chapter / Part / 大节，2=Section / Subsection，3=Sub-subsection，4=Appendix / Index",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "该章节的完整 markdown 转写（不含 H1 标题，标题由 title 字段承载）",
+                    },
+                },
+                "required": ["title", "content"],
+            },
+        },
+    },
+    "required": ["chapters"],
+}
+
+BY_CHAPTER_PROMPT = """你是一位 PDF 章节拆分助手。请基于这份 PDF，按 PDF 原生章节结构，
+把每个章节拆分到一个独立的 JSON 对象中（title + level + content）。
+
+## 输出要求
+
+1. **严格按 PDF 原生章节顺序**输出（Chapter 1 → Chapter 2 → ... → Appendix → Index），
+   **不要**重排、合并、跳过任何章节
+2. 每个章节的 `content` 字段是该章节的**完整 markdown 转写**（full 风格）：
+   - 章节标题保留 PDF 原语言（中文 PDF 保留中文标题；英文保留英文）
+   - 所有正文段落完整保留，**不**摘要化、**不**省略
+   - 表格行级转写（参数表 / 接口表 / 错误码表 / 行业数据表 / 对比表），
+     数字精度保留（不要"约""大约"模糊化）
+   - 命令清单 / API endpoint / 配置项用 ```bash / ```yaml / ```json 代码块
+   - 公式用 `$...$`（独立公式可用 `$$...$$` block）
+   - 架构 / 概念 / 流程图用 ```mermaid block（`graph TD` / `graph LR` / `sequenceDiagram` 等；
+     用标准 mermaid 语法，不要用 `mermaid`）
+   - 数据可视化图转 markdown 表格
+   - 关键数字与单位原样保留（如 "160 万 IOPS"、"4 GB/s"、"≤ 2 ms"）
+3. `content` 字段**不**包含 H1（一级标题由 `title` 字段承载；正文从 `##` 或 `###` 起步）
+4. 章节末尾的特色内容**原样保留**：
+   - manual: 故障排查 / FAQ / 更新日志要点
+   - whitepaper: Conclusion / Key Takeaways / Recommendations
+   - book: 小结 / 思考题 / 参考文献 / 索引 term → page
+   - paper: 参考文献 / 附录
+5. **不**输出 summary / TLDR / 整体归纳段 / 业务启示 / 局限与未来工作
+6. 章节拆分贴合 PDF 原生层级（Chapter / Section / Subsection / Appendix / Index），
+   **不要**把整本 PDF 塞进一个对象
+7. 如果某些内容不属于任何章节（如封面、目录、版权页），可跳过；但**章节正文**必须全保留
+
+## 字段填写规则
+
+- `title`：该章节在 PDF 中的标题原文（如 `## 1 产品概述` → `"1 产品概述"`）
+- `level`：1 表示最大层级（Chapter / 大节）；2 表示次级 Section；依此类推
+- `content`：从 `##` 或 `###` 起步的完整 markdown；表格 / 代码块 / mermaid 完整保留
+
+请直接输出符合 schema 的 JSON，**不要**输出任何解释性文本。"""
 
 
 # ----------------------------------------------------------------------------
@@ -1305,7 +1385,7 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
-        help=f"Gemini 模型 ID，默认 {DEFAULT_MODEL}（稳定版，支持 PDF + 1M 上下文）。",
+        help=f"Gemini 模型 ID，默认 {DEFAULT_MODEL}（全 skill 统一默认值；长上下文注意力稳，mermaid 架构图完整保留）。",
     )
     parser.add_argument(
         "--focus",
@@ -1353,6 +1433,29 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
             "允许 --full 模式覆盖 raw/papers/<slug>.full.md 与 .quick.md（默认拒绝覆盖，"
             "理由：full 抽取是'贵读一次'的产物，意外重写会丢下游已经多次引用的 raw）。"
             "仅在 --full 模式下有意义。"
+        ),
+    )
+    parser.add_argument(
+        "--by-chapter",
+        action="store_true",
+        help=(
+            "按 PDF 原生章节拆分产物为多个 markdown 文件（单次 API 调用 + Gemini 结构化 JSON 输出）。\n"
+            "适用 manual / whitepaper / book / paper full 场景：当用户希望按章节粒度拥有独立 .md 文件、"
+            "便于 llm-wiki 二次 ingest 与逐章 Q&A 时使用。\n"
+            "产物 layout: <output>/00-index.md (TOC) + <output>/01-<chapter-slug>.md + ...\n"
+            "与 --full 互斥（--by-chapter 已隐含全文级转写）。\n"
+            "与 --pages 1-50 组合使用可拆超长 PDF（先按页切 + 每段内按章节拆）。\n"
+            "受 FULL_MAX_OUTPUT_TOKENS (65536) 上限约束，超长 PDF 末位章节可能截断。"
+        ),
+    )
+    parser.add_argument(
+        "--pages",
+        default=None,
+        help=(
+            "页范围过滤（仅在 --by-chapter 模式下生效），格式 '1-30' / '31-60'。\n"
+            "用 PyMuPDF 在调用 Gemini 前切出指定页范围为临时 PDF，"
+            "配合 --by-chapter 可拆超长 PDF（先按页切 + 每段内按章节拆）。\n"
+            "示例：--pages 1-50 --by-chapter --output out/p1/ 拆前 50 页为按章节的多个 .md。"
         ),
     )
     parser.add_argument(
@@ -1554,6 +1657,325 @@ def call_gemini(model, pdf_bytes, prompt, temperature, max_output_tokens=None): 
         sys.stderr.write(f"ERROR: Gemini 返回为空。原始 response: {response}\n")
         sys.exit(3)
     return text
+
+
+def call_gemini_structured(model, pdf_bytes, prompt, schema, temperature, max_output_tokens=None):
+    # type: (str, bytes, str, dict, float, Optional[int]) -> dict
+    """调用 Gemini 结构化输出（response_schema 约束），返回 JSON dict。
+
+    与 call_gemini 的差异：
+    - 强制 response_mime_type="application/json" + response_schema=<schema>
+    - 返回值是 dict（已 json.loads），不再是 Markdown 文本
+    - 同样委托 _gemini_call_with_retry 走统一重试 + 不切模型策略
+    - 同样走 inline Part / File API 分流（pdf_bytes > 20 MB 走 File API）
+
+    适用 --by-chapter 模式。
+    """
+    import json  # 局部 import，容错 JSON 解析失败时给更清晰的错误
+
+    client = genai.Client()
+
+    if len(pdf_bytes) <= MAX_PDF_BYTES_INLINE:
+        contents = [
+            types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
+            prompt,
+        ]
+    else:
+        sys.stderr.write("INFO: PDF 超过 20 MB，走 File API 上传。\n      (文件会在 Google 服务端保留 48 小时)\n")
+        uploaded = client.files.upload(
+            file=pdf_bytes,
+            config={"display_name": "by-chapter-pdf", "mime_type": "application/pdf"},
+        )
+        contents = [uploaded, prompt]
+
+    config_kwargs = {
+        "temperature": temperature,
+        "response_mime_type": "application/json",
+        "response_schema": schema,
+    }
+    if max_output_tokens is not None:
+        config_kwargs["max_output_tokens"] = max_output_tokens
+    config = types.GenerateContentConfig(**config_kwargs)
+
+    response = _gemini_call_with_retry(client, model, contents, config, label="by-chapter 调用")
+
+    text = getattr(response, "text", None)
+    if not text:
+        sys.stderr.write(f"ERROR: Gemini 返回为空。原始 response: {response}\n")
+        sys.exit(3)
+
+    # 截断检测（撞 FULL_MAX_OUTPUT_TOKENS 上限 → 末位章节可能不完整）
+    usage = getattr(response, "usage_metadata", None)
+    if usage is not None:
+        out_tokens = getattr(usage, "candidates_token_count", 0) or 0
+        if max_output_tokens and out_tokens >= max_output_tokens - 10:
+            sys.stderr.write(
+                f"WARN: 输出撞 token 上限（{out_tokens}/{max_output_tokens}），"
+                "末位章节可能截断。默认已走 pro-preview，建议用 --pages 拆段重跑末段。\n"
+            )
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        # 把原始响应写到磁盘以便排查
+        debug_path = "/tmp/gemini-by-chapter-debug.json"
+        with open(debug_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        sys.stderr.write(
+            f"ERROR: Gemini 返回的不是合法 JSON: {e}\n"
+            f"       原始响应已写到 {debug_path}（长度 {len(text)} 字符）\n"
+            "       可能原因：1) PDF 内容超出 schema 容量；2) 模型未严格遵守 schema。\n"
+            "       默认已走 pro-preview，建议用 --pages 拆段重试。\n"
+        )
+        sys.exit(3)
+
+
+# ----------------------------------------------------------------------------
+# --by-chapter 模式 helpers：slug 化、页范围切 PDF、章节截尾检测
+# ----------------------------------------------------------------------------
+
+
+def slugify_chapter(title, used_slugs=None):
+    # type: (str, Optional[set]) -> str
+    """章节标题 → 文件安全 slug；保留中英文 + 数字，处理冲突。
+
+    - 中文保留（CJK 范围 \\u4e00-\\u9fff）；ASCII 转小写
+    - 非字母数字中文字符转 `-`；连续 `-` 合并
+    - 长度上限 60 字符
+    - used_slugs 用于冲突检测：同名 chapter 自动追加 `-2` / `-3` 后缀
+    """
+    s = re.sub(r"[^a-zA-Z0-9一-鿿-]+", "-", title.strip().lower())
+    s = re.sub(r"-+", "-", s).strip("-")
+    s = s[:60] or "chapter"
+    if used_slugs is None:
+        return s
+    candidate = s
+    n = 2
+    while candidate in used_slugs:
+        candidate = f"{s[: 60 - len(f'-{n}')]}-{n}" if len(s) + len(f"-{n}") > 60 else f"{s}-{n}"
+        n += 1
+        if n > 999:  # 防死循环
+            break
+    return candidate
+
+
+def _filter_pdf_pages(pdf_bytes, pages_range):
+    # type: (bytes, str) -> bytes
+    """按 'start-end' 切出指定页范围为新 PDF 的 bytes。
+
+    需要 PyMuPDF；缺失时报错退出。
+    页号 1-indexed（含两端），与人类阅读习惯一致。
+    """
+    try:
+        import fitz  # type: ignore
+    except ImportError:
+        sys.stderr.write(
+            "ERROR: --pages 需要 PyMuPDF（pymupdf），未安装。\n"
+            "       pip install --user --break-system-packages pymupdf\n"
+        )
+        sys.exit(2)
+
+    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", pages_range)
+    if not m:
+        sys.stderr.write(f"ERROR: --pages 格式应为 'start-end'（如 '1-30'），收到: {pages_range!r}\n")
+        sys.exit(2)
+
+    start, end = int(m.group(1)), int(m.group(2))
+    if start < 1 or end < start:
+        sys.stderr.write(f"ERROR: --pages 范围非法: {pages_range!r}（start ≥ 1 且 end ≥ start）\n")
+        sys.exit(2)
+
+    src = fitz.open(stream=pdf_bytes, filetype="pdf")
+    total = src.page_count
+    if end > total:
+        sys.stderr.write(f"WARN: --pages 结束页 {end} 超过 PDF 总页数 {total}，自动截到 {total}。\n")
+        end = total
+
+    dst = fitz.open()
+    # PyMuPDF 的 insert_pdf 用 0-indexed，[from_page, to_page] 均含
+    dst.insert_pdf(src, from_page=start - 1, to_page=end - 1)
+    out_bytes = dst.tobytes()
+    dst.close()
+    src.close()
+
+    sys.stderr.write(f"INFO: --pages {start}-{end} 切出 {end - start + 1} 页（PDF 原 {total} 页）\n")
+    return out_bytes
+
+
+def _looks_truncated_chapter(content):
+    # type: (str) -> bool
+    """粗略检测章节 content 是否在句子中间被截断（用于末位章节截断 WARN）。
+
+    启发式：
+    - 末尾不是常见的 markdown 闭合符（`.` / `。` / `!` / `！` / `?` / `？` /
+      ``` / `)` / `]` / `>` 等）
+    - 且末尾 50 字符内没有完整闭合代码块 / 表格行
+    """
+    if not content or len(content) < 100:
+        return False
+    s = content.rstrip()
+    if not s:
+        return False
+    # 末字符是 markdown 闭合符 → 视为完整
+    closing = {"。", ".", "!", "！", "?", "？", "`", ")", "]", ">", "|", "*", "#"}
+    if s[-1] in closing:
+        return False
+    # 末 100 字符含未闭合 ``` 代码块 → 可能截断
+    last_block = s[-100:]
+    fence_count = last_block.count("```")
+    if fence_count % 2 == 1:
+        return True
+    # 末 50 字符含未闭合 | 表格行 → 可能截断
+    last_line = s.rstrip("\n").split("\n")[-1] if "\n" in s else s
+    if last_line.strip().startswith("|") and not last_line.strip().endswith("|"):
+        return True
+    return True  # 末字符不闭合 + 走过基本检查 → 视为可能截断
+
+
+def _run_by_chapter_mode(args):
+    # type: (argparse.Namespace) -> int
+    """--by-chapter 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件。
+
+    输入约定:
+        args.pdf         -- PDF 路径
+        args.output      -- 输出目录（写 00-index.md + 各章节 .md）
+        args.pages       -- 可选 'start-end'，先用 PyMuPDF 切页范围
+        args.model / args.temperature / args.focus  -- Gemini 调用参数
+
+    写出:
+        <output>/00-index.md       -- TOC（按 level 缩进）
+        <output>/01-<slug>.md      -- 第 1 章 markdown
+        <output>/02-<slug>.md      -- 第 2 章 markdown
+        ...
+
+    关键决策:
+    - 单次 API 调用，受 FULL_MAX_OUTPUT_TOKENS (65536) 限制
+    - 走 Gemini response_schema 强制 JSON 结构，避免 delimiter 法的脆弱性
+    - 末位章节若截断，写 stderr WARN + 在 00-index.md 末尾追加截断标记
+    - 与 --full 互斥（已隐含全文级）；与 --pages 组合可拆超长 PDF
+    """
+    # 必填校验
+    if not args.output:
+        sys.stderr.write(
+            "ERROR: --by-chapter 模式必须配合 --output 使用\n"
+            "       （--output 视作输出目录，写 00-index.md + 各章节 .md）。\n"
+        )
+        sys.exit(2)
+
+    # 校验 --full / --by-chapter 互斥（main() 早检查过，这里防御）
+    if args.full:
+        sys.stderr.write("ERROR: --by-chapter 与 --full 互斥，请只传一个。\n")
+        sys.exit(2)
+
+    out_dir = args.output
+    os.makedirs(out_dir, exist_ok=True)
+
+    # 1) 校验输入（隐式 GEMINI_API_KEY + PDF 完整性）
+    model, pdf_bytes, focus = validate_inputs(args)
+
+    # 3) 若指定 --pages，先切页范围
+    if args.pages:
+        pdf_bytes = _filter_pdf_pages(pdf_bytes, args.pages)
+        # 切页后大小判定走 call_gemini_structured 内部
+
+    pdf_size_mb = len(pdf_bytes) / 1024 / 1024
+    sys.stderr.write(
+        f"INFO: --by-chapter 开始 (PDF {pdf_size_mb:.1f}MB, 模型 {model}, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
+    )
+
+    # 3) 构造 prompt（追加 focus 注入）
+    prompt = BY_CHAPTER_PROMPT
+    if focus:
+        prompt = prompt + FOCUS_INJECTION_FULL.format(focus=focus.strip())
+
+    # 4) 调用 Gemini 结构化输出
+    data = call_gemini_structured(
+        model,
+        pdf_bytes,
+        prompt,
+        CHAPTER_SCHEMA,
+        args.temperature,
+        max_output_tokens=FULL_MAX_OUTPUT_TOKENS,
+    )
+
+    # 5) 解析结果，写章节文件 + TOC
+    chapters = data.get("chapters") or []
+    if not isinstance(chapters, list) or not chapters:
+        sys.stderr.write(
+            f"ERROR: Gemini 返回的 chapters 字段为空或非数组 (data keys: {list(data.keys())})。\n"
+            "       可能原因：PDF 内容超出 schema 容量；或模型未严格遵守 schema。\n"
+            "       默认已走 pro-preview，建议用 --pages 拆段。\n"
+        )
+        sys.exit(3)
+
+    used_slugs = set()
+    toc_lines = ["# 目录", ""]
+    written_files = []
+    truncated_chapters = []
+
+    for i, ch in enumerate(chapters, 1):
+        title = str(ch.get("title") or f"chapter-{i}").strip()
+        level = int(ch.get("level") or 2)
+        content = str(ch.get("content") or "").strip()
+
+        # 防御：content 里如果以 "# " 开头（H1 越界），剥掉首行 H1
+        content = re.sub(r"^#\s+[^\n]*\n+", "", content, count=1)
+
+        # 截断检测（仅末位章节有效；中间章节靠 title 顺序判断可能不准）
+        is_last = i == len(chapters)
+        truncated = is_last and _looks_truncated_chapter(content)
+        if truncated:
+            truncated_chapters.append(title)
+            content += "\n\n<!-- ⚠ 末位章节疑似截断（content 末尾未正常闭合）；"
+            content += "默认已走 pro-preview，建议用 --pages 拆段重跑末段 -->\n"
+
+        slug = slugify_chapter(title, used_slugs)
+        used_slugs.add(slug)
+        fname = f"{i:02d}-{slug}.md"
+        out_path = os.path.join(out_dir, fname)
+
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(content + "\n")
+        written_files.append((fname, title, level, truncated))
+
+        indent = "  " * max(0, level - 1)
+        toc_marker = " ⚠" if truncated else ""
+        toc_lines.append(f"{indent}- [{title}{toc_marker}]({fname})")
+
+    # 写 master TOC
+    if truncated_chapters:
+        toc_lines.append("")
+        toc_lines.append("## 截断告警")
+        toc_lines.append("")
+        toc_lines.append("以下章节 content 末尾疑似未正常闭合，可能受 65536 输出 token 上限影响：")
+        for t in truncated_chapters:
+            toc_lines.append(f"- {t}")
+        toc_lines.append("")
+        toc_lines.append(
+            "建议处置：默认已走 pro-preview；用 `--pages start-end` 拆出末段重跑，保留前段结果。"
+        )
+    _write_text(os.path.join(out_dir, "00-index.md"), "\n".join(toc_lines) + "\n")
+
+    # 6) 总结报告
+    total_chars = sum(os.path.getsize(os.path.join(out_dir, fname)) for fname, _, _, _ in written_files)
+    sys.stderr.write(
+        f"OK: --by-chapter 完成 → {out_dir}/\n"
+        f"     拆出 {len(chapters)} 个章节 + 1 个索引（{len(chapters)} 个 .md + 00-index.md）\n"
+        f"     总大小 {total_chars / 1024:.1f} KB（平均每章 {total_chars // max(len(chapters), 1) / 1024:.1f} KB）\n"
+    )
+    if truncated_chapters:
+        sys.stderr.write(
+            f"WARN: {len(truncated_chapters)} 个末位章节疑似截断，详见 {out_dir}/00-index.md 截断告警段。\n"
+        )
+
+    return 0
+
+
+def _write_text(path, text):
+    """小工具：写文本到指定路径（os.makedirs 处理父目录）。"""
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 # ----------------------------------------------------------------------------
@@ -1803,6 +2225,19 @@ def main(argv=None):  # type: (Optional[list]) -> int
     # 也走下方通用分支（prompt_mode 已自动设为 "full"，调用同一条 call_gemini + max_tokens）
     if args.full and doc_type == "paper":
         return _run_full_mode(args)
+
+    # --by-chapter 模式：单次 API 调用 + JSON 结构化输出 + 按章节拆文件
+    # 设计决策 SSOT：见 SKILL.md §C + references/full-mode-contract.md §by-chapter
+    # 与 --full 互斥（--by-chapter 已隐含全文级转写，--full 是 paper 双产物路径）
+    if args.by_chapter:
+        if args.full:
+            sys.stderr.write(
+                "ERROR: --by-chapter 与 --full 互斥；请只传一个。\n"
+                "       --full 仅 paper 类型有效（产 quick + full 两份）；\n"
+                "       --by-chapter 适用于所有 4 类文档（产 N 个章节 + 1 个 TOC）。\n"
+            )
+            return 2
+        return _run_by_chapter_mode(args)
 
     model, pdf_bytes, focus = validate_inputs(args)
     # 全 4 类 prompt 模式路由：
@@ -2117,7 +2552,7 @@ def self_check_full_content(
 
     - **manual**：H2 ≥ 3 / H3 ≥ 5（通用 `^###\s+`）/ 表格行 ≥ 5 / 命令代码块 ≥ 1 /
       字符 ≥ 6000 / 占位比例 ≤ 0.5
-    - **whitepaper**：H2 ≥ 3 / H3 ≥ 5 / 表格行 ≥ 5 / mermaidjs block ≥ 1 /
+    - **whitepaper**：H2 ≥ 3 / H3 ≥ 5 / 表格行 ≥ 5 / mermaid block ≥ 1 /
       字符 ≥ 7000 / 占位比例 ≤ 0.5
 
     - **book**（2026-07-05 暂未启用，调用 `_check_general_full_content`）:
@@ -2319,7 +2754,7 @@ def _check_whitepaper_full_content(md_text):
     1. H2 章节保真度 ≥ 3 (FAIL)
     2. H3 子节数 ≥ 5（通用 H3，whitepaper 章节命名无 Section X.Y 体系）
     3. 表格行数 ≥ 5（行业数据表 / 对比表 / 客户案例表）
-    4. mermaidjs block ≥ 1（架构 / 价值链 / 流程图）
+    4. mermaid block ≥ 1（架构 / 价值链 / 流程图）
     5. 字符下限 ≥ 7000（whitepaper 居中）
     6. "原文未明确"占位比例 > 0.5 (WARN)
     """
@@ -2348,11 +2783,11 @@ def _check_whitepaper_full_content(md_text):
             f"whitepaper full 表格行数 {n_tables} < 5(whitepaper 核心是行业数据 / 对比 / 客户案例表)"
         )
 
-    # mermaidjs block
-    mermaid_re = re.compile(r"```mermaidjs\b", re.MULTILINE)
+    # mermaid block
+    mermaid_re = re.compile(r"```mermaid\b", re.MULTILINE)
     n_mermaid = len(mermaid_re.findall(md_text))
     if n_mermaid < 1:
-        result["warnings"].append("whitepaper full 未发现 mermaidjs block(whitepaper 常用架构 / 价值链 / 流程图)")
+        result["warnings"].append("whitepaper full 未发现 mermaid block(whitepaper 常用架构 / 价值链 / 流程图)")
 
     # 字符下限
     n_chars = len(md_text)

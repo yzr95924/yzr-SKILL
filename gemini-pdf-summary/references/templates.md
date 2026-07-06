@@ -1,7 +1,7 @@
 # 4 类模板对照
 
 <!-- markdownlint-disable MD060 MD004 MD040 MD055 MD056 -->
-> 本文件含大量 markdown / mermaidjs 代码块示例（4 类模板的写作样例）。
+> 本文件含大量 markdown / mermaid 代码块示例（4 类模板的写作样例）。
 > `*` bullet 与无语言 closing fence、单列省略表格（如 `| ...`）等是示例内容一部分——本文件局部豁免上述规则。
 
 | 维度 | paper quick | paper full | manual（full） | whitepaper（full） | book（full） |
@@ -96,7 +96,7 @@
 
 ## NVLink & NVSwitch
 
-```mermaidjs
+```mermaid
 graph LR
     A[H100 SXM] -->|NVLink 4.0<br/>900 GB/s| B[H100 SXM]
     A -->|NVSwitch 3.0| C[H100 SXM]

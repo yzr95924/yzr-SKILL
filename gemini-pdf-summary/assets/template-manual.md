@@ -14,7 +14,7 @@
 **单模式（full 风格）**：manual 是 full 风格全文级转写（脚本 `prompt_mode = "full"` 已硬编码，无需传 `--full`）。
 产物供 LLM 消费并进入 llm-wiki 二次 ingest；产物应**保留 PDF 原文级细节**，不抽原始图。
 
-**图表处理**：走 `_base.md` §4.2——不抽原始图，架构 / 概念用 mermaidjs block / 表格 / ASCII 在正文里直接画。
+**图表处理**：走 `_base.md` §4.2——不抽原始图，架构 / 概念用 mermaid block / 表格 / ASCII 在正文里直接画。
 
 ## 模板
 
@@ -61,7 +61,7 @@
 - **错误码 / 异常表** — 逐行转 markdown 表格（错误码 / 含义 / 处置 / 严重级别）
 - **产品参数表**（datasheet 关键）— 型号 / 容量 / 性能 / 接口 / 协议 / 标准 — 完整保留
 - **图的结构化表示**（不落 PNG）：
-  - **架构 / 模块关系图** → ` ```mermaidjs ` block 直接画（`graph TD` / `graph LR`）
+  - **架构 / 模块关系图** → ` ```mermaid ` block 直接画（`graph TD` / `graph LR`）
   - **数据可视化图**（性能曲线 / benchmark）→ 转 markdown 表格
   - **纯装饰图 / logo / 概念图省略** → 文字一句"图 N 是 `<场景描述>` 的示意图"
 - **不写 `![图 N](PDF p.X ...)` 引用**

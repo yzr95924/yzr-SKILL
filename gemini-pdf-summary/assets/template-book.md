@@ -50,7 +50,7 @@ reference manual），用**中文**输出 **PDF→Markdown 全量转写** ——
 - **数字精度** — 3 位有效数字；范围 / 误差必须保留
 - **代码 / 命令清单** — 完整保留，转 ` ```python ` / ` ```bash ` 等 fenced block
 - **图的结构化表示**（不落 PNG）：
-  - **架构 / 概念图** → 用 ` ```mermaidjs ` block 直接画（`graph TD` / `graph LR`）
+  - **架构 / 概念图** → 用 ` ```mermaid ` block 直接画（`graph TD` / `graph LR`）
   - **数据可视化图** → 转 markdown 表格
   - **纯装饰图 / 概念图省略** → 文字一句"图 N 是 `<场景描述>` 的示意图"
 - **不写 `![图 N](PDF p.X ...)` 引用**
