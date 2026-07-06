@@ -379,24 +379,34 @@ python3 gemini_pdf_summary.py --pdf big.pdf --type whitepaper --by-chapter --gra
 
 ### 后置内容自检
 
-调用 `self_check_full_content`（`scripts/gemini_pdf_summary.py`）跑内容完整性校验——目前脚本对
-**paper full** 显式调（`_run_full_mode` 末尾）；manual / whitepaper / book 当前**未跑**
-该自检（设计上 full 风格已保证基础完整性，运行时未引入该校验是历史遗留）。
+调用 `self_check_full_content`（`scripts/gemini_pdf_summary.py`）跑内容完整性校验。
 
-`self_check_full_content` 现有 6 项校验（**paper full 专属正则**）：
+| 触发点 | 文件位置 | 检查函数 |
+| --- | --- | --- |
+| paper full 末尾 | `_run_full_mode` line ~2554 | `_check_paper_full_content` |
+| manual / whitepaper / book 全分支末 | `main()` line ~2783 | `_check_manual_full_content` / `_check_whitepaper_full_content` / `_check_book_full_content`（**2026-07-06 起均已启用**，旧版本仅 paper full） |
+
+#### paper full 专属 6 项校验（2026-07-06 放宽以匹配 Gemini 实际产出）
 
 | # | 项 | 默认阈值 | FAIL / WARN |
 | --- | --- | --- | --- |
-| 1 | H2 章节数（通用 `^##` 正则） | `min_h2=3` | **FAIL** |
-| 2 | `### Section X.Y` 子节数 | `min_sections=5` | **WARN**（paper 命名专属，manual / whitepaper / book 不适用） |
+| 1 | 顶层章节数（`## ` + `### ` 合计） | `min_h2=3` | **WARN**（2026-07-06 从 FAIL 降级：Gemini paper full 走 `### L1` + `#### L2` 体系，旧正则只查 `## ` 全 FAIL） |
+| 2 | L1 子节数（接受 `##/### Section X.Y` / `##/### Roman I. II.` / `##/### 1. 2.` 共 6 种正则） | `min_sections=5` | **WARN**（paper 命名专属，manual / whitepaper / book 不适用） |
 | 3 | Definition/Theorem/Lemma/Corollary/Algorithm 标注数 | ≥ 1（0 时 WARN） | **WARN** |
-| 4 | `$$...$$` 公式 block 数 | ≥ 1（0 时 WARN） | **WARN** |
+| 4 | 公式数（行内 `$...$` 或 block `$$...$$` 合计；negative lookaround 避免重复计数） | ≥ 1（0 时 WARN） | **WARN**（2026-07-06 从仅 block 扩到行内 + block 合计） |
 | 5 | 字符下限 | `min_chars=8000`（paper full） | **WARN** |
 | 6 | "原文未明确"占位比例 | `placeholder_ratio_warn=0.5`（超 50% 时 WARN） | **WARN** |
 
-manual / whitepaper / book 的自检**待拆分**——若启用，应按各类型调整正则（如 manual 用
-通用 `^###\s+` 计数 + 命令清单代码块数；whitepaper 加 mermaid block 数；book 用
-`## Chapter N` 计数）。
+#### manual / whitepaper / book 各自专属检查
+
+| 类型 | 检查函数 | 关键差异（vs paper） |
+| --- | --- | --- |
+| manual | `_check_manual_full_content` | H2 ≥ 3（FAIL）；H3 ≥ 5（WARN）；表格行数 ≥ 5（WARN）；命令/API/配置代码块 ≥ 1（WARN）；字符下限 ≥ 6000；"原文未明确"比例 > 50% WARN |
+| whitepaper | `_check_whitepaper_full_content` | H2 ≥ 3（FAIL）；H3 ≥ 5；表格行数 ≥ 5；mermaid block ≥ 1；字符下限 ≥ 7000 |
+| book | `_check_book_full_content` | H2 ≥ 3（FAIL）；`## Chapter N` / `## Part N` ≥ 3；H3 ≥ 5；字符下限 ≥ 10000 |
+
+manual / whitepaper / book 的 H2 ≥ 3 仍走 **FAIL**（这些类型 Gemini 习惯用 `## `，不像 paper
+会在 `### ` 跳级），FAIL 不阻塞退出（仅 stderr 提示）。
 
 ---
 

@@ -1388,6 +1388,16 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         help=f"Gemini 模型 ID，默认 {DEFAULT_MODEL}（全 skill 统一默认值；长上下文注意力稳，mermaid 架构图完整保留）。",
     )
     parser.add_argument(
+        "--refine-model",
+        default=None,
+        help="Stage 2 视觉定位专用模型（仅 paper quick + --refine-figures 生效）。"
+        "默认 None → 跟 --model 走。结构化 JSON bbox 输出 + 单页 PNG 输入，"
+        "理论上 flash-lite 已够用，可用此 flag 拆开以降低 503 概率 + 节省成本。"
+        "例：--model gemini-3.1-pro-preview --refine-model gemini-3.1-flash-lite"
+        "（主总结保 pro-preview 的复杂推理 + 长文稳，Stage 2 走更便宜的轻量模型）。"
+        "模型选型指南见 SKILL.md §模型选型。",
+    )
+    parser.add_argument(
         "--focus",
         default=None,
         help="用户关注点，会拼接到 prompt 末尾。",
@@ -2508,13 +2518,13 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         )
     )
     sys.stderr.write("INFO: 第 1 次调用 Gemini (academic 模板 = quick summary)\n")
-    quick_prompt = build_prompt(focus, template="academic")
+    quick_prompt = build_prompt(focus, doc_type="paper", mode="quick")
     quick_md = call_gemini(model, pdf_bytes, quick_prompt, args.temperature)
 
     sys.stderr.write(
         f"INFO: 第 2 次调用 Gemini (full 模板 = PDF→Markdown 全量转写, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
     )
-    full_prompt = build_prompt(focus, template="full")
+    full_prompt = build_prompt(focus, doc_type="paper", mode="full")
     # max_output_tokens=65536(SSOT: FULL_MAX_OUTPUT_TOKENS 模块常量),避免
     # 撞顶截断尾部章节(决策背景见 prompt-template.md ## 全文级抽取模板
     # 头部 2026-06-30 加固的"完整性 > 篇幅"block)。
@@ -2712,9 +2722,35 @@ def main(argv=None):  # type: (Optional[list]) -> int
             else:
                 page_to_png = render_pages_for_gemini(args.pdf, refs, dpi_scale=args.refine_dpi)
                 if page_to_png:
-                    visual_bbox_map = call_gemini_for_visual_bbox(args.pdf, page_to_png, model, args.temperature)
+                    # 2026-07-06 拆分：Stage 2 可独立指定模型(--refine-model)，
+                    # 默认 None → 跟主 --model 走。允许主总结 pro-preview +
+                    # Stage 2 flash-lite 的"按场景拆模型"配置。
+                    stage2_model = args.refine_model or model
+                    if stage2_model != model:
+                        sys.stderr.write(
+                            f"INFO: Stage 2 视觉定位使用独立模型 {stage2_model}（主模型 {model}）\n"
+                        )
+                    visual_bbox_map = call_gemini_for_visual_bbox(args.pdf, page_to_png, stage2_model, args.temperature)
                     # caption 写到 image alt（v3.2）；Stage 2 读到的完整 caption 覆盖 Stage 1 估算
                     summary_md = insert_caption_after_figure(summary_md, visual_bbox_map)
+                    # 2026-07-06 加 Stage 2 结果摘要(2026-07-06 测试暴露：Stage 2 单页失败只打
+                    # WARN,用户无法判断整体是否成功;此处汇总 N 页 / M 个图,让用户一眼看清
+                    # 走了 Stage 2 还是回退到 Stage 1 caption-based bbox)
+                    n_pages = len(page_to_png)
+                    n_bbox = len(visual_bbox_map)
+                    if n_bbox == 0 and n_pages > 0:
+                        sys.stderr.write(
+                            f"WARN: Stage 2 {n_pages} 页全部失败/无结果,"
+                            f"回退到 Stage 1 caption-based bbox 导出图(精度低于视觉定位)。\n"
+                            f"      可考虑: 1) 稍后重试  2) --refine-model <轻量模型> 降低 503 概率\n"
+                            f"               3) --no-refine-figures 跳过 Stage 2 走纯 Stage 1\n"
+                        )
+                    elif n_bbox < n_pages:
+                        # 部分页失败,仅提示(Stage 1 已兜底),不阻塞
+                        sys.stderr.write(
+                            f"INFO: Stage 2 {n_pages} 页中 {n_bbox} 页有视觉定位结果,"
+                            f"其余页回退 Stage 1 caption-based bbox。\n"
+                        )
         os.makedirs(out_dir, exist_ok=True)
         ref_to_fullpath, ref_to_thumbpath, ref_to_dim = render_figures_to_pngs(
             args.pdf,
@@ -3040,11 +3076,16 @@ def _check_paper_full_content(md_text, min_h2=3, min_sections=5, placeholder_rat
     # type: (str, int, int, float, int) -> Dict[str, object]
     """paper full 模式专属自检（2026-06-30 重新定位后，6 项 paper 专属检查）。
 
-    校验项:
-    1. H2 章节保真度：`^## ` 行数 ≥ min_h2(默认 3)。FAIL 写 stderr 不阻塞
-    2. `### Section X.Y` 数量 ≥ min_sections(默认 5,按 eval/evals.json 契约下限)
+    校验项(2026-07-06 放宽正则以匹配 Gemini paper full 实际产出):
+    1. 顶层章节保真度：`## ` 或 `### ` 行数合计 ≥ min_h2(默认 3)。
+       WARN（学术论文 Gemini 倾向 `### L1` + `#### L2` 体系，旧正则只查 `##` 会
+       对 Roman / 阿拉伯数字子节风格的论文全 FAIL，实际产出并未失真，故降级 WARN）
+    2. `### Section X.Y` 数量 ≥ min_sections(默认 5,按 eval/evals.json 契约下限)。
+       接受三种 PDF 学术论文常见命名格式:`Section X.Y` / Roman 数字 `### I.`
+       `### II.` / 阿拉伯数字 `### 1.` `### 2.` 任一即算
     3. Definition/Theorem/Lemma/Algorithm 标注数 ≥ 1（WARN）
-    4. `$$...$$` 公式 block 数 ≥ 1（WARN）
+    4. 行内公式 `$...$` 或公式 block `$$...$$` 总数 ≥ 1（WARN，paper full 默认
+       走 inline 公式与 mermaid 风格一致；block 公式同样接受）
     5. 字符下限 ≥ min_chars(默认 8000)（WARN）
     6. "原文未明确"占位比例 > placeholder_ratio_warn(默认 50%)（WARN）
     """
@@ -3052,22 +3093,35 @@ def _check_paper_full_content(md_text, min_h2=3, min_sections=5, placeholder_rat
 
     result = {"ok": True, "warnings": [], "failures": [], "report": ""}
 
-    # ---- 检查 1:H2 章节保真度(2026-06-30:不查具体名称,只保底数量) ----
+    # ---- 检查 1:顶层章节保真度(2026-07-06:## / ### 合计;FAIL→WARN) ----
     h2_re = re.compile(r"^##\s+", re.MULTILINE)
+    h3_re = re.compile(r"^###\s+", re.MULTILINE)
     n_h2 = len(h2_re.findall(md_text))
-    if n_h2 < min_h2:
-        result["failures"].append(f"paper full H2 章节数 {n_h2} < {min_h2},PDF 章节未被保真展开")
-        result["ok"] = False
+    n_h3 = len(h3_re.findall(md_text))
+    n_top = n_h2 + n_h3
+    if n_top < min_h2:
+        result["warnings"].append(
+            f"paper full 顶层章节数 {n_top}(##={n_h2}+###={n_h3}) < {min_h2},"
+            f"PDF 章节未被保真展开"
+        )
 
-    # ---- 检查 2:### Section X.Y 数量 ----
-    section_re = re.compile(
-        r"^###\s+Section\s+\d+(?:\.\d+)*",
-        re.MULTILINE | re.IGNORECASE,
-    )
-    section_matches = list(section_re.finditer(md_text))
-    n_sections = len(section_matches)
+    # ---- 检查 2:##/### Section X.Y / Roman / 阿拉伯 三选一(2026-07-06 v2) ----
+    # Gemini 对 L1 章节层级非确定:有时 ## 有时 ###;同一篇 run 内统一。
+    # regex 同时接受 ## / ### 两层,覆盖两种风格任一即可。
+    section_res = [
+        re.compile(r"^##\s+Section\s+\d+(?:\.\d+)*", re.MULTILINE | re.IGNORECASE),
+        re.compile(r"^##\s+[IVX]+\.\s+", re.MULTILINE),  # ## I. ## II. ...
+        re.compile(r"^##\s+\d+\.\s+", re.MULTILINE),  # ## 1. ## 2. ...
+        re.compile(r"^###\s+Section\s+\d+(?:\.\d+)*", re.MULTILINE | re.IGNORECASE),
+        re.compile(r"^###\s+[IVX]+\.\s+", re.MULTILINE),  # ### I. ### II. ...
+        re.compile(r"^###\s+\d+\.\s+", re.MULTILINE),  # ### 1. ### 2. ...
+    ]
+    n_sections = sum(len(rx.findall(md_text)) for rx in section_res)
     if n_sections < min_sections:
-        result["warnings"].append(f"paper full ### Section X.Y 数量 {n_sections} < {min_sections}(evals.json 契约下限)")
+        result["warnings"].append(
+            f"paper full L1 章节数 {n_sections} < {min_sections}"
+            f"(evals.json 契约下限;接受 Section X.Y / Roman / 阿拉伯数字格式)"
+        )
 
     # ---- 检查 3:Definition / Theorem / Lemma / Algorithm 标注数 ----
     label_re = re.compile(
@@ -3080,11 +3134,17 @@ def _check_paper_full_content(md_text, min_h2=3, min_sections=5, placeholder_rat
             "paper full 未发现 Definition/Theorem/Lemma/Corollary/Algorithm 标注(原文无此类标注 或 模型未保真)"
         )
 
-    # ---- 检查 4:`$$...$$` 公式 block 数 ----
+    # ---- 检查 4:行内公式 + block 公式合计(2026-07-06 加 inline) ----
+    # 行内公式 $...$ 用 negative lookaround 避免与 block $$...$$ 重复计数
     block_re = re.compile(r"\$\$.+?\$\$", re.DOTALL)
+    inline_re = re.compile(r"(?<!\$)\$(?!\$)[^\$\n]+?\$(?!\$)", re.MULTILINE)
     n_blocks = len(block_re.findall(md_text))
-    if n_blocks == 0:
-        result["warnings"].append("paper full 未发现 $$...$$ 公式 block(原文无独立公式 或 模型未保真 LaTeX 转写)")
+    n_inlines = len(inline_re.findall(md_text))
+    n_formulas = n_blocks + n_inlines
+    if n_formulas == 0:
+        result["warnings"].append(
+            "paper full 未发现公式(原文无公式 或 模型未保真 LaTeX 转写)"
+        )
 
     # ---- 检查 5:字符下限 ----
     n_chars = len(md_text)
@@ -3102,8 +3162,9 @@ def _check_paper_full_content(md_text, min_h2=3, min_sections=5, placeholder_rat
             )
 
     summary_line = (
-        f"Content self-check (paper): H2={n_h2}, ###Section={n_sections}, "
-        f"Def+Thm+Lem+Alg={n_labels}, $$block={n_blocks}, "
+        f"Content self-check (paper): top={n_top}(##{n_h2}+###{n_h3}), "
+        f"L1={n_sections}, Def+Thm+Lem+Alg={n_labels}, "
+        f"formula={n_formulas}($${n_blocks}+$inline${n_inlines}), "
         f"chars={n_chars}, {len(result['warnings'])}w {len(result['failures'])}f"
     )
     result["report"] = summary_line

@@ -61,6 +61,7 @@ metadata:
 | 缩略图 | ✗ | `--thumbnail` 额外生成缩略图；`--thumbnail-width`（默认 400px）控制宽度 |
 | Stage 2 视觉定位 | ✗ | `--refine-figures / --no-refine-figures`（默认 True），仅 paper quick 生效 |
 | Stage 2 渲染倍率 | ✗ | `--refine-dpi 2.0`，仅 paper quick 启用 refine 时生效 |
+| Stage 2 模型 | ✗ | `--refine-model <id>`（2026-07-06 加），仅 paper quick + `--refine-figures` 生效；默认 None → 跟 `--model` 走。详见 §模型选型小节 |
 | 强制覆盖 | ✗ | `--force-full`，仅 paper `--full` 模式生效；raw 端产物已存在时默认拒绝覆盖 |
 
 ### 模型选型
@@ -98,6 +99,17 @@ metadata:
 > （脚本错误里的"用 `--model <id>` 换模型"是给用户的、不是给 agent 的指令），须如实
 > 把错误 + 三步建议呈现给用户，由用户决定。换模型必须用 `--model <id>` 显式指定，
 > **完整策略见 §核心原则 #8**（包含错误信息格式与三步建议）。
+
+> **Stage 2 可独立配模型**（2026-07-06 加 `--refine-model`，仅 paper quick + `--refine-figures` 生效）：
+> Stage 2 是单页 PNG + 结构化 JSON bbox/caption 输出，任务简单、不是长上下文推理，
+> 理论上 `flash-lite` 够用。可拆模型配置：
+> ```bash
+> # 主总结 pro-preview（保复杂推理 + 长文稳）+ Stage 2 flash-lite（保结构化输出 + 降 503 概率 + 便宜）
+> python3 gemini_pdf_summary.py --pdf paper.pdf --type paper \
+>   --model gemini-3.1-pro-preview --refine-model gemini-3.1-flash-lite
+> ```
+> 默认 `--refine-model` 为 None → Stage 2 跟 `--model` 走，保持旧行为不变。
+> 拆分后如出现 bbox 精度退化（图切到 caption / 多框无关内容），回退到不传 `--refine-model` 让 Stage 2 跟主模型走。
 
 **避免使用**：
 
