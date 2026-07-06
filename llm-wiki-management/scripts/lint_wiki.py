@@ -55,7 +55,46 @@ SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
-CURRENT_WIKI_SPEC = "0.11.0"
+# 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
+# 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
+CURRENT_WIKI_SPEC = "0.12.0"
+
+
+def _assert_spec_version_sync() -> None:
+    """运行时校验 CURRENT_WIKI_SPEC 与 SKILL.md metadata.wiki_spec_version 一致。
+
+    脚本常量是 SSOT 的副本（lint 的迁移目标 `to_version` 直接读这里），SKILL.md
+    frontmatter 是人读的真源——两边都改才不会漂移。本函数在模块 import 时跑一次，
+    不一致时给 stderr warning 提醒维护者修；vendored 副本 / 找不到 SKILL.md 时静默。
+    """
+    try:
+        skill_md = Path(__file__).resolve().parent.parent / "SKILL.md"
+    except (OSError, ValueError):
+        return
+    if not skill_md.is_file():
+        return
+    try:
+        # wiki_spec_version 在 frontmatter 的 metadata: 块下，行首有缩进；
+        # 正则允许前导空白。匹配失败时静默（vendored / 旧版本 SKILL.md 可能无此字段）。
+        m = re.search(
+            r"^[ \t]*wiki_spec_version:[ \t]*(\S+)[ \t]*$",
+            skill_md.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+    except OSError:
+        return
+    if m is None:
+        return
+    declared = m.group(1).strip()
+    if declared != CURRENT_WIKI_SPEC:
+        sys.stderr.write(
+            f"[lint_wiki] WARNING: CURRENT_WIKI_SPEC ({CURRENT_WIKI_SPEC}) "
+            f"!= SKILL.md metadata.wiki_spec_version ({declared}). "
+            f"升 wiki spec 版本时需同步改脚本常量（SSOT 见 references/wiki-spec.md 附录 B）。\n"
+        )
+
+
+_assert_spec_version_sync()
 
 # --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
 MIGRATION_PLAN_FILENAME = ".migration-plan.json"
@@ -192,6 +231,86 @@ def _parse_anchor(anchor_path: Path):
     return data
 
 
+def _git_inside_work_tree(target_path: Path) -> bool:
+    """target_path 是否在 git work tree 内？
+
+    优先用 `git -C <target> rev-parse --is-inside-work-tree` 判定（处理 worktree
+    子目录等情况）；git CLI 不可用时 fallback 到 `<target>/.git` 存在性检查。
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(target_path), "rev-parse", "--is-inside-work-tree"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if result.returncode == 0 and result.stdout.strip() == "true":
+            return True
+    except (OSError, FileNotFoundError):
+        pass
+    return (target_path / ".git").exists()
+
+
+def _git_field(target_path: Path, args):
+    """跑 `git -C <target> <args>` 取单行 stdout；失败返回 None。"""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(target_path)] + list(args),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (OSError, FileNotFoundError):
+        pass
+    return None
+
+
+def _check_git_anchor(findings, rel, target_path, anchor):
+    """spec §13.5：target 在 git 仓内时校验 anchor 的 git 扩展字段。
+
+    三种 finding：
+    - external-git-anchor-incomplete（error）：target 在 git 仓内但 anchor 缺
+      remote_url / commit / branch 之一
+    - external-git-anchor-stale（warn）：anchor 三字段齐但与 git 实际值不一致
+    - 跳过：target 不在 git 仓内 / git CLI 不可用 / 字段值类型异常
+    """
+    if not _git_inside_work_tree(target_path):
+        return  # 非 git 仓：三扩展字段全可选，跳过
+    remote_url = anchor.get("remote_url")
+    commit = anchor.get("commit")
+    branch = anchor.get("branch")
+    missing = [
+        name
+        for name, val in (("remote_url", remote_url), ("commit", commit), ("branch", branch))
+        if not isinstance(val, str) or not val
+    ]
+    if missing:
+        findings.append(
+            f"external-git-anchor-incomplete: {rel} 的 target 在 git 仓内，但 "
+            f"anchor 缺字段 {missing}（spec §13.5 git 仓扩展字段强制三必填；"
+            f"agent 引导用户补齐）"
+        )
+        return
+    # 三字段齐：跑 git 命令对比
+    actual_remote = _git_field(target_path, ["remote", "get-url", "origin"])
+    actual_commit = _git_field(target_path, ["rev-parse", "HEAD"])
+    actual_branch = _git_field(target_path, ["rev-parse", "--abbrev-ref", "HEAD"])
+    drift = []
+    if actual_remote is not None and actual_remote != remote_url:
+        drift.append(f"remote_url anchor={remote_url!r} git={actual_remote!r}")
+    if actual_commit is not None and actual_commit != commit:
+        drift.append(f"commit anchor={commit!r} git={actual_commit!r}")
+    if actual_branch is not None and actual_branch != branch:
+        drift.append(f"branch anchor={branch!r} git={actual_branch!r}")
+    if drift:
+        findings.append(
+            f"external-git-anchor-stale: {rel} 的 anchor 与 target git 状态不一致，"
+            f"需刷新；差异：{'; '.join(drift)}"
+        )
+
+
 def check_external_symlinks(wiki_root: Path) -> List[str]:
     """10. raw/external/<source-name>/ 下 symlink 的健康检查
 
@@ -253,8 +372,11 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
                     f"已不存在（captured_at={anchor.get('captured_at', '?')}）；"
                     f"用户需重新锚定或删除 symlink"
                 )
-            # target 路径与当前 symlink 解析不一致：target 被迁移了
             else:
+                # target 存活时：若 target 在 git 仓内，校验 remote_url / commit / branch
+                # 与 anchor 同名字段是否一致（spec §13.5）
+                _check_git_anchor(findings, rel, target_path, anchor)
+                # target 路径与当前 symlink 解析不一致：target 被迁移了
                 try:
                     current_target = str(sl.resolve())
                 except OSError:
@@ -997,10 +1119,13 @@ def severity_of(finding: str) -> str:
             "external-anchor-missing",
             "external-target-dead",
             "external-source-name-invalid",
+            "external-git-anchor-incomplete",
         )
     ):
         return "error"
-    if finding.startswith(("external-anchor-corrupt", "external-target-drift")):
+    if finding.startswith(
+        ("external-anchor-corrupt", "external-target-drift", "external-git-anchor-stale")
+    ):
         return "warn"
     if finding.startswith(
         ("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")

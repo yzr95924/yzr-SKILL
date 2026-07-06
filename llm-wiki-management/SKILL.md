@@ -11,8 +11,8 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-02
-  wiki_spec_version: 0.11.0
+  last_modified: 2026-07-06
+  wiki_spec_version: 0.12.0
 ---
 
 # LLM Wiki Management
@@ -89,11 +89,15 @@ metadata:
 四层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。**纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
+   对 LLM 只读。**唯一例外**：`raw/external/<source-name>/` 下 LLM **可**创建 symlink +
+   写 `.symlink-anchor.json`（首次接入 + 漂移刷新）——详见 [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
+   + [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
+   （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
+   **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
    raw 为准 4 条）见 `<wiki-root>/AGENTS.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
    模板见 [`references/agents-md-template.md`](references/agents-md-template.md)）。
    `raw/` 下子目录自由组织——CLI 默认建 `articles/` + `assets/`，但 `podcasts/` /
-   `clippings/` / `papers/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
+   `clippings/` / `papers/` / `external/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
    wiki 内容，只读 + 提问题。每次摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
 3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
@@ -168,6 +172,8 @@ metadata:
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/AGENTS.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
+   **唯一例外**：`raw/external/<source-name>/` 下 LLM 可主导创建 symlink + 写 anchor（详
+   §1.bulk 外部代码仓子节 + wiki-spec §13.3）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
 4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
@@ -220,8 +226,9 @@ metadata:
 
 ### 边界
 
-- **不**编辑 `raw/` 下任何文件（含 `raw/external/` 的 symlink + anchor）——
-  LLM 只读；用户可改，改后由 ingest 重新消化
+- **不**编辑 `raw/` 下任何文件——LLM 只读；用户可改，改后由 ingest 重新消化
+  **唯一例外**：`raw/external/<source-name>/` 下 LLM 可创建 symlink + 写
+  `.symlink-anchor.json`（首次接入 + 漂移刷新；spec §13.3）
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
@@ -243,6 +250,8 @@ metadata:
 - 用 Obsidian-only 语法（`[[wikilink]]`、`![[embed]]`）——本 skill 假设通用 Markdown
 - 把 llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py）
   复制进 `<wiki-root>/scripts/`——SSOT 在 skill 仓；本 wiki 自维护脚本必须同时更新 `SCRIPTS.md` 索引段
+- 把外部代码仓接入走 `cp -r` 内嵌到 `raw/` 而非 `raw/external/` symlink——失去
+  commit 锚点 + 占用空间 + 违反 spec §13 纪律
 
 ## 工作流 / 步骤
 
@@ -347,14 +356,27 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 **外部代码仓作为语料**——若用户说"把 X 仓库（外部代码仓）纳入 wiki"：
 
 - **不**内嵌拷仓（占空间 + 失去 commit 锚点），走 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)
-  的 symlink 路径：
-  1. 与用户确认仓库在本机的绝对路径（如 `~/src/linux`）
-  2. **LLM 指导 / 由用户执行**：`mkdir -p raw/external/<source-name> && ln -s <target> raw/external/<source-name>/<symlink-name>`
-  3. **用户**就地写 `.symlink-anchor.json`（`target` = `readlink -f` 结果绝对路径，`captured_at` = 今天，`kind: "external-repo"`）
-  4. 后续 `ingest_diff.py` 会把 symlink 目标下的文件当作 raw 资料正常扫描；
+  的 symlink 路径。这是 `raw/` 总纪律的**唯一例外**——LLM 主导接入流程：
+  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 本机绝对路径
+     （如 `~/src/linux`）+ 若仓内子目录被纳入则 `<subpath>`（默认空 = symlink 指仓根）
+  2. **LLM 验证**：`git -C <target> rev-parse --is-inside-work-tree`（返回 true 才走 git 仓路径）；
+     非 git 仓场景下三扩展字段全可选、lint 跳过 git 校验
+  3. **LLM 读** git 仓扩展字段：`remote_url` = `git -C <target> remote get-url origin`，
+     `commit` = `git -C <target> rev-parse HEAD`（完整 SHA），`branch` =
+     `git -C <target> rev-parse --abbrev-ref HEAD`
+  4. **LLM 创建** symlink + 写 anchor：`mkdir -p raw/external/<source-name> &&
+     ln -s <target> raw/external/<source-name>/<symlink-name>`，
+     并就地写 `.symlink-anchor.json`（最小必填 3 字段 + git 仓扩展字段）
+  5. 后续 `ingest_diff.py` 会把 symlink 目标下的文件当作 raw 资料正常扫描；
      source 页 `sources` 字段填 `raw/external/<source-name>/<path-under-target>`
-- LLM 在此流程中**仅**解释 spec + 帮用户写命令；**不**直接创建 symlink /
-  写 anchor（保留 raw/ 的"LLM 只读"纪律）
+- **漂移刷新**：当 lint 报 `external-git-anchor-stale`（用户日常 `git pull` 触发），
+  LLM 重跑 step 3 重写 anchor 的 git 扩展字段；用户也可以手动确认"忽略漂移"
+- **跨主机重建**：anchor 进 git、symlink 不进 git——新主机 `git clone` wiki 仓后，
+  LLM 读 anchor 的 `remote_url` / `commit` 即可重建；详见
+  [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)
+- LLM **不**修改 target 本身（外部仓是用户所有；不在仓内跑 `git pull` 之类），
+  **不**编辑 `raw/external/` 之外的 `raw/` 子树（articles / papers / assets /
+  clippings 等仍"LLM 只读"）
 
 详细模板与 frontmatter 字段见
 [`references/ingest-workflow.md`](references/ingest-workflow.md) +
@@ -401,7 +423,7 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
      （`pending-review` info / `reviewed-stale` warn / `reviewed` 取值非法 / `reviewed_at`
      与 `reviewed` 不成对 / `index-review-badge-drift` / `legacy-confidence-field`
      迁移期检测）——见 [lint-checklist.md §二.13](references/lint-checklist.md#13-可信度与认知质量信号reviewed--contested--contradictions)
-   - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效（spec §13；让用户感知 link 丢失）
+   - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效 / git 仓 anchor 缺三扩展字段 / git 仓 anchor 漂移（spec §13；让用户感知 link 丢失 / 重建依据缺失）
 3. 脚本输出报告后，**agent 还要做半定性检查**：
    - 矛盾主张（同一概念在两个 page 中说法冲突）
    - 缺失的交叉引用（页 A 提到 B 概念但没链到 `concepts/b.md`）

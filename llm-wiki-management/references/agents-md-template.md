@@ -46,19 +46,27 @@
 
   ```
   raw/external/linux-kernel/
-  ├── .symlink-anchor.json         # {"target": "/home/me/src/linux", "captured_at": "2026-07-01", ...}
+  ├── .symlink-anchor.json         # {"target": "...", "captured_at": "...", "kind": "external-repo",
+  │                                 #  "remote_url": "...", "commit": "<sha>", "branch": "..."}
   └── linux                       # symlink → /home/me/src/linux
   ```
 
-- **纪律（用户责任，LLM 不代办）**：
-  - symlink 由用户用 `ln -s` 或编辑器创建；**没有 anchor 的 symlink = lint 报错**
-  - `.symlink-anchor.json` 含 `target`（绝对路径，`readlink -f` 结果）+
+- **纪律（用户 + LLM 共有；详见 spec §13.3）**：
+  - **最小必填 3 字段**（所有 anchor）：`target`（绝对路径，`readlink -f` 结果）+
     `captured_at`（接入当天）+ `kind: "external-repo"`
+  - **git 仓扩展字段**（当 target 在 git 仓内时强制——见 spec §13.5）：
+    `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报
+    `external-git-anchor-incomplete`；漂移时 lint 报 `external-git-anchor-stale`
+  - 没有 anchor 的 symlink = lint 报 `external-anchor-missing`
   - target 路径被改 / 删除后，anchor 仍记旧值——lint 立刻报 `external-target-dead`
-    让用户感知（不静默漏掉）
-  - LLM agent **不写、不删、不改** symlink / anchor——延续 `raw/` 的"LLM 只读"
+  - LLM agent **可写** symlink + anchor（首次接入 + 漂移刷新）——这是 `raw/`
+    总纪律的**唯一例外**；LLM 主导接入流程见 SKILL.md §1.bulk
+  - LLM **不**修改 target 本身（外部仓是用户所有）；**不**编辑 `raw/external/`
+    之外的 `raw/` 子树（articles / papers / assets / clippings 等仍"LLM 只读"）
 - `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `**/.symlink-anchor.json`——
-  跨机器 clone 时通过 anchor 立即知道"这本来指着哪"
+  跨机器 clone 时通过 anchor 立即知道"这本来指着哪"；anchor 的
+  `remote_url` + `commit` + `branch` 三字段让新主机 LLM 可重建（详见 spec §13.5
+  + `references/external-repo-rebuild.md`）
 
 ### `wiki/` —— LLM 拥有的复利资产
 
@@ -71,6 +79,11 @@
   - 任何 wiki 页面**必须**有 ≥ 1 条 inbound 链接（index 或其它页）
 
 ### `log.md` —— 仅追加操作时间线
+
+> **本段 SSOT 反指**：log.md 条目格式 / lint 校验的权威定义在 `page-templates.md` §7
+> 「`log.md`/log」与 `lint-checklist.md` §二.10；本文件是 wiki 仓自带模板（workspace CLI init 时
+> 拷贝到目标 wiki 根，跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
+> 改 SSOT 时同步改本段。
 
 - 路径：`<wiki-root>/wiki/log.md`
 - 纪律：
@@ -119,6 +132,11 @@
 
 ### `scripts/` —— 本 wiki 仓的自维护脚本目录（0.9.0+）
 
+> **本段 SSOT 反指**：`scripts/` 目录契约 / SCRIPTS.md 索引 / 4 要素 / 6 条纪律的权威定义在
+> `wiki-spec.md` §14；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
+> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
+> 改 SSOT 时同步改本段。
+
 - 路径：`<wiki-root>/scripts/`
 - 性质：**用户 + LLM agent 共有**的项目级脚本目录——放置项目专属的 ingest 扩展（批量 PDF prep、
   主题模板预处理等）、外部 CLI 胶水（pdf 抽图 / obsidian 同步等）、自动化 hook（pre-commit 校验、
@@ -143,8 +161,13 @@
 
 ## 二、页面类型与 frontmatter 约定
 
-> **权威定义在 `page-templates.md` §二（页面模板 + 字段定义）**——
-> 本表只是 setup 后在 wiki 内的速查。顺序与该处保持字母序一致（comparison → concept →
+> **本段 SSOT 反指**：页面类型分类 + 字段全集 + 5 必填字段语义 + 生命周期规则的权威定义在
+> `page-templates.md` §一与 §二（以及 `wiki-spec.md` §9 的字段全集）；
+> 本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
+> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
+> 改 SSOT 时同步改本段。
+>
+> 本表是 setup 后在 wiki 内的速查（顺序与该处保持字母序一致：comparison → concept →
 > entity → source → synthesis）。
 
 | 类型 | 目录 | `type` 字段 | 关键字段 |
