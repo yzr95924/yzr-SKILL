@@ -26,7 +26,7 @@
 from google import genai
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 response = client.models.generate_content(
-    model="gemini-3.5-flash",  # 默认值；用户显式覆盖走 --model
+    model=DEFAULT_MODEL,  # 见 scripts/gemini_pdf_summary.py 模块常量；用户显式覆盖走 --model
     contents=[
         Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
         template_text,  # 从 _base + template-<type> 拼装
@@ -36,7 +36,7 @@ response = client.models.generate_content(
 
 **禁止**先用 pdftotext / PyPDF2 / pdfplumber 抽纯文本再喂 Gemini——会丢图表、公式、版式信息。
 
-**模型选择**：默认 `gemini-3.5-flash`（stable，2026-06 选型结果）。
+**模型选择**：默认 `DEFAULT_MODEL`（`scripts/gemini_pdf_summary.py` 模块常量；2026-07-06 起全 skill 统一走 `gemini-3.1-pro-preview`）。
 用户显式传 `--model <id>` 时按用户；具体可用模型以
 `gemini-api-docs-mcp` 的 `get_current_model` 实时结果为准。
 

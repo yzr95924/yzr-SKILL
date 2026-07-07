@@ -4,8 +4,8 @@
     {
       "id": 1,
       "name": "single-paper-full-mode-attention",
-      "prompt": "我刚下载了 Attention Is All You Need 的 PDF（路径 /home/zryang/papers/Attention Is All You Need.pdf），想把这篇论文的全文结构化版本存到 ~/wiki/llm/ 这个 wiki 仓的 raw/ 端，方便后面我反复在多轮对话里基于这份抽取向 LLM 提问。一次性帮我跑完，跑完后 raw 端就该就绪——raw/papers/ 下有 .full.md（全文级 PDF→Markdown 转写,所有 Section 都展开、所有公式 / 表格保留、解除 ≤2500 字符压缩）+ .quick.md 给未来远端发布用；full 模式产物自包含(架构图 mermaid 画、数据图转表)，不落 PNG。",
-      "expected_output": "一份调用产出 2 份产物(2026-06-30 第二轮翻面,full 不落 PNG):~/wiki/llm/raw/papers/attention-is-all-you-need.quick.md (≤2500 字符学术总结 6 段 ## 骨架 + ![图 N] 引用 + 落 PNG)、~/wiki/llm/raw/papers/attention-is-all-you-need.full.md (全文级 PDF→Markdown 全量转写,自包含;架构图直接 mermaid 画在 markdown 里,数据图转表格;不落 PNG)。quick 模式另产生 ~/wiki/llm/raw/assets/attention-is-all-you-need/fig-NN.png,full 模式不产生。",
+      "prompt": "我刚下载了 Attention Is All You Need 的 PDF（路径 /home/zryang/papers/Attention Is All You Need.pdf），想把这篇论文的全文结构化版本存到 ~/wiki/llm/ 这个 wiki 仓的 raw/ 端，方便后面我反复在多轮对话里基于这份抽取向 LLM 提问。一次性帮我跑完，跑完后 raw 端就该就绪——raw/papers/ 下只有 .full.md（全文级 PDF→Markdown 转写,所有 Section 都展开、所有公式 / 表格保留、解除 ≤2500 字符压缩），自包含(架构图 mermaid 画、数据图转表)，不落 PNG。",
+      "expected_output": "一份调用产出 1 份产物(2026-07-07 翻面后,full 模式不再产 quick.md):~/wiki/llm/raw/papers/attention-is-all-you-need.full.md (全文级 PDF→Markdown 全量转写,自包含;架构图直接 mermaid 画在 markdown 里,数据图转表格;不落 PNG)。如想看论文精炼速读 + 带图,跑 `--type paper` 默认不加 --full。",
       "files": [],
       "assertions": [
         {
@@ -19,19 +19,14 @@
           "criteria": "raw/papers/attention-is-all-you-need.full.md 存在"
         },
         {
-          "name": "两份产物落 raw-compatible layout",
+          "name": "单产物落 raw-compatible layout（2026-07-07 翻面）",
           "evidence_kind": "filesystem",
-          "criteria": "raw/papers/<slug>.quick.md 与 raw/papers/<slug>.full.md 都在 raw/papers/ 下"
+          "criteria": "raw/papers/<slug>.full.md 存在;raw/papers/<slug>.quick.md **不存在**(--full 模式不产 quick)"
         },
         {
           "name": "full 模板 PDF→Markdown 全量转写生效",
           "evidence_kind": "text_content",
           "criteria": "full.md 含 ≥ 5 个 ### Section X.Y 子标题, ≥ 1 个 Definition/Theorem/Algorithm 标注, ≥ 1 个公式 block, 字符数 ≥ 8000;章节按 PDF 原生顺序而非 6 类归纳;不写 ![图 N](...) 引用;架构图直接 mermaid 画"
-        },
-        {
-          "name": "quick summary ≤2500 字符精炼",
-          "evidence_kind": "text_content",
-          "criteria": "quick.md 字数 ≤ 2500 字符且含 6 段 ## H2 骨架"
         },
         {
           "name": "full 模式不跑 Stage 2、不落 PNG",
@@ -48,8 +43,8 @@
     {
       "id": 2,
       "name": "single-paper-full-mode-with-focus",
-      "prompt": "我又下了 Mixture-of-Experts 的另一篇 PDF (路径 /home/zryang/papers/MoE-X.pdf,文件名我还没重命名),我对这篇论文里 gating 路由的稀疏性 + 辅助负载均衡损失这部分最感兴趣,其它部分快速过就行。文件已经在 ~/wiki/llm/ 这个仓的 wiki 仓根下,跑完后 raw 端就该就绪(全文级 PDF→Markdown 转写 + quick summary 两份,full 自包含不落 PNG)。full 模板里我希望这篇论文章节按 PDF 章节顺序展开,不要因为字符数压缩合并任何 Section;遇到图尽量 mermaid 化(架构图)或转表(数据图),公式 Unicode 形式。",
-      "expected_output": "一次调用产出 2 份产物:~/wiki/llm/raw/papers/moe-x.quick.md (≤2500 字符 + ![图 N] 引用 + 落 PNG,侧重 gating 路由 + 负载均衡损失)、~/wiki/llm/raw/papers/moe-x.full.md (全文级 PDF→Markdown,按 PDF 章节展开,自包含;gating 路由小节下追加 focus 子段 + mermaid 画架构图);raw/assets/moe-x/fig-NN.png 由 quick 模式产生,full 不产生。",
+      "prompt": "我又下了 Mixture-of-Experts 的另一篇 PDF (路径 /home/zryang/papers/MoE-X.pdf,文件名我还没重命名),我对这篇论文里 gating 路由的稀疏性 + 辅助负载均衡损失这部分最感兴趣,其它部分快速过就行。文件已经在 ~/wiki/llm/ 这个仓的 wiki 仓根下,跑完后 raw 端就该就绪(全文级 PDF→Markdown 转写单份,full 自包含不落 PNG)。full 模板里我希望这篇论文章节按 PDF 章节顺序展开,不要因为字符数压缩合并任何 Section;遇到图尽量 mermaid 化(架构图)或转表(数据图),公式 Unicode 形式。",
+      "expected_output": "一次调用产出 1 份产物(2026-07-07 翻面后,full 模式不再产 quick):~/wiki/llm/raw/papers/moe-x.full.md (全文级 PDF→Markdown,按 PDF 章节展开,自包含;gating 路由小节下追加 focus 子段 + mermaid 画架构图);quick summary 不再由 --full 产出,如要 quick 单独跑 --type paper 默认。",
       "files": [],
       "assertions": [
         {
@@ -60,17 +55,12 @@
         {
           "name": "slug 从文件名 MoE-X.pdf 推断为 moe-x",
           "evidence_kind": "filesystem",
-          "criteria": "raw/papers/moe-x.full.md 存在"
+          "criteria": "raw/papers/moe-x.full.md 存在;raw/papers/moe-x.quick.md 不存在(--full 模式不产 quick)"
         },
         {
           "name": "焦点在 full 模板走 FOCUS_INJECTION_FULL 路径",
           "evidence_kind": "text_content",
           "criteria": "full.md 中 focus 相关的 PDF 原生章节下追加了 focus 子段"
-        },
-        {
-          "name": "焦点在 quick 模板走 FOCUS_INJECTION",
-          "evidence_kind": "text_content",
-          "criteria": "quick.md 含 ## 启发 / 追问 章节且展开 focus 相关 2-3 个延伸思考"
         }
       ]
     },
@@ -78,7 +68,7 @@
       "id": 3,
       "name": "full-mode-conflict-default-deny",
       "prompt": "我把一篇 PDF 已经跑过一次 --full,产物落在 ~/wiki/llm/raw/papers/my-paper.full.md 了;现在我又想跑一遍(因为论文 v2 了),但 raw/ 下的图我之前在多轮对话里已经引用多次,不想被覆盖掉。问我这种情况该怎么办——是直接跑 --full,还是要别的什么操作?agent 给我实际跑的命令与预期行为。",
-      "expected_output": "agent 强调:--full 模式默认拒绝覆盖 raw/papers/<slug>.full.md 与 .quick.md(保护下游已经多次引用的 raw),分两种走法:(a) 删旧产品前 rm <slug>.full.md + 再跑--full;(b) 加 --force-full 显式覆盖(覆盖时 stderr 给 WARN)。",
+      "expected_output": "agent 强调:--full 模式默认拒绝覆盖 raw/papers/<slug>.full.md(保护下游已经多次引用的 raw,2026-07-07 翻面后只保护 full.md 不再保护 .quick.md),分两种走法:(a) 删旧产品前 rm <slug>.full.md + 再跑--full;(b) 加 --force-full 显式覆盖(覆盖时 stderr 给 WARN)。",
       "files": [],
       "assertions": [
         {

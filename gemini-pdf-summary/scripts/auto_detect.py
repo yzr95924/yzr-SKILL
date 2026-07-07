@@ -17,11 +17,12 @@ import re
 import sys
 from typing import Optional, Tuple  # noqa: F401
 
-# 复用 gemini_pdf_summary.py 的常量
+# 复用 gemini_pdf_summary.py 的常量；ImportError fallback 仅在 standalone 调试时触发，
+# SSOT 仍以主脚本为准（2026-07-06 起全 skill 统一 DEFAULT_MODEL = "gemini-3.1-pro-preview"）。
 try:
     from gemini_pdf_summary import DEFAULT_MODEL, VALID_TYPES  # type: ignore
 except ImportError:
-    DEFAULT_MODEL = "gemini-3.5-flash"
+    DEFAULT_MODEL = "gemini-3.1-pro-preview"
     VALID_TYPES = ("paper", "manual", "whitepaper", "book")
 
 # 启发式关键词权重表（命中 1 次 = +N 分；总分 ≥ 阈值则跳过 Gemini 验证）

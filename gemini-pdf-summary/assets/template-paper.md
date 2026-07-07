@@ -2,7 +2,8 @@
 
 > 4 类之一：`--type paper`。论文 PDF → 中文学术结构化总结。
 >
-> 模板来源：从 gemini-paper-summary 既有 `prompt-template.md` 拆分；保留 quick + full 双模式。
+> 模板来源：从 gemini-paper-summary 既有 `prompt-template.md` 拆分；模板正文分两段（quick / full），
+> 但**产物 layout**仅在用户传 `--full` 时走 full 模板（2026-07-07 翻面后 single output，只产 `<slug>.full.md`）。
 >
 > **章节顺序 SSOT**：本文件正文 + SKILL.md §paper 输出小节；改一处必须同步另一处。
 

@@ -1,9 +1,9 @@
 ---
 name: gemini-pdf-summary
-description: 用户给出一份本地 PDF（论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档），需要按文档类型路由到对应模板、用 Gemini 多模态直读 PDF（含图表 / 公式 / 版式，不抽 OCR）输出中文结构化 Markdown 时使用本 skill。`--type` 必填（paper / manual / whitepaper / book 四选一；不确定用 `--auto-detect`）。支持 5 种产物模式：paper quick（精炼速读带图）/ paper full（全文转写双产物）/ manual/whitepaper/book single-full（单文件全文级）/ by-chapter（单次 API 调用 + JSON 结构化输出，按章节拆 N 个 .md + TOC，供 llm-wiki 多次 ingest）。**不适用**：非 PDF 来源、逐字翻译、关键词抽取、多份对比。常见触发："老板扔来一份英文产品 datasheet 让我先做中文速读" / "把这本技术书的章节拆成 N 个 .md 方便 wiki ingest" / "这个 PDF 里有大量架构图和公式，纯文本抽取会丢" / "我不确定这 PDF 是论文还是手册，先自动识别一下"。
+description: 用户给出一份本地 PDF（论文 / 产品手册 / datasheet / 用户手册 / 行业白皮书 / vendor 技术白皮书 / 书籍 / 长篇技术文档），需要按文档类型路由到对应模板、用 Gemini 多模态直读 PDF（含图表 / 公式 / 版式，不抽 OCR）输出中文结构化 Markdown 时使用本 skill。`--type` 必填（paper / manual / whitepaper / book 四选一；不确定用 `--auto-detect`）。支持 4 种产物模式：paper quick（精炼速读带图）/ paper full（全文级 PDF→Markdown 转写，单产物）/ manual/whitepaper/book single-full（单文件全文级）/ by-chapter（默认 L1 模式按 PDF 原生 L1 章拆 N 个 .md + TOC，供 llm-wiki 多次 ingest）。**不适用**：非 PDF 来源、逐字翻译、关键词抽取、多份对比。常见触发："老板扔来一份英文产品 datasheet 让我先做中文速读" / "把这本技术书的章节拆成 N 个 .md 方便 wiki ingest" / "这个 PDF 里有大量架构图和公式，纯文本抽取会丢" / "我不确定这 PDF 是论文还是手册，先自动识别一下"。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-07-06
+  modify time: 2026-07-07
   category: pdf-reading
   supersedes: gemini-paper-summary
 ---
@@ -216,21 +216,13 @@ metadata:
    - **端到端不降级 · agent 也不得自行换模型**（2026-07-01 加固）：脚本抛 `RuntimeError`
      （含 `model=` + `status=` + 三步建议）即任务失败，**agent 不得**自行加
      `--model gemini-3.1-flash-lite` 等便宜模型重跑
-9. **Markdown 风格约定（仓库统一基线）**
-   - **bullet marker 一律用 `*`**，**不要**用 `-` 或 `+`
-   - **关键术语用 `==text==` 高亮**（默认色），不要硬造彩色语法
-   - **Mermaid 块 block-level**：` ```mermaid ` 放在 bullet 之外，不要嵌在 bullet 子项内
-   - **代码块语言必填**：` ```bash ` / ` ```python ` / ` ```json ` / ` ```yaml ` ，
-     **不要**写空语言 ` ``` `
-   - **表格 vs bullet**：数据示例 / 概念对比 / 字段定义用 table；其他场景优先 bullet
-   - **引用块** 行首 > 加空格 仅在引用原始资料原话时使用，**不要**当容器用
-   - **行宽 ≤ 120 字符**（与 `.markdownlint.jsonc` MD013 对齐）
-   - **章节标题用 `##`**：每个章节标题一律 `##`（二级），**不要**降级成 `###`；正文不写 H1（`#`），标题由文件名 / 上层目录承载
-   - **不写私造语法**：`!!! warning` / `:::tip` / `<mark>` / `<details>` /
-     装饰性 emoji 占位（🎉🎉🎉）等**不要**出现
+9. **Markdown 风格约定（仓库统一基线）**——详细 10 节规则见
+   [`references/markdown-style.md`](references/markdown-style.md)。SKILL.md 只点 3 条关键：
+   - bullet marker 一律用 `*`（不要 `-` 或 `+`）
+   - mermaid 块放在 bullet 外（block-level），不要嵌 bullet 子项内
    - **数学 / 范围 / 公式禁用 MathJax**：`$...$` / `$$...$$` outline-wiki 不渲染——
-     改纯文本 / Unicode：范围 `[1, 2^64)`、上标 `2^64` / `2⁶⁴`、运算 `≥` `≤` `×` `→` `≈`
-     （book 模板的全文级转写可保留 `$...$` 行内公式——agent Q&A 场景可消费 LaTeX）
+     改纯文本 / Unicode（`[1, 2^64)` / `2⁶⁴` / `≥` `≤` `×` → `≈`）；
+     book 模板的全文级转写产物可保留 `$...$` 行内公式（agent Q&A 场景可消费 LaTeX）
 
 ### 边界
 
@@ -402,8 +394,8 @@ python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
 | 用 deprecated 模型（`gemini-2.5-*`）跑通了但快 shutdown | 模型还在生效但已 deprecated | 迁移到 `gemini-3.1-pro-preview`（默认）或 `gemini-3.5-flash` / `gemini-3.1-flash-lite` |
 | 跑出来字符数远超 prompt 里声明的目标 | Gemini 不严格遵守 prompt 字符数约束 | 先调 prompt（具体值在 `assets/template-*.md`）/ `--focus`；后处理裁剪 |
 | 输出空 / 截断 | 撞输出 token 上限 | paper quick → 调 prompt 字符目标（SSOT 见 `assets/template-paper.md`）/ `--focus`；full / book 截尾 → 多为模型未保真转写，换模型重跑或拆书；**`--by-chapter` 末位章节截断** → 已是 pro-preview 默认，用 `--pages` 拆段重跑末段（详见 `references/full-mode-contract.md` §by-chapter） |
-| `--by-chapter` 与 `--full` 互斥 | 同时传了 `--by-chapter --full` | 二选一：`--full` 走 paper 双产物（quick + full）；`--by-chapter` 走 N 次 API 按 L1 章拆 N 个 .md（默认 L1） |
-| `--by-chapter --granularity auto` + PDF > 50 页 + 无 `--pages` | 单次 API 调用撞 65536 token 上限 → 末位章节截断（实测 35%+） | 改用 `--granularity L1`（默认）：按 PDF 原生 L1 章 N 次独立调用，每章 ≤ 50 页撞限概率近 0 |
+| `--by-chapter` 与 `--full` 互斥 | 同时传了 `--by-chapter --full` | 二选一：`--full` 走 paper full 单产物（`.full.md`）；`--by-chapter` 走 N 次 API 按 L1 章拆 N 个 .md（默认 L1） |
+| `--by-chapter --granularity auto` + PDF > 50 页 + 无 `--pages` | 单次 API 调用撞 `FULL_MAX_OUTPUT_TOKENS` 上限 → 末位章节截断（实测 35%+） | 改用 `--granularity L1`（默认）：按 PDF 原生 L1 章 N 次独立调用，每章 ≤ 50 页撞限概率近 0 |
 | `--by-chapter --granularity L1` + `--pages` | L1 模式按章自动切页，`--pages` 不兼容 | 删 `--pages`；L1 模式按 PDF 原生 L1 章边界自动切。如需按自定义页段拆 → 改用 `--granularity auto` |
 | L1 模式缺 pymupdf | `--granularity L1` 需要 PyMuPDF 读 TOC + 切页 | `pip install --user --break-system-packages pymupdf`；或改 `--granularity auto` 走单次调用（不需 pymupdf） |
 | L1 模式 PDF 无 TOC | PDF 未嵌 bookmarks / outline | 脚本自动 fallback `--granularity auto`（stderr WARN 提示）；如需严格 L1 拆 → 重新生成 PDF 时加 bookmarks |

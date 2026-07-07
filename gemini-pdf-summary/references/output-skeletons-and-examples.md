@@ -62,7 +62,7 @@
             表格行级转写 + 数字精度 3 位有效数字
 图处理：mermaid block（架构 / 概念）/ markdown 表格（数据可视化）/ 文字一句（装饰图省略）
 字符目标：解除上限；token 紧张时优先精简措辞、缩例子；禁止合并整段 / 删小节 / 跳公式
-产物：<output>/<slug>.quick.md + <slug>.full.md（quick 用 academic 模板 + 带图；full 自包含无图）
+产物：<output>/<slug>.full.md（**单产物**，2026-07-07 翻面后；full 自包含无图；想看 quick + 带图跑 `--type paper` 默认）
 ```
 
 ### manual（产品手册；full 风格全文级转写）

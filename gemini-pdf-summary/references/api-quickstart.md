@@ -26,7 +26,7 @@ from google.genai import types
 
 client = genai.Client()  # 自动读 GEMINI_API_KEY
 
-MODEL = "gemini-3.5-flash"  # 详见 SKILL.md §执行原则
+MODEL = DEFAULT_MODEL  # 见 scripts/gemini_pdf_summary.py 模块常量；2026-07-06 起全 skill 统一 pro-preview
 pdf_path = "path/to/paper.pdf"
 
 with open(pdf_path, "rb") as f:
@@ -99,7 +99,8 @@ response = client.models.generate_content(
 ## 5. 模型选择
 
 **模型选型表 SSOT 在 `../SKILL.md` §模型选型**——本文件不重复。调用 SDK 时直接用
-默认（`gemini-3.5-flash`），需要换模型时从 SKILL.md §模型选型 查"何时显式覆盖"。
+默认（`DEFAULT_MODEL`，见 `scripts/gemini_pdf_summary.py` 模块常量；2026-07-06 起全 skill
+统一 pro-preview），需要换模型时从 SKILL.md §模型选型 查"何时显式覆盖"。
 
 实际可用模型以当前文档为准：
 

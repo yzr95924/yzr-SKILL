@@ -16,7 +16,7 @@
   ↓
 [Layer 2: Gemini 验证]
   把首页 1-3 页用 pymupdf 渲染成 PNG（2x DPI ≈ 144 DPI）
-  送 Gemini 多模态（默认 gemini-3.5-flash）+ 简短分类 prompt
+  送 Gemini 多模态（默认 `DEFAULT_MODEL`，见 `scripts/gemini_pdf_summary.py` 模块常量；2026-07-06 起全 skill 统一 pro-preview）+ 简短分类 prompt
   ├─ Gemini 返回合法类型（paper/manual/whitepaper/book）→ 返回
   └─ Gemini 返回 unknown 或异常 → 抛 RuntimeError → 建议用户显式传 --type
 ```

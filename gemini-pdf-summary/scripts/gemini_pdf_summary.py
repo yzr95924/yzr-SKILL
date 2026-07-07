@@ -36,8 +36,9 @@ Python 兼容：3.7+（与 yzr-skill-creator 脚本保持一致；避开 PEP 604
     # auto-detect 类型
     python3 gemini_pdf_summary.py --pdf unknown.pdf --auto-detect --output raw/papers/foo/
 
-    # paper 的 --full 模式（双产物 quick + full；其他类型忽略此 flag）
+    # paper 的 --full 模式（单产物 full 自包含无图；其他类型忽略此 flag；其他类型默认就是 full 风格）
     python3 gemini_pdf_summary.py --pdf paper.pdf --type paper --full --output <wiki-root>
+    # 想看论文精炼速读 + 带图，用 --type paper 默认（quick 模式）；要看 PNG 用 quick + --extract-figures
 
     # 显式覆盖模型 / focus
     python3 gemini_pdf_summary.py --pdf paper.pdf --type paper --model gemini-3.1-pro-preview
@@ -1416,15 +1417,16 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         "--full",
         action="store_true",
         help=(
-            "全文级抽取模式：仅对 --type paper 有意义——单次调用同时产 quick summary "
-            "(academic 模板，默认带图) + 全量转写 (full 模板，自包含无图，给 agent 多轮查询用)，"
-            "**两份**产物。产物 layout 强制 raw-compatible：--output 视为 wiki 仓根，"
-            "写到 <wiki-root>/raw/papers/<slug>.quick.md + .full.md；"
-            "quick 的图落到 <wiki-root>/raw/assets/<slug>/fig-NN.png（full 不落 PNG、不跑 Stage 2）。"
+            "全文级抽取模式：仅对 --type paper 有意义——单次调用产**一份** PDF→Markdown "
+            "全量转写（full 模板，自包含无图，给 agent 多轮查询用）。\n"
+            "产物 layout 强制 raw-compatible：--output 视为 wiki 仓根，"
+            "写到 <wiki-root>/raw/papers/<slug>.full.md（不写 .quick.md）。"
             "用 --slug 显式指定论文 slug（默认从 PDF 文件名推断）。"
             "若 raw 端产物已存在默认拒绝覆盖（用 --force-full 显式允许）。\n"
             "**manual / whitepaper / book 默认就是 full 风格**（脚本 main() 自动启用 full），"
-            "传 --full 无效果——这 3 类无 quick 风格。"
+            "传 --full 无效果——这 3 类无 quick 风格。\n"
+            "**想看论文精炼速读 + 带图**：不传 --full（默认 quick 模式，跑 --type paper 即可）；"
+            "要看 PNG 走 quick + --extract-figures 单跑，详见 SKILL.md §输出 / §图表处理策略。"
         ),
     )
     parser.add_argument(
@@ -1440,7 +1442,7 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         "--force-full",
         action="store_true",
         help=(
-            "允许 --full 模式覆盖 raw/papers/<slug>.full.md 与 .quick.md（默认拒绝覆盖，"
+            "允许 --full 模式覆盖已存在的 raw/papers/<slug>.full.md（默认拒绝覆盖，"
             "理由：full 抽取是'贵读一次'的产物，意外重写会丢下游已经多次引用的 raw）。"
             "仅在 --full 模式下有意义。"
         ),
@@ -2440,7 +2442,12 @@ def detect_full_overwrite(full_md_path, force):  # type: (str, bool) -> None
 
 
 def _run_full_mode(args):  # type: (argparse.Namespace) -> int
-    """--full 模式独立子流程:产出两份 (quick + full) + raw-compatible layout。
+    """--full 模式独立子流程:产出**一份** full PDF→Markdown 转写 + raw-compatible layout。
+
+    2026-07-07 翻面:原设计是"单次调用同时产 quick summary + full"双产物,
+    现翻面为"单产物 full"——与 manual / whitepaper / book 的 full 风格对齐,
+    4 类 full 全部是"单文件 + LLM 消费底座"。想看 quick summary + 带图请跑
+    `--type paper` 默认（quick 模式）；要看 PNG 走 `--extract-figures` 单跑。
 
     输入约定:
         args.pdf         -- PDF 路径
@@ -2450,23 +2457,25 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         args.force_full                              -- 允许覆盖冲突
 
     写出:
-        <wiki_root>/raw/papers/<slug>.quick.md       -- academic 模板产物(含 ![图 N] 引用 + 落 PNG)
         <wiki_root>/raw/papers/<slug>.full.md        -- full 模板产物(自包含,无 PNG 配套)
-        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- 仅由 quick 模式产生,full 不写(2026-06-30 第二轮翻面)
+        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- 由 `--extract-figures` 单跑或 quick 模式产生,full 不写
 
-    关键决策 SSOT:../../MEMORY/gemini-paper-summary-full-mode-design.md
+    关键决策 SSOT:../../MEMORY/gemini-pdf-summary-paper-full-single-output.md
 
     2026-06-30 第二轮翻面:full 模式不再落 PNG / 不跑 Stage 2 / 不创建
     raw/assets/<slug>/ 目录。架构/概念图直接 mermaid 画在 markdown 里,
     数据可视化图转 markdown 表格(详见 prompt-template.md full 模板)。quick
     模式 + `--extract-figures` 单跑仍走落 PNG 路径。
+
+    2026-07-07 翻面:full 模式不再产 quick summary。`--extract-figures` 单跑
+    仍是产出 PNG 的合法路径；用户要 quick + 带图就走 `--type paper` 默认不加 `--full`。
     """
     # 必填校验
     if not args.output:
         sys.stderr.write(
             "ERROR: --full 模式必须配合 --output 使用(--output 视为 wiki 仓根,\n"
-            "       产物写到 <wiki_root>/raw/papers/<slug>.quick.md + .full.md;\n"
-            "       full 模式不落 PNG,quick 模式或 --extract-figures 单跑仍会落图)。\n"
+            "       产物写到 <wiki_root>/raw/papers/<slug>.full.md 单文件,不写 .quick.md;\n"
+            "       full 模式不落 PNG;想看 PNG 走 quick 模式或 --extract-figures 单跑)。\n"
         )
         sys.exit(2)
 
@@ -2493,36 +2502,25 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         sys.exit(2)
 
     os.makedirs(papers_dir, exist_ok=True)
-    # 2026-06-30 第二轮翻面:full 模式不再创建 raw/assets/<slug>/ 目录,
-    # 仅在 papers_dir 写两份 .md
+    # 2026-07-07 翻面:full 模式只产 full.md,不再写 quick.md;也不再创建 raw/assets/<slug>/ 目录
 
-    quick_md_path = os.path.join(papers_dir, "{0}.quick.md".format(slug))
     full_md_path = os.path.join(papers_dir, "{0}.full.md".format(slug))
 
-    # 冲突检测(SSOT §3):full 抽取默认拒绝覆盖;quick 也走同规则
+    # 冲突检测(SSOT §3):full 抽取默认拒绝覆盖,保护下游已多次引用的 raw
     detect_full_overwrite(full_md_path, args.force_full)
-    if os.path.isfile(quick_md_path) and not args.force_full:
-        sys.stderr.write(
-            "ERROR: {0} 已存在;full 模式默认拒绝覆盖 quick 产物以保持 raw 端稳定。\n"
-            "       若确认要覆盖,加 --force-full 显式允许。\n".format(quick_md_path)
-        )
-        sys.exit(1)
 
     # 1) 校验输入(隐式 GEMINI_API_KEY + PDF 完整性)
     model, pdf_bytes, focus = validate_inputs(args)
 
-    # 2) 调用 Gemini 两次:先 academic(quick) 再 full
+    # 2) 2026-07-07 翻面:full 模式只调用 Gemini 一次(产物单份 full.md);
+    #    想看 quick summary 请跑 --type paper 默认(quick 模式)。
     sys.stderr.write(
-        "INFO: --full 模式开始 (slug={slug});产物落 raw-compatible layout ({wiki_root}/raw/)\n".format(
+        "INFO: --full 模式开始 (slug={slug});产物落 raw-compatible layout ({wiki_root}/raw/papers/<slug>.full.md)\n".format(
             slug=slug, wiki_root=wiki_root
         )
     )
-    sys.stderr.write("INFO: 第 1 次调用 Gemini (academic 模板 = quick summary)\n")
-    quick_prompt = build_prompt(focus, doc_type="paper", mode="quick")
-    quick_md = call_gemini(model, pdf_bytes, quick_prompt, args.temperature)
-
     sys.stderr.write(
-        f"INFO: 第 2 次调用 Gemini (full 模板 = PDF→Markdown 全量转写, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
+        f"INFO: 调用 Gemini (full 模板 = PDF→Markdown 全量转写, max_output_tokens={FULL_MAX_OUTPUT_TOKENS})\n"
     )
     full_prompt = build_prompt(focus, doc_type="paper", mode="full")
     # max_output_tokens=65536(SSOT: FULL_MAX_OUTPUT_TOKENS 模块常量),避免
@@ -2545,12 +2543,7 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
     #    render_figures_to_pngs / embed_figure_refs)由 quick 模式与
     #    --extract-figures 单跑消费。
 
-    # 4) 写两份 .md 到 raw/papers/
-    with open(quick_md_path, "w", encoding="utf-8") as f:
-        f.write(quick_md)
-        if not quick_md.endswith("\n"):
-            f.write("\n")
-    sys.stderr.write("OK: quick summary 已写入 {0} ({1} 字符, 模型 {2})\n".format(quick_md_path, len(quick_md), model))
+    # 4) 2026-07-07 翻面:full 模式只写一份 .md 到 raw/papers/
     with open(full_md_path, "w", encoding="utf-8") as f:
         f.write(full_md)
         if not full_md.endswith("\n"):
@@ -2637,7 +2630,7 @@ def main(argv=None):  # type: (Optional[list]) -> int
         args.no_figures = True
 
     # --full 模式走独立分支;设计决策 SSOT 见
-    # ../../MEMORY/gemini-paper-summary-full-mode-design.md(D1 / D2 / D3 / D4)
+    # ../../MEMORY/gemini-pdf-summary-paper-full-single-output.md（D1）
     # 仅 paper `--full` 走 _run_full_mode；manual / whitepaper / book 即便 args.full=True
     # 也走下方通用分支（prompt_mode 已自动设为 "full"，调用同一条 call_gemini + max_tokens）
     if args.full and doc_type == "paper":
@@ -2646,12 +2639,12 @@ def main(argv=None):  # type: (Optional[list]) -> int
     # --by-chapter 模式：默认走 L1（2026-07-06 起，按 L1 章 N 次独立调用 + L2 合并），
     # auto 保留旧单次调用行为（仅适用 ≤ 50 页短 PDF；>50 页走 pre-flight 拦截）。
     # 设计决策 SSOT：见 SKILL.md §A Step 1 + references/full-mode-contract.md §by-chapter
-    # 与 --full 互斥（--by-chapter 已隐含全文级转写，--full 是 paper 双产物路径）
+    # 与 --full 互斥（--by-chapter 已隐含全文级转写，--full 是 paper 单产物路径）
     if args.by_chapter:
         if args.full:
             sys.stderr.write(
                 "ERROR: --by-chapter 与 --full 互斥；请只传一个。\n"
-                "       --full 仅 paper 类型有效（产 quick + full 两份）；\n"
+                "       --full 仅 paper 类型有效（产 .full.md 单份）；\n"
                 "       --by-chapter 适用于所有 4 类文档（产 N 个章节 + 1 个 TOC）。\n"
             )
             return 2
