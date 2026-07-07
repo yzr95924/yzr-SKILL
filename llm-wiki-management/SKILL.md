@@ -3,16 +3,17 @@ name: llm-wiki-management
 description: 用户在搭建或维护本地、单用户的复利型个人 wiki
   （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill
   ——把原始资料（论文 / 文章 / 剪藏 / 笔记）持续摄入本地 wiki、做跨页综合查询、
-  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest，按 git 可选 opt-in 的
-  纯目录树 + Markdown 工作流维护。不用于云端协作 wiki（Notion / Confluence /
-  Outline Wiki / GitHub Wiki）——那些走 outline-wiki-upload（写 / 编辑）/
-  outline-wiki-search（搜 / 读）；不用于一次性文档生成、强结构化数据库、
-  多人实时协作。
+  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest；
+  支持以 symlink + .symlink-anchor.json 路径接入外部代码仓（Linux kernel / Ray 源码等）
+  作语料无需内嵌拷贝，按 git 可选 opt-in 的纯目录树 + Markdown 工作流维护。
+  不用于云端协作 wiki（Notion / Confluence / Outline Wiki / GitHub Wiki）——
+  那些走 outline-wiki-upload（写 / 编辑）/ outline-wiki-search（搜 / 读）；
+  不用于一次性文档生成、强结构化数据库、多人实时协作。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-06
-  wiki_spec_version: 0.12.0
+  last_modified: 2026-07-07
+  wiki_spec_version: 0.13.0
 ---
 
 # LLM Wiki Management
@@ -357,8 +358,11 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 - **不**内嵌拷仓（占空间 + 失去 commit 锚点），走 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)
   的 symlink 路径。这是 `raw/` 总纪律的**唯一例外**——LLM 主导接入流程：
-  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 本机绝对路径
-     （如 `~/src/linux`）+ 若仓内子目录被纳入则 `<subpath>`（默认空 = symlink 指仓根）
+  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 本机绝对路径——**推荐
+     home-relative 形式 `~/src/<source-name>`**，避开 `/apsarapangu/disk10/...` 这类
+     机器内嵌前缀（`target` 字段进 git，机器前缀跨主机无意义；`~/...` 在同 home 布局的
+     不同机器间也只需重建，不必再改 anchor）
+     + 若仓内子目录被纳入则 `<subpath>`（默认空 = symlink 指仓根）
   2. **LLM 验证**：`git -C <target> rev-parse --is-inside-work-tree`（返回 true 才走 git 仓路径）；
      非 git 仓场景下三扩展字段全可选、lint 跳过 git 校验
   3. **LLM 读** git 仓扩展字段：`remote_url` = `git -C <target> remote get-url origin`，

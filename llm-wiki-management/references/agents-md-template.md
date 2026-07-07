@@ -48,7 +48,7 @@
   raw/external/linux-kernel/
   ├── .symlink-anchor.json         # {"target": "...", "captured_at": "...", "kind": "external-repo",
   │                                 #  "remote_url": "...", "commit": "<sha>", "branch": "..."}
-  └── linux                       # symlink → /home/me/src/linux
+  └── linux                       # symlink → ~/src/linux
   ```
 
 - **纪律（用户 + LLM 共有；详见 spec §13.3）**：

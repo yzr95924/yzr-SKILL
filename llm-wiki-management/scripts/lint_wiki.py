@@ -52,12 +52,49 @@ MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
 SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
+# 绝对路径检测（Unix + Windows）——见 check_frontmatter 的 `sources-absolute-path` 用途。
+# - Unix 绝对路径：以 `/` 起始
+# - Windows 盘符：`C:\` / `C:/`（兼容正反斜杠，大小写不敏感）
+# - Windows UNC：`\\server\share` 形式（双反斜杠起始）
+_WIN_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _is_absolute_path(p: str) -> bool:
+    """平台无关的"绝对路径"判定
+
+    之所以不走 pathlib.PurePath.is_absolute()：它对 `PureWindowsPath` / `PurePosixPath`
+    的行为分平台（同一字符串在 Linux 上跑会判 False，在 Windows 上跑会判 True）。
+    lint 必须在 POSIX 主机上跑也能正确判 Windows 绝对路径，故自己写跨平台规则。
+
+    返回 True 的 3 种形式：
+    - `/foo/bar`（Unix 绝对）
+    - `C:\\foo\\bar` / `C:/foo/bar`（Windows 盘符）
+    - `\\\\server\\share`（Windows UNC）
+
+    注：先剥首尾成对引号——`parse_frontmatter_simple` 对 list 元素保留引号（`sources:
+    - '/etc/passwd'` 解析为字面 "'/etc/passwd'"），不剥的话单引号包裹的 Unix 绝对路径会被漏判。
+    """
+    if not p:
+        return False
+    stripped = p.strip()
+    if len(stripped) >= 2 and stripped[0] in ("'", '"') and stripped[-1] == stripped[0]:
+        stripped = stripped[1:-1]
+    if not stripped:
+        return False
+    if stripped.startswith("/"):
+        return True
+    if stripped.startswith("\\\\"):
+        return True
+    if _WIN_DRIVE_RE.match(stripped):
+        return True
+    return False
+
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.12.0"
+CURRENT_WIKI_SPEC = "0.13.0"
 
 
 def _assert_spec_version_sync() -> None:
@@ -428,6 +465,18 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
                 if t == "source":
                     for s in srcs:
                         if not isinstance(s, str):
+                            continue
+                        # 0.13.0+：source 页的 sources 必须用相对路径（基于 wiki 根），
+                        # 绝对路径（Unix `/...`、Windows 盘符 `C:\...` / UNC
+                        # `\\server\...`）会让 wiki 失去跨机器可移植性。命中后
+                        # continue 跳过后续 sources-out-of-root / sources-missing——同一根因，
+                        # 不重复报错。
+                        if _is_absolute_path(s):
+                            findings.append(
+                                f"sources-absolute-path: {rel} sources 含绝对路径 '{s}'；"
+                                f"必须用相对 wiki 根的路径（如 raw/articles/... 或 "
+                                f"raw/external/<source-name>/...），与 lint-checklist §二.3 一致"
+                            )
                             continue
                         sp = (wiki_root / s).resolve()
                         try:
@@ -1112,6 +1161,7 @@ def severity_of(finding: str) -> str:
             "invalid-type",
             "sources-missing",
             "sources-out-of-root",
+            "sources-absolute-path",
             "broken-link",
             "orphan-page",
             "index-missing",

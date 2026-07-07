@@ -131,6 +131,22 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - `type: source` 的页面，`sources` 字段必须非空，且每个值是 `raw/` 下的现存路径
 - `type: synthesis` 的页面，`sources` 字段必须非空（可以指 wiki 内其它页）
 - **严重性：error**——断链
+- **`sources-absolute-path`（0.13.0+，仅 source 页）**——`type: source` 的 `sources:` 数组任一元素
+  以**绝对路径**形式出现即报。检测 3 种形式：
+  - Unix 绝对：以 `/` 起始（如 `/Users/foo/articles/llama-3.md`）
+  - Windows 盘符：`C:\` / `C:/` 起始（兼容正反斜杠）
+  - Windows UNC：`\\server\share` 起始
+  - 跨平台正则自写——不走 `Path.is_absolute()`（它在 Linux / Windows 上对同一字符串
+    判定结果不同），lint 必须在 POSIX 主机上跑也能正确报 Windows 绝对路径
+  - 命中后 `continue` 跳过后续 `sources-out-of-root` / `sources-missing`——同一根因不重复报错
+  - **为什么是 error**：`raw/` 路径是 wiki 内 source 页的"永久引用"（[§一 纪律 SSOT](wiki-spec.md)），
+    绝对路径会破坏跨机器可移植性（A 机上的 `/Users/foo/...` 在 B 机上无意义），与"raw 与 wiki
+    矛盾以 raw 为准"的纪律同级
+  - **与 anchor 字段的对比**：`raw/external/<source-name>/.symlink-anchor.json` 的 `target`
+    字段故意是**绝对路径**（[§13.2](wiki-spec.md#132-symlink-anchorjson-schema必填--git-仓扩展字段)）——那是 symlink 锚定元数据，
+    机器相关、不进 git；本检查**不**触及 anchor 文件
+- **不在本检查范围**：`type: synthesis` 的 `sources:`（指向 wiki 内其它页如 `concepts/...`，
+  字段语义不同——见 §一 SSOT）；如有需要后续单独加 finding
 
 ### 4. 路径引用完整性
 
@@ -305,6 +321,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 [WARN] reviewed-stale: wiki/concepts/transformer.md reviewed=true reviewed_at=2026-06-15 但 updated=2026-07-01 — LLM 修改后未清 reviewed，建议重新审核
 [WARN] index-review-badge-drift: wiki/index.md 条目 'Transformer' 标识为 ✓ reviewed 2026-06-15 但被链页 reviewed=true reviewed_at=2026-06-30 — 日期错
 [WARN] legacy-confidence-field: wiki/sources/llama-2.md 含已退役 confidence 字段——请运行 --migrate-confidence
+[ERROR] sources-absolute-path: wiki/sources/linux-kernel.md sources 含绝对路径 '/home/user/src/linux/net/ipv4/tcp.c'；必须用相对 wiki 根的路径（如 raw/articles/... 或 raw/external/<source-name>/...），与 lint-checklist §二.3 一致
 [INFO] missing-xref: wiki/sources/abc.md mentions 'self-attention' but doesn't link to concepts/self-attention.md
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
 [INFO] memory-not-indexed: MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
