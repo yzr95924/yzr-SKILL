@@ -26,6 +26,11 @@
 
 ## 一、共有 frontmatter 段
 
+> **适用范围**：本节模板适用于 wiki 5 类内容页（entities / concepts / sources /
+> comparisons / syntheses）。**MEMORY/*.md 的 frontmatter 规则不同**——仅 `title`
+> 必填，其余 5 字段全 optional；详见 [`wiki-spec.md` §5.2](wiki-spec.md#52-memorymd非-memorymd)
+> + [`lint-checklist.md` §二.2](lint-checklist.md#2-frontmatter-完整性) 末尾。
+
 ```yaml
 ---
 title: <string, 必填>

@@ -47,7 +47,13 @@ from log_format import LOG_LINE_RE  # noqa: E402
 # standalone 调用方也可直接跑：scripts/check_wiki_fixtures.py <wiki_root> --json
 CHECK_FIXTURES_SCRIPT = "check_wiki_fixtures.py"  # 与本脚本同目录
 
-VALID_TYPES = {"entity", "concept", "source", "comparison", "synthesis"}
+VALID_TYPES = {
+    "entity", "concept", "source", "comparison", "synthesis",
+    # MEMORY 扩展类型（spec §5.2「或新的 memory 类型按需扩展，本 spec 不限制」）：
+    # - `memory`：MEMORY/*.md 自用语义，与 wiki 5 类内容页区分
+    # - `memory-entry`：lint-checklist §5.1 提示的 0.6.0 迁移目标（兼容老 MEMORY 写法）
+    "memory", "memory-entry",
+}
 # reviewed 字段仅在值为严格 `true` 时合法；缺省 / 其它值（含 "true" 字符串、yes、1、false）判非法
 REVIEWED_VALUES = {"true"}
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
@@ -100,7 +106,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.18.0"  # 0.18.0 = 0.17.0 anchor 翻新 + fixtures 一致性检查能力增量
+CURRENT_WIKI_SPEC = "0.19.0"  # 0.19.0 = 0.18.0 fixtures 增量 + MEMORY frontmatter 解耦 + raw/external/ sources 例外
 
 
 def _assert_spec_version_sync() -> None:
@@ -554,65 +560,128 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
 
 
 def check_frontmatter(wiki_root: Path) -> List[str]:
-    """2. frontmatter 完整性 + 3. source/synthesis 的 sources 字段"""
+    """2. frontmatter 完整性 + 3. source/synthesis 的 sources 字段
+
+    校验口径分两类（spec §5.2 vs §9）：
+    - wiki 5 类内容页（entities/concepts/sources/comparisons/syntheses）：
+      5 必填（title/type/created/updated/tags）+ 推荐 description
+    - MEMORY/*.md：仅 `title` 必填，其余 4 字段全 optional（frontmatter 是
+      可选 decoration；MEMORY 不在 wiki/index.md 列出、无 reviewed 概念、
+      tag 不共享 wiki taxonomy——5 必填的 rationale 对 MEMORY 多半不成立）
+    """
     findings = []  # type: List[str]
     pages = find_md_files(wiki_root)
-    # 合并所有非 index / log / MEMORY/MEMORY.md 页（MEMORY/MEMORY.md 是索引无 frontmatter，不走 5 字段校验）
-    content_pages = []
+    # 跳过不存在的 index / log
+    # wiki 5 类内容页：完整 5 必填校验
     for sub in WIKI_SUBDIRS:
-        content_pages.extend(pages[sub])
+        for p in pages[sub]:
+            if not p.is_file():
+                continue
+            text = p.read_text(encoding="utf-8", errors="replace")
+            fm = parse_frontmatter_simple(text)
+            rel = p.relative_to(wiki_root).as_posix()
+            # 必填字段
+            for field in ("title", "type", "created", "updated", "tags"):
+                if field not in fm:
+                    findings.append(f"missing-frontmatter: {rel} 缺 '{field}' 字段")
+            # type 合法
+            t = fm.get("type")
+            if t is not None and t not in VALID_TYPES:
+                findings.append(f"invalid-type: {rel} type='{t}' 非法；应为 {sorted(VALID_TYPES)} 之一")
+            # source / synthesis 的 sources 必填且非空
+            if t in ("source", "synthesis"):
+                srcs = fm.get("sources", [])
+                if not isinstance(srcs, list) or not srcs:
+                    findings.append(f"missing-sources: {rel} type={t} 缺 'sources' 字段或为空")
+                else:
+                    # 对 source 页：每个 src 必须是 raw/ 下现存路径
+                    if t == "source":
+                        for s in srcs:
+                            if not isinstance(s, str):
+                                continue
+                            # 0.13.0+：source 页的 sources 必须用相对路径（基于 wiki 根），
+                            # 绝对路径（Unix `/...`、Windows 盘符 `C:\...` / UNC
+                            # `\\server\...`）会让 wiki 失去跨机器可移植性。命中后
+                            # continue 跳过后续 sources-out-of-root / sources-missing——同一根因，
+                            # 不重复报错。
+                            if _is_absolute_path(s):
+                                findings.append(
+                                    f"sources-absolute-path: {rel} sources 含绝对路径 '{s}'；"
+                                    f"必须用相对 wiki 根的路径（如 raw/articles/... 或 "
+                                    f"raw/external/<source-name>/...），与 lint-checklist §二.3 一致"
+                                )
+                                continue
+                            # 0.17+ raw/external/<symlink>/... 例外（spec §13.3）：
+                            # symlink 跟随 .resolve() 会落到 wiki 根外，本不该判
+                            # sources-out-of-root。改为：解析 <symlink> 段、查 anchor +
+                            # symlink 存在 + 文件跟随后可访问，全部合法才放过。
+                            if s.startswith("raw/external/"):
+                                parts = Path(s).parts
+                                # 路径段应为 [raw, external, <symlink>, ...]，
+                                # 段数 < 3 视为语法错（缺 symlink 名或后续 path）
+                                if len(parts) < 3:
+                                    findings.append(
+                                        f"sources-malformed: {rel} sources='{s}' "
+                                        f"raw/external/ 路径需 <symlink>/<path-under-target>"
+                                    )
+                                    continue
+                                sl_name = parts[2]
+                                # anchor 文件必须存在（0.17+ TOML）
+                                anchor = wiki_root / "raw" / EXTERNAL_SUBDIR / ANCHOR_FILENAME
+                                if not anchor.is_file():
+                                    findings.append(
+                                        f"sources-external-anchor-missing: {rel} sources='{s}' "
+                                        f"但 {anchor.relative_to(wiki_root).as_posix()} 不存在"
+                                    )
+                                    continue
+                                # symlink 文件本身必须存在
+                                sl_path = wiki_root / "raw" / EXTERNAL_SUBDIR / sl_name
+                                if not sl_path.is_symlink() and not sl_path.exists():
+                                    findings.append(
+                                        f"sources-external-symlink-missing: {rel} sources='{s}' "
+                                        f"symlink {sl_name} 不存在"
+                                    )
+                                    continue
+                                # 文件跟随 symlink 后可访问——不 .resolve() 避免相对 wiki
+                                # 根判定；只检查文件是否可读
+                                sp = wiki_root / s
+                                if not sp.is_file():
+                                    findings.append(
+                                        f"sources-missing: {rel} sources='{s}' 文件不可访问"
+                                    )
+                                continue
+                            sp = (wiki_root / s).resolve()
+                            try:
+                                sp.relative_to(wiki_root.resolve())
+                            except ValueError:
+                                findings.append(f"sources-out-of-root: {rel} sources[0]='{s}'不在 wiki 根下")
+                                continue
+                            if not sp.is_file():
+                                findings.append(f"sources-missing: {rel} sources[0]='{s}'但文件不存在")
+    # MEMORY/*.md（排除 MEMORY/MEMORY.md 索引）：仅 title 必填；其余 4 字段全 optional。
+    # frontmatter 整体仍可选（与短条目「1 行索引行」形态对齐）；有就按"有就校验"的
+    # 弱规则（type 若取则在 VALID_TYPES 内；tags 若取则是 list）。
     for p in pages["memory"]:
         # 跳过 MEMORY/MEMORY.md（索引，无 frontmatter；不校验字段）
         if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
-        content_pages.append(p)
-    # 跳过不存在的 index / log
-    for p in content_pages:
         if not p.is_file():
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter_simple(text)
         rel = p.relative_to(wiki_root).as_posix()
-        # 必填字段
-        for field in ("title", "type", "created", "updated", "tags"):
-            if field not in fm:
-                findings.append(f"missing-frontmatter: {rel} 缺 '{field}' 字段")
-        # type 合法
+        # title 是唯一必填字段（与文件名 slug 配合做交叉校验 / grep 找页）
+        if "title" not in fm:
+            findings.append(f"missing-frontmatter: {rel} 缺 'title' 字段")
+        # type 若取则必须合法（含 memory / memory-entry 扩展）
         t = fm.get("type")
         if t is not None and t not in VALID_TYPES:
             findings.append(f"invalid-type: {rel} type='{t}' 非法；应为 {sorted(VALID_TYPES)} 之一")
-        # source / synthesis 的 sources 必填且非空
-        if t in ("source", "synthesis"):
-            srcs = fm.get("sources", [])
-            if not isinstance(srcs, list) or not srcs:
-                findings.append(f"missing-sources: {rel} type={t} 缺 'sources' 字段或为空")
-            else:
-                # 对 source 页：每个 src 必须是 raw/ 下现存路径
-                if t == "source":
-                    for s in srcs:
-                        if not isinstance(s, str):
-                            continue
-                        # 0.13.0+：source 页的 sources 必须用相对路径（基于 wiki 根），
-                        # 绝对路径（Unix `/...`、Windows 盘符 `C:\...` / UNC
-                        # `\\server\...`）会让 wiki 失去跨机器可移植性。命中后
-                        # continue 跳过后续 sources-out-of-root / sources-missing——同一根因，
-                        # 不重复报错。
-                        if _is_absolute_path(s):
-                            findings.append(
-                                f"sources-absolute-path: {rel} sources 含绝对路径 '{s}'；"
-                                f"必须用相对 wiki 根的路径（如 raw/articles/... 或 "
-                                f"raw/external/<source-name>/...），与 lint-checklist §二.3 一致"
-                            )
-                            continue
-                        sp = (wiki_root / s).resolve()
-                        try:
-                            sp.relative_to(wiki_root.resolve())
-                        except ValueError:
-                            findings.append(f"sources-out-of-root: {rel} sources[0]='{s}'不在 wiki 根下")
-                            continue
-                        if not sp.is_file():
-                            findings.append(f"sources-missing: {rel} sources[0]='{s}'但文件不存在")
+        # tags 若取则必须是 list（否则 wiki tag-not-in-taxonomy 后续会跳过解析）
+        if "tags" in fm and not isinstance(fm["tags"], list):
+            findings.append(f"invalid-tags: {rel} tags 应为 list，当前类型不符")
     return findings
+
 
 
 def resolve_link(base: Path, link: str) -> Optional[Path]:
@@ -719,6 +788,9 @@ def check_log_format(wiki_root: Path) -> List[str]:
 # log.md 条目数阈值——超过则建议 rotate 到 log-YYYY.md（详见 wiki-spec §4.1）
 LOG_ROTATION_THRESHOLD = 500
 
+# source 页 stale 摘要阈值（days）——`updated` 距今超过此值报 stale-summary（详见 lint-checklist §二.7）
+STALE_SUMMARY_DAYS = 90
+
 
 def check_log_rotation(wiki_root: Path) -> List[str]:
     """10. log.md 条目数阈值——超过 LOG_ROTATION_THRESHOLD 建议 rotate
@@ -749,7 +821,7 @@ def check_log_rotation(wiki_root: Path) -> List[str]:
     return findings
 
 
-def check_stale_summaries(wiki_root: Path, threshold_days: int = 90) -> List[str]:
+def check_stale_summaries(wiki_root: Path, threshold_days: int = STALE_SUMMARY_DAYS) -> List[str]:
     """7. 过期摘要"""
     findings = []  # type: List[str]
     sources_dir = wiki_root / "wiki" / "sources"
@@ -891,11 +963,9 @@ def check_tag_taxonomy(wiki_root: Path) -> List[str]:
     target_pages = []  # type: List[Path]
     for sub in WIKI_SUBDIRS:
         target_pages.extend(pages[sub])
-    for p in pages["memory"]:
-        # MEMORY/MEMORY.md 是索引无 frontmatter，不校验
-        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
-            continue
-        target_pages.append(p)
+    # MEMORY/*.md 不进 tag 白名单校验——按 wiki-spec §5「MEMORY agent 私有」定位：
+    # MEMORY 私有 tag（lint / external-repo / symlink 等）是 LLM 工作上下文分类，
+    # 不应跟 wiki 用户面共享 taxonomy（spec §9.1 tag 白名单是防 wiki 索引/过滤漂移）。
     for p in target_pages:
         if not p.is_file():
             continue
@@ -1035,10 +1105,11 @@ def check_quality_signals(wiki_root):
     target_pages = []  # type: List[Path]
     for sub in WIKI_SUBDIRS:
         target_pages.extend(pages[sub])
-    for p in pages["memory"]:
-        if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
-            continue
-        target_pages.append(p)
+    # MEMORY/*.md 不进 reviewed 校验——按 wiki-spec §5.2「与 wiki 内容页的区别」：
+    # MEMORY 是 agent 私有记忆，无「人工 review」的语义角色。MEMORY/MEMORY.md
+    # （索引）本就 excluded。
+    # 字段语义（reviewed / reviewed_at / contested / contradictions）仍可被 MEMORY
+    # 写、用作 agent 内部信号；只是不进 lint 兜底报告。
 
     # contradictions 对端映射：page_rel -> set(已解析且存在的 target wiki 相对路径)
     contra_out = {}  # type: Dict[str, Set[str]]

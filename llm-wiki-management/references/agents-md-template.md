@@ -130,14 +130,16 @@
 
 - **条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` 同步）：
   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
-    建 `MEMORY/<slug>.md`（frontmatter 5 必填 + 正文）+ 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
+    建 `MEMORY/<slug>.md`（frontmatter **仅 `title` 必填** + 其余字段 optional + 正文）
+    + 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
   - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 索引行直接 `- 一句话事实`，
     不单独建 `.md` 文件
   - 两种格式可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底"有 .md 但未索引"
 - 纪律：
   - 用户**不**直接编辑 MEMORY/（这是 agent 私有记录）
-  - 任何 `MEMORY/*.md`（**仅完整条目**）**必须**含 frontmatter 5 必填
-    （title / type / created / updated / tags），与 wiki 内容页规则一致
+  - 任何 `MEMORY/*.md`（**仅完整条目**）的 frontmatter **仅 `title` 必填**（spec §5.2）
+    ——`type` / `created` / `updated` / `tags` / `description` 全 optional；与 wiki 内容页
+    5 必填规则解耦（MEMORY 是 agent 私有记忆，不走 wiki 用户面 5 必填）
   - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——被本文件顶部的 `@MEMORY/MEMORY.md`
     import 内联、会话常驻；写每条时**同步追加索引一行**（按上"条目形式"选格式），
     否则下次会话读不到

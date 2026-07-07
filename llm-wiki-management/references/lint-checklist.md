@@ -124,12 +124,18 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 ### 2. frontmatter 完整性
 
 - 扫 `wiki/**` 下所有 `.md`（排除 `index.md` / `log.md`）**+** 扫 `<wiki-root>/MEMORY/*.md`
-  （与 `wiki/` 平级、单独子树扫；排除 `MEMORY.md` 本身——索引无 frontmatter）；两条子树的 frontmatter
-  校验与同名 warning 都走同一份实现
-- 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
-  （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
-- `type` 必须是 `entity` / `concept` / `source` / `comparison` / `synthesis` 之一
-- **finding 名**：`missing-frontmatter`（error，缺字段）/ `invalid-type`（error，`type` 取值非法）
+  （与 `wiki/` 平级、单独子树扫；排除 `MEMORY.md` 本身——索引无 frontmatter）
+- 校验口径分两类（spec §5.2 vs §9）：
+  - **wiki 5 类内容页**（entities / concepts / sources / comparisons / syntheses）：
+    每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
+    （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
+  - **MEMORY/*.md**：仅 `title` 必填；其余 5 字段（`type` / `created` / `updated` / `tags` /
+    `description`）全 optional——MEMORY 是 agent 私有记忆，frontmatter 是可选 decoration
+    （与「短条目 1 行索引行」形态对齐；spec §5.2）
+- `type` 取值合法性：
+  - wiki 5 类内容页：`entity` / `concept` / `source` / `comparison` / `synthesis` 之一
+  - MEMORY/*.md：以上 5 类均可，或 memory 扩展类型 `memory` / `memory-entry`
+- **finding 名**：`missing-frontmatter`（error，缺必填字段）/ `invalid-type`（error，`type` 取值非法）
 - **严重性：error**——缺字段或 type 非法
 
 ### 3. frontmatter 来源（source / synthesis 页）
@@ -152,6 +158,15 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
     字段允许**绝对路径**或 **`~/...` home-relative 形式**（0.14.0+ 推荐后者）——
     lint 在判定前 `Path(target).expanduser()` 统一展开，**不**关心 anchor 写哪种形式。
     本检查**不**触及 anchor 文件
+- **`raw/external/<symlink>/...` 例外（0.17+，spec §13.3）**——`sources:` 元素以 `raw/external/`
+  起始时**不**走 `sources-out-of-root` 检查（symlink 跟随 `.resolve()` 会落到 wiki 根外，但
+  这正是 spec §13 的预期用法）。改为：
+  1. 解析 `<symlink>` 段（`Path(s).parts[2]`），段数 < 3 → 报 `sources-malformed`
+  2. 校验 `raw/external/.symlink-anchor.toml`（0.17+ TOML）存在 → 缺则报 `sources-external-anchor-missing`
+  3. 校验 symlink 文件本身存在 → 缺则报 `sources-external-symlink-missing`
+  4. 校验文件跟随 symlink 后可访问 → 不可访问报 `sources-missing`（复用原 finding）
+  全部合法才放过。**不要**回退本例外——任何 lint 仓 merge / 升级时若发现此例外被回退，
+  立刻把它补回去；下游所有用 `raw/external/` 的 wiki 都退化到 12 error 误报
 - **不在本检查范围**：`type: synthesis` 的 `sources:`（指向 wiki 内其它页如 `concepts/...`，
   字段语义不同——见 §一 SSOT）；如有需要后续单独加 finding
 
@@ -178,7 +193,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 7. 过期摘要
 
-- `type: source` 且 `updated` 距今 > 90 天 → 报告
+- `type: source` 且 `updated` 距今 > `STALE_SUMMARY_DAYS` 天 → 报告
 - **finding 名**：`stale-summary`（warning）
 - **严重性：warning**——不是 error，但建议复查
 
@@ -210,8 +225,10 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
   包了就解析不出 0 个 tag，lint 静默跳过（视为未启用约束）
 - 格式兼容：`- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持；
   多 tag 用 `/` `，` `,` 任一字符分隔）
-- 对每个内容页（5 类 + MEMORY 非 MEMORY.md）的 `frontmatter.tags` 元素做包含校验；
-  **`wiki/tags.md` 自身不参与此校验**——它是无 frontmatter 的元数据文件，不是 wiki 内容页
+- 对每个**内容页**（仅 5 类 wiki 内容页：**不含 MEMORY/*.md**）的 `frontmatter.tags` 元素做包含校验
+- **MEMORY 豁免（0.19.0+）**：MEMORY 是 agent 私有记忆，私有 tag（`lint` / `external-repo` /
+  `symlink` 等）是 LLM 工作上下文分类，**不**应跟 wiki 用户面共享 taxonomy（spec §5 + §9.1）
+- **`wiki/tags.md` 自身不参与此校验**——它是无 frontmatter 的元数据文件，不是 wiki 内容页
 - 找不到任何 tag 源 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
   wiki 必报错）
 - 严格匹配的 tag 名 = 严格小写 + kebab-case（`^[a-z0-9][a-z0-9-]*$`），与文件名命名一致
@@ -241,6 +258,8 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 #### A. 可信度信号 reviewed（0.7.0+）
 
 - `pending-review`（**info**）：非 log/index 页**未**含 `reviewed: true`——新常态，仅提示
+  - **MEMORY/*.md 豁免（0.19.0+）**：MEMORY 是 agent 私有记忆（spec §5 + §5.2），
+    无「人工 review」的语义角色；不进 reviewed 校验
 - `reviewed-stale`（**warn**）：`reviewed: true` 存在但 `updated > reviewed_at`——LLM 修改后漏清戳
 - `invalid-reviewed-value`（**warn**）：`reviewed` 取值非严格 `true`（如 `"true"` 字符串、`yes`、`1`、`false`）
 - `reviewed-at-missing`（**warn**）：`reviewed: true` 存在但缺 `reviewed_at`
@@ -365,9 +384,9 @@ LLM 用本节规则人工合并。
   `generated_at` 字段（plan 落盘当日，由 lint_wiki.py 在 `--apply` 时自动写入）
 - 同时含 `confidence` + `reviewed` → **`legacy-confidence-conflict`**，转人工裁定，
   永远不进 plan（已在 plan["skipped_conflicts"] 里标红）
-- `type: memory` → 改 `type: memory-entry`（0.6.0 起 reserved memory 字段在 wiki 内容页
-  禁用）；若文件实际已位于 `MEMORY/` 下，frontmatter `type` 字段删（MEMORY/ 下文件走
-  §5.1 的 `MEMORY 条目` 规则而非 wiki 内容页类型）
+- `type: memory` / `type: memory-entry`（MEMORY 扩展类型）→ **保留原样**——
+  0.19.0 起 MEMORY 桶的 `type` 字段经 `VALID_TYPES` 扩展后两类均合法（spec §5.2）；
+  无需迁到 `memory-entry` 也无需删除 `type`
 - `subpath:` 字段（0.17.0 退役的 anchor 字段）→ 走 §5.3 anchor 合并处理，不在本节管
 
 ### 5.2 wiki/index.md 条目合并

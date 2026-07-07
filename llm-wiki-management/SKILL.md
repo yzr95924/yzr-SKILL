@@ -12,8 +12,8 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-07
-  wiki_spec_version: 0.18.0
+  last_modified: 2026-07-08
+  wiki_spec_version: 0.19.0
 ---
 
 # LLM Wiki Management
@@ -95,7 +95,7 @@ metadata:
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
    对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM **可**创建 symlink +
    写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见 [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
-   + [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
+   - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
    （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
    **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
    raw 为准 4 条）见 `<wiki-root>/AGENTS.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
@@ -190,9 +190,15 @@ metadata:
    **例外**：`wiki/index.md` / `wiki/log.md` 是 **4 字段必填**（省 `description`）；
    `MEMORY/MEMORY.md` / `wiki/tags.md` **无 frontmatter**（前者是 AGENTS.md `@` import
    的索引片段，后者是 tag 白名单）——权威定义见 [spec §3 / §4 / §5.1 / §9.1](references/wiki-spec.md)。
+   **MEMORY/*.md 例外（0.19.0+）**：仅 `title` 必填，其余 5 字段全 optional（spec §5.2）；
+   MEMORY 是 agent 私有记忆，frontmatter 是可选 decoration。`type` 若取则合法值扩到 7 类
+   （5 内容页 + `memory` / `memory-entry`）；`tags` 若取则**不**走 `wiki/tags.md` 白名单
+   （taxonomy 仅约束 wiki 内容页）；`reviewed` / `reviewed_at` 不进 lint 兜底（MEMORY 无
+   「人工 review」语义角色）。
    **字段权威定义**（含 `type` 取值 / `index.md` & `log.md` reserved 规则 / `sources` 类型特化字段）
    见 [`references/page-templates.md`](references/page-templates.md) §一——本条不重抄，lint 阈值
-   同步以该处为准。**`tags` 取值管理见 §核心原则 §11**（白名单在 `wiki/tags.md`，agent 按需自加）。
+   同步以该处为准。**`tags` 取值管理见 §核心原则 §11**（白名单在 `wiki/tags.md`，agent 按需自加；
+   此规则**不**适用于 MEMORY/*.md）。
    **可选可信度与认知质量信号**（`reviewed` / `reviewed_at` / `contested` / `contradictions`，
    全部可选）——语义同样在 page-templates.md §一；**`reviewed: true` + `reviewed_at: <date>`
    表示"人工已审核该页"**，query 时优先采信；ingest 遇到与已有页矛盾时按 AGENTS.md「矛盾处理
@@ -202,7 +208,8 @@ metadata:
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
-   时主动追加；frontmatter 5 必填与 wiki 内容页一致，**不在 index.md 强制列出**，**但每条
+   时主动追加；frontmatter **仅 `title` 必填**（其余 5 字段全 optional，与 wiki 内容页
+   的 5 必填规则解耦——spec §5.2），**不在 index.md 强制列出**，**但每条
    必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 AGENTS.md `@` import 会话常驻，否则下次
    读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-memory)
 10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
@@ -463,7 +470,10 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
    - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→ 走步骤 3-6 完整格式
    - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 直接跳到步骤 6 短格式
 3. 在 `MEMORY/<slug>.md` 创建文件（kebab-case 命名按主题归类，**不**按时间归档）
-4. 写 frontmatter（5 必填 + 推荐 `description`；权威清单见 [`page-templates.md` §一](references/page-templates.md)）
+4. 写 frontmatter（**仅 `title` 必填**；其余 5 字段 `type` / `created` / `updated` /
+   `tags` / `description` 全 optional——spec §5.2）。完整条目推荐写齐以方便未来 grep，
+   短条目可仅 1 行 `title:`。权威清单见 [`page-templates.md` §一](references/page-templates.md)
+   （该节模板适用于 wiki 5 类内容页，MEMORY 的差异见其顶部「适用范围」注 + spec §5.2）
 5. 写正文——记录具体经验，含上下文（什么时候遇到、怎么解决的、未来如何避免）
 6. **同步追加 `MEMORY/MEMORY.md` 索引一行**——格式按条目形式选：
    - 完整条目：`- <slug> — <一句话> → [正文](<slug>.md)`（步骤 3 文件必须存在；漏写 = 下次读不到，lint `memory-not-indexed` 兜底）
@@ -493,7 +503,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   走 lint-checklist §五（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
-**0.18.0+ 新能力：fixtures 一致性检查**
+### 0.18.0+ 新能力：fixtures 一致性检查
 
 `lint_wiki.py --check-version` 自动（subprocess）调一次 `scripts/check_wiki_fixtures.py`，
 扫 wiki 仓的 9 类约定文件（AGENTS.md / .gitignore / wiki/index.md / wiki/log.md /
