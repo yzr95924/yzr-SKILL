@@ -93,3 +93,7 @@ workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-wo
 ### yzr-skill-creator 审计/归档记录不要每次都写
 
 按入口 4（原则校验）跑完检查后**直接交付结果 + 修复**就行——不要每次都把"audit-YYYY-MM-DD.md"那种报告归档到 skill 目录。用户没主动要 audit 文档时，结论放在回复里、修复改在文件里，不留 audit 文件也不写 MEMORY 历史。
+
+### 设计优化阶段以 repo 内 SKILL 描述为准（2026-07-07）
+
+设计优化（重构 / bump / 调整路径 / 重新设计）只动仓库源——vendor 副本（`~/.agents/skills/`）是 npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答"当前 spec / schema / finding 是什么"一律 `Read` 当前 repo 的文件，不引用 vendor / 训练记忆 / web cache 里的旧版。日常维护型编辑（修 typo / 调 description）才走 [[skill-edits-sync-to-repo-source]] 的同步流程。 → [正文](design-optimization-ignore-vendor-state.md)

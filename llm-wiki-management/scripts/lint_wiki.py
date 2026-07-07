@@ -28,6 +28,7 @@ lint_wiki.py — deterministic 健康检查
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -41,13 +42,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ingest_diff import parse_frontmatter_simple  # noqa: E402
 from log_format import LOG_LINE_RE  # noqa: E402
 
+# 0.18.0+ fixtures 一致性检查脚本——`--check-version` 自动调一次；
+# 其 JSON 输出并入 report["fixtures_check"] + plan["fixtures_actions"]。
+# standalone 调用方也可直接跑：scripts/check_wiki_fixtures.py <wiki_root> --json
+CHECK_FIXTURES_SCRIPT = "check_wiki_fixtures.py"  # 与本脚本同目录
+
 VALID_TYPES = {"entity", "concept", "source", "comparison", "synthesis"}
 # reviewed 字段仅在值为严格 `true` 时合法；缺省 / 其它值（含 "true" 字符串、yes、1、false）判非法
 REVIEWED_VALUES = {"true"}
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
 MEMORY_SUBDIR = "MEMORY"
 EXTERNAL_SUBDIR = "external"
-ANCHOR_FILENAME = ".symlink-anchor.json"
+ANCHOR_FILENAME = ".symlink-anchor.toml"  # 0.17.0+: TOML 替代旧 .symlink-anchor.json
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
 SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -94,7 +100,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.16.0"
+CURRENT_WIKI_SPEC = "0.18.0"  # 0.18.0 = 0.17.0 anchor 翻新 + fixtures 一致性检查能力增量
 
 
 def _assert_spec_version_sync() -> None:
@@ -244,28 +250,93 @@ def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
 
 
 def _parse_anchor(anchor_path: Path):
-    """解析 .symlink-anchor.json；返回 dict 或 None（损坏/缺字段）
+    """解析 .symlink-anchor.toml；返回 List[Dict]（每个 entry 一条）或 None（损坏/无有效 entry）
 
-    只校验最小必填字段（target / captured_at / kind）——扩展字段静默忽略。
+    0.17.0+ schema：顶层 [[entry]] 数组，每 entry 含 symlink / target / captured_at / kind 必填。
+    顶层 schema_version = <int>（可选）。返回前已过滤掉缺必填字段 / kind 非 'external-repo' 的 entry。
+
+    解析策略：手写最小 TOML 解析（避免 tomli/tomllib 依赖）——只支持 skill 实际写出的形态：
+      - `schema_version = 1`（顶层标量）
+      - `[[entry]]` 数组 of tables 头
+      - key = "value"（双引号字符串）
+      - # 注释（行首 / 行尾 `#` 之后）
     """
-    import json  # 局部 import（函数内按需）
-
     try:
-        data = json.loads(anchor_path.read_text(encoding="utf-8", errors="replace"))
-    except (OSError, ValueError):
+        text = anchor_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
         return None
-    if not isinstance(data, dict):
+
+    entries = []  # type: List[Dict[str, str]]
+    current = None  # type: Optional[Dict[str, str]]
+    for raw_line in text.splitlines():
+        # 行内注释：仅在引号外剥离（skill anchor 实际写出的字符串不含 #，简化处理）
+        if "#" in raw_line:
+            # 找不在双引号内的 #；找到就切掉
+            in_str = False
+            cut = -1
+            for i, ch in enumerate(raw_line):
+                if ch == '"':
+                    in_str = not in_str
+                elif ch == "#" and not in_str:
+                    cut = i
+                    break
+            if cut >= 0:
+                raw_line = raw_line[:cut]
+        line = raw_line.rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # [[entry]] 数组 of tables 头
+        m = re.match(r"^\[\[(\w+)\]\]\s*$", stripped)
+        if m:
+            if current is not None:
+                entries.append(current)
+            current = {}
+            continue
+        # key = "value"
+        m = re.match(r'^([a-z_]+)\s*=\s*"((?:[^"\\]|\\.)*)"\s*$', stripped)
+        if m:
+            key, raw_val = m.group(1), m.group(2)
+            # 处理 TOML 字符串转义：\\ \" \n \t \r（其他保持原样）
+            val = re.sub(r"\\(.)", lambda mo: {
+                "n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\",
+            }.get(mo.group(1), mo.group(1)), raw_val)
+            if current is not None:
+                current[key] = val
+            # 顶层标量（如 schema_version）落到一个伪 dict 不予返回——仅 entry 数组有意义
+            continue
+        # key = bare value（int / bool）——顶层 schema_version 等
+        m = re.match(r"^([a-z_]+)\s*=\s*([0-9]+|true|false)\s*$", stripped)
+        if m:
+            # 顶层标量忽略；entry 内 bool/int 我们 schema 不需要
+            continue
+        # 未知行：lenient 跳过（不阻断；agent 写错时 lint 报 external-anchor-corrupt）
+
+    if current is not None:
+        entries.append(current)
+
+    if not entries:
         return None
-    target = data.get("target")
-    captured_at = data.get("captured_at")
-    kind = data.get("kind")
-    if not isinstance(target, str) or not target:
-        return None
-    if not isinstance(captured_at, str):
-        return None
-    if kind != "external-repo":
-        return None
-    return data
+
+    # 过滤有效 entry：最小必填 4 字段 + kind = 'external-repo'
+    valid = []  # type: List[Dict[str, str]]
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        symlink = entry.get("symlink")
+        target = entry.get("target")
+        captured_at = entry.get("captured_at")
+        kind = entry.get("kind")
+        if not isinstance(symlink, str) or not symlink:
+            continue
+        if not isinstance(target, str) or not target:
+            continue
+        if not isinstance(captured_at, str):
+            continue
+        if kind != "external-repo":
+            continue
+        valid.append(entry)
+    return valid if valid else None
 
 
 def _git_inside_work_tree(target_path: Path) -> bool:
@@ -349,84 +420,136 @@ def _check_git_anchor(findings, rel, target_path, anchor):
 
 
 def check_external_symlinks(wiki_root: Path) -> List[str]:
-    """10. raw/external/<source-name>/ 下 symlink 的健康检查
+    """10. raw/external/ 下 symlink 的健康检查（0.17.0+ 扁平 + TOML anchor）
 
-    触发条件：扫 `raw/external/<source-name>/`，检测两类问题：
-    - anchor 缺失：symlink 存在但没 `.symlink-anchor.json`（用户漏配）
-    - target 失效：anchor 存在但解析出的 target 路径不存在（已被删/挪）
+    触发条件：扫 `raw/external/` 顶层，关联 `.symlink-anchor.toml` 的 [[entry]] 数组：
+    - external-anchor-missing（error）：symlink 存在但 anchor 文件本身不在
+    - external-anchor-corrupt（error）：anchor 解析失败或 0 个有效 entry
+    - external-source-name-invalid（error）：symlink 命名不合 `^[a-z0-9][a-z0-9-]*$`
+    - external-anchor-orphan（warn）：symlink 存在但 anchor 中无对应 entry（漏录）
+    - external-symlink-missing（error）：anchor 有 entry 但 external/ 顶层无对应 symlink
+    - external-target-dead（error）：entry.target 路径不存在
+    - external-target-drift（warn）：symlink 实际解析 vs anchor target 不一致
+    - external-git-anchor-incomplete（error）：git 仓 target 缺 remote_url/commit/branch
+    - external-git-anchor-stale（warn）：git 仓三字段与 git 实际值不一致
 
-    返回 finding 列表；该目录不存在/不存在 symlink 时返回空。
+    返回 finding 列表；该目录不存在/无 symlink 且无 anchor 时返回空。
     """
     findings = []  # type: List[str]
     external_dir = wiki_root / "raw" / EXTERNAL_SUBDIR
     if not external_dir.is_dir():
         return findings
-    # 一层：只看每个 <source-name>/ 顶层 entry（不递归扫描嵌套 symlink——
-    # spec §13.1 规定每个 symlink 都需自己的 anchor，但嵌套场景罕见且会让
-    # 报错路径膨胀；遇到再说）
-    for entry in sorted(external_dir.iterdir()):
+
+    # 列出 external/ 顶层：symlinks + 误建的子目录
+    try:
+        top_entries = list(external_dir.iterdir())
+    except OSError:
+        return findings
+
+    symlink_names = set()  # type: Set[str]
+    # 收集所有 symlink（含 broken symlink —— lexists 行为；symlink-to-dir 也算 symlink）
+    for entry in top_entries:
         if entry.name.startswith("."):
             continue
-        source_dir = external_dir / entry.name
-        if not source_dir.is_dir():
+        if entry.name in symlink_names:
+            continue  # 罕见：重名，跳过
+        # 必须先判 is_symlink：symlink-to-dir 时 is_dir() 也为 True，
+        # 但 0.17.0+ 仍把它当 symlink 用（target 是目录是合法的）
+        if entry.is_symlink():
+            # symlink 命名规范
+            if not SOURCE_NAME_RE.match(entry.name):
+                rel = entry.relative_to(wiki_root).as_posix()
+                findings.append(
+                    f"external-source-name-invalid: {rel} symlink 名 '{entry.name}' 不符合 "
+                    f"^[a-z0-9][a-z0-9-]*$（kebab-case 短名）"
+                )
+            symlink_names.add(entry.name)
             continue
-        # 命名规范
-        if not SOURCE_NAME_RE.match(entry.name):
-            rel = source_dir.relative_to(wiki_root).as_posix()
+        # 非 symlink：子目录（旧 layout 残留）或普通文件
+        if entry.is_dir():
+            rel = entry.relative_to(wiki_root).as_posix()
             findings.append(
-                f"external-source-name-invalid: {rel}/ 目录名 '{entry.name}' 不符合 "
-                f"^[a-z0-9][a-z0-9-]*$（kebab-case 短名）"
+                f"external-source-name-invalid: {rel}/ 是子目录，但 0.17.0+ raw/external/ 扁平——"
+                f"symlink + anchor 应直接 in external/，不要开 <source-name>/ 子目录"
             )
-        # 找该目录下所有 symlink（用 lexists 区分；broken symlink 也会被 ls 列）
+            continue
+        # 普通文件
+        rel = entry.relative_to(wiki_root).as_posix()
+        findings.append(
+            f"external-source-name-invalid: {rel} 是普通文件，但 raw/external/ 顶层只允许 "
+            f"symlink + '{ANCHOR_FILENAME}'（0.17.0+ 扁平布局）"
+        )
+
+    # 解析 anchor 文件
+    anchor_path = external_dir / ANCHOR_FILENAME
+    entries = None  # type: Optional[List[Dict[str, str]]]
+    if not anchor_path.is_file():
+        if symlink_names:
+            # symlink 存在但 anchor 不存在
+            findings.append(
+                f"external-anchor-missing: raw/external/ 下有 symlink "
+                f"{sorted(symlink_names)} 但缺 '{ANCHOR_FILENAME}'（spec §13 必填）"
+            )
+        return findings
+    entries = _parse_anchor(anchor_path)
+    if entries is None:
+        findings.append(
+            f"external-anchor-corrupt: raw/external/{ANCHOR_FILENAME} 解析失败或 0 个有效 entry"
+        )
+        return findings
+
+    # entry name → entry dict
+    entry_by_symlink = {e["symlink"]: e for e in entries if "symlink" in e}
+
+    # 双向校验：symlink ↔ entry
+    # (1) 每个 symlink 必须有对应 entry
+    for sl_name in sorted(symlink_names):
+        if sl_name not in entry_by_symlink:
+            rel = (external_dir / sl_name).relative_to(wiki_root).as_posix()
+            findings.append(
+                f"external-anchor-orphan: {rel} 是 symlink 但 anchor 无对应 [[entry]]（"
+                f"spec §13 必填关联）"
+            )
+            continue
+        anchor = entry_by_symlink[sl_name]
+        rel = (external_dir / sl_name).relative_to(wiki_root).as_posix()
+        target_path = Path(anchor["target"]).expanduser()
+        if not target_path.exists():
+            findings.append(
+                f"external-target-dead: {rel} 的 anchor target='{anchor['target']}' "
+                f"已不存在（captured_at={anchor.get('captured_at', '?')}）；"
+                f"用户需重新锚定或删除 symlink"
+            )
+            continue
+        # target 存活时：若 target 在 git 仓内，校验 remote_url / commit / branch
+        # 与 anchor 同名字段是否一致（spec §13.5）
+        _check_git_anchor(findings, rel, target_path, anchor)
+        # target 路径与当前 symlink 解析不一致：target 被迁移了
+        # 0.14.0+ anchor target 允许 ~/...，比较前先 expanduser（绝对路径展开后不变）
+        sl_path = external_dir / sl_name
         try:
-            children = list(source_dir.iterdir())
+            current_target = str(sl_path.resolve())
         except OSError:
-            continue
-        symlinks = [c for c in children if c.name != ANCHOR_FILENAME and c.is_symlink()]
-        if not symlinks:
-            continue
-        for sl in symlinks:
-            rel = sl.relative_to(wiki_root).as_posix()
-            anchor_path = source_dir / ANCHOR_FILENAME
-            if not anchor_path.is_file():
-                findings.append(
-                    f"external-anchor-missing: {rel} 是 symlink 但同目录缺 "
-                    f"'{ANCHOR_FILENAME}'（按 spec §13 没有 anchor 视为未接入）"
-                )
-                continue
-            anchor = _parse_anchor(anchor_path)
-            if anchor is None:
-                findings.append(
-                    f"external-anchor-corrupt: {rel} 的 '{ANCHOR_FILENAME}' 解析失败 "
-                    f"或缺 target / captured_at / kind='external-repo' 必填字段"
-                )
-                continue
-            # target 路径必须存在（解析 anchor 的绝对路径）
-            target_path = Path(anchor["target"]).expanduser()
-            if not target_path.exists():
-                findings.append(
-                    f"external-target-dead: {rel} 的 anchor target='{anchor['target']}' "
-                    f"已不存在（captured_at={anchor.get('captured_at', '?')}）；"
-                    f"用户需重新锚定或删除 symlink"
-                )
-            else:
-                # target 存活时：若 target 在 git 仓内，校验 remote_url / commit / branch
-                # 与 anchor 同名字段是否一致（spec §13.5）
-                _check_git_anchor(findings, rel, target_path, anchor)
-                # target 路径与当前 symlink 解析不一致：target 被迁移了
-                # 0.14.0+ anchor target 允许 ~/...，比较前先 expanduser（绝对路径展开后不变）
-                try:
-                    current_target = str(sl.resolve())
-                except OSError:
-                    current_target = ""
-                expanded_anchor_target = str(Path(anchor["target"]).expanduser())
-                if current_target and expanded_anchor_target != current_target:
-                    findings.append(
-                        f"external-target-drift: {rel} 当前 symlink 解析为 "
-                        f"'{current_target}'，但 anchor 记录 '{anchor['target']}'"
-                        f"（展开后 '{expanded_anchor_target}'）；"
-                        f"anchor 需更新"
-                    )
+            current_target = ""
+        expanded_anchor_target = str(Path(anchor["target"]).expanduser())
+        if current_target and expanded_anchor_target != current_target:
+            findings.append(
+                f"external-target-drift: {rel} 当前 symlink 解析为 "
+                f"'{current_target}'，但 anchor 记录 '{anchor['target']}'"
+                f"（展开后 '{expanded_anchor_target}'）；"
+                f"anchor 需更新"
+            )
+
+    # (2) 每个 entry 必须有对应 symlink
+    for entry in entries:
+        sl_name = entry.get("symlink", "")
+        if sl_name not in symlink_names:
+            target = entry.get("target", "?")
+            findings.append(
+                f"external-symlink-missing: anchor [[entry]] symlink='{sl_name}' target='{target}' "
+                f"但 raw/external/{sl_name} symlink 不存在（spec §13 必填关联）"
+            )
+
     return findings
 
 
@@ -1170,14 +1293,16 @@ def severity_of(finding: str) -> str:
             "index-missing",
             "log-missing",
             "external-anchor-missing",
+            "external-anchor-corrupt",
             "external-target-dead",
             "external-source-name-invalid",
+            "external-symlink-missing",
             "external-git-anchor-incomplete",
         )
     ):
         return "error"
     if finding.startswith(
-        ("external-anchor-corrupt", "external-target-drift", "external-git-anchor-stale")
+        ("external-anchor-orphan", "external-target-drift", "external-git-anchor-stale")
     ):
         return "warn"
     if finding.startswith(
@@ -1339,6 +1464,36 @@ def parse_spec_version(wiki_root: Path) -> Optional[str]:
     return None
 
 
+def _run_fixtures_check(wiki_root: Path) -> Dict[str, object]:
+    """调 scripts/check_wiki_fixtures.py 同仓子进程；返其 JSON 输出。
+
+    失败兜底：脚本找不到 / 跑挂时返空 dict（不带 'checks' 字段）—— caller 据此判断
+    「fixtures check 未跑」，不应阻 lint 主流程。subprocess 跑挂时把 stderr 回显到
+    本脚本 stderr（便于调试——不影响主报告）。
+    """
+    script_path = Path(__file__).resolve().parent / CHECK_FIXTURES_SCRIPT
+    if not script_path.is_file():
+        return {"skipped": True, "reason": f"{CHECK_FIXTURES_SCRIPT} not found at {script_path}"}
+    try:
+        proc = subprocess.run(  # noqa: UP021
+            [sys.executable, str(script_path), str(wiki_root), "--json"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,  # noqa: UP022
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return {"skipped": True, "reason": f"{CHECK_FIXTURES_SCRIPT} exec failed: {e}"}
+    if proc.returncode not in (0, 1):  # 0 = pass, 1 = 有 finding
+        sys.stderr.write(f"[lint_wiki] fixtures check 非 0/1 退出: rc={proc.returncode}\n")
+        sys.stderr.write(proc.stderr)
+        return {"skipped": True, "reason": f"non-pass exit code {proc.returncode}"}
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        return {"skipped": True, "reason": f"invalid JSON from fixtures check: {e}"}
+
+
 def _has_confidence_field(text: str) -> bool:
     """frontmatter 顶层 `confidence: <value>` 行——不递归嵌套对象，匹配现存写法。"""
     m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
@@ -1472,14 +1627,22 @@ def _compare_semver(current: Optional[str], skill: str) -> str:
     return "equal"
 
 
-def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: Dict[str, object]) -> Dict[str, object]:
-    """把 detect_legacy_patterns 的发现组织成 agent 可执行的 plan。
+def build_migration_plan(
+    wiki_root: Path,
+    current_spec: Optional[str],
+    legacy: Dict[str, object],
+    fixtures_check: Optional[Dict[str, object]] = None,
+) -> Dict[str, object]:
+    """把 detect_legacy_patterns 的发现 + fixtures-check 的发现组织成 agent 可执行的 plan。
 
     每个 action 含 file / type / rule_ref / 具体 remove & add_or_modify；
     agent 按 wiki-spec.md 附录 B 引用 rule_ref 走 Edit/Write。
+    fixtures-fix-* 类动作落进 `fixtures_actions[]`，与 legacy pattern 的 actions[] 平行——
+    agent 走 plan 时两套都得跑（fixtures 修复优先于内容页 frontmatter 修复）。
     """
     today = date.today().isoformat()
     actions = []  # type: List[Dict[str, object]]
+    fixtures_actions = []  # type: List[Dict[str, object]]
 
     # confidence-field → 0.5.0/0.7.0 迁移规则
     for entry in legacy["patterns"]["confidence-field"]:  # type: ignore
@@ -1559,6 +1722,135 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
             }
         )
 
+    # 0.18.0+ fixtures 一致性 → fixtures_actions[]
+    # 每条 fixtures-check 失败项生成一条对应 fixtures-fix-* 动作；action 字段含
+    # expected / actual 让 agent 一眼看清"该改成什么"；rule_ref 指向 lint-checklist.md
+    # §三 anchor / §三.5 MEMORY / §三.6 log 等具体段落。
+    if fixtures_check and not fixtures_check.get("skipped"):
+        for fc in fixtures_check.get("checks", []) or []:  # type: ignore
+            if fc.get("passed") is not False:  # type: ignore
+                continue
+            cid = fc["id"]  # type: ignore
+            fpath = fc["file"]  # type: ignore
+            expected = fc.get("expected", "")  # type: ignore
+            actual = fc.get("actual", "")  # type: ignore
+            rule_ref = fc.get("rule_ref", "")  # type: ignore
+            severity = fc.get("severity", "error")  # type: ignore
+            base = {
+                "check_id": cid,
+                "file": fpath,
+                "severity": severity,
+                "rule_ref": rule_ref,
+                "expected": expected,
+                "actual": actual,
+            }
+            if cid == "gitignore-external-track-toml":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-gitignore",
+                        "to_action": (
+                            "Edit .gitignore：把旧 `!raw/external/**/.symlink-anchor.json` 行替换为"
+                            " `!raw/external/.symlink-anchor.toml`；保留 `raw/external/*` 排除行不动；"
+                            "保留其它规则不动"
+                        ),
+                    }
+                )
+            elif cid == "agents-version-is-current":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-agents-version",
+                        "to_action": (
+                            f"Edit {fpath} §八 Wiki Spec 版本行单元格改为 `{expected}`（实际为 `{actual}`）——"
+                            "参考 lint-checklist.md §三.1 + wiki-spec.md §10"
+                        ),
+                    }
+                )
+            elif cid == "symlink-anchor-flat-not-legacy":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-anchor-merge",
+                        "to_action": (
+                            "按 lint-checklist §五.3 走 5 步："
+                            "(1) 扫 raw/external/<source-name>/ 子目录；"
+                            "(2) 读 .symlink-anchor.json 内容；"
+                            "(3) 把 <source-name>/<symlink> mv 到 raw/external/ 顶层（重名冲突转人工）；"
+                            "(4) 构造 [[entry]] 块（含 symlink/target/captured_at/kind + git 仓时三扩展字段），追加到 raw/external/.symlink-anchor.toml；"
+                            "(5) 删 raw/external/<source-name>/ 整个目录"
+                        ),
+                    }
+                )
+            elif cid == "symlink-anchor-toml-schema":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-anchor-schema",
+                        "to_action": (
+                            f"按 wiki-spec §13.2 修 raw/external/.symlink-anchor.toml："
+                            "schema_version=1 顶层 + 每 [[entry]] 必填 4 字段 + git 仓时三扩展字段。"
+                            "若文件损坏，重写（先备份为 .bak，重新汇总 entries）"
+                        ),
+                    }
+                )
+            elif cid == "symlink-anchor-toml-symlink-matches":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-anchor-symlink-matches",
+                        "to_action": (
+                            "双向校验：anchor 有 entry 但 symlink 缺 → `mkdir -p raw/external && ln -s <target> raw/external/<symlink>`；"
+                            "symlink 有但 anchor 无 entry → 补一条 `[[entry]]` 块（含 symlink/target/captured_at/kind + git 三字段）"
+                        ),
+                    }
+                )
+            elif cid in ("memory-index-no-frontmatter", "scripts-md-no-frontmatter", "tags-md-no-frontmatter"):
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-strip-frontmatter",
+                        "to_action": f"Edit {fpath}：删除首部 `---...---` YAML frontmatter 块，保留正文",
+                    }
+                )
+            elif cid == "memory-entries-indexed":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-memory-index",
+                        "to_action": (
+                            "按 wiki-spec §5.1 在 MEMORY/MEMORY.md 索引追加缺失条目："
+                            "`- [<slug>](<slug>.md) — 一句话 → [正文](<slug>.md)`"
+                        ),
+                    }
+                )
+            elif cid == "log-md-format-strict":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-log-format",
+                        "to_action": (
+                            f"Edit {fpath} 不合规行：每行匹配 `^## [YYYY-MM-DD] (ingest|query|lint|setup) | .+$`；"
+                            "迁移期不变更 history（仅当行确属违规，才 Edit 修复格式；保留日期 + 类型 + 简介）"
+                        ),
+                    }
+                )
+            elif cid == "index-md-categories-stable":
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-index-categories",
+                        "to_action": (
+                            f"按 wiki-spec §3 补齐 {fpath} 缺类别：5 标题齐全 "
+                            "(Entities / Concepts / Sources / Comparisons / Syntheses)，顺序可调"
+                        ),
+                    }
+                )
+            else:
+                fixtures_actions.append(
+                    {**base, "type": "fixtures-fix-unknown", "to_action": f"按 rule_ref ({rule_ref}) 与 {cid} 描述自行处理"}
+                )
+
     plan = {
         "generated_at": today,
         "from_version": current_spec,
@@ -1567,6 +1859,7 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
         "spec_doc": "llm-wiki-management/references/wiki-spec.md",
         "rule_doc": "llm-wiki-management/references/wiki-spec.md#附录-b-版本历史",
         "actions": actions,
+        "fixtures_actions": fixtures_actions,
         "skipped_conflicts": legacy.get("conflicts", []),  # type: ignore
         "agent_rules": [
             "按 actions[] 顺序逐项修；每个 action 前打印依据 rule_ref",
@@ -1578,6 +1871,12 @@ def build_migration_plan(wiki_root: Path, current_spec: Optional[str], legacy: D
             "改完后用 Edit 把 AGENTS.md §八 Wiki Spec 版本行改为 to_version",
             "不写 log 条目（迁移是脚本运行，不是 wiki 操作事件）",
             "不调 ingest / query / lint——保持职责单一",
+            # 0.18.0+ fixtures：
+            "fixtures_actions[] 与 actions[] 平行处理——先走 fixtures_actions 修约定文件（如 .gitignore / anchor TOML）",
+            "再走 actions[] 修内容页 frontmatter / log；fixtures 修复是后续内容页编辑的前置",
+            "fixtures-fix-anchor-merge / -anchor-schema / -anchor-symlink-matches 三条都是『多文件迁移』型 action——必须按 to_action 5 步走，单 Edit 不能完成",
+            "fixtures-fix-strip-frontmatter 仅删首部 frontmatter 块，保留全文正文一字不动",
+            "fixtures 改造与 lint-checklist §五『语义合并规则』配合读——结构性合规由 fixtures-fix-* 完成，跨条目语义合并由 LLM 按 §五判断",
         ],
     }  # type: Dict[str, object]
     return plan
@@ -1602,6 +1901,15 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         total_patterns += len(entries)  # type: ignore
     needs_migration = (comparison == "older") or (total_patterns > 0)
 
+    # 0.18.0+ 调一次 fixtures-check——子进程调 scripts/check_wiki_fixtures.py；
+    # 输出并入 report["fixtures_check"]。脚本跑挂时 fixtures_check 含 skipped=True，标识"未跑"。
+    fixtures_check = _run_fixtures_check(wiki_root)
+    if not fixtures_check.get("skipped"):
+        # 有 findings 时也可触发 needs_migration（fixture 不合规也算"待迁移"）
+        f_sum = fixtures_check.get("summary", {})  # type: ignore
+        if f_sum.get("error", 0) > 0 or f_sum.get("warn", 0) > 0:  # type: ignore
+            needs_migration = True
+
     report = {
         "current_spec": current_spec,
         "skill_spec": CURRENT_WIKI_SPEC,
@@ -1609,12 +1917,13 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         "needs_migration": needs_migration,
         "legacy_patterns": legacy["patterns"],  # type: ignore
         "conflicts": legacy["conflicts"],  # type: ignore
+        "fixtures_check": fixtures_check,  # 0.18.0+ 新增；fixtures 结构化校验结果
     }
 
     if json_mode:
         # JSON 模式：输出 report；apply 时再附 plan
         if apply:
-            plan = build_migration_plan(wiki_root, current_spec, legacy)
+            plan = build_migration_plan(wiki_root, current_spec, legacy, fixtures_check)
             report["migration_plan"] = plan
             plan_path = wiki_root / MIGRATION_PLAN_FILENAME
             if plan_path.exists():
@@ -1624,10 +1933,10 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
                 )
                 return 2
             plan_path.write_text(
-                __import__("json").dumps(plan, indent=2, ensure_ascii=False),
+                json.dumps(plan, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-        print(__import__("json").dumps(report, indent=2, ensure_ascii=False))
+        print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
     # 人读模式
@@ -1643,6 +1952,7 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         print(f"[WARN] wiki 用比 SKILL 更新的 spec（{current_spec} > {CURRENT_WIKI_SPEC}）")
         print("       请升级 SKILL 仓；本子命令不会修改 wiki")
         print()
+        _print_fixtures_check(fixtures_check, indent="")
         return 0
 
     # 解析失败 → 提示用户填 CLAUDE.md §八
@@ -1653,25 +1963,34 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         print()
 
     # legacy pattern 列表
-    if total_patterns == 0 and not legacy["conflicts"]:  # type: ignore
-        print("No legacy patterns found. ✓")
+    legacy_empty = (total_patterns == 0 and not legacy["conflicts"])  # type: ignore
+    fixtures_skipped = bool(fixtures_check.get("skipped"))
+    fixtures_empty = fixtures_skipped or not any(
+        c.get("passed") is False for c in fixtures_check.get("checks", [])  # type: ignore
+    )
+    if legacy_empty and fixtures_empty:
+        print("No legacy patterns / fixtures issues found. ✓")
         return 0
 
-    print(f"[LEGACY] 共 {total_patterns} 处老格式现场")
-    for pattern_key, entries in legacy["patterns"].items():  # type: ignore
-        if not entries:  # type: ignore
-            continue
-        rule_ref = LEGACY_PATTERN_KEYS.get(pattern_key, "?")
-        print(f"  - {pattern_key} ({len(entries)}) → {rule_ref}")
-        for entry in entries:  # type: ignore
-            flag = " [CONFLICT]" if entry.get("conflict") else ""  # type: ignore
-            print(f"      {entry['file']}{flag}")  # type: ignore
+    if not legacy_empty:
+        print(f"[LEGACY] 共 {total_patterns} 处老格式现场")
+        for pattern_key, entries in legacy["patterns"].items():  # type: ignore
+            if not entries:  # type: ignore
+                continue
+            rule_ref = LEGACY_PATTERN_KEYS.get(pattern_key, "?")
+            print(f"  - {pattern_key} ({len(entries)}) → {rule_ref}")
+            for entry in entries:  # type: ignore
+                flag = " [CONFLICT]" if entry.get("conflict") else ""  # type: ignore
+                print(f"      {entry['file']}{flag}")  # type: ignore
 
-    if legacy["conflicts"]:  # type: ignore
-        print()
-        print(f"[CONFLICTS] {len(legacy['conflicts'])} 处冲突页——agent 不自动覆盖")  # type: ignore
-        for c in legacy["conflicts"]:  # type: ignore
-            print(f"  - {c['file']}: {c['reason']}")  # type: ignore
+        if legacy["conflicts"]:  # type: ignore
+            print()
+            print(f"[CONFLICTS] {len(legacy['conflicts'])} 处冲突页——agent 不自动覆盖")  # type: ignore
+            for c in legacy["conflicts"]:  # type: ignore
+                print(f"  - {c['file']}: {c['reason']}")  # type: ignore
+
+    # fixtures-check 段（0.18.0+）
+    _print_fixtures_check(fixtures_check, indent="")
 
     # apply 时落盘 plan
     if apply:
@@ -1679,20 +1998,56 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         if plan_path.exists():
             print(f"\nERROR: {plan_path} 已存在；为防误覆盖请先删除或改名", file=sys.stderr)
             return 2
-        plan = build_migration_plan(wiki_root, current_spec, legacy)
+        plan = build_migration_plan(wiki_root, current_spec, legacy, fixtures_check)
         plan_path.write_text(
-            __import__("json").dumps(plan, indent=2, ensure_ascii=False),
+            json.dumps(plan, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
         print(f"\n[PLAN] 落盘 {plan_path}")
-        print(f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}")
-        print("       agent 现在可按 plan.actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）")
+        print(
+            f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}, "  # type: ignore
+            f"fixtures_actions: {len(plan.get('fixtures_actions', []))}"  # type: ignore
+        )
+        print("       agent 现在可按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）")
     else:
         print()
         print("[HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复（默认 dry-run）")
         print("       加 --json  输出机器可读 JSON")
 
     return 0
+
+
+def _print_fixtures_check(fixtures_check: Dict[str, object], indent: str = "") -> None:
+    """人读模式打印 fixtures-check 段。被 cmd_check_version 调用。
+    跑挂时只一行 skip 提示；其余按 fixture summary 打印。
+    """
+    if fixtures_check.get("skipped"):
+        print(f"{indent}[FIXTURES] skipped: {fixtures_check.get('reason', '(unknown)')}")
+        return
+    checks = fixtures_check.get("checks", [])  # type: ignore
+    summary = fixtures_check.get("summary", {})  # type: ignore
+    print(
+        f"{indent}[FIXTURES] error={summary.get('error', 0)} "  # type: ignore
+        f"warn={summary.get('warn', 0)} "  # type: ignore
+        f"pass={summary.get('pass', 0)} "  # type: ignore
+        f"skip={summary.get('skip', 0)}"  # type: ignore
+    )
+    failed = [c for c in checks if c.get("passed") is False]  # type: ignore
+    if not failed:
+        return
+    print(f"{indent}  - failed:")
+    for c in failed:
+        sev = str(c.get("severity", "")).upper()  # type: ignore
+        cid = c.get("id", "")  # type: ignore
+        fpath = c.get("file", "")  # type: ignore
+        rr = c.get("rule_ref", "")  # type: ignore
+        print(f"{indent}      [{sev}] {cid} ({fpath})")
+        if c.get("expected"):  # type: ignore
+            print(f"{indent}          期望: {c['expected']}")  # type: ignore
+        if c.get("actual"):  # type: ignore
+            print(f"{indent}          实际: {c['actual']}")  # type: ignore
+        if rr:
+            print(f"{indent}          rule: {rr}")
 
 
 def main() -> int:

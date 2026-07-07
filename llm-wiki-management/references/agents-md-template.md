@@ -42,37 +42,46 @@
 
 #### `raw/external/` —— 外部代码仓接入（symlink）
 
-- 路径：`<wiki-root>/raw/external/<source-name>/`
+- 路径：`<wiki-root>/raw/external/`
 - 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、papers-with-code 项目等）
   作语料纳入 wiki；**不**内嵌拷贝（占空间 + 失去 commit 锚点），走 symlink +
   锚定元数据
-- 一个 `<source-name>/` 下放 symlink + 同目录 `.symlink-anchor.json`：
+- **0.17.0+ 扁平布局**——symlink + anchor 直接在 `raw/external/` 顶层，不要开
+  `<source-name>/` 子目录；anchor 单文件记录所有外部仓：
 
-  ```
-  raw/external/linux-kernel/
-  ├── .symlink-anchor.json         # {"target": "~/src/linux", "captured_at": "...", "kind": "external-repo",
-  │                                 #  "remote_url": "...", "commit": "<sha>", "branch": "..."}
-  └── linux                       # symlink → ~/src/linux
+  ```text
+  raw/external/
+  ├── .symlink-anchor.toml         # TOML: schema_version=1 + [[entry]] 数组
+  │                                 # 每 entry: symlink / target / captured_at /
+  │                                 # kind='external-repo' 必填 + git 扩展字段
+  ├── linux-kernel                  # symlink → ~/src/linux-kernel
+  └── ray                          # symlink → ~/src/ray
   ```
 
 - **纪律（用户 + LLM 共有；详见 spec §13.3）**：
-  - **最小必填 3 字段**（所有 anchor）：`target`（**推荐 `~/src/<source-name>`
-    home-relative 形式**，0.14.0+；也接受绝对路径，lint 端 `Path(target).expanduser()`
-    统一展开判定）+
+  - **每 entry 最小必填 4 字段**：`symlink`（kebab-case，对应 `raw/external/`
+    同名 symlink）+ `target`（**推荐 `~/src/<name>` home-relative 形式**，
+    0.14.0+；也接受绝对路径，lint 端 `Path(target).expanduser()` 统一展开判定）+
     `captured_at`（接入当天）+ `kind: "external-repo"`
-  - **git 仓扩展字段**（当 target 在 git 仓内时强制——见 spec §13.5）：
+  - **git 仓扩展字段**（当 entry.target 在 git 仓内时强制——见 spec §13.5）：
     `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报
     `external-git-anchor-incomplete`；漂移时 lint 报 `external-git-anchor-stale`
-  - 没有 anchor 的 symlink = lint 报 `external-anchor-missing`
+  - **扁平布局**：所有外部仓的 symlink 直接在 `external/` 顶层；老 wiki
+    的 `<source-name>/` 子目录会被 lint 报 `external-source-name-invalid`（按
+    spec §13.6 迁移）
+  - 没有 anchor 文件 = lint 报 `external-anchor-missing`（error）
+  - anchor 解析失败 / 0 个有效 entry = lint 报 `external-anchor-corrupt`（error）
+  - symlink 存在但 anchor 无 entry = lint 报 `external-anchor-orphan`（warn）
+  - anchor 有 entry 但 symlink 不存在 = lint 报 `external-symlink-missing`（error）
   - target 路径被改 / 删除后，anchor 仍记旧值——lint 立刻报 `external-target-dead`
   - LLM agent **可写** symlink + anchor（首次接入 + 漂移刷新）——这是 `raw/`
     总纪律的**唯一例外**；LLM 主导接入流程见 SKILL.md §1.bulk
   - LLM **不**修改 target 本身（外部仓是用户所有）；**不**编辑 `raw/external/`
     之外的 `raw/` 子树（articles / papers / assets / clippings 等仍"LLM 只读"）
-- `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `**/.symlink-anchor.json`——
+- `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `.symlink-anchor.toml`——
   跨机器 clone 时通过 anchor 立即知道"这本来指着哪"；anchor 的
   `remote_url` + `commit` + `branch` 三字段让新主机 LLM 可重建（详见 spec §13.5
-  + `references/external-repo-rebuild.md`）
+  - `references/external-repo-rebuild.md`）
 
 ### `wiki/` —— LLM 拥有的复利资产
 

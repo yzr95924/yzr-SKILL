@@ -4,7 +4,7 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
   （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill
   ——把原始资料（论文 / 文章 / 剪藏 / 笔记）持续摄入本地 wiki、做跨页综合查询、
   跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest；
-  支持以 symlink + .symlink-anchor.json 路径接入外部代码仓（Linux kernel / Ray 源码等）
+  支持以 symlink + .symlink-anchor.toml 路径接入外部代码仓（Linux kernel / Ray 源码等）
   作语料无需内嵌拷贝，按 git 可选 opt-in 的纯目录树 + Markdown 工作流维护。
   不用于云端协作 wiki（Notion / Confluence / Outline Wiki / GitHub Wiki）——
   那些走 outline-wiki-upload（写 / 编辑）/ outline-wiki-search（搜 / 读）；
@@ -13,7 +13,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-07
-  wiki_spec_version: 0.16.0
+  wiki_spec_version: 0.18.0
 ---
 
 # LLM Wiki Management
@@ -26,10 +26,13 @@ metadata:
 本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 纪律的"宪法"
-- **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py，把高频 deterministic
-  任务固化下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI 负责）
+- **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + 0.18.0+ 新增
+  **check_wiki_fixtures.py**（fixtures 一致性检查；`lint_wiki.py --check-version`
+  自动调一次），把高频 deterministic 任务固化下来（**不**含 setup_wiki——wiki
+  仓的创建由外部 workspace CLI 负责）
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
-  wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）
+  wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、lint-checklist §五
+  (semantic-merge 规则，agent 走 .migration-plan.json 时的合并依据)
 
 ## 何时使用 / 不使用
 
@@ -44,7 +47,7 @@ metadata:
 - 用户首次提到"我想搭一个 wiki 用来管理 X 的研究 / 读书笔记 / 项目"
 - 用户提到"AGENTS.md 怎么写 / raw/ 和 wiki/ 的边界"
 - 用户想把外部代码仓（Linux kernel / Ray 源码等）作为语料纳入 wiki——走
-  `raw/external/<source-name>/` 的 symlink + `.symlink-anchor.json` 路径（详见
+  `raw/external/` 扁平的 symlink + `.symlink-anchor.toml` 路径（详见
   [wiki-spec §13](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)）
 
 ### 不使用
@@ -90,8 +93,8 @@ metadata:
 四层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。**唯一例外**：`raw/external/<source-name>/` 下 LLM **可**创建 symlink +
-   写 `.symlink-anchor.json`（首次接入 + 漂移刷新）——详见 [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
+   对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM **可**创建 symlink +
+   写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见 [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
    + [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
    （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
    **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
@@ -173,8 +176,8 @@ metadata:
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/AGENTS.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
-   **唯一例外**：`raw/external/<source-name>/` 下 LLM 可主导创建 symlink + 写 anchor（详
-   §1.bulk 外部代码仓子节 + wiki-spec §13.3）
+   **唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM 可主导创建 symlink +
+   写 anchor 的 `[[entry]]` 块（详 §1.bulk 外部代码仓子节 + wiki-spec §13.3）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
 4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
@@ -228,8 +231,8 @@ metadata:
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件——LLM 只读；用户可改，改后由 ingest 重新消化
-  **唯一例外**：`raw/external/<source-name>/` 下 LLM 可创建 symlink + 写
-  `.symlink-anchor.json`（首次接入 + 漂移刷新；spec §13.3）
+  **唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM 可创建 symlink +
+  写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新；spec §13.3）
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
@@ -358,25 +361,27 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 - **不**内嵌拷仓（占空间 + 失去 commit 锚点），走 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)
   的 symlink 路径。这是 `raw/` 总纪律的**唯一例外**——LLM 主导接入流程：
-  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 路径——
-     **推荐 `~/src/<source-name>` home-relative 形式**（0.14.0+），同 home 布局的多机
+  1. 与用户确认 `<symlink>`（kebab-case 短名，如 `linux-kernel`，0.17.0+ 与
+     `<source-name>` 解耦——symlink 名就是 anchor entry 名）+ target 路径——
+     **推荐 `~/src/<symlink>` home-relative 形式**（0.14.0+），同 home 布局的多机
      可共享同一 anchor 不需重写；也接受绝对路径（如用户明确说 `/apsarapangu/...`），
      兼容性等同。anchor `target` 字段**直接写用户给的字面量**，lint 端
      `Path(target).expanduser()` 统一展开判定
-     + 若仓内子目录被纳入则 `<subpath>`（默认空 = symlink 指仓根）
   2. **LLM 验证**：先 `Path(target).expanduser()` 展开（`~/...` → `$HOME/...`，绝对路径不变），
      再 `git -C <expanded-target> rev-parse --is-inside-work-tree`（返回 true 才走 git 仓路径）；
      非 git 仓场景下三扩展字段全可选、lint 跳过 git 校验
   3. **LLM 读** git 仓扩展字段：`remote_url` = `git -C <target> remote get-url origin`，
      `commit` = `git -C <target> rev-parse HEAD`（完整 SHA），`branch` =
      `git -C <target> rev-parse --abbrev-ref HEAD`
-  4. **LLM 创建** symlink + 写 anchor：`mkdir -p raw/external/<source-name> &&
-     ln -s <target> raw/external/<source-name>/<symlink-name>`，
-     并就地写 `.symlink-anchor.json`（最小必填 3 字段 + git 仓扩展字段）
+  4. **LLM 创建** symlink + 追加 anchor entry（**0.17.0+ 扁平布局**）：
+     `mkdir -p raw/external && ln -s <target> raw/external/<symlink>`，然后**读**
+     现有 `raw/external/.symlink-anchor.toml`（如有），**追加**一个 `[[entry]]`
+     块（必填 4 字段 + git 仓时三扩展字段）；首次创建则写完整文件含顶层
+     `schema_version = 1`
   5. 后续 `ingest_diff.py` 会把 symlink 目标下的文件当作 raw 资料正常扫描；
-     source 页 `sources` 字段填 `raw/external/<source-name>/<path-under-target>`
+     source 页 `sources` 字段填 `raw/external/<symlink>/<path-under-target>`
 - **漂移刷新**：当 lint 报 `external-git-anchor-stale`（用户日常 `git pull` 触发），
-  LLM 重跑 step 3 重写 anchor 的 git 扩展字段；用户也可以手动确认"忽略漂移"
+  LLM 重跑 step 3 重写对应 `[[entry]]` 的 git 扩展字段；用户也可以手动确认"忽略漂移"
 - **跨主机重建**：anchor 进 git、symlink 不进 git——新主机 `git clone` wiki 仓后，
   LLM 读 anchor 的 `remote_url` / `commit` 即可重建；详见
   [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)
@@ -429,7 +434,9 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
      （`pending-review` info / `reviewed-stale` warn / `reviewed` 取值非法 / `reviewed_at`
      与 `reviewed` 不成对 / `index-review-badge-drift` / `legacy-confidence-field`
      迁移期检测）——见 [lint-checklist.md §二.13](references/lint-checklist.md#13-可信度与认知质量信号reviewed--contested--contradictions)
-   - `raw/external/<source-name>/` 下 symlink 缺 `.symlink-anchor.json` / anchor target 失效 / git 仓 anchor 缺三扩展字段 / git 仓 anchor 漂移（spec §13；让用户感知 link 丢失 / 重建依据缺失）
+   - `raw/external/` 顶层（0.17.0+ 扁平）下 symlink ↔ anchor `[[entry]]` 关联缺失 /
+     anchor 文件本身不存在 / anchor 解析失败 / entry.target 失效 / git 仓 anchor
+     缺三扩展字段 / git 仓 anchor 漂移（spec §13；让用户感知 link 丢失 / 重建依据缺失）
 3. 脚本输出报告后，**agent 还要做半定性检查**：
    - 矛盾主张（同一概念在两个 page 中说法冲突）
    - 缺失的交叉引用（页 A 提到 B 概念但没链到 `concepts/b.md`）
@@ -477,19 +484,39 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 **职责切分**（避免与 ingest / lint 混淆）：
 
-- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
-- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
-- **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）
+- **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 0.18.0+ `check_wiki_fixtures.py`
+  扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
+- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改
+  frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
+  语义合并按 [`references/lint-checklist.md` §五](references/lint-checklist.md#五-semantic-merge-规则) 走
+- **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
+  走 lint-checklist §五（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
+
+**0.18.0+ 新能力：fixtures 一致性检查**
+
+`lint_wiki.py --check-version` 自动（subprocess）调一次 `scripts/check_wiki_fixtures.py`，
+扫 wiki 仓的 9 类约定文件（AGENTS.md / .gitignore / wiki/index.md / wiki/log.md /
+wiki/tags.md / MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）
+是否满足当前 wiki spec 的字节合规，并把 finding 并入 `.migration-plan.json` 的
+`fixtures_actions[]` 数组（与 legacy `actions[]` 平行；type 前缀 `fixtures-fix-*`）。
+**结构性合规**（如 `.gitignore` 旧规则、anchor TOML schema 字段缺失）由脚本 → LLM 走
+Edit/Write 落；**语义合并**（如 frontmatter 字段升级 / index 重复条目 / 多 MEMORY 条目
+归并 / 0.16.0 → 0.17.0 anchor 多 entry 归并）由 LLM 按 lint-checklist §五走——本 skill
+不在脚本里硬塞语义理解。
 
 **简要流程**（agent 驱动；详细 8 步 + 边界 + 与 lint 协同见
 [`references/migrate-workflow.md`](references/migrate-workflow.md)）：
 
 1. orient ritual（AGENTS.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
-2. 跑 `scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version`——dry-run 报告 + legacy pattern 分组 + 冲突页标红
+2. 跑 `scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version`——dry-run 报告 + legacy
+   pattern 分组 + 冲突页标红 + fixtures-check 段（每条 failed 含 expected/actual）；
+   也可单独 `scripts/check_wiki_fixtures.py <wiki-root> [--json]` 跑约定文件扫描
 3. 询问用户"应用全部 / 部分 / 仅看清单"
-4. 用户同意 → `scripts/lint_wiki.py ... --check-version --apply` 落盘 `.migration-plan.json`（已存在则拒绝覆盖）
-5. agent 按 `actions[]` 顺序 Edit/Write 修复，跳过 `skipped_conflicts[]`（永不自动覆盖人工决策）
+4. 用户同意 → `scripts/lint_wiki.py ... --check-version --apply` 落盘 `.migration-plan.json`
+   （含 legacy `actions[]` + fixtures `fixtures_actions[]`，已存在则拒绝覆盖）
+5. agent 按顺序修：先 `fixtures_actions[]`（约定文件）→ 再 `actions[]`（内容页 frontmatter）
+   → 跳过 `skipped_conflicts[]`（永不自动覆盖人工决策）；语义合并按 lint-checklist §五走
 6. Edit 改 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本" 为 `to_version`
 7. 重跑 `lint_wiki.py --check-version` 验证；`needs_migration == false` 即完成
 8. **不**追加 log 条目 / **不**触发 ingest / query / lint

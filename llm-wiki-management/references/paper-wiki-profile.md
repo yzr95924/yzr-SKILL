@@ -175,11 +175,11 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 特性：
 
-* 单次调用两份产物（quick + full），不拆两次
-* 隐式启用 Stage 2 视觉定位（`--refine-figures`），raw 端图被多次引用时 bbox 准确
-* 默认拒绝覆盖已存在的 `<slug>.full.md`（full 是"贵读一次"产物，意外重写
+- 单次调用两份产物（quick + full），不拆两次
+- 隐式启用 Stage 2 视觉定位（`--refine-figures`），raw 端图被多次引用时 bbox 准确
+- 默认拒绝覆盖已存在的 `<slug>.full.md`（full 是"贵读一次"产物，意外重写
   会丢下游引用）；显式覆盖加 `--force-full`
-* `<slug>` 默认从 PDF 文件名推断（kebab-case 化）；不依赖文件名时用
+- `<slug>` 默认从 PDF 文件名推断（kebab-case 化）；不依赖文件名时用
   `--slug <kebab>` 显式指定
 
 > **可选降级**：若 gemini-paper-summary 未装或不愿用 `--full`，可走 quick
@@ -199,10 +199,10 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 
 ### 7.4 失败兜底 / 降级
 
-* 上游只产 quick summary（无 full）：把 quick 同时作为 `<slug>.full.md`
+- 上游只产 quick summary（无 full）：把 quick 同时作为 `<slug>.full.md`
   （acceptable degradation，缺点是后续多轮 query 没有完整 raw 底座）
-* 上游产 full 但无图：raw/assets/<slug>/ 可空；source 页用文字描述代替
-* 上游产出的 `<slug>.full.md` 不符合 outline 风格：仍可被 ingest——ingest
+- 上游产 full 但无图：`raw/assets/<slug>/` 可空；source 页用文字描述代替
+- 上游产出的 `<slug>.full.md` 不符合 outline 风格：仍可被 ingest——ingest
   关注的是 frontmatter + 章节是否存在，不强求风格对齐（仅 wiki 端 source
   页走 outline 风格；raw 是原文，**不**做风格改写）
 

@@ -15,4 +15,4 @@
 
 # 外部代码仓 symlink（详见 §13）
 raw/external/*
-!raw/external/**/.symlink-anchor.json
+!raw/external/.symlink-anchor.toml

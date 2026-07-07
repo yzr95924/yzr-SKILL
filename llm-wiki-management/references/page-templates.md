@@ -460,6 +460,7 @@ updated: 2026-06-24
 ```
 
 **lint 检查**：
+
 - 每个非 log / index 的 wiki 页**必须**在对应类别里出现
 - 类别标题固定（Entities / Concepts / Sources / Comparisons / Syntheses）
 - 条目格式：`* [<title>](<relative-path>) — <一句话摘要>`；**摘要应取自被链接页 frontmatter 的
@@ -490,6 +491,7 @@ updated: 2026-06-24
 ```
 
 **lint 检查**：
+
 - 每行匹配 `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$`
 - 不允许删除 / 修改历史条目
 
