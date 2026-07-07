@@ -13,7 +13,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-07
-  wiki_spec_version: 0.13.0
+  wiki_spec_version: 0.16.0
 ---
 
 # LLM Wiki Management
@@ -358,12 +358,14 @@ CLI 可以独立升级实现（如从 Python 改 Rust），SKILL 描述的工作
 
 - **不**内嵌拷仓（占空间 + 失去 commit 锚点），走 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)
   的 symlink 路径。这是 `raw/` 总纪律的**唯一例外**——LLM 主导接入流程：
-  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 本机绝对路径——**推荐
-     home-relative 形式 `~/src/<source-name>`**，避开 `/apsarapangu/disk10/...` 这类
-     机器内嵌前缀（`target` 字段进 git，机器前缀跨主机无意义；`~/...` 在同 home 布局的
-     不同机器间也只需重建，不必再改 anchor）
+  1. 与用户确认 `<source-name>`（kebab-case 短名，如 `linux-kernel`）+ target 路径——
+     **推荐 `~/src/<source-name>` home-relative 形式**（0.14.0+），同 home 布局的多机
+     可共享同一 anchor 不需重写；也接受绝对路径（如用户明确说 `/apsarapangu/...`），
+     兼容性等同。anchor `target` 字段**直接写用户给的字面量**，lint 端
+     `Path(target).expanduser()` 统一展开判定
      + 若仓内子目录被纳入则 `<subpath>`（默认空 = symlink 指仓根）
-  2. **LLM 验证**：`git -C <target> rev-parse --is-inside-work-tree`（返回 true 才走 git 仓路径）；
+  2. **LLM 验证**：先 `Path(target).expanduser()` 展开（`~/...` → `$HOME/...`，绝对路径不变），
+     再 `git -C <expanded-target> rev-parse --is-inside-work-tree`（返回 true 才走 git 仓路径）；
      非 git 仓场景下三扩展字段全可选、lint 跳过 git 校验
   3. **LLM 读** git 仓扩展字段：`remote_url` = `git -C <target> remote get-url origin`，
      `commit` = `git -C <target> rev-parse HEAD`（完整 SHA），`branch` =

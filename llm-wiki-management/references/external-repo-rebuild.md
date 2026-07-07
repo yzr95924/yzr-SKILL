@@ -17,8 +17,9 @@ anchor 文件**进 git** 是这一机制的根：
   仅指同 home 布局的逻辑路径，跟机器绑定的文件系统不是一回事）
 - 但 anchor 的 `remote_url` / `commit` / `branch` 三字段是**跨主机稳定**的——
   任何机器上的 LLM 读 anchor 都可还原"接入瞬间"的精确状态
-- anchor 的 `target` 字段是机器相关的绝对路径——重建到新机器时 LLM 重写它，
-  这正是 `.symlink-anchor.json` 与 symlink 解耦的价值：**anchor 描述意图、
+- anchor 的 `target` 字段（0.14.0+ 推荐 `~/...` 形式，兼容绝对路径）——同 home
+  布局的新机器直接可用；跨 home 布局的机器 LLM 重写。这正是
+  `.symlink-anchor.json` 与 symlink 解耦的价值：**anchor 描述意图、
   symlink 描述当前主机的具体绑定**
 
 ## 重建触发
@@ -46,19 +47,21 @@ find raw/external -name .symlink-anchor.json
 ### Step 2 — 决定目标路径
 
 约定 `<source-name>` 的 target 落在新机器的 `~/src/<source-name>/`（可与用户协商改其他路径）。
-本字段会写入 anchor 的 `target`，所以是机器相关的：
+本字段会写入 anchor 的 `target`（0.14.0+ 推荐 `~/...` 形式，让同 home 布局的同 wiki
+仓的其它机器共享）：
 
 ```bash
-TARGET="$HOME/src/<source-name>"
+TARGET_ABS="$HOME/src/<source-name>"   # git clone 的真实落地路径
+TARGET_ANCHOR="~/src/<source-name>"    # 写回 anchor 的 target 字段
 ```
 
 ### Step 3 — clone + checkout
 
 ```bash
-git clone "$remote_url" "$TARGET"
-cd "$TARGET"
+git clone "$remote_url" "$TARGET_ABS"
+cd "$TARGET_ABS"
 git checkout "$commit"  # 切到 anchor 记录的精确 commit
-# 若 anchor 含可选字段 subpath，symlink 应指向 $TARGET/$subpath（见 step 4）
+# 若 anchor 含可选字段 subpath，symlink 应指向 $TARGET_ABS/$subpath（见 step 4）
 ```
 
 ### Step 4 — 创建 symlink + 更新 anchor
@@ -66,13 +69,13 @@ git checkout "$commit"  # 切到 anchor 记录的精确 commit
 ```bash
 mkdir -p "raw/external/<source-name>"
 if [ -n "$subpath" ]; then
-  ln -s "$TARGET/$subpath" "raw/external/<source-name>/<symlink-name>"
+  ln -s "$TARGET_ABS/$subpath" "raw/external/<source-name>/<symlink-name>"
 else
-  ln -s "$TARGET" "raw/external/<source-name>/<symlink-name>"
+  ln -s "$TARGET_ABS" "raw/external/<source-name>/<symlink-name>"
 fi
 ```
 
-最后**用新的绝对路径覆盖 anchor 的 `target` 字段**：
+最后**用 `~/...` 形式覆盖 anchor 的 `target` 字段**（0.14.0+ 推荐；老 anchor 写绝对路径也兼容）：
 
 ```bash
 # 用脚本而非手写更稳：先把 anchor 读成 dict、改 target、写回
@@ -80,7 +83,7 @@ python3 -c "
 import json, sys, pathlib
 p = pathlib.Path('raw/external/<source-name>/.symlink-anchor.json')
 data = json.loads(p.read_text())
-data['target'] = '<new-absolute-target-path>'
+data['target'] = '~/src/<source-name>'   # 0.14.0+ 推荐 home-relative
 p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
 "
 ```
@@ -94,6 +97,7 @@ p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
 readlink -f raw/external/<source-name>/<symlink-name>
 
 # lint 跑通（不应再报 external-target-dead / external-git-anchor-stale）
+# 注意 lint 端会做 Path(target).expanduser()，所以 '~/src/...' 形式 + 同 home 布局下不报 dead
 python3 ../path/to/scripts/lint_wiki.py .
 ```
 

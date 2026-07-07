@@ -23,11 +23,11 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
   - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
   - [14. MEMORY.md 索引一致性](#14-memorymd-索引一致性)
 - [三、半定性检查（agent 执行）](#三半定性检查agent-执行)
-  - [14. 矛盾主张](#14-矛盾主张)
-  - [15. 缺失交叉引用](#15-缺失交叉引用)
-  - [16. 缺失 entity / concept 页](#16-缺失-entity--concept-页)
-  - [17. 调查方向建议](#17-调查方向建议)
-  - [18. 资料投放口是否堆积](#18-资料投放口是否堆积)
+  - [15. 矛盾主张](#15-矛盾主张)
+  - [16. 缺失交叉引用](#16-缺失交叉引用)
+  - [17. 缺失 entity / concept 页](#17-缺失-entity--concept-页)
+  - [18. 调查方向建议](#18-调查方向建议)
+  - [19. 资料投放口是否堆积](#19-资料投放口是否堆积)
 - [四、报告格式](#四报告格式)
 - [五、lint 之后](#五lint-之后)
 - [六、lint 频率](#六lint-频率)
@@ -107,14 +107,19 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 
 ### 1. `raw/` 不可变性
 
-- 在 `<wiki-root>/` 跑 `git status raw/`；有改动 → 报告
-- **严重性：error**——任何 raw/ 改动都是违反 skill 纪律
+- 在 `<wiki-root>/` 跑 `git status raw/`；有 tracked 文件改动 → 报告
+- **严重性：error**——任何 raw/ tracked 文件改动都是违反 skill 纪律
 - **前提**：脚本**自动检测** wiki 根目录是否在 git 仓内（`.git/` 子目录存在与否）：
   - `.git/` 不存在 → 跳过 + 输出顶部 `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）`
-  - `.git/` 存在但 `raw/` 未纳入 git 跟踪 → 跳过 + `[NOTES] raw-immutable-skipped: raw/ 未纳入 git 跟踪`
-  - 真 git 仓 + raw 被改 → 报 `raw-modified` finding
+    ——0.16.0+ 这是默认状态（CLI 不再自动 git init），不需要警告
+  - `.git/` 存在但 `raw/` 未纳入 git 跟踪（untracked）→ 跳过 + `[NOTES] raw-immutable-skipped: raw/ 未纳入 git 跟踪`
+    ——untracked raw 文件**不在** `raw-modified` 检查范围（用户未提交，自然不在 raw-modified 语义下）
+  - 真 git 仓 + raw 里有 tracked file 被 modified → 报 `raw-modified` finding
 - 强制跳过：传 `--no-git` 时完全静默跳过（不打 note）——给 CI / 裸仓场景
-- **不要**在裸目录树 wiki 上"强假设 git"——`wiki-spec.md §7` 默认就是裸目录树
+- **不要**在裸目录树 wiki 上"强假设 git"——`wiki-spec.md §7` 默认就是裸目录树；
+  0.16.0+ 起 CLI 不再自动 git init，"未启用 git"是默认状态而非异常
+- **untracked raw 文件**——0.16.0+ 起 CLI init 不自动 `git add .`，用户后续 `git add raw/foo.md` 前该文件
+  是 untracked；untracked 不在 `raw-modified` 范围（raw-modified 只针对 tracked file 被 modified）
 
 ### 2. frontmatter 完整性
 
@@ -124,6 +129,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - 每页**必须**含 `title` / `type` / `created` / `updated` / `tags` 字段
   （字段定义见 [page-templates.md §一](page-templates.md#一共有-frontmatter-段)）
 - `type` 必须是 `entity` / `concept` / `source` / `comparison` / `synthesis` 之一
+- **finding 名**：`missing-frontmatter`（error，缺字段）/ `invalid-type`（error，`type` 取值非法）
 - **严重性：error**——缺字段或 type 非法
 
 ### 3. frontmatter 来源（source / synthesis 页）
@@ -143,8 +149,9 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
     绝对路径会破坏跨机器可移植性（A 机上的 `/Users/foo/...` 在 B 机上无意义），与"raw 与 wiki
     矛盾以 raw 为准"的纪律同级
   - **与 anchor 字段的对比**：`raw/external/<source-name>/.symlink-anchor.json` 的 `target`
-    字段故意是**绝对路径**（[§13.2](wiki-spec.md#132-symlink-anchorjson-schema必填--git-仓扩展字段)）——那是 symlink 锚定元数据，
-    机器相关、不进 git；本检查**不**触及 anchor 文件
+    字段允许**绝对路径**或 **`~/...` home-relative 形式**（0.14.0+ 推荐后者）——
+    lint 在判定前 `Path(target).expanduser()` 统一展开，**不**关心 anchor 写哪种形式。
+    本检查**不**触及 anchor 文件
 - **不在本检查范围**：`type: synthesis` 的 `sources:`（指向 wiki 内其它页如 `concepts/...`，
   字段语义不同——见 §一 SSOT）；如有需要后续单独加 finding
 
@@ -160,16 +167,19 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - 读 `wiki/index.md`
 - 提取所有相对路径引用
 - `wiki/**/*.md` 减去 `index.md` / `log.md` 后，每个文件**必须**被 index 引用
+- **finding 名**：`index-missing`（error，`wiki/index.md` 不存在）/ `orphan-page`（error，未被 index 引用）
 - **严重性：error**——孤儿页失去单一入口的意义
 
 ### 6. log.md 格式
 
 - 每行匹配正则（见 [page-templates.md §7](page-templates.md#7-logmdlog)）
+- **finding 名**：`log-missing`（error，`wiki/log.md` 不存在）/ `log-format`（warning，正则不匹配）
 - **严重性：warning**——格式错乱会破坏 `grep "^## \[" log.md` 的可用性
 
 ### 7. 过期摘要
 
 - `type: source` 且 `updated` 距今 > 90 天 → 报告
+- **finding 名**：`stale-summary`（warning）
 - **严重性：warning**——不是 error，但建议复查
 
 ### 8. 文件名规范
@@ -273,7 +283,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 跑完 deterministic 检查后，agent 应当再做以下检查（**仅在 wiki 规模 < 200 页
 时人工做**——更大规模需 LLM-based 自动检查）：
 
-### 14. 矛盾主张
+### 15. 矛盾主张
 
 - 同一概念 / 实体在 ≥ 2 个页里被以**矛盾方式**描述（**内容层**矛盾，区别于 §二 13 的
   frontmatter `contested` 信号——后者是作者已标注、本项是 agent 主动发现未标注的）
@@ -283,26 +293,26 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
   `contradictions` 互指（让 §二 13 后续能持续追踪）
 - **严重性：warning**——可能需要更深入调研
 
-### 15. 缺失交叉引用
+### 16. 缺失交叉引用
 
 - 概念 X 出现在页面 A 的正文里，但 A 没有链接到 `concepts/x.md`
 - 例：`sources/foo.md` 提到 "self-attention" 但没链到 `concepts/self-attention.md`
 - 检查方法：grep 概念名 + 看是否生成了 link
 - **严重性：info**——是 lint 的最高频 finding
 
-### 16. 缺失 entity / concept 页
+### 17. 缺失 entity / concept 页
 
 - 重要概念（出现在 ≥ 3 个 source 页）但没有独立 entity / concept 页
 - 检查方法：grep 候选关键词 + 统计出现次数
 - **严重性：info**
 
-### 17. 调查方向建议
+### 18. 调查方向建议
 
 - 哪些主题"很热门"（多个 source 涉及）但 wiki 内的综合 / 对比页没有
 - 例：5 篇 source 提到 RAG，但 `syntheses/rag-evolution.md` 不存在
 - **严重性：info**——这是"建议新摄取 / 新合成"的机会
 
-### 18. 资料投放口是否堆积
+### 19. 资料投放口是否堆积
 
 - `raw/articles/` 是否有大量未摄取文件（跑 `ingest_diff.py` 即可知）
 - **严重性：info**——堆积太久会让 ingest 时信息过载

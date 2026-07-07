@@ -35,6 +35,10 @@
     --check-stale` 会按 mtime vs source 页 `updated` 标记这类待重新摄取的文件
   - raw 文件路径是 wiki 内 source 页的 `sources` 字段的"永久引用"——改名会断链
   - raw/ 的内容是真相之源；wiki 摘要如与 raw 矛盾，**以 raw 为准**
+  - raw/ 进 git（spec §6 不排除）；空目录在 init 时由 CLI 放 `.gitkeep` 占位（0.15.0+ 起
+    `raw/articles/` + `raw/assets/`），后续真实文件由用户 `git add`（与 wiki/ 行为一致）
+- **所有 git 操作由用户触发**（0.16.0+ 起红线）——LLM agent **不**主动 `git init` /
+  `git add` / `git commit` / `git config` / `git symbolic-ref`；用户看到 wiki 落盘后自行决定是否 init git
 
 #### `raw/external/` —— 外部代码仓接入（symlink）
 
@@ -46,13 +50,15 @@
 
   ```
   raw/external/linux-kernel/
-  ├── .symlink-anchor.json         # {"target": "...", "captured_at": "...", "kind": "external-repo",
+  ├── .symlink-anchor.json         # {"target": "~/src/linux", "captured_at": "...", "kind": "external-repo",
   │                                 #  "remote_url": "...", "commit": "<sha>", "branch": "..."}
   └── linux                       # symlink → ~/src/linux
   ```
 
 - **纪律（用户 + LLM 共有；详见 spec §13.3）**：
-  - **最小必填 3 字段**（所有 anchor）：`target`（绝对路径，`readlink -f` 结果）+
+  - **最小必填 3 字段**（所有 anchor）：`target`（**推荐 `~/src/<source-name>`
+    home-relative 形式**，0.14.0+；也接受绝对路径，lint 端 `Path(target).expanduser()`
+    统一展开判定）+
     `captured_at`（接入当天）+ `kind: "external-repo"`
   - **git 仓扩展字段**（当 target 在 git 仓内时强制——见 spec §13.5）：
     `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报

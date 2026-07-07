@@ -94,7 +94,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.13.0"
+CURRENT_WIKI_SPEC = "0.16.0"
 
 
 def _assert_spec_version_sync() -> None:
@@ -414,14 +414,17 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
                 # 与 anchor 同名字段是否一致（spec §13.5）
                 _check_git_anchor(findings, rel, target_path, anchor)
                 # target 路径与当前 symlink 解析不一致：target 被迁移了
+                # 0.14.0+ anchor target 允许 ~/...，比较前先 expanduser（绝对路径展开后不变）
                 try:
                     current_target = str(sl.resolve())
                 except OSError:
                     current_target = ""
-                if current_target and anchor["target"] != current_target:
+                expanded_anchor_target = str(Path(anchor["target"]).expanduser())
+                if current_target and expanded_anchor_target != current_target:
                     findings.append(
                         f"external-target-drift: {rel} 当前 symlink 解析为 "
-                        f"'{current_target}'，但 anchor 记录 '{anchor['target']}'；"
+                        f"'{current_target}'，但 anchor 记录 '{anchor['target']}'"
+                        f"（展开后 '{expanded_anchor_target}'）；"
                         f"anchor 需更新"
                     )
     return findings
