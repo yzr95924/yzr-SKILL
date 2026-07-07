@@ -6,6 +6,7 @@ metadata:
   modify time: 2026-07-07
   category: pdf-reading
   supersedes: gemini-paper-summary
+  fixes: gemini-pdf-summary-err.md
 ---
 
 用 Gemini 多模态长上下文直接"读懂"任意 PDF，按文档类型路由到对应结构化模板输出**中文 Markdown**。
@@ -48,7 +49,7 @@ metadata:
 | `GEMINI_API_KEY` | ✓ | 环境变量 |
 | 模型 ID | ✗ | 默认 `gemini-3.1-pro-preview`（不传 `--model` 即可；2026-07-06 起全 skill 统一默认走 pro-preview，长上下文注意力稳 + mermaid 架构图完整保留）；**仅在有明确理由时**才覆盖，详见下方"模型选型"小节 |
 | 关注点 | ✗ | `--focus "重点关注实验部分"` 之类，会追加到 prompt |
-| 输出路径 | ✗ | `--output <path>`：paper quick 默认带图时视作**目录**（写 summary.md + figures/）；非 paper 类型 / --no-figures / book / paper full 模式视作 .md 文件路径（或 raw 端目录）；不传则 stdout |
+| 输出路径 | ✗ | `--output <path>` 两种形态(2026-07-07 修复踩坑报告 §2.1):**(1) 以 `.md` 结尾** → 视为**文件路径**,mkdir 父目录后直接写(适用:paper full / manual / whitepaper / book / paper quick + `--no-figures` / by-chapter 传 `--output <dir>` 后想精确指定文件名等);**(2) 不以 `.md` 结尾** → 视为**目录**(paper quick 默认带图时写 `summary.md + figures/`,wiki-root 用法写 `<wiki-root>/raw/papers/<slug>.full.md`,by-chapter 写 `00-index.md + N 个 <NN>-<L1-slug>.md`);不传则 stdout(不导出图,Markdown 里的 PDF 图引用自动清理成纯文本)。**反面案例(踩坑)**:paper full 时传 `--output /path/to/<slug>.full.md` —— **已修复**为直接落该文件,不再产生 `<output>.md/raw/papers/<slug>.full.md` 的 4 层嵌套 |
 | 模板 / 模式 | ✗ | paper quick 默认；`--full` 启用 paper full 或 book 模式；`--by-chapter` 按章节拆 N 个 .md（与 `--full` 互斥） |
 | 章节拆法（by-chapter 配套） | ✗ | `--granularity {L1\|auto}`（**默认 L1**，2026-07-06 起）：L1 按 PDF 原生 L1 章 N 次独立 API 调用 + L2 子节合并进 L1（自带 File API 缓存，节省 N-1 次上传）；auto 单次调用（仅适用 ≤ 50 页短 PDF，>50 页走 pre-flight 拒绝并推荐 L1） |
 | 页范围（auto by-chapter 配套） | ✗ | `--pages 1-50`：先用 PyMuPDF 切页范围再交给 Gemini；与 `--by-chapter --granularity auto` 组合可拆超长 PDF。**L1 模式下传 --pages 会报错**（L1 按章自动切页） |
@@ -243,6 +244,19 @@ metadata:
 
 ### A. agent 在会话中调用（推荐流程）
 
+> **⚠️ 调用脚本前:PDF 主题确认（2026-07-07 踩坑报告 §1.2 加固）**
+>
+> 若用户给的 PDF 元信息**不完整**(只有文件名/缩略词,如 `ART-ICDE'13.pdf`),
+> **agent 必须在调脚本前**至少用 `pdftotext -f 1 -l 2` 或 Read tool 抽 PDF
+> 首两页确认论文主题,避免对 PDF 内容脑补(踩坑案例:用户传 `ART-ICDE'13.pdf`,
+> agent 直接脑补为 "ART: A Feature Selection Method for an lcde Classification
+> Rule Induction Algorithm"——粗糙集 + 蚁群 + 特征选择;实际 PDF 是
+> *"The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases"*,
+> 两篇都是 ICDE 2013 + 都带 "ART" 字样但完全不同论文)。
+>
+> **判定标准**:3 字母缩写在不同领域有 N 种含义(Adaptive Radix Tree / Average
+> Run Time / Ant-based Rule Tuning 等),绝不能凭文件名/标题前几词脑补。
+
 **Step 1 — 类型 + 拆法 + 输出路径 三维反问**（**关键**：脚本强制要求）：
 
 ```text
@@ -275,7 +289,7 @@ metadata:
    后续合并丢数据，见 /root/gemini-white-paper-err.md）
 ```
 
-**Step 2 — 输出路径确认**（**关键**：避免落盘到错位置）：
+**Step 2 — 输出路径 + slug 反问**（**关键**：避免落盘到错位置 + slug 越权）：
 
 ```text
 1. 如果用户已说明输出位置（"落到 raw/manuals/foo/"）→ 直接传 --output
@@ -285,11 +299,30 @@ metadata:
       - 落到临时目录：~/tmp/<slug>/
       - 打印到 stdout（仅纯文字速读用，不导出图）"
 3. 用户回答后传 --output <answer>
+
+4. **slug 反问（必做,2026-07-07 踩坑报告 §1.1 加固）**:slug 是 raw 仓里这份产物的
+   **唯一持久标识**——决定后续 `ingest_diff.py` 找不找得到、跨页交叉引用怎么写、
+   按作者检索能不能命中。**agent 不得替用户拍板**,给 3-4 个候选让用户选:
+     "slug 用哪个?它是产物在 wiki 仓里的唯一持久标识,直接影响后续 ingest:
+      - <slug-from-pdf-filename>     # 默认推断(如 ART-ICDE'13.pdf → art-icde-13)
+      - <author-year 形式,如 art-icde13>
+      - <短标题形式,如 art-radix-tree>
+      - 其它,我来告诉你"
+   收到用户回答后:
+     - 传 --slug <answer>(避免被脚本 slugify 改写,如 baz13 → baz-13)
+     - 或传 --output <dir>/<slug>.full.md(--output 以 .md 结尾时 slug 自动取自该路径 stem)
 ```
 
-> **为什么 agent 必须反问**：4 类文档对应不同的产物布局（`raw/papers/` / `raw/manuals/` /
-> `raw/whitepapers/` / `raw/books/`）——agent 替用户拍板容易落错目录，
-> 后续 `llm-wiki-management` 的 `ingest_diff.py` 找不到产物就白跑。
+> **为什么 agent 必须反问**：
+>
+> - 4 类文档对应不同的产物布局（`raw/papers/` / `raw/manuals/` /
+>   `raw/whitepapers/` / `raw/books/`）——agent 替用户拍板容易落错目录，
+>   后续 `llm-wiki-management` 的 `ingest_diff.py` 找不到产物就白跑。
+> - **slug 比路径更需要用户拍板**：路径错了改 `mv` 就行,slug 错了后续 ingest
+>   写入的 `wiki/sources/<slug>.md` + 交叉引用全部对不上,得手动重命名 + 改
+>   引用链。**Agent 不得用 PDF 文件名推断的 slug 直接走**(踩坑案例:用户传
+>   `ART-ICDE'13.pdf`,agent 直接拼 `art-feature-selection-icde13`,实际 PDF 是
+>   完全不同的论文;用户最终选了 `art-icde13`)。
 
 **Step 3 — 调用脚本**：
 
@@ -298,33 +331,81 @@ metadata:
 2. 确认 GEMINI_API_KEY 已设置；未设置则提示用户去 aistudio.google.com/apikey 申请
 3. 确认 google-genai 已安装：python3 -c "import google.genai" 或 pip install -U google-genai
 4. 调用 scripts/gemini_pdf_summary.py：
-   python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
-     --pdf <path> \
-     --type <paper|manual|whitepaper|book> \
-     --output <output-dir>    # 或不传 → stdout
-   # paper quick 默认带图 + Stage 2 视觉定位（--refine-figures 默认开），保证图质量；
-   # --no-figures 关闭图导出
 
-   # by-chapter 模式（默认 L1，2026-07-06 起）：
-   python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
-     --pdf <path> \
-     --type <type> \
-     --by-chapter \
-     --granularity L1         # 默认；可省略；长 PDF 首选
-     # --granularity auto     # 单次调用，仅 ≤ 50 页短 PDF
-     --output <output-dir>
-   # L1 模式产物：<output>/00-index.md + N_L1 个 <NN>-<L1-slug>.md
+   paper full（--output 两种合法形态,踩坑报告 §2.1 已修复,二选一即可）:
+     形态 1:--output 是 .md 文件路径 → 直接落该文件(mkdir 父目录)
+       python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+         --pdf <path> \
+         --type paper \
+         --full \
+         --output /path/to/<wiki-root>/raw/papers/<slug>/<slug>.full.md \
+         --force-full
+
+     形态 2:--output 是 wiki 仓根(目录) → 产物落 <wiki-root>/raw/papers/<slug>.full.md
+       python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+         --pdf <path> \
+         --type paper \
+         --full \
+         --output /path/to/<wiki-root>/   # 注意:无 .md 后缀,目录路径
+         --force-full
+
+     (修复前踩坑案例: --output 以 .md 结尾 + 路径是文件时,早期脚本会建
+      <output>.md/raw/papers/<slug>.full.md 嵌套;现已直接落该 .md 文件。)
+
+   paper quick 默认带图 + Stage 2 视觉定位（--refine-figures 默认开），保证图质量;
+   --no-figures 关闭图导出:
+     python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+       --pdf <path> \
+       --type paper \
+       --output <output-dir>    # paper quick 默认是目录(写 summary.md + figures/)
+     # --no-figures 时 --output 可传 .md 文件路径
+
+   by-chapter 模式（默认 L1, 2026-07-06 起）:
+     python3 gemini-pdf-summary/scripts/gemini_pdf_summary.py \
+       --pdf <path> \
+       --type <type> \
+       --by-chapter \
+       --granularity L1         # 默认;可省略;长 PDF 首选
+       # --granularity auto     # 单次调用,仅 ≤ 50 页短 PDF
+       --output <output-dir>    # by-chapter --output 总是目录,写 00-index.md + 各 L1 .md
+     # L1 模式产物:<output>/00-index.md + N_L1 个 <NN>-<L1-slug>.md
+
 5. 把生成的 Markdown 总结（含图）呈现给用户
 6. 标注所用模型与 PDF 文件名
-7. **失败处理（重要）**：若第 4 步脚本抛 RuntimeError（503/429/5xx 重试耗尽），
-   agent **不得**自行加 `--model` 换便宜模型重跑——把错误原文 + 三步建议如实
-   呈现给用户并停下，换不换模型由用户决定（见 §核心原则 #8 端到端不降级）
-8. **by-chapter 失败处理**：L1 模式下若个别 L1 章失败，脚本写 FAILED-<slug>.md
-   占位 + 继续后续 L1（不中断）；00-index.md 标 ⚠FAILED 指向失败项；agent 可
-   单独用 `--pages <失败页范围> --granularity auto` 重跑失败段。
+7. 失败处理（重要）:若第 4 步脚本抛 RuntimeError（503/429/5xx 重试耗尽）,
+   agent 不得自行加 --model 换便宜模型重跑——把错误原文 + 三步建议如实
+   呈现给用户并停下,换不换模型由用户决定（见 §核心原则 #8 端到端不降级）
+8. by-chapter 失败处理:L1 模式下若个别 L1 章失败,脚本写 FAILED-<slug>.md
+   占位 + 继续后续 L1（不中断）;00-index.md 标 ⚠FAILED 指向失败项;agent 可
+   单独用 --pages <失败页范围> --granularity auto 重跑失败段。
 ```
 
 也可以直接在会话里调 SDK（API 细节见 `references/api-quickstart.md`）。
+
+> **产物落盘后置整理安全准则（2026-07-07 踩坑报告 §1.3 加固）**
+>
+> 脚本的 raw-compatible layout（`wiki-root/raw/papers/<slug>.full.md` 等）可能
+> 在以下情况留下意外嵌套 / 空包装目录，**agent 手动整理时必须遵守**：
+>
+> 1. **禁止 `rm -rf`**——`mv src dst/` 当 `dst` 是已存在的目录时会 in-place 移入，
+>    紧随其后的 `rm -rf dst` 会把刚移入的内容一起删。**只用 `rmdir` 逐级删空目录**。
+> 2. **每步前 `ls` 验证**：删之前先 `ls -la <dir>` 看里面有啥,不空就不删。
+> 3. **删除前先确认空**:`test -d "$d" && [ -z "$(ls -A "$d")" ]`（双层判断,避免删到非空目录）。
+>
+> 安全整理模板（把嵌套产物移到正确位置）:
+>
+> ```bash
+> SRC=<嵌套路径>/raw/papers/<slug>.full.md
+> DST_DIR=<期望目录>
+> mv "$SRC" "$DST_DIR/<slug>.full.md"   # mv 目标写死文件名,不要传目录
+> rmdir "$DST_DIR/raw/papers" 2>/dev/null    # 仅删空目录
+> rmdir "$DST_DIR/raw" 2>/dev/null
+> # 最后 ls -la "$DST_DIR" 确认只有期望的文件
+> ```
+>
+> 5. **(2026-07-07 修复后)** paper full 时 `--output` 以 `.md` 结尾已**直接落该文件**,
+>    不会再产生 `<output>.md/raw/papers/<slug>.full.md` 嵌套——本节安全准则仅作防御,
+>    新版脚本不需要走手动整理。
 
 ### B. auto-detect（不确定类型时）
 

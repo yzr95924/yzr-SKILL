@@ -1380,7 +1380,10 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
             "输出路径。quick 模式默认带图：--output 视作 **目录**（写 summary.md + figures/）；"
             "加 --no-figures 则视作 .md 文件路径；不传则打印到 stdout"
             "（不导出图，Markdown 里的 PDF 图引用自动清理成纯文本）。"
-            "--full 模式 --output 视作 wiki 仓根（见 SKILL.md §D）。"
+            "--full 模式 --output 两种形态：(1) 以 .md 结尾视为**文件路径**"
+            "（直接写该路径，2026-07-07 修复踩坑报告 §2.1）；(2) 否则视为 wiki 仓根，"
+            "写到 <wiki-root>/raw/papers/<slug>.full.md（详见 SKILL.md §D）。"
+            "by-chapter 模式 --output 视作输出目录（写 00-index.md + 各章 .md）。"
         ),
     )
     parser.add_argument(
@@ -1419,9 +1422,9 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         help=(
             "全文级抽取模式：仅对 --type paper 有意义——单次调用产**一份** PDF→Markdown "
             "全量转写（full 模板，自包含无图，给 agent 多轮查询用）。\n"
-            "产物 layout 强制 raw-compatible：--output 视为 wiki 仓根，"
-            "写到 <wiki-root>/raw/papers/<slug>.full.md（不写 .quick.md）。"
-            "用 --slug 显式指定论文 slug（默认从 PDF 文件名推断）。"
+            "产物 layout：--output 两种形态（详见 --output 帮助）。"
+            "用 --slug 显式指定论文 slug（默认从 PDF 文件名推断；若 --output 是 .md "
+            "文件路径则取自该路径 stem，2026-07-07 修复踩坑报告 §2.2）。"
             "若 raw 端产物已存在默认拒绝覆盖（用 --force-full 显式允许）。\n"
             "**manual / whitepaper / book 默认就是 full 风格**（脚本 main() 自动启用 full），"
             "传 --full 无效果——这 3 类无 quick 风格。\n"
@@ -2451,14 +2454,21 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
 
     输入约定:
         args.pdf         -- PDF 路径
-        args.output      -- wiki 仓根(下含 raw/)
-        args.slug / --slug / 自动从 PDF 文件名推断(见 slug_from_path)
+        args.output      -- 两种合法形态(2026-07-07 修复):
+                            1) 以 .md 结尾 → 视为**文件路径**(写到该路径,
+                               自动 mkdir 父目录;与 SKILL.md §A Step 3 表对齐)。
+                            2) 不以 .md 结尾 → 视为 wiki 仓根(下含 raw/)。
+        args.slug / --slug / 自动从 PDF 文件名推断(见 slug_from_path);若 --output
+                            是 .md 文件路径,slug 优先取自该文件 stem(避免 slugify
+                            拆 baz13 → baz-13)
         args.model / args.temperature / args.focus  -- Gemini 调用参数
         args.force_full                              -- 允许覆盖冲突
 
     写出:
-        <wiki_root>/raw/papers/<slug>.full.md        -- full 模板产物(自包含,无 PNG 配套)
-        <wiki_root>/raw/assets/<slug>/fig-NN.png     -- 由 `--extract-figures` 单跑或 quick 模式产生,full 不写
+        (a) --output 以 .md 结尾:直接写该文件(无 raw/papers/ 嵌套)
+        (b) --output 不以 .md 结尾:<wiki_root>/raw/papers/<slug>.full.md
+                                                    -- full 模板产物(自包含,无 PNG 配套)
+            <wiki_root>/raw/assets/<slug>/fig-NN.png     -- 由 `--extract-figures` 单跑或 quick 模式产生,full 不写
 
     关键决策 SSOT:../../MEMORY/gemini-pdf-summary-paper-full-single-output.md
 
@@ -2469,6 +2479,11 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
 
     2026-07-07 翻面:full 模式不再产 quick summary。`--extract-figures` 单跑
     仍是产出 PNG 的合法路径；用户要 quick + 带图就走 `--type paper` 默认不加 `--full`。
+
+    2026-07-07 P0 修复(踩坑报告 gemini-pdf-summary-err.md §2.1):--output 以 .md
+    结尾时不再触发 raw-compatible 嵌套——此前会把 .md 路径当目录,
+    产生 <output>.md/raw/papers/<slug>.full.md 的 4 层嵌套;改为按文件路径处理,
+    mkdir 父目录后直接写。与 SKILL.md §A Step 3 表"paper full 视作 .md 文件路径"对齐。
     """
     # 必填校验
     if not args.output:
@@ -2488,12 +2503,33 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
             "在 full 模式是哑参数;仅 quick 模式或 --extract-figures 单跑生效。\n"
         )
 
-    wiki_root = os.path.abspath(args.output)
-    raw_root = os.path.join(wiki_root, "raw")
-    papers_dir = os.path.join(raw_root, "papers")
+    output_abs = os.path.abspath(args.output)
+    # 2026-07-07 P0 修复:--output 以 .md 结尾时视为文件路径(此前会当 wiki 仓根,
+    # 产生 <output>.md/raw/papers/<slug>.full.md 的 4 层嵌套——见踩坑报告 §2.1)
+    output_is_file = output_abs.endswith(".md")
+    if output_is_file:
+        full_md_path = output_abs
+        os.makedirs(os.path.dirname(full_md_path), exist_ok=True)
+        # slug 优先取自 --output 文件 stem(P1 修复:避免 slugify 把 baz13 拆成 baz-13)
+        stem = os.path.splitext(os.path.basename(full_md_path))[0]
+        if stem.endswith(".full"):
+            stem = stem[: -len(".full")]
+        output_derived_slug = stem or None
+    else:
+        wiki_root = output_abs
+        raw_root = os.path.join(wiki_root, "raw")
+        papers_dir = os.path.join(raw_root, "papers")
+        os.makedirs(papers_dir, exist_ok=True)
+        output_derived_slug = None  # slug 留给 PDF 文件名推断
 
-    # slug 推断(--slug 优先,否则从 PDF 文件名)
-    slug = args.slug if args.slug else slug_from_path(args.pdf)
+    # slug 推断顺序:--slug > --output 文件 stem(若以 .md 结尾) > slug_from_path(args.pdf)
+    if args.slug:
+        slug = args.slug
+    elif output_derived_slug:
+        slug = output_derived_slug
+    else:
+        slug = slug_from_path(args.pdf)
+
     if not slug:
         sys.stderr.write(
             "ERROR: 无法推断论文 slug(从 PDF 文件名 '{0}' 得到空字符串)。\n"
@@ -2501,10 +2537,10 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
         )
         sys.exit(2)
 
-    os.makedirs(papers_dir, exist_ok=True)
-    # 2026-07-07 翻面:full 模式只产 full.md,不再写 quick.md;也不再创建 raw/assets/<slug>/ 目录
-
-    full_md_path = os.path.join(papers_dir, "{0}.full.md".format(slug))
+    # wiki-root 分支(full_md_path 在 slug 推断后才能算)
+    if not output_is_file:
+        # 2026-07-07 翻面:full 模式只产 full.md,不再写 quick.md;也不再创建 raw/assets/<slug>/ 目录
+        full_md_path = os.path.join(papers_dir, "{0}.full.md".format(slug))
 
     # 冲突检测(SSOT §3):full 抽取默认拒绝覆盖,保护下游已多次引用的 raw
     detect_full_overwrite(full_md_path, args.force_full)
@@ -2515,8 +2551,11 @@ def _run_full_mode(args):  # type: (argparse.Namespace) -> int
     # 2) 2026-07-07 翻面:full 模式只调用 Gemini 一次(产物单份 full.md);
     #    想看 quick summary 请跑 --type paper 默认(quick 模式)。
     sys.stderr.write(
-        "INFO: --full 模式开始 (slug={slug});产物落 raw-compatible layout ({wiki_root}/raw/papers/<slug>.full.md)\n".format(
-            slug=slug, wiki_root=wiki_root
+        "INFO: --full 模式开始 (slug={slug});产物落 {layout}\n".format(
+            slug=slug,
+            layout=full_md_path
+            if output_is_file
+            else "{0}/raw/papers/<slug>.full.md".format(wiki_root),
         )
     )
     sys.stderr.write(
