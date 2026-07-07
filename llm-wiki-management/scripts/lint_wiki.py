@@ -48,11 +48,16 @@ from log_format import LOG_LINE_RE  # noqa: E402
 CHECK_FIXTURES_SCRIPT = "check_wiki_fixtures.py"  # 与本脚本同目录
 
 VALID_TYPES = {
-    "entity", "concept", "source", "comparison", "synthesis",
+    "entity",
+    "concept",
+    "source",
+    "comparison",
+    "synthesis",
     # MEMORY 扩展类型（spec §5.2「或新的 memory 类型按需扩展，本 spec 不限制」）：
     # - `memory`：MEMORY/*.md 自用语义，与 wiki 5 类内容页区分
     # - `memory-entry`：lint-checklist §5.1 提示的 0.6.0 迁移目标（兼容老 MEMORY 写法）
-    "memory", "memory-entry",
+    "memory",
+    "memory-entry",
 }
 # reviewed 字段仅在值为严格 `true` 时合法；缺省 / 其它值（含 "true" 字符串、yes、1、false）判非法
 REVIEWED_VALUES = {"true"}
@@ -100,6 +105,7 @@ def _is_absolute_path(p: str) -> bool:
     if _WIN_DRIVE_RE.match(stripped):
         return True
     return False
+
 
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
@@ -152,7 +158,9 @@ MIGRATION_PLAN_FILENAME = ".migration-plan.json"
 # rule_ref 指向 wiki-spec.md 附录 B 的对应行；agent 修复时按此引用。
 LEGACY_PATTERN_KEYS = {
     "confidence-field": "wiki-spec.md#附录-b-0-7-0",
-    "type-memory-value": "wiki-spec.md#附录-b-0-6-0",
+    # 0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法（spec §5.2）；
+    # 本规则仅对 wiki 5 类内容页误用 reserved `type: memory` 报错。
+    "type-memory-value": "wiki-spec.md#附录-b-0-19-0",
     "claudemd-tag-section": "wiki-spec.md#附录-b-0-8-0",
     "claudemd-not-thinshell": "wiki-spec.md#附录-b-0-11-0",
 }
@@ -304,9 +312,17 @@ def _parse_anchor(anchor_path: Path):
         if m:
             key, raw_val = m.group(1), m.group(2)
             # 处理 TOML 字符串转义：\\ \" \n \t \r（其他保持原样）
-            val = re.sub(r"\\(.)", lambda mo: {
-                "n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\",
-            }.get(mo.group(1), mo.group(1)), raw_val)
+            val = re.sub(
+                r"\\(.)",
+                lambda mo: {
+                    "n": "\n",
+                    "t": "\t",
+                    "r": "\r",
+                    '"': '"',
+                    "\\": "\\",
+                }.get(mo.group(1), mo.group(1)),
+                raw_val,
+            )
             if current is not None:
                 current[key] = val
             # 顶层标量（如 schema_version）落到一个伪 dict 不予返回——仅 entry 数组有意义
@@ -420,8 +436,7 @@ def _check_git_anchor(findings, rel, target_path, anchor):
         drift.append(f"branch anchor={branch!r} git={actual_branch!r}")
     if drift:
         findings.append(
-            f"external-git-anchor-stale: {rel} 的 anchor 与 target git 状态不一致，"
-            f"需刷新；差异：{'; '.join(drift)}"
+            f"external-git-anchor-stale: {rel} 的 anchor 与 target git 状态不一致，需刷新；差异：{'; '.join(drift)}"
         )
 
 
@@ -499,9 +514,7 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
         return findings
     entries = _parse_anchor(anchor_path)
     if entries is None:
-        findings.append(
-            f"external-anchor-corrupt: raw/external/{ANCHOR_FILENAME} 解析失败或 0 个有效 entry"
-        )
+        findings.append(f"external-anchor-corrupt: raw/external/{ANCHOR_FILENAME} 解析失败或 0 个有效 entry")
         return findings
 
     # entry name → entry dict
@@ -512,10 +525,7 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
     for sl_name in sorted(symlink_names):
         if sl_name not in entry_by_symlink:
             rel = (external_dir / sl_name).relative_to(wiki_root).as_posix()
-            findings.append(
-                f"external-anchor-orphan: {rel} 是 symlink 但 anchor 无对应 [[entry]]（"
-                f"spec §13 必填关联）"
-            )
+            findings.append(f"external-anchor-orphan: {rel} 是 symlink 但 anchor 无对应 [[entry]]（spec §13 必填关联）")
             continue
         anchor = entry_by_symlink[sl_name]
         rel = (external_dir / sl_name).relative_to(wiki_root).as_posix()
@@ -646,9 +656,7 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
                                 # 根判定；只检查文件是否可读
                                 sp = wiki_root / s
                                 if not sp.is_file():
-                                    findings.append(
-                                        f"sources-missing: {rel} sources='{s}' 文件不可访问"
-                                    )
+                                    findings.append(f"sources-missing: {rel} sources='{s}' 文件不可访问")
                                 continue
                             sp = (wiki_root / s).resolve()
                             try:
@@ -681,7 +689,6 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
         if "tags" in fm and not isinstance(fm["tags"], list):
             findings.append(f"invalid-tags: {rel} tags 应为 list，当前类型不符")
     return findings
-
 
 
 def resolve_link(base: Path, link: str) -> Optional[Path]:
@@ -1372,9 +1379,7 @@ def severity_of(finding: str) -> str:
         )
     ):
         return "error"
-    if finding.startswith(
-        ("external-anchor-orphan", "external-target-drift", "external-git-anchor-stale")
-    ):
+    if finding.startswith(("external-anchor-orphan", "external-target-drift", "external-git-anchor-stale")):
         return "warn"
     if finding.startswith(
         ("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")
@@ -1591,8 +1596,24 @@ def _has_legacy_confidence_conflict(text: str) -> bool:
     return has_confidence and has_reviewed
 
 
-def _has_type_memory(text: str) -> bool:
-    """frontmatter `type: memory`——0.6.0 删 reserved memory；MEMORY 索引改为无 frontmatter。"""
+def _has_type_memory(page_rel: str, text: str) -> bool:
+    """frontmatter `type: memory` 在 wiki 5 类内容页上误用——0.19.0 起仅对 wiki 内容页生效。
+
+    MEMORY/*.md 上 `type: memory` / `type: memory-entry` 是 0.19.0 合法值
+    （spec §5.2——MEMORY frontmatter 解耦 + 扩展 `memory` / `memory-entry` 两类），
+    故跳过 `page_rel` 起始于 `MEMORY/` 的页面。
+
+    Args:
+        page_rel: 页面相对 wiki 根的 POSIX 路径（如 `wiki/sources/x.md` / `MEMORY/foo.md`）
+        text: 页面全文
+
+    Returns:
+        True 当且仅当页面**不在** MEMORY/ 下且 frontmatter 含 `type: memory`
+    """
+    # MEMORY/*.md 上 `type: memory` / `type: memory-entry` 在 0.19.0+ 合法，跳过
+    if page_rel.startswith("MEMORY/"):
+        return False
+
     m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
     if not m:
         return False
@@ -1609,7 +1630,8 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
     {
       "patterns": {
         "confidence-field":     [{"file": "wiki/sources/x.md", "conflict": False}, ...],
-        "type-memory-value":    [{"file": "<任意内容页>", "conflict": False}],
+        # 0.19.0+：仅 wiki 5 类内容页误用 reserved `type: memory` 触发；MEMORY/*.md 不进此列表
+        "type-memory-value":    [{"file": "wiki/<entities|concepts|sources|comparisons|syntheses>/x.md", "conflict": False}],
         "claudemd-tag-section": [{"file": "CLAUDE.md", "conflict": False}],
       },
       "conflicts": [
@@ -1646,7 +1668,7 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
                     {"file": rel, "reason": "同时含 legacy confidence 字段与 reviewed 字段——agent 跳过 + 转人工裁定"}
                 )
 
-        if _has_type_memory(text):
+        if _has_type_memory(rel, text):
             out["patterns"]["type-memory-value"].append({"file": rel, "conflict": False})  # type: ignore
 
     # 文件级 legacy：CLAUDE.md 仍含 `### Tag Taxonomy` 段（0.8.0+ 移到 wiki/tags.md）
@@ -1736,7 +1758,7 @@ def build_migration_plan(
             action["add_or_modify"] = {"reviewed": True, "reviewed_at": today}  # type: ignore
         actions.append(action)
 
-    # type-memory-value → 0.6.0 迁移规则
+    # type-memory-value → 0.19.0 迁移规则（仅作用于 wiki 5 类内容页；MEMORY/*.md 在 0.19.0+ 合法不会被此规则扫到）
     for entry in legacy["patterns"]["type-memory-value"]:  # type: ignore
         fpath = entry["file"]  # type: ignore
         actions.append(
@@ -1745,8 +1767,9 @@ def build_migration_plan(
                 "type": "frontmatter-retype",
                 "rule_ref": LEGACY_PATTERN_KEYS["type-memory-value"],
                 "remove": ["type"],
-                "add_or_modify": {"type": "memory-entry"},  # 新占位类型——具体语义 wiki-spec §5.2 兜底
-                "note": "0.6.0 起 MEMORY/*.md 不再写 reserved `type: memory`；agent 视上下文决定是否需要改 type 值或仅删字段",
+                # 0.19.0 起 `memory-entry` 是合法扩展值；误用 reserved `type: memory` 应改为 wiki 内容页对应的 5 类之一（agent 按页面真实语义裁定）
+                "add_or_modify": {"type": "memory-entry"},  # 占位默认——agent 改 plan 时按页面语义替换
+                "note": "0.19.0 起仅 wiki 5 类内容页误用 reserved `type: memory` 触发；MEMORY/*.md 上 `type: memory` 已合法。Agent 应按页面真实语义决定：wiki 内容页改为对应 5 类（entity/concept/source/comparison/synthesis）之一；不要把 wiki 内容页改成 `memory-entry`（那是 MEMORY 桶的扩展值）。",
             }
         )
 
@@ -1919,7 +1942,11 @@ def build_migration_plan(
                 )
             else:
                 fixtures_actions.append(
-                    {**base, "type": "fixtures-fix-unknown", "to_action": f"按 rule_ref ({rule_ref}) 与 {cid} 描述自行处理"}
+                    {
+                        **base,
+                        "type": "fixtures-fix-unknown",
+                        "to_action": f"按 rule_ref ({rule_ref}) 与 {cid} 描述自行处理",
+                    }
                 )
 
     plan = {
@@ -2034,10 +2061,11 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         print()
 
     # legacy pattern 列表
-    legacy_empty = (total_patterns == 0 and not legacy["conflicts"])  # type: ignore
+    legacy_empty = total_patterns == 0 and not legacy["conflicts"]  # type: ignore
     fixtures_skipped = bool(fixtures_check.get("skipped"))
     fixtures_empty = fixtures_skipped or not any(
-        c.get("passed") is False for c in fixtures_check.get("checks", [])  # type: ignore
+        c.get("passed") is False
+        for c in fixtures_check.get("checks", [])  # type: ignore
     )
     if legacy_empty and fixtures_empty:
         print("No legacy patterns / fixtures issues found. ✓")
@@ -2079,7 +2107,9 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
             f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}, "  # type: ignore
             f"fixtures_actions: {len(plan.get('fixtures_actions', []))}"  # type: ignore
         )
-        print("       agent 现在可按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）")
+        print(
+            "       agent 现在可按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）"
+        )
     else:
         print()
         print("[HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复（默认 dry-run）")

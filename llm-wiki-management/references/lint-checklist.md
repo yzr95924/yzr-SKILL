@@ -93,7 +93,9 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - 解析 AGENTS.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
   比对（脚本常量 `CURRENT_WIKI_SPEC`）
 - 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `type-memory-value`
-  （0.6.0 删 reserved memory）
+  （0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法；规则仅对
+  wiki 5 类内容页误用 reserved `type: memory` 报错——见下文"类型误用 / reserved
+  `type: memory`"段）
 - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，agent 跳过 + 转人工
 - `--apply` 落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]` / `skipped_conflicts[]`
   / `agent_rules[]`；若 plan 已存在拒绝覆盖（防误覆盖）
@@ -135,6 +137,12 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - `type` 取值合法性：
   - wiki 5 类内容页：`entity` / `concept` / `source` / `comparison` / `synthesis` 之一
   - MEMORY/*.md：以上 5 类均可，或 memory 扩展类型 `memory` / `memory-entry`
+- **类型误用 / reserved `type: memory`（legacy `type-memory-value`，0.19.0+ 收窄）**：
+  - **范围**：仅对 wiki 5 类内容页（entities/concepts/sources/comparisons/syntheses）
+    误用 reserved `type: memory` 报错。MEMORY/*.md 上 `type: memory` /
+    `type: memory-entry` 是 0.19.0 spec §5.2 合法值，**不**触发本规则。
+  - **迁移目标**：wiki 内容页改为对应 5 类之一（entity/concept/source/comparison/
+    synthesis）；不要改为 `memory-entry`（那是 MEMORY 桶扩展值）。
 - **finding 名**：`missing-frontmatter`（error，缺必填字段）/ `invalid-type`（error，`type` 取值非法）
 - **严重性：error**——缺字段或 type 非法
 

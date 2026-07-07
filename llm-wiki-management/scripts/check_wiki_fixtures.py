@@ -26,6 +26,7 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
   在 lint_wiki.py；本脚本硬编码确保 vendored 副本仍能跑）。
 """
+
 from __future__ import absolute_import
 
 import argparse
@@ -236,7 +237,11 @@ def _parse_anchor_minimal(anchor_path: Path) -> Optional[List[Dict[str, str]]]:
     if current is not None:
         entries.append(current)
 
-    valid = [e for e in entries if all(e.get(k) for k in ("symlink", "target", "captured_at")) and e.get("kind") == "external-repo"]
+    valid = [
+        e
+        for e in entries
+        if all(e.get(k) for k in ("symlink", "target", "captured_at")) and e.get("kind") == "external-repo"
+    ]
     return valid if valid else None
 
 
@@ -386,7 +391,9 @@ def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> D
     if entries is None:
         out["passed"] = False  # type: ignore
         out["actual"] = "TOML 解析失败 / 无有效 [[entry]] / 必填字段缺失"
-        out["expected"] = "schema_version = 1（顶层）+ 至少 1 个 [[entry]]（每 entry 含 symlink/target/captured_at/kind='external-repo'）"
+        out["expected"] = (
+            "schema_version = 1（顶层）+ 至少 1 个 [[entry]]（每 entry 含 symlink/target/captured_at/kind='external-repo'）"
+        )
         return out
 
     bad_entries = []  # type: List[str]
@@ -453,9 +460,9 @@ def check_symlink_anchor_toml_symlink_matches(wiki_root: Path, info: Dict[str, s
 
     if orphan_entry or orphan_symlink:
         out["passed"] = False  # type: ignore
-        out["actual"] = (
-            f"anchor 缺 symlink: {orphan_entry}; " if orphan_entry else ""
-        ) + (f"symlink 缺 entry: {orphan_symlink}" if orphan_symlink else "")
+        out["actual"] = (f"anchor 缺 symlink: {orphan_entry}; " if orphan_entry else "") + (
+            f"symlink 缺 entry: {orphan_symlink}" if orphan_symlink else ""
+        )
         out["expected"] = "anchor [[entry]].symlink 与 external/ 顶层 symlink 一一对应"
         return out
     return out
@@ -724,8 +731,7 @@ def _format_human(report: Dict[str, object]) -> str:
     lines.append(f"  target_spec   : {report['target_spec'] or '(未指定)'}")
     s = report["summary"]  # type: ignore
     lines.append(
-        f"  error={s['error']} warn={s['warn']} info={s['info']} "
-        f"pass={s['pass']} skip={s['skip']}"  # type: ignore
+        f"  error={s['error']} warn={s['warn']} info={s['info']} pass={s['pass']} skip={s['skip']}"  # type: ignore
     )
     lines.append("")
     for c in report["checks"]:  # type: ignore
