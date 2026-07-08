@@ -469,6 +469,7 @@ CLI 必须生成一份最小 `.gitignore`，至少包含以下忽略规则（保
 # >>> llmw (managed by llmw) >>>
 workspace_models.toml
 */.claude/settings.local.json
+*/.qoder/settings.local.json
 # <<< llmw <<<
 
 # OS / 编辑器
@@ -616,7 +617,8 @@ CLI 在生成完成后，可执行以下验证：
    wiki-spec §1 目录结构 落盘
 3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
    到已存在目录，应非零退出；尝试 `init` 时 `AGENTS.md` / `CLAUDE.md` 已存在，应非零退出（§12）
-4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；`*/.claude/settings.local.json` 在 `.gitignore` 中
+4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；
+   `*/.claude/settings.local.json` 与 `*/.qoder/settings.local.json` 在 `.gitignore` 中
 5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`
    **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§8 约定建）；但 `<workspace>/MEMORY/`
    **存在**且含 `MEMORY.md` 索引、无 `*.md` 经验条目（CLI init 按 §9 建骨架）
@@ -626,6 +628,7 @@ CLI 在生成完成后，可执行以下验证：
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | 0.4.0 | 2026-07-04 | **agent 中立化**：workspace 纪律 SSOT 从 `<workspace>/CLAUDE.md` 拆为 `<workspace>/AGENTS.md`（工具无关 SSOT）+ `<workspace>/CLAUDE.md`（薄壳，`@AGENTS.md`，仅供 Claude Code 自动加载）。`@MEMORY/MEMORY.md` import 从原 CLAUDE.md 顶部移入 AGENTS.md 顶部（@import 写在 SSOT 内）。模板拆为 `references/workspace-agents-md-template.md`（SSOT）+ `references/workspace-claude-md-template.md`（薄壳）。§1 目录树 / ownership / 写入限制、§4、§9.1 加载机制、§10、§12、§14、附录 A 同步。**老 workspace 迁移**：靠 workspace CLI（本 spec 不含 lint 脚本，迁移由 CLI/用户手动） |
+| 0.5.0 | 2026-07-08 | **`.qoder` 与 `.claude` 同管理逻辑**：§10 `.gitignore` 模板在 `*/.claude/settings.local.json` 后追加 `*/.qoder/settings.local.json`（Qoder IDE 项目级 settings，可能含 token）；附录 A gitignored 自检同步补 `.qoder`；老 workspace 迁移：在 workspace 根 `.gitignore` 手动追加一行即可 |
 | 0.3.0 | 2026-07-01 | **breaking**：§9 MEMORY 重构——`MEMORY/README.md`（type:memory）→ `MEMORY/MEMORY.md`（无 frontmatter 索引，**CLI init 创建**，被 `<workspace>/CLAUDE.md` 用 `@MEMORY/MEMORY.md` import 会话常驻）；§1 ownership `MEMORY/` 改 CLI init 建骨架；§13 删 wiki reserved `memory` 引用（跟齐 wiki-spec 0.6.0）。**老 workspace 迁移**：删 `MEMORY/README.md` + 新建 `MEMORY/MEMORY.md` 索引并把现有 `*.md` 各补一行 |
 | 0.2.0 | 2026-06-30 | **breaking**：新增 §4 `CLAUDE.md`（CLI init 按模板拷，用户所有）+ §9 `MEMORY/`；新增 `workspace-memory` reserved frontmatter type；§1 ownership 6 → 9 类；§12 拒绝条件新增 CLAUDE.md 已存在则拒绝 |
 | 0.1.0 | 2026-06-30 | 初始：6 类文件归属 + INDEX/STATS/LINT/cross_queries schema + CLI/skill 边界 + 3 类 reserved type |
