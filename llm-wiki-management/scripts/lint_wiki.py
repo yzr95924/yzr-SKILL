@@ -112,7 +112,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.19.0"  # 0.19.0 = 0.18.0 fixtures 增量 + MEMORY frontmatter 解耦 + raw/external/ sources 例外
+CURRENT_WIKI_SPEC = "0.20.0"  # 0.20.0 = fixtures 骨架字段级比对（check 11→18，读 canonical/fixtures SSOT）+ .gitignore 加 .migration-plan.json + 升级末尾清理临时文件
 
 
 def _assert_spec_version_sync() -> None:
@@ -1059,7 +1059,7 @@ def check_page_size(wiki_root, threshold=PAGE_SIZE_THRESHOLD):
     """12. 页面体量——正文非空行数 > threshold 的内容页建议拆分
 
     仅检查 5 类内容页（entities/concepts/sources/comparisons/syntheses）——MEMORY/*
-    按 wiki-spec §5.2「正文无长度上限」豁免。计非空行（纯空行不计），避免空行撑大计数。
+    按 wiki-spec §5.2「正文无长度上限」(agent 私有定位)。计非空行（纯空行不计），避免空行撑大计数。
     阈值见模块顶部 PAGE_SIZE_THRESHOLD（SSOT）。
     """
     findings = []  # type: List[str]
@@ -1402,6 +1402,8 @@ def severity_of(finding: str) -> str:
         return "warn"
     if finding.startswith(("tag-not-in-taxonomy", "pending-review", "memory-not-indexed")):
         return "info"
+    if finding.startswith(("wiki-spec-version-stale", "wiki-spec-version-ahead", "wiki-spec-version-unparsed")):
+        return "warn"
     return "info"
 
 
@@ -1538,6 +1540,37 @@ def parse_spec_version(wiki_root: Path) -> Optional[str]:
             # 单元格写了非 semver 文本——视为解析失败
             return None
     return None
+
+
+def check_spec_version(wiki_root: Path) -> List[str]:
+    """常规 lint 也查 wiki 版本与 SKILL（CURRENT_WIKI_SPEC）是否一致；不一致提示走升级流程。
+
+    与 cmd_check_version 复用同一 parse_spec_version + _compare_semver，但本函数只产
+    warn finding 提示（不产 plan——plan 由 --check-version --apply 落）。让用户日常
+    lint 时就能感知「wiki 版本落后/领先 SKILL」，而不必显式跑 --check-version 才发现。
+    """
+    findings = []  # type: List[str]
+    current = parse_spec_version(wiki_root)
+    if current is None:
+        findings.append(
+            "wiki-spec-version-unparsed: AGENTS.md §八「Wiki Spec 版本」行无法解析"
+            "（缺 AGENTS.md / CLAUDE.md 或表格格式破坏）——"
+            "跑 `lint_wiki.py --check-version` 诊断"
+        )
+        return findings
+    cmp = _compare_semver(current, CURRENT_WIKI_SPEC)
+    if cmp == "older":
+        findings.append(
+            f"wiki-spec-version-stale: AGENTS.md §八 版本 {current} 落后 SKILL {CURRENT_WIKI_SPEC}——"
+            "跑 `lint_wiki.py --check-version --apply` 走升级流程"
+        )
+    elif cmp == "newer":
+        findings.append(
+            f"wiki-spec-version-ahead: AGENTS.md §八 版本 {current} 领先 SKILL {CURRENT_WIKI_SPEC}——"
+            "升级 SKILL 仓（lint_wiki.py）对齐"
+        )
+    # equal / unknown → 无 finding
+    return findings
 
 
 def _run_fixtures_check(wiki_root: Path) -> Dict[str, object]:
@@ -1882,7 +1915,7 @@ def build_migration_plan(
                         **base,
                         "type": "fixtures-fix-anchor-schema",
                         "to_action": (
-                            f"按 wiki-spec §13.2 修 raw/external/.symlink-anchor.toml："
+                            "按 wiki-spec §13.2 修 raw/external/.symlink-anchor.toml："
                             "schema_version=1 顶层 + 每 [[entry]] 必填 4 字段 + git 仓时三扩展字段。"
                             "若文件损坏，重写（先备份为 .bak，重新汇总 entries）"
                         ),
@@ -1940,6 +1973,21 @@ def build_migration_plan(
                         ),
                     }
                 )
+            elif cid.endswith(("-skeleton", "-frontmatter-complete", "-init-rules-complete")):
+                # 0.20.0+ 骨架字段级比对 check（信号来自 references/canonical +
+                # references/fixtures/gitignore.txt；新增 *-skeleton 类 check 自动匹配此分支）
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-skeleton",
+                        "to_action": (
+                            f"Edit {fpath}：按 references/canonical（或 fixtures/gitignore.txt）"
+                            "补齐 expected 列出的缺失骨架字段（frontmatter 键 / H1 / 说明块 / "
+                            "段标题 / .gitignore 段）。成长型内容（index 类别下条目 / log 历史 / "
+                            "MEMORY 经验 / tag bullet）**不动**——只补结构骨架"
+                        ),
+                    }
+                )
             else:
                 fixtures_actions.append(
                     {
@@ -1974,6 +2022,7 @@ def build_migration_plan(
             "再走 actions[] 修内容页 frontmatter / log；fixtures 修复是后续内容页编辑的前置",
             "fixtures-fix-anchor-merge / -anchor-schema / -anchor-symlink-matches 三条都是『多文件迁移』型 action——必须按 to_action 5 步走，单 Edit 不能完成",
             "fixtures-fix-strip-frontmatter 仅删首部 frontmatter 块，保留全文正文一字不动",
+            "fixtures-fix-skeleton（0.20.0+）：按 expected 补缺失骨架字段（frontmatter 键 / H1 / 说明块 / 段标题 / .gitignore 段），单 Edit 可落；成长型内容（index 类别 / log 历史 / MEMORY 经验 / tag bullet）不动",
             "fixtures 改造与 lint-checklist §五『语义合并规则』配合读——结构性合规由 fixtures-fix-* 完成，跨条目语义合并由 LLM 按 §五判断",
         ],
     }  # type: Dict[str, object]
@@ -2208,6 +2257,8 @@ def main() -> int:
     # 跑所有检查
     all_findings = []  # type: List[str]
     info_notes = []  # type: List[str]  # 不计入 severity 过滤的"说明性输出"（如 raw-immutable 跳过原因）
+    # 版本一致性优先报——落后/领先 SKILL 时提示走 --check-version 升级流程
+    all_findings.extend(check_spec_version(wiki_root))
     raw_findings, raw_skip = check_raw_immutable(wiki_root, effective_use_git)
     all_findings.extend(raw_findings)
     if raw_skip:

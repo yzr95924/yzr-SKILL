@@ -22,12 +22,12 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
   落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 10 条 check 一次性写完，下一个 wiki spec 升级只需新增 register 条目。
+- 18 条 check（11 条结构探测 + 7 条 0.20.0+ 骨架字段比对）；下一个 wiki spec 升级
+  只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读 references/canonical/
+  + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
   在 lint_wiki.py；本脚本硬编码确保 vendored 副本仍能跑）。
 """
-
-from __future__ import absolute_import
 
 import argparse
 import json
@@ -36,7 +36,7 @@ import re
 import subprocess  # noqa: F401 — 仅在 _git_inside_work_tree / _git_field 里用
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 # -- 复用 lint_wiki.py 常量名（保持 SSOT 一致；standalone 不依赖 lint_wiki.py import）--
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
@@ -519,7 +519,7 @@ def check_index_md_categories(wiki_root: Path, info: Dict[str, str]) -> Dict[str
         out["passed"] = None  # type: ignore
         out["skipped"] = "wiki/index.md 不存在"
         return out
-    found = set()  # type: Set[str]
+    found = set()
     for line in text.splitlines():
         m = INDEX_CATEGORY_RE.match(line)
         if m:
@@ -661,6 +661,222 @@ def check_tags_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[
 
 
 # ============================================================================
+# 0.20.0+ 骨架字段级比对——读 references/canonical/ + references/fixtures/
+# 让 fixtures/canonical 作 SSOT：改 fixtures → check 自动跟随。纯骨架件
+# （.gitignore/tags.md/SCRIPTS.md/MEMORY.md）全字段骨架比对；成长件
+# （index.md/log.md）只比结构必填（frontmatter 键 + H1 + 说明块），不动成长内容。
+# 只有 index.md.txt/log.md.txt 带占位符，故其余文件 canonical==fixtures 字节相同——
+# 骨架提取统一读 canonical；唯独 .gitignore（canonical 无）走 fixtures。
+# ============================================================================
+
+
+def _fixtures_dir() -> Path:
+    """references/fixtures/（带占位符模板；canonical 无 .gitignore，gitignore 走此）。"""
+    return Path(__file__).resolve().parent.parent / "references" / "fixtures"
+
+
+def _canonical_dir() -> Path:
+    """references/canonical/（渲染后字面量金标准）。"""
+    return Path(__file__).resolve().parent.parent / "references" / "canonical"
+
+
+def _load_fixture_text(name: str) -> Optional[str]:
+    """读 references/fixtures/<name>；失败返 None。"""
+    return _read_text(_fixtures_dir() / name)
+
+
+def _parse_frontmatter_keys(text: str) -> List[str]:
+    """提取首部 YAML frontmatter 的字段名（顺序保留）；无 frontmatter 返 []。"""
+    m = re.match(r"^---\s*\n(.*?)\n---\s*(?:\n|$)", text, re.DOTALL)
+    if not m:
+        return []  # type: ignore
+    keys = []  # type: List[str]
+    for line in m.group(1).splitlines():
+        km = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s*:", line)
+        if km:
+            keys.append(km.group(1))
+    return keys
+
+
+def _parse_gitignore_sections(text: str) -> Dict[str, List[str]]:
+    """解析 .gitignore 段：返 {段注释文本: [规则行]}。
+
+    段注释 = ``#`` 开头行；其后非注释非空行归属该段，直到下一个 ``#``。
+    """
+    sections = {}  # type: Dict[str, List[str]]
+    current = None  # type: Optional[str]
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            current = stripped
+            sections.setdefault(current, [])
+        elif current is not None:
+            sections[current].append(stripped)
+    return sections
+
+
+def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[str]:
+    """对照 signals 检查 wiki_text；返缺失项列表（空 = 全 pass）。
+
+    signals 支持的 key（任选组合）：
+      - ``frontmatter_keys``: List[str] — wiki frontmatter 键集必须 ⊇
+      - ``h1``: str — wiki 必须含该字面 H1 行（固定标题，如 ``# Tags``）
+      - ``h1_pattern``: str(regex) — wiki 首个 H1 必须匹配（变体标题，如 index.md ``# <topic> Wiki``）
+      - ``blockquote``: bool — wiki 必须含至少一行 ``>`` 引用（说明块）
+      - ``section_headings``: List[str] — wiki 必须含这些 ``##`` 标题
+      - ``gitignore_section_structure``: bool — 对照 fixtures/gitignore.txt，
+        非 external 段齐全 + 每段 ≥1 规则（容忍用户删某条编辑器规则，不绑死具体行）
+    """
+    missing = []  # type: List[str]
+    lines = wiki_text.splitlines()
+
+    if "frontmatter_keys" in signals:
+        actual = set(_parse_frontmatter_keys(wiki_text))
+        for k in signals["frontmatter_keys"]:  # type: ignore
+            if k not in actual:
+                missing.append(f"frontmatter 缺字段 `{k}`")
+
+    if "h1" in signals:
+        target = signals["h1"]  # type: ignore
+        if not any(ln.strip() == target for ln in lines):
+            missing.append(f"缺 H1 `{target}`")
+
+    if "h1_pattern" in signals:
+        pat = re.compile(signals["h1_pattern"])  # type: ignore
+        h1_lines = [ln for ln in lines if ln.lstrip().startswith("# ")]
+        if not any(pat.match(ln.strip()) for ln in h1_lines):
+            missing.append("H1 不匹配 `{}`".format(signals["h1_pattern"]))  # type: ignore
+
+    if signals.get("blockquote"):
+        if not any(ln.lstrip().startswith(">") for ln in lines):
+            missing.append("缺说明块（`>` 引用行）")
+
+    if "section_headings" in signals:
+        actual_secs = {ln.strip() for ln in lines if ln.startswith("## ")}
+        for s in signals["section_headings"]:  # type: ignore
+            if s not in actual_secs:
+                missing.append(f"缺段标题 `{s}`")
+
+    if signals.get("gitignore_section_structure"):
+        fixture_text = _load_fixture_text("gitignore.txt")
+        if fixture_text is None:
+            missing.append("fixtures/gitignore.txt 未找到（无法比对段结构）")
+        else:
+            expected_secs = _parse_gitignore_sections(fixture_text)
+            actual_secs = _parse_gitignore_sections(wiki_text)
+            # external 段由 gitignore-external-track-toml(error) 单独管，此处跳过
+            for sec, _rules in expected_secs.items():
+                if "raw/external" in sec or ".symlink-anchor" in sec:
+                    continue
+                if sec not in actual_secs:
+                    missing.append(f".gitignore 缺段注释 `{sec}`")
+                elif not actual_secs[sec]:
+                    missing.append(f".gitignore 段 `{sec}` 下无规则行")
+    return missing
+
+
+# -- 骨架 check 描述符（id/severity/wiki_path/rule_ref/desc/signals）--
+# wiki_path 相对 wiki 根；signals 见 _check_skeleton_signals 支持的 key。
+SKELETON_SPECS = [
+    {
+        "id": "gitignore-init-rules-complete",
+        "severity": "warn",
+        "wiki_path": ".gitignore",
+        "rule_ref": "wiki-spec.md §6 + lint-checklist.md §三.3",
+        "desc": ".gitignore 含 OS/编辑器 + Obsidian + 临时文件 段（各 ≥1 规则；external 段由 gitignore-external-track-toml 单独查）",
+        "signals": {"gitignore_section_structure": True},
+    },
+    {
+        "id": "index-md-frontmatter-complete",
+        "severity": "error",
+        "wiki_path": "wiki/index.md",
+        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.4",
+        "desc": "wiki/index.md frontmatter 含 6 必填键（title/type/okf_version/tags/created/updated）",
+        "signals": {"frontmatter_keys": ["title", "type", "okf_version", "tags", "created", "updated"]},
+    },
+    {
+        "id": "index-md-skeleton",
+        "severity": "warn",
+        "wiki_path": "wiki/index.md",
+        "rule_ref": "wiki-spec.md §3",
+        "desc": "wiki/index.md 含 H1（# <topic> Wiki）+ 说明块（> 引用）",
+        "signals": {"h1_pattern": r"^# .+ Wiki$", "blockquote": True},
+    },
+    {
+        "id": "log-md-frontmatter-complete",
+        "severity": "error",
+        "wiki_path": "wiki/log.md",
+        "rule_ref": "wiki-spec.md §4 + lint-checklist.md §三.6",
+        "desc": "wiki/log.md frontmatter 含 5 必填键（title/type/tags/created/updated）",
+        "signals": {"frontmatter_keys": ["title", "type", "tags", "created", "updated"]},
+    },
+    {
+        "id": "memory-index-skeleton",
+        "severity": "warn",
+        "wiki_path": "MEMORY/MEMORY.md",
+        "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §三.5",
+        "desc": "MEMORY/MEMORY.md 含 H1（# MEMORY）+ 说明块 + ## 索引",
+        "signals": {"h1": "# MEMORY", "blockquote": True, "section_headings": ["## 索引"]},
+    },
+    {
+        "id": "scripts-md-skeleton",
+        "severity": "warn",
+        "wiki_path": "scripts/SCRIPTS.md",
+        "rule_ref": "wiki-spec.md §14 + lint-checklist.md §三.7",
+        "desc": "scripts/SCRIPTS.md 含 H1（# Scripts）+ 说明块 + ## 索引",
+        "signals": {"h1": "# Scripts", "blockquote": True, "section_headings": ["## 索引"]},
+    },
+    {
+        "id": "tags-md-skeleton",
+        "severity": "warn",
+        "wiki_path": "wiki/tags.md",
+        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.8",
+        "desc": "wiki/tags.md 含 H1（# Tags）+ 说明块（无 ## 索引——tags 直接 bullet 列表）",
+        "signals": {"h1": "# Tags", "blockquote": True},
+    },
+]
+
+
+def _make_skeleton_check(spec: Dict[str, object]) -> Callable[[Path, Dict[str, str]], Dict[str, object]]:
+    """按 SKELETON_SPECS 描述符生成一条骨架 check 函数（照搬 _check_no_frontmatter 共享模式）。"""
+    wiki_path = spec["wiki_path"]  # type: ignore
+    severity = spec["severity"]  # type: ignore
+    rule_ref = spec["rule_ref"]  # type: ignore
+    sigs = spec["signals"]  # type: ignore
+
+    def _check(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+        out = {"passed": True, "severity": severity, "file": wiki_path}  # type: Dict[str, object]
+        wiki_text = _read_text(wiki_root / wiki_path)
+        if wiki_text is None:
+            out["passed"] = None
+            out["skipped"] = f"{wiki_path} 不存在"
+            return out
+        missing = _check_skeleton_signals(wiki_text, sigs)
+        if missing:
+            out["passed"] = False
+            out["expected"] = f"骨架信号对齐 references/canonical（或 fixtures/gitignore.txt）；详见 {rule_ref}"
+            out["actual"] = "; ".join(missing)
+        return out
+
+    _check.__name__ = "check_" + str(spec["id"]).replace("-", "_")  # type: ignore
+    return _check
+
+
+# 骨架 check 并入 CHECK_REGISTRY（runtime 顺序 = 输出顺序，排在原 11 条之后）
+CHECK_REGISTRY.extend(
+    {
+        "id": s["id"],
+        "severity": s["severity"],
+        "rule_ref": s["rule_ref"],
+        "desc": s["desc"],
+    }
+    for s in SKELETON_SPECS
+)
+
+
+# ============================================================================
 # 调度
 # ============================================================================
 
@@ -676,7 +892,7 @@ CHECK_FUNCTIONS = [
     ("log-md-format-strict", check_log_md_format),
     ("scripts-md-no-frontmatter", check_scripts_md_no_frontmatter),
     ("tags-md-no-frontmatter", check_tags_md_no_frontmatter),
-]
+] + [(s["id"], _make_skeleton_check(s)) for s in SKELETON_SPECS]
 
 
 def run_checks(wiki_root: Path, target_spec: Optional[str]) -> Dict[str, object]:

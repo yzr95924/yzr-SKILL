@@ -151,7 +151,36 @@ url: https://arxiv.org/abs/1706.03762
 ---
 ```
 
-## 五、判定"是否新建 entity / concept 页"的启发
+## 五、批处理摄取（≥ 3 份 raw 同时摄入）
+
+> 本节从 SKILL.md §1 Ingest「1.bulk 批处理摄取」下沉而来——主 SKILL.md 留 pointer，
+> 详细 5 步 + 为什么批处理 + log 标题前缀约定在本节。
+
+当 `ingest_diff.py` 返回 ≥ 3 个待摄取文件，或用户明确说"把这堆一起 ingest / 把这批论文
+过稿"，走批处理路径而非逐份处理。批处理的关键是**一次聚合、一次写入、一次索引**——
+避免 N 次重复 search / N 次 index 更新 / N 条 log。
+
+### 5 步流程
+
+1. **Read 所有 raw**——一次性读完所有待处理 raw（先列清单 + Read 并行）
+2. **聚合 entity / concept**——跨所有 raw 找出候选 entity / concept，**去重合并**；
+   同一概念在多篇 raw 出现时只对应一个 wiki 页（避免重复创建）
+3. **一次 search**——用 `Grep` 在 `wiki/` 全域搜所有候选 entity / concept 名称，**一次**
+   搜完（不要 N 次）；产出"已存在 / 待新建"两栏
+4. **一次写入**——按以下顺序成片写：
+   - source 页（按主题聚类而非 raw 文件名顺序——主题相近的先写，便于交叉引用）
+   - entity / concept 页（先建新的，再更新已有的——追加"参考来源"段，不重写）
+   - `wiki/index.md`（所有改动落定后**一次**更新；不要每写一页更一次 index）
+   - `wiki/log.md`（**写一条** `## [YYYY-MM-DD] ingest | Bulk: <主题概览> (<N> sources)`，
+     标题里把本批主题说清；不再逐文件分别追加 ingest 条目——避免 log 被一次 ingest 撑爆）
+5. **报告**——告诉用户哪些是新建页、哪些是更新页、哪些 entity / concept 因聚合而合并
+
+> **为什么批处理**：逐份处理在 N 份 raw 时要做 N 次 search + N 次 index 更新 + N 条
+> log，既慢又容易因中间步骤失败导致不一致；批处理把主流程收敛成一次写入，副作用面最小。
+> `^[date] ingest | Bulk:` 标题前缀保留后续按需 grep 出"批量事件"的能力（无需新增
+> `bulk-ingest` op）。
+
+## 六、判定"是否新建 entity / concept 页"的启发
 
 - **新建**条件（任一满足）：
   - raw 资料用了 ≥ 3 次该概念
@@ -162,14 +191,14 @@ url: https://arxiv.org/abs/1706.03762
   - 该概念在 wiki 中粒度过细（例：每次会议人名都建 entity 就太碎了）
   - 已经有同名 / 近义页
 
-## 六、Ingest 失败的常见原因
+## 七、Ingest 失败的常见原因
 
 - **raw 文件不可读**（PDF 加密、图片 OCR 失败）——提示用户处理源文件
 - **已存在同名 source 页**——用 Edit 更新而不是 Write 覆盖
 - **wiki/index.md 缺类别段**——可能是 setup 没跑完整；先调 setup 修复
 - **log.md 格式错乱**——append 前先确认上一行有换行结束
 
-## 七、反模式
+## 八、反模式
 
 - ❌ 一份资料写 5 个 source 页（粒度过细）——按"主题"分，不是按"raw 文件 1:1"
 - ❌ source 页只复制 raw 内容——必须消化、提炼、加 cross-refs

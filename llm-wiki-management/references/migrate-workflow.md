@@ -69,7 +69,18 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 7. **验证**：重跑 `lint_wiki.py --check-version`：
    - 若 `needs_migration == false` 且无残留 legacy → 告知用户完成
    - 若仍有 → 报告残留 pattern + 转人工
-8. **不**追加 log 条目 / **不**触发 ingest / query / lint（保持职责单一）
+8. **清理临时文件**（验证通过后，保证 wiki 干净）：删 `<wiki-root>/.migration-plan.json`
+   + 升级过程产出的 `*.bak` 备份。两者都是升级中间产物——plan 已执行完毕、anchor 重写
+   备份已无需回滚；残留无意义且 `.gitignore` 已忽略它们（`.migration-plan.json` / `*.bak`）。
+
+   ```bash
+   rm "$LLM_WIKI_ROOT/.migration-plan.json"
+   find "$LLM_WIKI_ROOT" -maxdepth 2 -name '*.bak' -delete
+   ```
+
+   > **何时不删**：升级中途暂停（plan 未执行完 / 待人工裁定冲突页）时保留 `.migration-plan.json`，
+   > 它是续跑的依据；只有 step 7 验证通过（`needs_migration == false`）才删。
+9. **不**追加 log 条目 / **不**触发 ingest / query / lint（保持职责单一）
 
 ## `--json` 联用
 
@@ -87,6 +98,52 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **不**给迁移追加 log 条目——迁移是脚本运行，不是 wiki 操作事件
 - **`current_spec > skill_spec`**（wiki 比 SKILL 新）：**不**阻断，告警用户升级 SKILL 仓；
   **不**改 wiki
+
+## fixtures 字段更新清单（0.20.0+）
+
+> **本节回答"升级时每个约定文件要对齐什么"**——集中一处，避免散落在 SKILL.md / spec 附录 B。
+> 权威信号清单是 `scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`（数 = SKILL.md `metadata.fixtures_check_count`）；
+> 本节只做 agent 视角的分类与指路，**不重抄字段名**（否则三处漂移）。
+
+升级 wiki spec 时，约定文件（fixtures）必须对齐当前 spec 的骨架。`check_wiki_fixtures.py`
+读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT 做字段级骨架比对
+（改 fixtures → check 自动跟随）。
+
+### 纯骨架件（结构不变，只追加 bullet/段/行）—— 全字段骨架比对
+
+| 文件 | 骨架信号源 | 成长内容（迁移**不动**） |
+| --- | --- | --- |
+| `.gitignore` | `fixtures/gitignore.txt` | 用户自定义新增规则 |
+| `MEMORY/MEMORY.md` | `canonical/memory-index.md` | `## 索引` 下经验条目 |
+| `scripts/SCRIPTS.md` | `canonical/scripts.md` | `## 索引` 下脚本段 |
+| `wiki/tags.md` | `canonical/tags.md` | tag bullet 列表（tags 无 `## 索引`，直接 bullet） |
+
+→ 升级时：脚本查 H1 + 说明块（`>` 引用）+ `## 索引`（tags 除外）+ `.gitignore` 段结构
+（OS/编辑器 + Obsidian + 临时文件 三段齐全，各 ≥1 规则）；缺则产 `fixtures-fix-skeleton`
+action，agent 单 Edit 补结构骨架，**不动成长内容**。
+
+### 成长型件（只比"结构必填"，不动成长内容）
+
+| 文件 | 结构必填骨架 | 成长内容（永不触碰） |
+| --- | --- | --- |
+| `wiki/index.md` | frontmatter 6 键（title/type/okf_version/tags/created/updated）+ H1（`# <topic> Wiki`）+ 说明块 + 5 类别标题 | 类别下 source/entity/concept 条目 |
+| `wiki/log.md` | frontmatter 5 键（title/type/tags/created/updated）+ `## [date] op \| title` 行格式 | 历史 log 条目（lint-checklist §5.5 永不修） |
+
+→ 升级时：脚本只比结构骨架（frontmatter 键 + H1 + 行格式）；成长内容由 LLM 按
+ingest/query 流程维护，迁移不触及。
+
+### .gitignore 段结构（容忍定制）
+
+`gitignore-init-rules-complete` 只查**段注释齐全 + 每段 ≥1 规则**，不绑死具体规则行——
+容忍用户删自己不用的编辑器规则（只用 VSCode 的删 `.idea/`、纯 Linux 的删 `.DS_Store`）。
+但**临时文件段的 `.migration-plan.json` 建议保留**（升级中间产物的中断保险）；即便漏掉，
+升级末尾 step 8 的 `rm` 也会清掉 plan，双重保险。
+
+### 权威源指针
+
+- 骨架信号定义：`scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`
+- 字节金标准：`references/canonical/*.md`（`.gitignore` 见 `references/fixtures/gitignore.txt`）
+- 语义合并（跨条目归并）：lint-checklist §五（与本文件同源）
 
 ## 与现有 lint 检查的协同
 
