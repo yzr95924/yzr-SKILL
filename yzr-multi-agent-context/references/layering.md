@@ -72,15 +72,14 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 @MEMORY/MEMORY.md
 
-<!-- Codex（与不展开 @import 语法的 agent）：上方 @MEMORY/MEMORY.md 只是文本，不会自动展开。
-请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，再按需 Read 各 MEMORY/<slug>.md 正文。 -->
+<!-- Codex Read 指引：完整注释模板见 rewrite-rules.md R2，逐字拷入本段 -->
 
 ## 注意事项                          ← CAUTION (L1 兜底)
 
 <零散的 tip / warning>
 ```
 
-**L1 词数控制**：正文总词数 ≤ 1500，记忆索引段只占 2 行（`@MEMORY/MEMORY.md` + Codex Read 指引），
+**L1 词数控制**：正文总词数守 L1 预算（§两层定义），记忆索引段只占 2 行（`@MEMORY/MEMORY.md` + Codex Read 指引），
 **不**计入 L1 词数预算——索引真实数据走 `MEMORY/MEMORY.md`，AGENTS.md 这段本质是引用 + fallback，不是内容。
-如果 L1 内容超出 1500 词，说明描述太详细——把”为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
-L1 只保留摘要。索引本身无条数上限（之前版本的 `over 30 条降级` 补丁已废——索引只活在 `MEMORY/MEMORY.md`）。
+如果 L1 内容超出 L1 预算，说明描述太详细——把”为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
+L1 只保留摘要。索引本身无条数上限——索引只活在 `MEMORY/MEMORY.md`，AGENTS.md 只引用不计数。

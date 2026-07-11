@@ -123,7 +123,7 @@ def check_memory_sync(root: Path) -> List[str]:
     3. AGENTS.md `## 跨会话记忆（索引）` 段内有 Codex Read 指引 HTML 注释（Codex 不展开 @import，
        缺指引则 L2 对 Codex 不可见）——存在提示语 `直接读 `MEMORY/MEMORY.md`` 视作命中（容许措辞微调）。
     4. AGENTS.md 不再含旧内联形态（一堆 `- [标题](MEMORY/<slug>.md) — …`）——内联 + @import
-       两套并存让 L1 词数翻倍，诊断时按 v0.11.0 之前的残留处理。
+       两套并存让 L1 词数翻倍，诊断时按旧内联残留处理。
 
     无 MEMORY/ 或无 AGENTS.md 时返回空（不适用）。返回的报告行前缀沿用旧 [OK]/[不同步]，便于 caller
     grep。
@@ -168,7 +168,7 @@ def check_memory_sync(root: Path) -> List[str]:
     if legacy_inline >= 2:
         lines.append(
             f"  [不同步] AGENTS.md 含 {legacy_inline} 行旧内联记忆索引——"
-            "v0.11.0 之前形态，与 @import 并存会双写 / 词数翻倍，按 R2 迁回 MEMORY.md"
+            "与 @import 并存会双写 / 词数翻倍，按 R2 迁回 MEMORY.md"
         )
     else:
         lines.append("  [OK] AGENTS.md 不含旧内联记忆索引形态")
