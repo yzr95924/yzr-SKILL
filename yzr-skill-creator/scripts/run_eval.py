@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import select
+import shutil
 import subprocess
 import sys
 import time
@@ -38,6 +39,29 @@ def find_project_root() -> Path:
     return current
 
 
+# Where test skills are placed so Claude Code's harness auto-discovers them
+# into the available_skills list of each spawned `claude -p` subprocess.
+# Tests use a unique `_eval_skill_<uuid>` name so multiple in-flight queries
+# never collide, and each cleans up its own dir in `finally`.
+EVAL_SKILLS_DIR = Path.home() / ".claude" / "skills"
+
+
+def cleanup_stale_eval_skills() -> int:
+    """Remove `_eval_skill_*` dirs from prior runs that crashed mid-cleanup.
+
+    Called once at the start of `run_eval` so a previous interrupted run
+    doesn't pollute available_skills. Returns count removed.
+    """
+    if not EVAL_SKILLS_DIR.is_dir():
+        return 0
+    removed = 0
+    for entry in EVAL_SKILLS_DIR.iterdir():
+        if entry.is_dir() and entry.name.startswith("_eval_skill_"):
+            shutil.rmtree(entry, ignore_errors=True)
+            removed += 1
+    return removed
+
+
 def run_single_query(
     query: str,
     skill_name: str,
@@ -55,23 +79,29 @@ def run_single_query(
     full assistant message, which only arrives after tool execution.
     """
     unique_id = uuid.uuid4().hex[:8]
-    clean_name = f"{skill_name}-skill-{unique_id}"
-    project_commands_dir = Path(project_root) / ".claude" / "commands"
-    command_file = project_commands_dir / f"{clean_name}.md"
+    # Per-query unique name; never matches a real skill so the harness can
+    # auto-discover it under ~/.claude/skills/ and surface it in the spawned
+    # subprocess's available_skills list. Original code wrote to
+    # .claude/commands/ (a slash-command registry, not a skills registry) so
+    # testing config / meta skills consistently measured 0% trigger for a
+    # harness reason rather than a description reason.
+    clean_name = f"_eval_skill_{unique_id}"
+    skill_dir = EVAL_SKILLS_DIR / clean_name
+    skill_md = skill_dir / "SKILL.md"
 
     try:
-        project_commands_dir.mkdir(parents=True, exist_ok=True)
-        # Use YAML block scalar to avoid breaking on quotes in description
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        # YAML block scalar keeps multi-line / quoted descriptions safe
         indented_desc = "\n  ".join(skill_description.split("\n"))
-        command_content = (
+        skill_md.write_text(
             f"---\n"
+            f"name: {clean_name}\n"
             f"description: |\n"
             f"  {indented_desc}\n"
             f"---\n\n"
-            f"# {skill_name}\n\n"
-            f"This skill handles: {skill_description}\n"
+            f"# {clean_name}\n\n"
+            f"Eval-injected skill for trigger testing.\n"
         )
-        command_file.write_text(command_content)
 
         cmd = [
             "claude",
@@ -185,8 +215,11 @@ def run_single_query(
 
         return triggered
     finally:
-        if command_file.exists():
-            command_file.unlink()
+        # rmtree the whole skill_dir so the SKILL.md AND any side files drop
+        # together; ignore_errors handles "already gone" races from a prior
+        # partial cleanup.
+        if skill_dir.exists():
+            shutil.rmtree(skill_dir, ignore_errors=True)
 
 
 def run_eval(
@@ -201,6 +234,11 @@ def run_eval(
     model: Optional[str] = None,
 ) -> dict:
     """Run the full eval set and return results."""
+    # Sweep any _eval_skill_* leftovers from a previous interrupted run so
+    # they don't pollute this run's available_skills list.
+    removed = cleanup_stale_eval_skills()
+    if removed:
+        print(f"Cleaned {removed} stale eval-skill dir(s) from prior run.", file=sys.stderr)
     results = []
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:

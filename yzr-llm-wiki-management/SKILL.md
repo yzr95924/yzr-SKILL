@@ -27,16 +27,11 @@ metadata:
 本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 纪律的"宪法"
-- **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + 0.18.0+ 新增
-  **check_wiki_fixtures.py**（fixtures 一致性检查；`lint_wiki.py --check-version`
-  自动调一次），把高频 deterministic 任务固化下来（**不**含 setup_wiki——wiki
-  仓的创建由外部 workspace CLI 负责）。**0.24.0+** 起恢复 11 条结构探测 + 9 条
-  0.20.0+ 骨架字段比对（`fixtures_check_count = 18`）——`agents-md-no-at-imports`
-  改为反向 `agents-md-has-at-imports`（error，断言 AGENTS.md 顶部 `@MEMORY/MEMORY.md` +
-  `@scripts/SCRIPTS.md` 两行 `@import` 均存在）+ `agents-md-codex-read-hint`（warn，
-  断言 HTML 注释含 Codex 不展开 `@import` 的 Read 指引）；`agents-md-inline-index-sections`
-  删（不再要求 h4 段）；`INLINED_INDEX_MAX` 常量 + `inlined-memory-index-bloating` warn 删除
-  （恢复 `@import` 收口后索引只活在 `MEMORY.md` / `SCRIPTS.md` 真源，不再占用 L1 词数）
+- **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + **check_wiki_fixtures.py**
+  （fixtures 一致性检查；`lint_wiki.py --check-version` 自动调一次）。把高频
+  deterministic 任务固化下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI
+  负责）。当前 `fixtures_check_count = 18`（详见
+  [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、semantic-merge.md（语义合并）
   (semantic-merge 规则，agent 走 .migration-plan.json 时的合并依据)
@@ -115,23 +110,23 @@ metadata:
    物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
    同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
    是单一真源（无 frontmatter），AGENTS.md 顶部一行 `@MEMORY/MEMORY.md` `@import` 加载——
-   Claude Code 经薄壳 `CLAUDE.md → @AGENTS.md` 递归展开 / Qoder 原生展开均透明拿到索引；
-   Codex 不展开 `@import`，靠 AGENTS.md 项目记忆段的 HTML 注释 Read 指引直接 Read。改
-   MEMORY 只改 `MEMORY.md` 这一处、`@import` 引用同步指向全文，无副本漂移。
+   agent 自动展开拿到 MEMORY 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
+   顶部 L2 索引段 + HTML 注释 Read 指引）。改 MEMORY 只改 `MEMORY.md` 这一处、
+   `@import` 引用同步指向全文，无副本漂移。
    为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
    集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
    `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
-   （Qoder / Codex / Gemini CLI 等）原生直读。**L2 索引走 `@import` 收口（0.24.0+）**：
-   AGENTS.md 顶部单行 `@MEMORY/MEMORY.md` + 单行 `@scripts/SCRIPTS.md` ——Claude Code 递归
-   展开 / Qoder 原生展开自动拿到 L2 索引；Codex 由 AGENTS.md 项目记忆段 HTML 注释 Read 指引
-   补回（详见 spec §5.1 + §14.3）。0.23.0 短暂改内联因双写 / L1 膨胀等坑已回退（论证详见
-   `yzr-multi-agent-context/SKILL.md`「为何不再用内联」段）。
+   （Qoder / Codex / Gemini CLI 等）原生直读。**L2 索引走 `@import` 收口**：
+   AGENTS.md 顶部单行 `@MEMORY/MEMORY.md` + 单行 `@scripts/SCRIPTS.md` ——agent 自动展开
+   拿到 L2 索引（详见 spec §5.1 + §14.3；Codex 不展开 `@import`，由
+   [`references/agents-md-template.md`](references/agents-md-template.md) 顶部 HTML 注释
+   Read 指引直接 Read，两处不重复实现）。
    没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明的 wiki 维护者"。**为什么 AGENTS.md
-   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、Claude Code /
-   Qoder / Codex 多 agent 兼容——`@import` 机制现在 2/3 家直接支持 + Codex 靠 Read 指引兜底
-   （详见 `yzr-multi-agent-context/SKILL.md`「设计与原理」段）。
+   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、
+   Claude Code / Qoder / Codex 多 agent 兼容（详见 `yzr-multi-agent-context/SKILL.md`「设计
+   与原理」段）。
 
 ### 四个核心操作——为什么是四个
 
@@ -173,9 +168,9 @@ metadata:
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds（0.11.0+: 纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
 >    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
->    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——Claude Code / Qoder
->    自动展开拿到 MEMORY / scripts 全文；Codex 由 AGENTS.md 项目记忆段 HTML 注释 Read 指引
->    补回。**别处由 skill 按需读 AGENTS.md 时** 也走相同的 `@import` 链路，
+>    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——agent 自动展开
+>    拿到 MEMORY / scripts 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
+>    顶部 HTML 注释 Read 指引）。**别处由 skill 按需读 AGENTS.md 时** 也走相同的 `@import` 链路，
 >    **不**需要单独 `Read MEMORY.md` 补齐索引（除非要看各 `<slug>.md` 正文）。
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
@@ -219,11 +214,10 @@ metadata:
    时主动追加；frontmatter **仅 `title` 必填**（其余 5 字段全 optional，与 wiki 内容页
    的 5 必填规则解耦——spec §5.2），**不在 index.md 强制列出**，**但每条
    必须在 `MEMORY/MEMORY.md` 索引列一行**——AGENTS.md 顶部 `@MEMORY/MEMORY.md` `@import`
-   自动加载全文，**不**需要单独同步 AGENTS.md（0.24.0+ `@import` 收口；0.23.0 双轨同步已废）。
-   lint `memory-not-indexed` 兜底漏列。MEMORY 沉淀只改 `MEMORY.md` 这一份，
-   AGENTS.md `@import` 单行引用同步指向全文，**无**双写漂移；不引入 AGENTS.md 内联条数护栏
-   （`INLINED_INDEX_MAX` 已删）——索引走 `@import` 不占 L1 词数。详见 spec §5 +
-   [`wiki-spec.md`](references/wiki-spec.md#5-memory) + §五层架构第 3 点
+   自动加载全文，**不**需要单独同步 AGENTS.md。lint `memory-not-indexed` 兜底漏列。
+   MEMORY 沉淀只改 `MEMORY.md` 这一份，AGENTS.md `@import` 单行引用同步指向全文，
+   **无**双写漂移，索引走 `@import` 不占 L1 词数。详见 spec §5 +
+   [`wiki-spec.md`](references/wiki-spec.md#5-memory) + §四层架构第 3 点
 10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
    query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**
    回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
@@ -240,16 +234,15 @@ metadata:
    frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。
    `agents-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
 
-12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，详
-   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md`
-   单段形态（0.24.0+ 回退；0.23.0 双段 `## 索引` + `## 分节契约（详细）` 已合并）：每脚本以
-   `` - `<name>` — <一句话用途> `` one-liner 起头 + `### <name> — <label>` 子节含
-   4 要素契约（使用场景 / 调用约定 / 作用 / 可选前置依赖）。AGENTS.md 顶部
+12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（详
+   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录)）——`SCRIPTS.md`
+   单段形态：每脚本以 `` - `<name>` — <一句话用途> `` one-liner 起头 + `### <name> — <label>`
+   子节含 4 要素契约（使用场景 / 调用约定 / 作用 / 可选前置依赖）。AGENTS.md 顶部
    `@scripts/SCRIPTS.md` `@import` 自动加载全文——agent **必须**先看该索引行知道有哪些脚本，
    再按需 `Read scripts/SCRIPTS.md` 取完整契约（`@import` 展开后即见），按"调用约定"显式执行，
-   **不**自动遍历 `scripts/`；改脚本只改 `SCRIPTS.md` 这一份（0.23.0 「AGENTS.md 索引 + SCRIPTS.md
-   双处同步」已废）。`scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本
-   （版本漂移风险）。`agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
+   **不**自动遍历 `scripts/`；改脚本只改 `SCRIPTS.md` 这一份。`scripts/` 不走 §9 5 必填、
+   不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。
+   `agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
 
 ### 边界
 
@@ -420,11 +413,10 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 **fixtures 一致性检查**（0.18.0+）——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
 扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
 MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migration-plan.json` 的
-`fixtures_actions[]`（与 legacy `actions[]` 平行）。**`metadata.fixtures_check_count` 条 check**
-（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对；0.24.0+ 替换 0.23.0+ 两条：`agents-md-has-at-imports`
-error 顶替 `agents-md-no-at-imports`，并新增 `agents-md-codex-read-hint` warn）；
-`agents-md-inline-index-sections` 删。**简要流程** + 9 步详细 + 字段清单见
-[`references/migrate-workflow.md`](references/migrate-workflow.md)。
+`fixtures_actions[]`（与 legacy `actions[]` 平行）。当前 `metadata.fixtures_check_count = 18`，
+覆盖 11 条结构探测 + 骨架字段比对两类（`agents-md-has-at-imports` 断言 `@import` 两行均在、
+`agents-md-codex-read-hint` 断言 Codex HTML Read 指引注释在位）。**简要流程** + 9 步详细 +
+字段清单见 [`references/migrate-workflow.md`](references/migrate-workflow.md)。
 
 ## 参考样例
 
@@ -436,4 +428,3 @@ error 顶替 `agents-md-no-at-imports`，并新增 `agents-md-codex-read-hint` w
 `yzr-outline-wiki-upload` / `yzr-outline-wiki-search` 走云端 Outline——团队协作、外部分享。
 `design-doc-edit` 走单篇 Markdown 写作。`gemini-paper-summary` 抽 PDF 摘要；本 skill
 负责 ingest 归档。Paper 域细节见 [`references/paper-wiki-profile.md`](references/paper-wiki-profile.md)。
-

@@ -162,7 +162,16 @@ Please respond with only the new description text in <new_description> tags, not
     text = _call_claude(prompt, model)
 
     match = re.search(r"<new_description>(.*?)</new_description>", text, re.DOTALL)
-    description = match.group(1).strip().strip('"') if match else text.strip().strip('"')
+    if match:
+        description = match.group(1).strip().strip('"')
+    else:
+        # Defensive fallback for when the model forgot the closing tag —
+        # without this, a literal `<new_description>` token leaked into the
+        # rewritten description (observed 2026-07-12 in yzr-skill-creator
+        # iter 3 because the close was missing).
+        cleaned = re.sub(r"^\s*<new_description>\s*", "", text)
+        cleaned = re.sub(r"\s*</new_description>\s*$", "", cleaned)
+        description = cleaned.strip().strip('"')
 
     transcript: dict = {
         "iteration": iteration,
@@ -191,7 +200,13 @@ Please respond with only the new description text in <new_description> tags, not
         )
         shorten_text = _call_claude(shorten_prompt, model)
         match = re.search(r"<new_description>(.*?)</new_description>", shorten_text, re.DOTALL)
-        shortened = match.group(1).strip().strip('"') if match else shorten_text.strip().strip('"')
+        if match:
+            shortened = match.group(1).strip().strip('"')
+        else:
+            # Same defensive strip as the primary site (model missed close tag).
+            cleaned = re.sub(r"^\s*<new_description>\s*", "", shorten_text)
+            cleaned = re.sub(r"\s*</new_description>\s*$", "", cleaned)
+            shortened = cleaned.strip().strip('"')
 
         transcript["rewrite_prompt"] = shorten_prompt
         transcript["rewrite_response"] = shorten_text

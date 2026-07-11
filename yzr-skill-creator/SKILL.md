@@ -1,19 +1,15 @@
 ---
 name: yzr-skill-creator
 description: |
-  Use this skill when you need to 从零创建新 skill、改进/迭代现有 skill、跑 skill 评估 / 基准测试、
-  独立优化某个已有 skill 的 description（触发准确率），或独立审计某个 skill 是否满足写作原则。
-  四个独立入口任选其一：(1) 创建 skill（"帮我做一个 X 的 skill" / "把这段流程沉淀成 skill"）/
-  (2) 改进现有 skill（"改进 yzr-outline-wiki-upload 这个 skill" / "评估 + 迭代"）/
-  (3) 独立优化 description（"帮我优化 XX 的描述，让它该触发时触发"——不要求先创建或改进那个 skill）/
-  (4) 独立原则校验（"帮我检查 XX skill 写得规不规范"——只报告不改写）。
-  核心能力：起草 SKILL.md / 跑 with-skill vs baseline 评估 / 优化触发 description / 审计写作原则符合度。
-  不适用：单步问询、写代码、读已有文档——这些不需要 skill 介入。
+  Use this skill when the user wants to 把流程沉淀成 skill、改进 / 评估现有 skill
+  （with-skill vs baseline 迭代）、独立优化某 skill 的触发 description、或独立
+  审计某 skill 是否符合写作原则。触发信号："帮我做一个关于 X 的 skill" /
+  "改进 / 评估 XX skill" / "帮我优化 XX 的描述，让它该触发时触发" /
+  "帮我检查 XX skill 写得规不规范"。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-07-02
+  modify time: 2026-07-12
 ---
-
 # yzr skill creator
 
 这是一个用于创建、改进 skill、独立优化 skill 触发描述，并能校验 skill 写作原则符合度的 skill
@@ -139,76 +135,15 @@ YAML frontmatter 的字段描述：要求精简，明确，不要过于冗长，
 
 ### skill writing guide
 
-> 完整的 SKILL 文字写作原则（description + 正文）集中在 `references/skill-writing-principles.md`；下面是结构骨架与模板。
-
-#### skill 的主要目录框架
-```
-skill-name/
-├── SKILL.md（必选，YAML frontmatter + Markdown 的文档）
-│   ├── YAML frontmatter （name、description 必需）
-│   └── Markdown 说明正文
-└── 捆绑资源（可选）
-    ├── scripts/    - 用于确定性/重复性任务的可执行的脚本（Python，Bash，etc）
-    ├── references/ - 按需加载到上下文中的文档
-    └── assets/     - 用于输出的文件（模板、图标、字体）
-    └── eval/       - 用于对当前 skill 的评估
-```
-需要考虑优化 `SKILL.md` 的大小：保持简短（正文长度权威上限见 `references/skill-writing-principles.md#正文写作原则`），将详细文档移至 `references` 目录；通过链接引用外部文档，而非内联
-
-
-#### progressive disclosure
-
-skill 使用三级加载体系:
-1. 元数据（name + description）：始终在上下文中
-2. SKILL.md 正文：skill 触发时进入上下文（理想情况下尽量简短）
-3. 捆绑资源：按需加载（无限制，脚本可以不加载直接执行）
-以上词数为大致参考，必要时可以超长
-
-**关键模式**:
-- SKILL.md 控制在长度上限以内；如果接近上限，就增加一层引用，并给出清晰的指引，告诉使用本 skill 的模型下一步应该去哪里
-- 从 SKILL.md 中清晰引用其他文件，并说明何时去读
-- 对于大型 reference 文件（> 300 行），需要包含目录
-
-**领域组织**：当一个 skill 支持多个领域/框架时，按变体组织：
-```
-cloud-deploy/
-├── SKILL.md （workflow + selection）
-└── references/
-    ├── aws.md
-    ├── gcp.md
-    └── azure.md
-```
-
-#### 写作模式
-> 语言 / 语气原则（中文为主、祈使语气）见 `references/skill-writing-principles.md#正文写作原则`；下面是结构模板。
-
-**定义输出格式**：
-```markdown
-## Report structure
-ALWAYS use this exact template:
-# [Title]
-## Executive summary
-## Key findings
-## Recommendations
-```
-
-**示例模式**：加入示例很有用，可以这样排版（但如果示例中要标注Input和Output，你可能想稍作变体）
-```markdown
-## Commit message format
-**Example 1:**
-Input: Added user authentication with JWT tokens
-Output: feat（auth）: implement JWT-based authentication
-```
-
-**重点内容**：
-1. `何时使用 / 不使用`：定义清楚 agent 使用的场景和不使用的场景
-2. `输入 / 输出`：定义 skill 具体的输入输出形式
-3. `执行原则 / 边界`：定义 skill 具体的执行原则和边界
-4. `工作流 / 步骤`：定义这个 skill 要按照什么样的步骤执行
-5. `参考样例`：可以提供一些例子指导 agent
+通用骨架（目录布局 / progressive disclosure / 写作模式模板）见 `references/skill-template-guide.md`——
+yzr-skill-creator 自身不在此重抄"什么是 SKILL.md 目录 / 什么是 progressive disclosure"这类
+agent 通识，避免"通用背景铺垫"占 token。写作风格 / 语言原则见
+`references/skill-writing-principles.md`「正文写作原则」。
 
 ### writing style
-> 写作风格原则（解释“为什么”而非堆砌 MUST、心理揣摩、通用不绑定例子、草稿→复审）见 `references/skill-writing-principles.md#正文写作原则`。
+
+写作风格原则（解释"为什么"而非堆砌 MUST、心理揣摩、通用不绑定例子、草稿→复审）见
+`references/skill-writing-principles.md#正文写作原则`。
 
 ### test case
 写完 skill 草稿后，设计 2–3 个真实的测试 prompt，也就是真实用户实际会说的话
@@ -232,205 +167,59 @@ Output: feat（auth）: implement JWT-based authentication
 
 ## 运行与评估测试用例
 
-本节是一段连续流程，不要中途停下来
-**不要**使用 `/skill-test` 或任何其他测试 skill——它是另一套独立的评估框架，不会和本 skill 的 `iteration-N/eval-N/with_skill|baseline` 目录约定对齐，混用会让 benchmark 数据无法对比
+本节是连续流程，不要中途停下来。
 
-结果放在 `<skill-name>-workspace/`，与 skill 目录同级
-在 workspace 内，按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个迭代内，每个测试用例再单独成目录（`eval-0/`、`eval-1/` 等）
-不要一次建好所有目录，边做边建
+- workspace 在 `<skill-name>-workspace/`（与 skill 目录同级），按 `iteration-N/eval-<N>/{with_skill|baseline|without_skill|old_skill}/outputs/` 嵌套；目录边做边建
+- **不要**使用 `/skill-test` 或任何其它评估框架——目录约定不对齐会让 benchmark
+  数据无法跨迭代对比
+- with-skill 与 baseline 在**同一轮**并行启动（不要串行）；baseline 类型：
+  - 入口 1（创建）→ `without_skill/`
+  - 入口 2（改进）→ `old_skill/`（编辑前先 `cp -r` 快照旧版到 `skill-snapshot/`）
 
-### 第 1 步：在同一轮内并行启动所有运行（with-skill 与 baseline）
-
-对每个测试用例，在**同一轮**中启动两个子 agent，一个带 skill，一个不带
-**重要**：不要先启动 with-skill 跑，再回头启动 baseline，一并启动，让它们大致同时完成
-
-**With-skill 运行:**
-```
-Execute this task:
-- Skill path: <path-to-skill>
-- Task: <eval prompt>
-- Input files: <eval files if any, or "none">
-- Save outputs to: <workspace>/iteration-<N>/eval-<ID>/with_skill/outputs/
-- Outputs to save: <what the user cares about — e.g., "the .docx file", "the final CSV">
-```
-
-**Baseline 运行**（同一个 prompt，但 baseline 视场景而定）:
-- **创建新 skill**：完全不用 skill，同样的 prompt，不传 skill path，输出存到 `without_skill/outputs/`
-- **改进现有 skill**：用旧版，编辑前先快照 skill（`cp -r <skill-path> <workspace>/skill-snapshot/`）
-然后让 baseline 子 agent 指向那份快照，输出存到 `old_skill/outputs/`
-
-为每个测试用例写一个 `eval_metadata.json`（断言可以先留空）
-给每个 eval 取一个描述性名字 —— 不要只是"eval-0"
-目录名也用这个描述性名字，如果本迭代使用了新 prompt 或修改过 prompt，需要为每个新 eval 目录创建这些元数据文件，不要假设它们会从上一迭代继承
-
-```json
-{
-  "eval_id": 0,
-  "eval_name": "descriptive-name-here",
-  "prompt": "The user's task prompt",
-  "assertions": []
-}
-```
-
-### 第 2 步:在运行进行中，起草断言
-不要只是等运行结束，这段时间可以更有效率地利用
-为每个测试用例起草定量断言，并向用户解释，如果 `eval/evals.json` 里已经有断言，就审视一遍并解释它们检查什么
-
-好的断言应当客观可验证，名字具有描述性，在 benchmark viewer 中要一目了然，让瞥一眼结果的人立刻明白每个断言在检查什么
-偏主观的 skill（写作风格、设计质量）更适合用定性方式评估，不要给需要人为判断的事情强行套断言
-
-断言定稿后，更新 `eval_metadata.json` 和 `eval/evals.json`
-同时向用户说明在 viewer 里会看到什么，既包括定性输出，也包括定量基准
-
-### 第 3 步:运行完成时，采集时序数据
-每个子 agent 任务结束时，你会收到一个通知，其中包含 `total_tokens` 和 `duration_ms`
-**立刻**将这份数据保存到该运行目录下的 `timing.json`:
-```json
-{
-  "total_tokens": 84852,
-  "duration_ms": 23332,
-  "total_duration_seconds": 23.3
-}
-```
-这是采集这份数据的**唯一机会**，它从任务通知中传来，不会被持久化到别处，每收到一个通知就处理一个，不要等批量处理
-
-### 第 4 步:评分、聚合、启动 viewer
-所有运行都完成后:
-1. **为每次运行打分**：启动一个 grader 子 agent（或内联打分），它读取 `agents/grader.md`，逐条核对断言与输出
-评分结果存到该运行目录的 `grading.json`
-`grading.json` 的 expectations 数组必须使用字段 `text`、`passed`、`evidence`（而不是 `name`/`met`/`details` 之类的变体）
-viewer 依赖这些确切字段名
-对于可以编程检查的断言，写脚本运行，不要用肉眼判断，脚本更快、更可靠，且可以跨迭代复用
-
-2. **聚合成 benchmark**：在 skill-creator 目录下运行:
-```bash
-python -m scripts.aggregate_benchmark <workspace>/iteration-N --skill-name <name>
-```
-这会生成 `benchmark.json` 和 `benchmark.md`，包含每种配置的 pass_rate、time、tokens，以及均值 ± 标准差与差值
-**`with_skill` 版本要放在其对应 baseline 之前**
-如果是手动生成 `benchmark.json`，请参阅 `references/schemas.md`，了解 viewer 所期望的精确 schema
-
-3. **做一次分析**：阅读基准数据，发掘聚合统计可能掩盖的模式
-详见 `agents/analyzer.md`（中"分析基准结果"一节）
-关注点包括：无论是否使用 skill 都始终通过的断言、高方差 eval、时间/Token 取舍等
-
-4. **启动 viewer**：同时展示定性输出和定量数据:
-```bash
-nohup python <skill-creator-path>/scripts/generate_review.py \
-  <workspace>/iteration-N \
-  --skill-name "my-skill" \
-  --benchmark <workspace>/iteration-N/benchmark.json \
-  > /dev/null 2>&1 &
-VIEWER_PID=$!
-```
-
-第 2 轮及之后的迭代，再传 `--previous-workspace <workspace>/iteration-<N-1>`
-如果 `webbrowser.open()` 不可用，或者环境没有显示器，改用 `--static <output_path>` 来生成独立的 HTML 文件，而不是启动 server
-用户点击“Submit All Reviews”后，反馈会作为 `feedback.json` 文件下载
-把 `feedback.json` 拷到 workspace 目录，供下一迭代使用
-
-注意：请用 `generate_review.py` 来生成 viewer，不必自己写 HTML
-
-5. **告诉用户**类似：我已经在浏览器里打开结果界面有两个 tab
-Outputs 让你逐个查看每个测试用例并留下反馈，'Benchmark' 显示定量对比你看完后回到这里告诉我一声
-
-### 用户在 viewer 里看到的内容
-
-Outputs tab 一次展示一个测试用例：
-- **Prompt**：给出的任务
-- **Output**：skill 产出的文件，能内联展示就内联展示
-- **Previous Output**（第 2 轮及以后）：折叠区域，展示上一轮的输出
-- **Formal Grades**（如果跑了评分）：折叠区域，展示断言通过/失败情况
-- **Feedback**：一个文本框，边输入边自动保存
-- **Previous Feedback**（第 2 轮及以后）：上一轮评论，展示在文本框下方
-
-Benchmark tab 展示统计摘要：每种配置的通过率、时序、Token 消耗，以及单 eval 拆解和分析观察
-通过上一页/下一页按钮或方向键浏览，完成后，点击"Submit All Reviews"，把所有反馈存到 `feedback.json`
-
-### 第 5 步：读取反馈
-
-用户告诉你看完了时，读取 `feedback.json`：
-```json
-{
-  "reviews": [
-    {"run_id": "eval-0-with_skill", "feedback": "the chart is missing axis labels", "timestamp": "..."},
-    {"run_id": "eval-1-with_skill", "feedback": "", "timestamp": "..."},
-    {"run_id": "eval-2-with_skill", "feedback": "perfect, love this", "timestamp": "..."}
-  ],
-  "status": "complete"
-}
-```
-空反馈意味着用户觉得没问题，把改进精力集中在用户有具体意见的测试用例上
-
-viewer 用完后杀掉：
-```bash
-kill $VIEWER_PID 2>/dev/null
-```
+5 步细节（启动 + 起草断言 + 采时序 + 评分聚合 + 读反馈、viewer 口径、
+`eval_metadata.json` / `timing.json` / `grading.json` schema、`aggregate_benchmark.py` /
+`generate_review.py` 用法）见 `references/eval-pipeline.md`。
 
 ## 改进 skill
 
-这是整个循环的核心
-跑过测试用例、用户评审过结果，现在需要根据反馈让 skill 变得更好
+跑过测试用例、用户评审过结果后，根据反馈迭代。
 
-### 改进的思考方式
+### 改进的思考方式（4 条核心原则）
 
-1. **从反馈中归纳泛化**：
-我们试图创建可以被调用一百万次的 skill，在各种不同 prompt 上都能工作
-这里你和用户反反复复迭代的只是少数例子，用户对这些例子烂熟于心，评估新输出对他们来说很快
-但你和用户共同开发的 skill 如果只能在这几个例子上工作，那就毫无价值
-与其做细碎的、过拟合的修改，或者堆砌压迫性的 MUST，面对一个顽固的问题，你不妨尝试换一种隐喻，或者推荐不同的工作模式
-试试看成本相对较低，也许会有惊喜
-
-2. **保持 prompt 精简**：
-把那些不发挥作用的内容删掉
-一定要读 transcript，而不只是看最终输出
-如果发现 skill 让模型浪费了大量时间做无效工作
-你可以尝试去掉导致这种行为的内容，然后观察结果
-
-3. **解释为什么**：
-尽全力解释你让模型做的每件事背后的**原因**
-现在的 LLM 都很聪明，它们有不错的心理揣摩能力，如果给它们一个好的脚手架，它们能超越死板指令，真正把事情做成
-即使用户的反馈很短或带情绪，也要真的去理解任务、用户为什么写这段话、他们实际写了什么，然后把这些理解传递到指令里
-如果你发现自己写了全大写的 ALWAYS 或 NEVER，或者用了非常僵化的结构，那就是黄灯
-如果可能，重新组织措辞并解释原因，让模型理解为什么这件事重要，这是一种更人性化、更有力、更有效的方式
-
-4. **寻找跨测试用例的重复工作**：
-阅读测试运行的 transcript，注意子 agent 是否各自独立地写了类似的辅助脚本，或者用了相同的多步方法
-如果 3 个测试用例都让子 agent 写了 `create_docx.py` 或 `build_chart.py`，那就是一个很强的信号：这个 skill 应该捆绑那个脚本
-写一次，放进 `scripts/`，让 skill 去用，这样以后每次调用就都不用重复造轮子
+1. **从反馈归纳泛化**：用户给的反馈只覆盖少数 prompt——要做一个能跑一百万次的 skill，
+   必须从反馈归纳"意图类别"，不把 case 逐条抄进 SKILL.md（过拟合红线）。
+2. **保持精简**：删掉不发挥作用的段；**读 transcript**，不只看最终输出——agent 浪费
+   token 做无效工作常肉眼难发现。
+3. **解释"为什么"而非堆砌 MUST**：全大写 ALWAYS / NEVER 或僵化结构是黄灯，重组措辞
+   让模型理解 why——更人性、有力、有效（见 principles「精简原则」+「解释为什么」）。
+4. **找跨用例重复工作**：3 个 eval 都让子 agent 写了 `create_docx.py` = 这个脚本
+   该进 `scripts/`，下次不重复造轮子。
 
 ### 迭代循环
 
-完成改进后:
-1. 把改进应用到 skill
-2. 重新跑所有测试用例，输出到新的 `iteration-<N+1>/` 目录
-**包括** 使用 baseline 的结果；如果是创建新 skill，baseline 始终是 `without_skill`，这在迭代间保持不变
-如果是改进现有 skill，baseline 取舍靠你判断：用用户最初拿来的版本，还是上一轮迭代？
-3. 用 `--previous-workspace` 指向上一轮来启动 reviewer
-4. 等用户评审完，告诉你他们完成了
-5. 读新反馈，继续改进，循环
+完成改进后：(1) 应用改动 → (2) 跑新 `iteration-<N+1>/`（**含** baseline，baseline
+取值：创建场景始终 `without_skill`；改进场景：用户最初版本 or 上一轮迭代，由你判）→
+(3) `--previous-workspace` 启动 reviewer → (4) 等用户评审完 → (5) 读 `feedback.json`
+继续循环。
 
 ### 堵 loophole（REFACTOR 阶段）
 
 > 原则见 `references/skill-writing-principles.md`「Iron Law」+「反合理化」。
 
-每次迭代结束、用户给出反馈 + 你读了 transcript 后，下一轮改进前先做：
-
-- **识别新合理化**：从本轮 transcript 找"agent 又用新借口绕开禁令"——这些借口**之前没在 Rationalization Table 里**，是 skill 的漏洞。
-- **加显式反驳**：把新借口补到 Rationalization Table（"借口 X → 反驳 Y"）——只补 agent **实际说过的**，不预写"可能存在的"借口。
-- **检查 Red Flags 是否覆盖**：新借口是否对应一个红旗征兆？若没，加到 Red Flags list（"念头 = 警告"而非"已违反"）。
-- **"违反字面 = 违反精神" 是否兜住**：agent 是否用看似不同但效果一致的手法绕开了禁令？若是，在该原则里加新案例。
-- **重测**：把同一批 prompt 再跑一遍，新借口应不再出现；仍出现 = REFACTOR 未通过，回 GREEN 重写——不只补"功能缺口"，更要补"借口缺口"（agent 的创造力主要花在找借口上，不在找漏洞上）。
+每次迭代结束 + 读 transcript 后：(1) 识别新合理化（agent 又用什么借口绕禁令）；
+(2) 加进 Rationalization Table（**只**补 agent 实际说过的——预写"可能存在"借口是反模式）；
+(3) 对应红旗征兆若有缺则补 Red Flags；(4) agent 是否用看似不同但效果一致的手法绕禁令
+→ 在"违反字面 = 违反精神"里加新案例；(5) 重测同批 prompt，新借口应不再出现；
+仍出现 = 回 GREEN 重写。
 
 ### Concision review（每轮迭代必做）
-> 原则见 `references/skill-writing-principles.md`「精简原则」。
 
-读完 transcript + 用户反馈、下轮改进前先答 3 问：(1) 哪段 agent 实际用过且必需？(2) 哪段是 agent 已知的常识（冗余）？(3) 哪段是 1-2 次 case 抄进去的（过拟合）？把答案应用到本轮 SKILL.md 改动——按"修法优先级"6 步（挪 references/ → tool help → 交叉引用 → 跨 skill 引用 → 压示例 → 删字）处理。
+下轮改动前先答 3 问：(1) 哪段 agent 实际用过且必需？(2) 哪段是 agent 已知的常识
+（冗余）？(3) 哪段是 1-2 次 case 抄进去的（过拟合）？处理顺序按"修法优先级"6 步
+（挪 references/ → tool help → 交叉引用 → 跨 skill 引用 → 压示例 → 删字）——完整规则
+见 `references/skill-writing-principles.md`「精简原则」。
 
-满足以下任一条件即可停止:
-- 用户表示满意
-- 反馈全部为空（一切都没问题）
-- 已经看不到有意义的进展
+停止条件：用户满意 / 反馈全空 / 看不到有意义的进展。
 
 ## 参考样例
 
@@ -554,34 +343,25 @@ agent 根据描述决定是否查阅该 skill，需要知道的一点是：agent
 
 ## 原则校验（独立入口）
 
-这一节是本 skill 的**独立入口之一**（四个入口中的第 4 个）：不动手改 skill，只拿写作原则当 checklist，审计某个已有 skill 符合多少、违反哪些，产出报告。
-
-适用场景：用户有一个已经能用的 skill，想知道它写得“规不规范”——frontmatter 合不合法、指标有没有散弹式散落、同一件事是否多处口径冲突、正文是否覆盖该有的章节、description 触发措辞如何，等等。
+第 4 个独立入口：不动手改 skill，只拿写作原则当 checklist，审计某个已有 skill 符合多少、
+违反哪些——产出报告，**只审计、不改写**，要修让用户点头再动（或转入口 2）。
+适用场景：frontmatter 合不合法、指标是否散弹式散落、同一件事是否多处口径冲突、
+正文是否覆盖该有章节、description 触发措辞如何等。
 
 ### 怎么校验
 
-1. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文写作原则，逐条）。
+1. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文
+   写作原则，逐条——每条原则的"审计检查操作"小段已给出 grep / 命令清单）。
 2. 读目标 skill 的 `SKILL.md`（必要时连带 `references/` / `scripts/`）。
-3. 逐条原则核对，给出 **通过 / 违反（附证据：文件:行 + 具体内容）**。能程序化查的就程序化查——
-   - frontmatter 合法性：跑 `scripts/quick_validate.py <skill-dir>`（已有）。
-   - 指标散弹式散落：grep 同一个数字 / 阈值是否散在多处（参见”指标单一来源”原则 + “脚本常量作 SSOT 时的 prose 引用规范”子原则）。
-   - 正文长度：粗估是否贴近权威上限（详见 `references/skill-writing-principles.md` §正文写作原则 / A. progressive disclosure）；超过时跑"正文超长根因诊断路径"三步（同节 C：全节重抄检测 + 次级 workflow 步骤未下放 + 冗长参考样例）。
-   - 跨 skill 双向依赖：跑 `python -m scripts.check_skill_dependencies <repo-root>`（新增），列出互相提及的 skill 对并给证据；”互提”不等于”互依”（分工转交、风格对齐是良性的），是否成环靠 agent 读正文确认。
-   - **【新】跨文件重复检测**：对每条核心原则的关键词（如”tag 白名单”/”scripts/SCRIPTS.md”/”reviewed 戳”/”frontmatter 必填字段”等概念性短语）用 grep 在所有 `.md` 文件查，按出现次数 + self-aware 注释存在性分类——1 次 = 通过；2 次且一方是自包含模板（带 self-aware 注释）= 通过；2 次且都无注释 = 警告，agent 读两段对比；3+ 次且都无 self-aware 注释 = 违反”跨文件重复检测操作步骤”子原则（原则 D）。**典型高频违规概念**重点 grep 短语见原则 D。
-   - **【新】scripts/ 常量与 prose 一致性**：grep 阈值/版本号裸数字（”300” / “500” / “0.X.Y” 形式）是否在 prose 出现——出现应改为常量名引用（`` `PAGE_SIZE_THRESHOLD` `` / `` `LOG_ROTATION_THRESHOLD` `` / `` `metadata.wiki_spec_version` ``），违反”脚本常量作 SSOT 时的 prose 引用规范”子原则（原则 B）。
-   - **【新】自包含例外合理性**：grep 各 `references/*.md` 文件中”自包含理由 + SSOT 指针” self-aware 注释是否存在——缺失则按”自包含例外规范”子原则（原则 A）重审该段是否属于”无意识重抄”。
-   - **【新】跨 skill 相对路径引用**：grep `\]\(\.\./\.\./[a-z]`（markdown 链接 target 以 `../../<skill-name>/` 开头）在所有 `.md` 出现 → 报，违反”跨 skill 相对路径引用禁止（链接 target 只限本 skill 目录）”原则；同 skill 内引用（`./` / `references/` / `../scripts/`）无此问题。默认修法是去掉链接、改成纯文本（"X 侧 spec §Y"），不保留链接 target。
-   - **【新】本 skill 内链接路径基准漂移**：把 skill 内每条 markdown 链接的 path 相对当前文件目录解析，target 文件不存在 = 死链。重点查 `references/*.md` 内误写 `../X.md`（多退一层到 skill 根）应为同级 `X.md` 的漂移；粗筛 `grep -rnE '\]\(\.\./[a-z_0-9-]+\.(md|py)' references/`，逐个确认 target 是 skill 根真文件（`../scripts/foo.py` 合法）还是同级误加 `../`（`../page-templates.md` → `page-templates.md`）。另查 `path#anchor` 的 fragment 是否随目标 heading 改名 / spec 演进失效。与上一条”跨 skill 相对路径引用”（`../../`）互补——那条管跨 skill，本条管 skill 内基准。详见 `references/skill-writing-principles.md`「markdown 链接相对路径基准匹配（防漂移死链）」。
-   - **【新】Iron Law baseline 证据**：`grep -nE "迭代|baseline|transcript|Rationalization|RED|GREEN|REFACTOR" <skill>/SKILL.md <skill>/references/*.md` 命中其中 ≥ 1 项 = 有 baseline 证据；纪律型 / 塑形型 skill（grep 命中禁令或步骤式措辞）若无 baseline transcript 证据，按"未经验证"标注。粗筛命令：`grep -rEn "(iteration-[0-9]+|without_skill|old_skill)" <workspace>/` 验证工作区是否真跑过 baseline。详见 `references/skill-writing-principles.md`「Iron Law」。
-   - **【新】rationalization table + red flags（纪律型 skill）**：`grep -nE "NEVER|ALWAYS|必须|禁止|不能|不得" <skill>/SKILL.md <skill>/references/*.md` 命中 → 检查同一文件是否同时含 Rationalization Table + Red Flags + "violating letter = violating spirit"（或"违反字面 = 违反精神"）三段；缺任一 = 纪律型 skill 不合规。反查 `grep -nE "Rationalization|合理化|借口|Red ?Flag|红旗"` 在纪律型 skill 中应至少命中 1 次。详见 `references/skill-writing-principles.md`「反合理化」。
-   - **【新】形式匹配失败类型**：纯 judgment-based——审计 agent 需读 RED transcript 判断失败类型归属（纪律 / 塑形 / 知识），再核对 skill 形式是否匹配；混合使用多种形式时（如既有禁令又有配方），需确认每段形式对应其要堵的具体失败，不要一刀切归类。详见 `references/skill-writing-principles.md`「形式匹配失败」。
-   - **【新】`wc -w` 量化精简**：`wc -w <skill>/SKILL.md` 应 < 5000 词（硬限）；超 tier 软目标（参考资料型 < 300 / 高频 < 800 / 普通 < 2000 / 元 skill < 5000）但 < 5000 词标"WARN 偏臃肿"；跑 `grep -nE "(PDF (Portable|is a|are a)|files? (is|are) a common)" <skill>/**/*.md` 找"通用背景铺垫"类冗余段。详见 `references/skill-writing-principles.md`「精简原则」。
-   其余原则（”解释为什么而非 MUST”、”语言”、”跨 skill 依赖单向”等的语义判断）靠 agent 判断。
-4. 产出报告：每条原则 pass / fail + 证据 + 建议修法。**只审计、不改写**；要修让用户点头再动（或转入口 2 的改进流程）。
+3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。能程序化的查：
 
-> 写作**原则**的权威清单在 `references/skill-writing-principles.md`；新增原则后本入口的 checklist 自动覆盖到，无需改这里。但上面”能程序化查的就程序化查”列出的**检查工具**（quick_validate / check_skill_dependencies 等）需手动维护——新增或改动工具时同步更新这条清单。
->
-> **新加 5 条检查**（跨文件重复 / scripts/ 常量与 prose 一致性 / 自包含例外合理性 / 跨 skill 相对路径引用 / 本 skill 内链接路径基准漂移）当前**不**配套脚本——靠 agent 跑 grep 一两条关键词即可，过度工程化无收益。若未来发现”grep 步骤人工跑易出错”或”同类违规高频出现”再考虑加 `scripts/check_ssot.py`，届时同步更新此清单。
+   | 类别 | 操作 |
+   | --- | --- |
+   | frontmatter 合法性 | `python -m scripts.quick_validate <skill-dir>` |
+   | 跨 skill 双向依赖 | `python -m scripts.check_skill_dependencies <repo-root>`（"互提" ≠ "互依"，是否成环靠 agent 读正文确认） |
+   | 正文长度 / 跨文件重复 / scripts 常量与 prose / 自包含例外 / 链接路径基准 / Iron Law baseline / 纪律三件套 / 形式匹配 / `wc -w` 量化精简 | 见 `references/skill-writing-principles.md` 各原则的"审计检查操作"小段（不在 SKILL.md 重抄） |
+
+4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法。
 
 ## 参考文件
 
