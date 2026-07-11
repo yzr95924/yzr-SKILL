@@ -143,7 +143,7 @@ ingest/query 流程维护，迁移不触及。
 
 - 骨架信号定义：`scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`
 - 字节金标准：`references/canonical/*.md`（`.gitignore` 见 `references/fixtures/gitignore.txt`）
-- 语义合并（跨条目归并）：lint-checklist §五（与本文件同源）
+- 语义合并（跨条目归并）：[semantic-merge.md](semantic-merge.md)
 
 ## 与现有 lint 检查的协同
 

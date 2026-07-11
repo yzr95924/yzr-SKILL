@@ -37,7 +37,7 @@ metadata:
   顶部 `INLINED_INDEX_MAX = 50`），守"AGENTS.md §一 内联 MEMORY 索引条数"护栏——避免
   渐进加载 L1 膨胀
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
-  wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、lint-checklist §五
+  wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、semantic-merge.md（语义合并）
   (semantic-merge 规则，agent 走 .migration-plan.json 时的合并依据)
 
 ## 何时使用 / 不使用
@@ -408,9 +408,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
 - **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
-  语义合并按 [`references/lint-checklist.md` §五](references/lint-checklist.md#五-semantic-merge-规则) 走
+  语义合并按 [`references/semantic-merge.md`](references/semantic-merge.md) 走
 - **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
-  走 lint-checklist §五（与 §三 字节合规分离）
+  走 semantic-merge.md（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
 **fixtures 一致性检查**（0.18.0+）——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`

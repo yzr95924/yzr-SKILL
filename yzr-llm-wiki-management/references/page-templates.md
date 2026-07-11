@@ -13,7 +13,7 @@
   - [1. `entity`（实体页）](#1-entity实体页)
   - [2. `concept`（概念页）](#2-concept概念页)
   - [3. `source`（资料页）](#3-source资料页)
-  - [4. `comparison`（对比页）](#4-comparison对比页)
+  - [4. `comparison`（对比页）](#4-comparison页)
   - [5. `synthesis`（综合页）](#5-synthesis综合页)
   - [6. `index`（index.md）](#6-indexindexmd)
   - [7. `log.md`（log）](#7-logmdlog)
@@ -36,7 +36,7 @@
 title: <string, 必填>
 description: <一句话摘要, 推荐>  # 推荐（OKF v0.1 推荐字段）；index.md 条目摘要从它来，避免漂移
 type: <entity|concept|source|comparison|synthesis, 必填>  # 5 类内容页；index/log 是 reserved（见 §6 / §7）
-tags: [<string array>, 必填但可空数组]
+tags: [<string array>, 必填但可空数组>]
 created: <YYYY-MM-DD, 必填>
 updated: <YYYY-MM-DD, 必填>
 # —— 以下为可选「可信度与认知质量信号」（见下方同名段）——
@@ -123,48 +123,47 @@ LLM 修改都会让戳失效。纪律：
 
 ## 二、各类型模板
 
+> **本节约定**：每类模板只列**路径 + 必填 frontmatter + 极简正文骨架**（节名 + 一句
+> "..."占位）。**完整正文示例**（"Llama 3" / "Self-Attention" / "Transformer vs Mamba" 等
+> 100+ 行的填充示例）见 [`examples.md`](examples.md) 已有样例（样例二含 source 摘要实例）——按需 Read 即可，避免本文件膨胀。
+
 ### 1. `entity`（实体页）
 
 路径：`wiki/entities/<slug>.md`
 
 ```yaml
 ---
-title: "Llama 3"
-description: "Meta 于 2024-04 发布的大语言模型系列。"
+title: <必填>
+description: <推荐>
 type: entity
-tags: [model, llama, meta]
-created: 2026-06-24
-updated: 2026-06-24
-aliases: [Llama-3, Llama 3.1, Meta-Llama-3]  # 字段值，不受 §8 kebab-case 文件名规则约束
+tags: [<必填但可空>]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+aliases: [<可选>, <可选>]  # 别名数组，方便搜索（不受 §8 kebab-case 文件名规则约束）
 ---
 ```
 
-正文结构：
+正文骨架（节名按需保留/拆分）：
 
 ```markdown
-# Llama 3
+# <Title>
 
 ## 简述
 
-Meta 于 2024-04 发布的大语言模型系列（来源：[..](../sources/llama-3-release.md)）。
+<一段话总结 entity 是谁/什么，附 primary source 链接>
 
 ## 关键属性
 
-- **发布方**：Meta
-- **参数规模**：8B / 70B / 405B
-- **context window**：128K（部分版本 200K）
-- **许可证**：Llama 3 Community License
+- <bullet list：本 entity 的客观属性>
 
 ## 已知变体
 
-- Llama 3.0（2024-04）
-- Llama 3.1（2024-07，新增 405B）
-- Llama 3.2（2024-09，多模态）
+- <变体 1（版本 / 型号 / 形态）>
+- <变体 2>
 
 ## 参考来源 / Sources
 
-* [Llama 3 Release Notes](../sources/llama-3-release.md) — 原始发布
-* [Llama 3.1 Technical Report](../sources/llama-3-1-tech-report.md) — 405B 详细规格
+* [<source page>](<relative-path>) — <简短说明>
 ```
 
 ### 2. `concept`（概念页）
@@ -173,52 +172,46 @@ Meta 于 2024-04 发布的大语言模型系列（来源：[..](../sources/llama
 
 ```yaml
 ---
-title: "Self-Attention"
-description: "让序列内每个位置直接 attend 所有其他位置的注意力机制。"
+title: <必填>
+description: <推荐>
 type: concept
-tags: [attention, transformer, mechanism]
-created: 2026-06-24
-updated: 2026-06-24
-related: [concepts/transformer.md, concepts/multi-head-attention.md, concepts/scaled-dot-product-attention.md]
+tags: [<必填但可空>]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+related: [<concepts/x.md>, <concepts/y.md>]  # 相关概念路径数组，wiki 根相对
 ---
 ```
 
-正文结构：
+正文骨架：
 
 ```markdown
-# Self-Attention
+# <Title>
 
 ## 定义
 
-Self-attention 是一种让序列内每个位置都直接 attend 到所有其他位置的机制
-（来源：[..](../sources/attention-is-all-you-need.md)）。
+<一段话给出概念的形式化定义 + primary source>
 
-## 数学形式
+## 数学形式 / 形式化
 
-给定 query Q、key K、value V：
-
-$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+<若适用：LaTeX / mermaid / 表格>
 
 ## 关键性质
 
-- **计算复杂度**：O(n² · d)
-- **并行化**：相比 RNN 无序列依赖
-- **长程依赖**：任意两个位置直接相连
+- <bullet：本概念区别于相邻概念的关键属性>
 
 ## 变体
 
-- Multi-head attention（来源：[..](../sources/...md)）
-- Sparse attention（来源：[..](../sources/...md)）
+- <变体 1>（来源：[<source>](<path>)）
+- <变体 2>
 
 ## 相关概念
 
-- [Transformer](transformer.md)
-- [Multi-Head Attention](multi-head-attention.md)
+- [<concept 1>](<path>) — <关系说明>
+- [<concept 2>](<path>)
 
 ## 参考来源 / Sources
 
-* [Attention Is All You Need](../sources/attention-is-all-you-need.md) — 原始论文
-* [Flash Attention](../sources/flash-attention.md) — 高效实现
+* [<source page>](<relative-path>) — <说明>
 ```
 
 ### 3. `source`（资料页）
@@ -227,56 +220,51 @@ $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)
 
 ```yaml
 ---
-title: "Attention Is All You Need"
-description: "提出 Transformer——完全基于 attention、抛弃 RNN/CNN 的序列建模。"
+title: <必填>
+description: <推荐>
 type: source
-tags: [transformer, paper-2017, nips]
-created: 2026-06-24
-updated: 2026-06-24
-sources:
-  - raw/articles/attention-is-all-you-need.md
-authors: [Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser, Polosukhin]
-published: 2017-06-12
-url: https://arxiv.org/abs/1706.03762
-venue: NeurIPS 2017
+tags: [<必填但可空>]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+sources:  # 必填——指向 raw/ 现存路径
+  - raw/articles/<slug>.md
+authors: [<name1>, <name2>]  # 可选
+published: YYYY-MM-DD          # 可选
+url: <https://...>             # 可选（论文/网页原始链接）
+venue: <会议名 / 期刊>          # 可选
 ---
 ```
 
-正文结构：
+正文骨架：
 
 ```markdown
-# Attention Is All You Need
+# <Title>
 
-**作者**：Vaswani et al. (2017)
-**来源**：[raw/articles/attention-is-all-you-need.md](../raw/articles/attention-is-all-you-need.md)
+**作者**：<authors>
+**来源**：[<raw path>](../raw/<...>)（必填项；absent → lint sources-missing）
 
 ## 摘要
 
-提出 Transformer 架构——完全基于 attention mechanism，**抛弃 RNN / CNN**。
-在机器翻译任务上达到 SOTA，且训练时间显著缩短。
+<一段话——核心主张 + 在本 wiki 主题域里的位置>
 
 ## 关键贡献
 
-1. **完全基于 attention 的序列建模**——首次在 encoder-decoder 框架中证明可行
-2. **Multi-head attention**——并行学习不同子空间的 attention
-3. **Positional encoding**——用 sin/cos 函数编码位置信息
+1. <贡献 1>
+2. <贡献 2>
+3. <贡献 3>
 
-## 关键数字
+## 关键数字 / 实验结果
 
-- WMT 2014 EN-DE：28.4 BLEU（来源：raw）
-- 训练时间：12 小时 8 P100 GPU
+- <bullet：关键数据 / 性能 / 复杂度>
 
 ## 与本 wiki 其它资料的关系
 
-- 启发了 [BERT](../sources/bert.md)、[GPT](../sources/gpt-2.md) 等后续工作
-- 核心概念见 [Self-Attention](../concepts/self-attention.md)、
-  [Transformer](../concepts/transformer.md)
+- 启发了 [<other source>](<path>)
+- 核心概念见 [<concept 1>](../concepts/<slug>.md)
 
 ## 引文（可独立成段）
 
-> "We propose a new simple network architecture, the Transformer, based solely on
-> attention mechanisms, dispensing with recurrence and convolutions entirely."
-> —— 原文 Abstract
+> "<原文 quote>" —— <出处>
 ```
 
 ### 4. `comparison`（对比页）
@@ -285,48 +273,43 @@ venue: NeurIPS 2017
 
 ```yaml
 ---
-title: "Transformer vs Mamba"
-description: "Self-attention 与 state space model 两条长上下文路线的对比。"
+title: <必填>
+description: <推荐>
 type: comparison
-tags: [comparison, transformer, mamba, long-context]
-created: 2026-06-24
-updated: 2026-06-24
-compared: [concepts/transformer.md, concepts/mamba.md]
+tags: [<必填但可空>]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+compared:  # 必填——被对比对象路径数组，wiki 根相对
+  - concepts/<a>.md
+  - concepts/<b>.md
 ---
 ```
 
-正文结构：
+正文骨架：
 
 ```markdown
-# Transformer vs Mamba
+# <Title>
 
 ## 对比对象
 
-- [Transformer](../concepts/transformer.md) — Self-attention 路线
-- [Mamba](../concepts/mamba.md) — State space model 路线
+- [<entity/concept 1>](../concepts/<a>.md) — <路线 1 一句话>
+- [<entity/concept 2>](../concepts/<b>.md) — <路线 2 一句话>
 
 ## 维度对比
 
-| 维度 | Transformer | Mamba |
+| 维度 | <A> | <B> |
 | --- | --- | --- |
-| 核心机制 | Self-attention | Selective state space |
-| 推理复杂度 | O(n²) | O(n) |
-| 长上下文性能 | 平方下降 | 线性 (来源: [...](../sources/mamba-eval.md)) |
-| 训练稳定性 | 成熟，attention 收敛稳定 | 较新，需要 careful init |
-| 生态成熟度 | 极高 (BERT/GPT/LLaMA) | 新兴，2024 起热度上升 |
-| 推理吞吐 | 优化路径多 (FlashAttn, KV cache) | 早期，工程化不足 |
+| <维度 1> | <A 在此维度的属性> | <B 在此维度的属性> |
+| <维度 2> | ... | ... |
 
 ## 适用场景
 
-- **短上下文（< 4K）+ 任务多样** → Transformer
-- **长上下文（> 32K）+ 任务相对单一** → Mamba
-- **混合架构（hybrid）** → Jamba / Zamba 等正在探索
+- <场景 1> → <选 A / B / 视情况>
+- <场景 2>
 
 ## 参考来源 / Sources
 
-* [Attention Is All You Need](../sources/attention-is-all-you-need.md)
-* [Mamba: Linear-Time Sequence Modeling](../sources/mamba.md)
-* [Mamba 评估报告](../sources/mamba-eval.md)
+* [<source page>](<relative-path>)
 ```
 
 ### 5. `synthesis`（综合页）
@@ -335,66 +318,48 @@ compared: [concepts/transformer.md, concepts/mamba.md]
 
 ```yaml
 ---
-title: "Long-Context 方法演进"
-description: "围绕长上下文建模的 sparse attention 与 linear/SSM 两条路线的演进综合。"
+title: <必填>
+description: <推荐>
 type: synthesis
-tags: [long-context, evolution, attention, ssm]
-created: 2026-06-24
-updated: 2026-06-24
-threads: [sparse-attention, linear-attention, state-space-model, hybrid-architectures]
-sources:
-  - ../sources/attention-is-all-you-need.md
-  - ../sources/sparse-transformer.md
-  - ../sources/linear-attention.md
-  - ../sources/mamba.md
+tags: [<必填但可空>]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+threads:  # 必填——线索标题数组（synthesis 区分多线索的"主线"）
+  - <thread-1-title>
+  - <thread-2-title>
+sources:  # 必填——wiki 内其它页路径（不是 raw/）；详见 wiki-spec §9 类型特化
+  - <concepts/x.md>
+  - <sources/y.md>
 ---
 ```
 
-正文结构：
+正文骨架：
 
 ```markdown
-# Long-Context 方法演进
+# <Title>
 
 ## 主线
 
-围绕"如何让序列模型处理长上下文（> 8K tokens）"形成了两条主要技术路线。
+<一段话——综合页要回答的核心问题 + 多线索概览>
 
-## 线索一：sparse attention
+## 线索一：<thread 1 title>
 
-保持 attention 形式但**减少 attend 数量**：
+- <要点 1>（来源：[<source>](<path>)）
+- <要点 2>
 
-- 2019 — [Sparse Transformer](../sources/sparse-transformer.md) — 固定 stride pattern
-- 2020 — [Longformer](../sources/longformer.md) — 局部 + 全局 attention 组合
-- 2020 — [BigBird](../sources/bigbird.md) — 随机 + window + global
+## 线索二：<thread 2 title>
 
-复杂度 O(n√n) 或 O(n log n)，相比标准 attention 显著降低。
-
-## 线索二：linear attention / SSM
-
-**替换** attention 为线性复杂度的机制：
-
-- 2020 — [Linear Attention](../sources/linear-attention.md) — 重新设计 kernel
-- 2023 — [RetNet](../sources/retnet.md) — 保留 + 门控
-- 2023 — [Mamba](../sources/mamba.md) — Selective state space model
-
-复杂度 O(n)，在长序列上推理优势显著。
+- <要点 1>
+- <要点 2>
 
 ## 交叉与综合
 
-- 2024 — [Jamba](../sources/jamba.md) — Mamba + Attention 混合（SSM 层 + 偶数层 attention）
-- 2024 — [Zamba](../sources/zamba.md) — 类似的混合思路
+- <综合观察：跨线索的连接 / 共性>
 
-## 观察
+## 观察 / 待研究
 
-1. **稀疏化** 与 **线性化** 是两条平行路径，长期共存
-2. **混合架构**（hybrid）正在成为新趋势——纯 attention 或纯 SSM 都有边界
-3. **工程化挑战**：Mamba 等新机制的 kernel 优化仍不成熟，吞吐暂时不如成熟 attention
-
-## 待研究
-
-- 长上下文评测 benchmark 的可靠性（needle-in-haystack 等）
-- 长上下文中"有效记忆"vs"理论上能 attend"的差距
-- 训练数据配比对长上下文能力的影响
+1. <观察 1>
+2. <待研究问题>
 
 ## 参考来源 / Sources
 
@@ -404,15 +369,7 @@ sources:
 > **逐段溯源（synthesis 专属）**：synthesis 页通常综合 ≥ 3 个 source，主张散落在不同段落、
 > 各自从不同来源得出。仅靠 frontmatter `sources` 只能定位"本页引用了哪些来源"，**无法**
 > 追溯"某句具体主张来自哪篇"。因此 synthesis 正文对**来源可分的断言**用标准 Markdown 脚注
-> `[^n]` 标注，文末给出 `[^n]: ...` 指向 source 页——让每个可被引用的论点都能不重读 raw 就回溯：
->
-> ```markdown
-> Linear attention 把复杂度降到 O(n) [^linear]，但长序列精度普遍不及 sparse attention [^sparse]。
->
-> [^linear]: [Linear Attention](../sources/linear-attention.md) — kernel 重设计
-> [^sparse]: [Sparse Transformer](../sources/sparse-transformer.md) — 固定 stride pattern
-> ```
->
+> `[^n]` 标注，文末给出 `[^n]: ...` 指向 source 页——让每个可被引用的论点都能不重读 raw 就回溯。
 > 用标准脚注 `[^n]`（**不要**用 pandoc 的行内 `^[...]`，与本 skill "通用 Markdown" 立场一致，
 > 且不依赖 Obsidian / 特定渲染器）。单段纯推论 / 综合判断无需脚注；只对**可追溯到具体来源**
 > 的断言标。comparison 页若同样综合多源、断言来源可分，也照此办理。
@@ -427,12 +384,12 @@ title: "<Topic> Index"
 type: index
 okf_version: "0.1"
 tags: [index]
-created: 2026-06-24
-updated: 2026-06-24
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
 ---
 ```
 
-正文结构：
+正文骨架：
 
 ```markdown
 # <Topic> Wiki
@@ -442,26 +399,23 @@ updated: 2026-06-24
 
 ## Entities
 
-- [Llama 3](entities/llama-3.md) — Meta 发布的大语言模型系列
-- [GPT-4](entities/gpt-4.md) — OpenAI 的大语言模型
+- [<title>](entities/<slug>.md) — <一句话摘要，取自 description 字段>
 
 ## Concepts
 
-- [Self-Attention](concepts/self-attention.md) — 让序列内每个位置 attend 所有位置的机制
-- [State Space Model](concepts/ssm.md) — 线性复杂度的序列建模
+- [<title>](concepts/<slug>.md) — <摘要>
 
 ## Sources
 
-- [Attention Is All You Need](sources/attention-is-all-you-need.md) — Transformer 原始论文
-- [Mamba](sources/mamba.md) — SSM 路线的代表工作
+- [<title>](sources/<slug>.md) — <摘要>
 
 ## Comparisons
 
-- [Transformer vs Mamba](comparisons/transformer-vs-mamba.md) — 两条技术路线对比
+- [<title>](comparisons/<slug>.md) — <摘要>
 
 ## Syntheses
 
-- [Long-Context 演进](syntheses/long-context-evolution.md) — 跨多篇资料的综合分析
+- [<title>](syntheses/<slug>.md) — <摘要>
 ```
 
 **lint 检查**：
@@ -480,24 +434,23 @@ updated: 2026-06-24
 title: "<Topic> Log"
 type: log
 tags: [log]
-created: 2026-06-24
-updated: 2026-06-24
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
 ---
 ```
 
-正文：
+正文（**每行匹配** `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$`，lint 校验）：
 
 ```markdown
 ## [2026-06-24] setup | Initial scaffold by yzr-llm-wiki-management
-## [2026-06-24] ingest | Attention Is All You Need
-## [2026-06-24] ingest | Flash Attention
-## [2026-06-24] query | Transformer vs Mamba
+## [2026-06-24] ingest | <source page title>
+## [2026-06-24] query | <answer summary>
 ## [2026-06-24] lint | First health check
 ```
 
 **lint 检查**：
 
-- 每行匹配 `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$`
+- 每行匹配正则
 - 不允许删除 / 修改历史条目
 
 ## 三、模板使用规则
@@ -506,3 +459,7 @@ updated: 2026-06-24
 2. **修改时**——保留 frontmatter 全部字段；`updated` 改当天日期
 3. **重写时**——若 `type` / `sources` 等关键字段需要变，**先和用户确认**
 4. **归档 query 答案**——根据答案性质选 `comparison`（对比）或 `synthesis`（综合）
+5. **完整正文示例**——本文件只留 frontmatter SSOT + 极简骨架（节名 + `...` 占位）；
+   真实 wiki 里 5 类模板的 100+ 行填充实例（"Llama 3" / "Self-Attention" / "Transformer vs
+   Mamba" / "Long-Context 演进" / "index.md 列表"）见 [`examples.md`](examples.md) 「样例二」
+   的 source 摘要实例 + 各类 wiki 实例的典型样例；按需 Read 即可，无需把详细实例塞进本文件
