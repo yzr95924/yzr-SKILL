@@ -1,12 +1,11 @@
 ---
 name: yzr-multi-agent-context
-description: 在用户想把一个工程的 agent 上下文归约成「AGENTS.md 单一真源、多 agent 兼容」时使用
-  本 skill——两条路径收敛到同一份工具无关的 AGENTS.md：① 有 CLAUDE.md（+可选 MEMORY/）→ 去品牌迁移，
-  CLAUDE.md 收敛成薄壳；② 已有 AGENTS.md（可能 +CLAUDE.md 并存）→ 规范化去重。一套真源，Claude Code
-  （经薄壳）/ Codex / Qoder 各用各的入口加载。适用：CLAUDE.md 转 AGENTS.md / 两者共存 / 让项目在
-  Codex / Qoder 也能用 / 已有 AGENTS.md 想规范化 / 多工具共存。不适用：裸项目从零生成（先用 agent 的
-  /init）/ 迁向不读 AGENTS.md 的 agent / 解析 Cursor 或 Gemini 等专属格式（先手动转成 AGENTS.md /
-  CLAUDE.md）/ 改权限 / MCP / scripts 配置。
+description: 在用户想把一个工程的项目上下文收敛成「一份 AGENTS.md、多个 AI coding agent 兼容」时使用
+  本 skill——把现有 CLAUDE.md / AGENTS.md / MEMORY 归约成单一真源的工具无关 AGENTS.md，Claude Code（经
+  薄壳引入）、Codex、Qoder 各用各的入口加载同一份内容，不再维护多份。典型触发：CLAUDE.md 转 AGENTS.md
+  / CLAUDE.md 与 AGENTS.md 并存想合并去重 / 让项目在 Codex、Qoder 也能直接用 / 已有 AGENTS.md 想规范化
+  成多 agent 通用标准。不适用：裸项目从零生成（先用 agent 的 /init）/ 迁向不读 AGENTS.md 的 agent
+  （Cursor、Gemini 等专属格式先手动转成 AGENTS.md / CLAUDE.md 再来）/ 改权限 / MCP / scripts 配置。
 metadata:
   author: Zuoru YANG
   category: project-config
@@ -113,7 +112,10 @@ Claude Code 的入口多一层薄壳（`CLAUDE.md → @AGENTS.md` 展开）；Co
 
 两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让 Claude Code 也加载同一份内容。
 
-## 执行原则 / 边界
+## 执行原则
+
+> 使用边界（不碰权限 / MCP / `scripts` / `references`、不删 `CLAUDE.md`、不生成 agent
+> 专属 rule 文件）已在「何时使用 / 不使用」给出，此处不重抄。
 
 ### 改写规则 R1–R5（摘要）
 
@@ -128,11 +130,8 @@ Claude Code 的入口多一层薄壳（`CLAUDE.md → @AGENTS.md` 展开）；Co
 - **R5 逃生舱**：无法泛化的工具专属内容（如脚本硬编码 `claude -p` 子进程），在 AGENTS.md 写泛化版、
   在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱。
 
-### 边界
+### 运行约束
 
-- 不碰权限 / MCP / `scripts` / `references`
-- 不删 `CLAUDE.md`（薄壳共存）；彻底删需用户显式确认
-- 不生成 agent 专属触发式 rule 文件（`.qoder/rules/` 等）——交给用户在目标 agent IDE 配置
 - **幂等**：重复运行覆盖已有 `AGENTS.md`，不产生重复文件
 
 ## 工作流 / 步骤
