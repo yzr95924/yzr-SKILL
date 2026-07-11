@@ -1,11 +1,13 @@
 ---
 name: yzr-skill-creator
 description: |
-  Use this skill when the user wants to 把流程沉淀成 skill、改进 / 评估现有 skill
-  （with-skill vs baseline 迭代）、独立优化某 skill 的触发 description、或独立
-  审计某 skill 是否符合写作原则。触发信号："帮我做一个关于 X 的 skill" /
-  "改进 / 评估 XX skill" / "帮我优化 XX 的描述，让它该触发时触发" /
-  "帮我检查 XX skill 写得规不规范"。
+  Use this skill whenever the user is in a skill's lifecycle: creating a new skill from a workflow / template / process / decision pattern, improving an existing skill via eval-and-iterate (with-skill vs baseline), independently optimizing a skill's trigger description, or auditing a skill against writing principles (report only, no rewrite).
+  Trigger signals:
+  - **Create a skill**: "我想 / 帮我 做一个 X 的 skill" / "从零做一个 skill 处理 X" / "把 XX 流程沉淀成 skill" / "以后能用 / 新人也能用 / 按这个走"
+  - **Improve a skill**: 改进 / 评估 / 迭代 XX skill；用户反馈触发不准或行为不对；想跑评估
+  - **Optimize description only**: 只调 frontmatter description，让它该触发时触发、不该触发时不触发
+  - **Audit principles only**: 拿写作原则审 skill 是否合规 / 有没有散弹式散落 / 口径冲突
+  不适用：单步问询 / 写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事。
 metadata:
   author: Zuoru YANG
   modify time: 2026-07-12
