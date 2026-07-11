@@ -1,0 +1,117 @@
+{
+  "skill_name": "code-refactoring-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我 review 一下 src/parser.py,看看有什么可重构的",
+      "expected_output": "完整代码审查报告(主表 5 列 + 总结段 + 工具记录脚注),不修改源文件;加载 references/languages/python.md",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 2,
+      "prompt": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
+      "expected_output": "Go 文件的代码审查报告,加载 references/languages/golang.md,跑 golangci-lint(若可用)",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 3,
+      "prompt": "我刚写完一批代码,能用 code-refactoring-review 跑一遍吗?",
+      "expected_output": "询问代码位置 / 范围;得到回答后跑报告",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 4,
+      "prompt": "review 这个仓库的 src/parser.py 和 internal/handler/order.go 两个文件",
+      "expected_output": "识别两个语言(Python / Go),各跑一份报告或一份合并报告含语言路由",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 5,
+      "prompt": "review 我这个 PR 的所有改动:git diff main..HEAD",
+      "expected_output": "基于 diff 的报告,只 review 改动行 + 必要上下文",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 6,
+      "prompt": "review 这个 800 行的 Java 文件 src/LegacyProcessor.java",
+      "expected_output": "询问是否分段;若用户确认不拆,跑全文件并提示体量大 + 风险点",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 7,
+      "prompt": "这个 monorepo 包含 Python(src/)和 Go(internal/)代码,review 整个项目",
+      "expected_output": "按语言分别加载插件;输出含语言分组的合并报告或两份独立报告",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 8,
+      "prompt": "能给个 markdown 表格的报告吗?(review src/utils.py)",
+      "expected_output": "按 references/report-template.md 输出表格化报告;不偏离模板列结构",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 9,
+      "prompt": "帮我写一个新函数 calculate_discount(price, qty)",
+      "expected_output": "直接写函数;不触发本 skill(开发任务,不是 review)",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 10,
+      "prompt": "这个 NPE 怎么修?NullPointerException at line 42",
+      "expected_output": "debugging 任务,不触发本 skill;直接定位修复或建议加 Optional / 早判空",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 11,
+      "prompt": "这段代码太慢了,orders.query() 跑了 30 秒,帮我优化",
+      "expected_output": "性能调优,不触发本 skill;建议走 profile + benchmark 路线",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 12,
+      "prompt": "重写一下 src/legacy.py,改成现代架构",
+      "expected_output": "重写任务,不触发本 skill;范围过大,走开发而非 review",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 13,
+      "prompt": "这个变量名 typo,data1 改成 user_data",
+      "expected_output": "单点改动,不触发本 skill;直接改名",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 14,
+      "prompt": "解释一下 parse_order 这个函数干嘛的",
+      "expected_output": "单步问询,不触发本 skill;直接解释函数功能",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 15,
+      "prompt": "给这个项目写一份 README.md",
+      "expected_output": "文档生成,不触发本 skill;走通用文档写作",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 16,
+      "prompt": "帮我加一个新 feature:订单导出 CSV",
+      "expected_output": "新功能,不触发本 skill;走开发流程",
+      "files": [],
+      "should_trigger": false
+    }
+  ]
+}

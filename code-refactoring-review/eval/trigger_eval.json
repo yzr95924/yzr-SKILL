@@ -1,0 +1,106 @@
+[
+  {
+    "query": "我刚写完一批代码,能用 code-refactoring-review 跑一遍吗?",
+    "should_trigger": true
+  },
+  {
+    "query": "review 这个仓库的 src/parser.py 和 internal/handler/order.go 两个文件",
+    "should_trigger": true
+  },
+  {
+    "query": "能给个 markdown 表格的报告吗?(review src/utils.py)",
+    "should_trigger": true
+  },
+  {
+    "query": "review 一下我刚加的那个 TypeScript React 组件,有什么可以拆出去的",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我看看 src/parser.py 里有没有重构机会",
+    "should_trigger": true
+  },
+  {
+    "query": "重构一下 internal/billing/service.go,我想把里面重复的逻辑抽出去",
+    "should_trigger": true
+  },
+  {
+    "query": "audit 一下 src/auth 目录,看看有没有代码味",
+    "should_trigger": true
+  },
+  {
+    "query": "这个模块职责混在一起,职责不清,帮我按重构原则拆一下",
+    "should_trigger": true
+  },
+  {
+    "query": "smell 太多了,帮我列一份 src/ 目录下的代码味清单",
+    "should_trigger": true
+  },
+  {
+    "query": "代码质量体检:跑一遍 src/api/,看看哪些函数需要拆分",
+    "should_trigger": true
+  },
+  {
+    "query": "review 这个 800 行的 Java 文件 src/LegacyProcessor.java",
+    "should_trigger": false
+  },
+  {
+    "query": "这个 monorepo 包含 Python(src/)和 Go(internal/)代码,review 整个项目",
+    "should_trigger": false
+  },
+  {
+    "query": "review 我这个 PR 的所有改动:git diff main..HEAD",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我 review 一下 src/parser.py,看看有什么可重构的",
+    "should_trigger": false
+  },
+  {
+    "query": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
+    "should_trigger": false
+  },
+  {
+    "query": "能不能帮我看看 orders.query() 那个函数的代码有什么可重构的",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我写一个新函数 calculate_discount(price, qty)",
+    "should_trigger": false
+  },
+  {
+    "query": "这个 NPE 怎么修?NullPointerException at line 42",
+    "should_trigger": false
+  },
+  {
+    "query": "这段代码太慢了,orders.query() 跑了 30 秒,帮我优化",
+    "should_trigger": false
+  },
+  {
+    "query": "重写一下 src/legacy.py,改成现代架构",
+    "should_trigger": false
+  },
+  {
+    "query": "这个变量名 typo,data1 改成 user_data",
+    "should_trigger": false
+  },
+  {
+    "query": "解释一下 parse_order 这个函数干嘛的",
+    "should_trigger": false
+  },
+  {
+    "query": "给这个项目写一份 README.md",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我加一个新 feature:订单导出 CSV",
+    "should_trigger": false
+  },
+  {
+    "query": "这个仓库的单元测试覆盖率太低,帮我给 src/parser.py 写一组测试",
+    "should_trigger": false
+  },
+  {
+    "query": "配一下 GitHub Actions 的 CI,在 PR 时跑 ruff 和 mypy",
+    "should_trigger": false
+  }
+]
