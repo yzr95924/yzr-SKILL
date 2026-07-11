@@ -116,7 +116,7 @@ metadata:
    `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
    （Qoder / Codex / Gemini CLI 等）原生直读。没有它，LLM 会退化成普通聊天机器人；有它，LLM 是
    "纪律严明的 wiki 维护者"。**为什么 AGENTS.md 作 SSOT + CLAUDE.md 薄壳**（套用
-   `claude-to-agents-ssot` 方法）：一套真源、Claude Code / Qoder 等 agent 双工具共存——`@import`
+   `yzr-multi-agent-context` 方法）：一套真源、Claude Code / Qoder 等 agent 双工具共存——`@import`
    写在 SSOT 内，两边都能加载。
 
 ### 四个核心操作——为什么是四个

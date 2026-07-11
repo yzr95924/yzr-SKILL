@@ -51,13 +51,15 @@ python3 scripts/install-dev-deps.py
   - `llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
   - `llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
 - **论文 / 阅读**：
-  - `gemini-paper-summary` —— 本地 PDF 论文 → 中文结构化总结（Gemini 多模态直读，含图表 / 公式）
+  - `gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type` 路由 4 套模板）
+- **代码评审 / 重构**：
+  - `yzr-code-refactoring-review` —— 现有代码可重构点巡检（Fowler 60+ 重构 catalog + 4 语言插件；产出按严重度排序的审查报告，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：
   - `outline-wiki-setup` —— Outline Wiki MCP 接入（一次性配置 + 重启验证）
   - `outline-wiki-search` —— Outline Wiki 搜 / 读文档
   - `outline-wiki-upload` —— Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
 - **元 skill**（项目上下文 / skill 本体工程）：
-  - `claude-to-agents-ssot` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
+  - `yzr-multi-agent-context` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
 
 外部 skill（按需）：`gemini-api-dev` / `gemini-live-api-dev` / `gemini-interactions-api`

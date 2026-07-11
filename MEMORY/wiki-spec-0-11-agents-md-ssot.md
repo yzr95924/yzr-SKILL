@@ -1,13 +1,13 @@
 ---
 name: wiki-spec-0-11-agents-md-ssot
-description: wiki/workspace 纪律文件从 CLAUDE.md SSOT 改 AGENTS.md SSOT + CLAUDE.md 薄壳（0.11.0/0.4.0），套用 claude-to-agents-ssot 方法；两 spec 对称，改 SSOT 引用要同步两 skill
+description: wiki/workspace 纪律文件从 CLAUDE.md SSOT 改 AGENTS.md SSOT + CLAUDE.md 薄壳（0.11.0/0.4.0），套用 yzr-multi-agent-context 方法；两 spec 对称，改 SSOT 引用要同步两 skill
 metadata:
   type: project
 ---
 
 wiki-spec 0.11.0 + workspace-spec 0.4.0（2026-07-04）：wiki 产物与 workspace 产物的纪律文件从
 `<root>/CLAUDE.md` 作单一真源，改为 `<root>/AGENTS.md`（工具无关 SSOT）+ `<root>/CLAUDE.md`
-（`@AGENTS.md` 薄壳，仅供该 agent 自动加载）。套用 `claude-to-agents-ssot` skill 的方法
+（`@AGENTS.md` 薄壳，仅供该 agent 自动加载）。套用 `yzr-multi-agent-context` skill 的方法
 （该 skill 自身声明"不处理被拷贝的产物文件"——这里是**借其方法**到 wiki/workspace 产物这个它
 不覆盖的场景，不是调用它）。
 

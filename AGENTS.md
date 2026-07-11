@@ -108,6 +108,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── MEMORY/                # 跨会话"为什么 + 边界"目录（MEMORY.md 是索引；完整条目正文
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
+├── yzr-multi-agent-context/       # CLAUDE.md → AGENTS.md 单源 + CLAUDE.md 薄壳改造（元 skill）
+├── gemini-pdf-summary/          # 本地 PDF（论文 / 手册 / 白皮书 / 书）→ 中文 Markdown
+│                                # （Gemini 多模态直读；4 类模板路由）
 ├── llm-wiki-management/         # 本地单 wiki 维护（llm-workspace-management 的内层）
 ├── llm-workspace-management/    # 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
 │                                # Q&A / lint）
@@ -115,6 +118,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── outline-wiki-search/         # Outline Wiki 搜 / 读文档（核心 2 个能力）
 ├── outline-wiki-upload/         # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 +
 │                                # Collection + 移动 / 删除
+├── yzr-code-refactoring-review/ # 现有代码可重构点巡检（Fowler 60+ catalog +
+│                                # 4 语言插件；产出审查报告，不主动改文件）
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …
@@ -171,14 +176,14 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
   截断 MCP 多 content block 的缺陷（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持多
   block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先
   在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
-- `gemini-paper-summary` ↔ `outline-wiki-upload` 构成本地论文管线，单向流动：
-  - `gemini-paper-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
+- `gemini-pdf-summary` ↔ `outline-wiki-upload` 构成本地论文管线，单向流动：
+  - `gemini-pdf-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
     （`--extract-figures` 模式产物）
   - `outline-wiki-upload` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
     `create_attachment` → `curl` → Markdown 引用 `attachments.redirect?id=...`
   - 两个 skill **不互调**：上游只输出本地文件，下游只消费本地文件
   - 禁止任何一方写"调用对方 API / 编排对方 step"
-  - `--full` 模式由 `gemini-paper-summary` 独自负责落到 `<wiki_root>/raw/papers/` 为止；
+  - `--full` 模式由 `gemini-pdf-summary` 独自负责落到 `<wiki_root>/raw/papers/` 为止；
     后续 publish 编排不在本仓库 skill 范围
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级
   （`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须

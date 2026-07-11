@@ -113,6 +113,36 @@ def collect_targets(root: Path) -> List[Tuple[str, int, str, frozenset]]:
     return targets
 
 
+def check_memory_sync(root: Path) -> List[str]:
+    """比对 AGENTS.md 内联记忆索引的 slug 集合 ↔ MEMORY/ 下实际正文（除 MEMORY.md）。
+
+    L2 内联规范（R2）：MEMORY.md 索引须 inline 进 AGENTS.md 的 ## 跨会话记忆 段落。本函数检查
+    AGENTS.md 里 (MEMORY/<slug>.md) 引用与 MEMORY/ 实际正文文件是否一致，报告缺失 / 多余，防止
+    内联副本与 MEMORY/ 脱节。无 MEMORY/ 或无 AGENTS.md 时返回空（跳过）。
+    """
+    lines: List[str] = []
+    memory = root / "MEMORY"
+    agents = root / "AGENTS.md"
+    if not memory.is_dir() or not agents.exists():
+        return lines  # 无 MEMORY/ 或无 AGENTS.md → 不适用
+
+    actual = {p.name for p in memory.glob("*.md")} - {"MEMORY.md"}
+    text = agents.read_text(encoding="utf-8", errors="replace")
+    inline = set(re.findall(r"\(MEMORY/([^)]+\.md)\)", text))
+
+    missing = sorted(actual - inline)  # 有正文但 AGENTS.md 未内联
+    extra = sorted(inline - actual)  # AGENTS.md 内联了但 MEMORY/ 无正文
+
+    if not missing and not extra:
+        lines.append(f"  [OK] AGENTS.md 内联记忆索引 ↔ MEMORY/ 一致（{len(inline)} 条）")
+    else:
+        if missing:
+            lines.append(f"  [不同步] MEMORY/ 有正文但 AGENTS.md 未内联：{missing}")
+        if extra:
+            lines.append(f"  [不同步] AGENTS.md 内联了但 MEMORY/ 无正文：{extra}")
+    return lines
+
+
 def overlap_coeff(a: frozenset, b: frozenset) -> float:
     """Szymkiewicz–Simpson：|A∩B| / min(|A|,|B|)。语义＝"A 的 token 有多少出现在 B"。"""
     if not a or not b:
@@ -178,6 +208,13 @@ def coverage(root: Path, threshold: float, min_tokens: int) -> Tuple[List[str], 
         lines.extend(flagged[:80])
         if len(flagged) > 80:
             lines.append(f"  … 还有 {len(flagged) - 80} 条，详见源（调整 --threshold 可收紧 / 放宽）")
+
+    # 记忆索引一致性（L2 内联规范）：AGENTS.md 内联索引 ↔ MEMORY/ 正文
+    mem_sync = check_memory_sync(root)
+    if mem_sync:
+        lines.append("-" * 60)
+        lines.append("记忆索引一致性（AGENTS.md 内联 ↔ MEMORY/ 正文）：")
+        lines.extend(mem_sync)
     return lines, len(flagged), evaluated
 
 

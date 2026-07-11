@@ -25,13 +25,32 @@
 > R1 不动的事实：命令名（`python3 -m scripts.run_eval`）、文件路径（`yzr-skill-creator/scripts/`）、
 > 工具行为（"截断 MCP 多 block"）都保留，只换对工具的称呼。
 
-## R2 — @import 位置
+## R2 — 记忆索引内联（不靠 @import）
 
-`@MEMORY/MEMORY.md` 必须写在 `AGENTS.md` 内（标题之后第一行），**不**写在 CLAUDE.md 内。
-原因：`AGENTS.md` 是两边共同加载的真源。Claude Code 经 `@AGENTS.md` 递归展开一定加载 `@MEMORY`；
-读 `AGENTS.md` 的其它 agent 能否展开内部的 `@import` 不确定（官方多未文档化）——但 `@MEMORY/MEMORY.md`
-这行留在 AGENTS.md 里至少是显式指针，最坏情况是用户手动 `Read` MEMORY 正文。故 import 写在 AGENTS.md
-（Claude Code 侧一定生效，其它 agent 侧尽力）。
+`MEMORY.md` 的**全部索引行**必须 inline 进 `AGENTS.md` 的 `## 跨会话记忆（索引）` 段落，段末附自然语言
+Read 指引；**不**在 `AGENTS.md` 写 `@MEMORY/MEMORY.md`。内联段落形如：
+
+```markdown
+## 跨会话记忆（索引）
+
+每条完整正文在 `MEMORY/<slug>.md`（与本索引同目录），需要详细背景时请读取对应文件：
+
+- [标题](MEMORY/<slug>.md) — 一句话摘要
+- ……（MEMORY.md 的全部索引行，措辞按 R1 去品牌化）
+```
+
+**原因**：`@path` 递归 import 是 **Claude Code 专属**（CLAUDE.md 支持递归展开）；Codex 的 AGENTS.md
+**不展开** import（openai/codex#17401 未实现）；Qoder 官方只说"自动识别 AGENTS.md"，无 import 语法。
+故 `@MEMORY/MEMORY.md` 对 Codex / Qoder 是裸字符串，整个 MEMORY/ 对它们不可见。索引 inline 进正文后，
+三家读正文即见全部条目摘要——质变（知道记忆存在）交给机制，量变（读正文）由 Read 指引引导 agent
+按需 `Read`。
+
+> L2 正文（`MEMORY/<slug>.md`）只存一份、按需 Read——只内联**索引**，不重复内联正文。
+> `MEMORY.md` 索引仍是 L2 的 SSOT，AGENTS.md 内联段是它的投影；改一处须同步另一处（Step 5
+> `coverage.py` 的 `check_memory_sync` 守一致性）。
+
+**overflow 降级（边角）**：MEMORY 条目 > 30 时，AGENTS.md 只内联"分类目录 + 最关键条目"，完整索引仍留
+`MEMORY.md`，靠 Read 指引。阈值客观（条数），不靠主观挑选"哪些重要"。
 
 ## R3 — 行宽不变
 
@@ -101,3 +120,19 @@ This file provides guidance to Claude Code when working with code in this reposi
 - `@AGENTS.md` 存在
 - 顶部有「薄壳声明」（指向 AGENTS.md 为单一真源、提醒勿编辑共用部分）——结构性指针，不计入"正文"
 - 除「薄壳声明」、`@AGENTS.md` 和 HTML 注释标记外，不应有大段正文——有就说明该内容本该在 AGENTS.md（R1 去品牌后归 L1）或 MEMORY（R4），不该留在薄壳
+
+## 路径 2 规范化诊断清单（Step 1 路径 2 用）
+
+路径 2 的源是**已有的 `AGENTS.md`**（手写 / 别的工具生成 / 之前部分迁移）。Step 1 不扫描段落分层，而是
+对现有 AGENTS.md 跑这份诊断，逐项判定是否需要规范化：
+
+| 诊断项 | 怎么查 | 不达标 → 规范化动作 |
+|---|---|---|
+| 品牌残留 | `grep -iE "claude code\|\.claude/" AGENTS.md` 有命中 | 按 R1 去品牌改写 |
+| L2 记忆内联缺失 | 有 `MEMORY/` 但无 `## 跨会话记忆（索引）` 段 | 按 R2 内联 MEMORY.md 全部索引行 |
+| `@MEMORY` 裸 import | `grep '@MEMORY' AGENTS.md` 有命中 | 删该行换 R2 内联段（@import 是 Claude 专属） |
+| 并存 `CLAUDE.md` 未合并 | `CLAUDE.md` 有而 `AGENTS.md` 无的内容 | 按段落分层决策树合并 / 下沉，冲突口径让用户裁定 |
+| 工具专属内容混在正文 | 正文有"点名才能执行"硬依赖（如 `claude -p`） | 按 R5 抽进 CLAUDE.md 薄壳逃生舱，AGENTS.md 留泛化版 |
+
+诊断结果输出一张表（诊断项 → 现状 → 动作），展示给用户确认。**不破坏性覆盖**：Step 0 已就覆盖 / 合并
+策略征得用户同意。
