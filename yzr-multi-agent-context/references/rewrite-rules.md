@@ -25,30 +25,49 @@
 > R1 不动的事实：命令名（`python3 -m scripts.run_eval`）、文件路径（`yzr-skill-creator/scripts/`）、
 > 工具行为（"截断 MCP 多 block"）都保留，只换对工具的称呼。
 
-## R2 — 记忆索引内联（不靠 @import）
+## R2 — 记忆索引 `@import` 收口（不回退内联）
 
-`MEMORY.md` 的**全部索引行**必须 inline 进 `AGENTS.md` 的 `## 跨会话记忆（索引）` 段落，段末附自然语言
-Read 指引；**不**在 `AGENTS.md` 写 `@MEMORY/MEMORY.md`。内联段落形如：
+`MEMORY.md` 是 L2 索引的**唯一**真源。`AGENTS.md` 的「跨会话记忆（索引）」段用**单行
+`@MEMORY/MEMORY.md`** 引入索引 + 一段面向 Codex / 不展开 `@import` 的 agent 的显式 Read 指引。
+**不**再内联索引行——之前的内联方案踩了"双写漂移 / L1 膨胀 / 真源分裂"三个坑，详见 SKILL.md
+「设计与原理」L2 段。
+
+完整段落模板：
 
 ```markdown
 ## 跨会话记忆（索引）
 
-每条完整正文在 `MEMORY/<slug>.md`（与本索引同目录），需要详细背景时请读取对应文件：
+@MEMORY/MEMORY.md
 
-- [标题](MEMORY/<slug>.md) — 一句话摘要
-- ……（MEMORY.md 的全部索引行，措辞按 R1 去品牌化）
+<!-- Codex（与不展开 @import 语法的 agent）：上方 @MEMORY/MEMORY.md 只是文本，不会自动展开。
+请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，再按需 Read 各 MEMORY/<slug>.md 正文。 -->
 ```
 
-**原因**：`@path` 递归 import 是 Claude Code 专属、Codex / Qoder 不展开 → 靠 `@MEMORY/MEMORY.md` 挂 L2
-会让整个 `MEMORY/` 对后两家不可见。完整论证（含 openai/codex#17401、质变 / 量变）见 SKILL.md
-「设计与原理」L2 陷阱段——本段只给摘要 + 指针，不重抄。
+**展开行为（按 agent 分）**：
 
-> L2 正文（`MEMORY/<slug>.md`）只存一份、按需 Read——只内联**索引**，不重复内联正文。
-> `MEMORY.md` 索引仍是 L2 的 SSOT，AGENTS.md 内联段是它的投影；改一处须同步另一处（Step 5
-> `coverage.py` 的 `check_memory_sync` 守一致性）。
+| Agent | 怎么处理 `@MEMORY/MEMORY.md` |
+|---|---|
+| Claude Code | 递归 import 自动展开成 `MEMORY.md` 全文 |
+| Qoder | AGENTS.md 原生 `@MEMORY/...` 展开成 `MEMORY.md` 全文 |
+| Codex | 不展开 `@import`（openai/codex#17401 仍未实现），靠上方 HTML 注释里的 Read 指引 |
 
-**overflow 降级（边角）**：MEMORY 条目 > 30 时，AGENTS.md 只内联"分类目录 + 最关键条目"，完整索引仍留
-`MEMORY.md`，靠 Read 指引。阈值客观（条数），不靠主观挑选"哪些重要"。
+`MEMORY.md` 加 / 删条目时**只改一处**（`MEMORY/MEMORY.md`）；`AGENTS.md` 的 `@MEMORY/MEMORY.md` 一行
+不需要动。Step 5 `coverage.py::check_memory_index` 校验 AGENTS.md 有 `@MEMORY/MEMORY.md` 引用 +
+Codex Read 指引存在 + `MEMORY/MEMORY.md` 文件存在——L2 索引不会与 AGENTS.md 漂移。
+
+**为什么不再用之前的内联方案**（决策已固化，避免反复回滚再回滚）：
+
+- **双写漂移**：MEMORY.md 加一条就要去 AGENTS.md 再贴一次 → 必不一致，靠 `check_memory_sync` 守门是
+  补救，不是机制。
+- **L1 膨胀**：索引行变多就推高 AGENTS.md 词数 → 触发 L1 1500 词预算，倒逼再设计 "over 30 条降级"
+  这种补丁——补丁复杂度等于承认方案失败。
+- **真源分裂**：本来想让 AGENTS.md 作 SSOT，结果记忆的 SSOT 反而变成 "MEMORY.md + AGENTS.md 双源"。
+- **三家不需要统一姿势**：Claude Code / Qoder 都能 `@import` → 让机制替你做事；只 Codex 例外，
+  一条 Read 指引补回去就够了。
+
+注：v0.11.0 之前的版本（含 deprecate 后内联方案）已撤销，路径 2 规范化诊断时若发现"AGENTS.md 把
+记忆索引 inline 进正文"这种老形态，按 R2 改造为 `@MEMORY/MEMORY.md` 一行；切勿两套并存（内联 + `@import`
+同时存在让 L1 词数翻倍且不知道哪家真源赢）。
 
 ## R3 — 行宽不变
 
@@ -121,16 +140,21 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## 路径 2 规范化诊断清单（Step 1 路径 2 用）
 
-路径 2 的源是**已有的 `AGENTS.md`**（手写 / 别的工具生成 / 之前部分迁移）。Step 1 不扫描段落分层，而是
-对现有 AGENTS.md 跑这份诊断，逐项判定是否需要规范化：
+路径 2 的源是**已有的 `AGENTS.md`**（手写 / 别的工具生成 / 之前部分迁移，含 v0.11.0 之前的内联方案）。
+Step 1 不扫描段落分层，而是对现有 AGENTS.md 跑这份诊断，逐项判定是否需要规范化：
 
 | 诊断项 | 怎么查 | 不达标 → 规范化动作 |
 |---|---|---|
 | 品牌残留 | `grep -iE "claude code\|\.claude/" AGENTS.md` 有命中 | 按 R1 去品牌改写 |
-| L2 记忆内联缺失 | 有 `MEMORY/` 但无 `## 跨会话记忆（索引）` 段 | 按 R2 内联 MEMORY.md 全部索引行 |
-| `@MEMORY` 裸 import | `grep '@MEMORY' AGENTS.md` 有命中 | 删该行换 R2 内联段（@import 是 Claude 专属） |
+| 记忆段缺失 | 有 `MEMORY/` 但无 `## 跨会话记忆（索引）` 段 | 按 R2 追加 `@MEMORY/MEMORY.md` + Codex Read 指引 |
+| 记忆段是旧内联形态 | 段内直接列 `- [标题](MEMORY/<slug>.md) — …` 索引行 | 按 R2 改写为 `@MEMORY/MEMORY.md` 一行 + Codex 指引（索引行迁回 MEMORY.md） |
+| `@MEMORY/MEMORY.md` 缺指引 | 段内只有 `@MEMORY/MEMORY.md`，无 Codex Read 指引 HTML 注释 | 按 R2 模板补 Codex Read 指引 |
 | 并存 `CLAUDE.md` 未合并 | `CLAUDE.md` 有而 `AGENTS.md` 无的内容 | 按段落分层决策树合并 / 下沉，冲突口径让用户裁定 |
 | 工具专属内容混在正文 | 正文有"点名才能执行"硬依赖（如 `claude -p`） | 按 R5 抽进 CLAUDE.md 薄壳逃生舱，AGENTS.md 留泛化版 |
 
 诊断结果输出一张表（诊断项 → 现状 → 动作），展示给用户确认。**不破坏性覆盖**：Step 0 已就覆盖 / 合并
 策略征得用户同意。
+
+> 老内联方案（v0.11.0 之前）→ 新 `@import` 方案的过渡：诊断项"记忆段是旧内联形态"会高概率触发。
+> 索引行**迁回** `MEMORY.md`（已经在 L2 真源里有副本的话直接删 AGENTS.md 那批；没有就从 MEMORY.md 反查
+> 重建一遍，或者直接以 `MEMORY.md` 当前内容为准删 AGENTS.md 索引行）。两套并存时删内联、留 `@import`。

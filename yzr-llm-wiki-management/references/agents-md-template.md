@@ -7,21 +7,25 @@
 > [`wiki-spec.md`](wiki-spec.md) §2 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改
 > 都视为"非标准配置"，skill 行为不再保证一致。
 >
-> **读取机制（agent 中立）**：维护本 wiki 的 agent 应在每次操作前读本文件。在 wiki 根目录内工作时——
-> **Claude Code** 经同目录薄壳 `CLAUDE.md`（`@AGENTS.md` 递归展开）自动加载本文件；**读 `AGENTS.md` 的其他
-> agent**（Qoder / Codex / Gemini CLI 等）原生直读本文件。在别处工作时，由 skill 经 `$LLM_WIKI_ROOT` 按需读取——
-> **不依赖 symlink**，多 wiki / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于 Claude Code 自动加载约定，无独立纪律。）
->
-> **L2 索引内联（0.23.0+ 改；不再 `@import`）**：本文件正文自带 `#### 跨会话记忆（索引）` 与
-> `#### Wiki-local scripts（索引）` 两段紧凑索引（见 §一 各自小节），让所有读 `AGENTS.md` 的 agent
-> （Claude Code / Codex / Qoder / Gemini CLI）都能立即看到 MEMORY 与 scripts 有哪些条目。
-> 之前（0.22.0 及更早）用 `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` import——但 `@import` 递归展开
-> **只 Claude Code 支持**（经薄壳 `CLAUDE.md → @AGENTS.md` 展开），Codex / Qoder / Gemini CLI 不展开
-> `AGENTS.md` 内的 `@import`，导致整个 `MEMORY/` 与 `SCRIPTS.md` 对它们不可见——"多 agent 兼容"
-> 沦为口号。**内联后所有 agent 一视同仁**（论证详见
-> 详见 `yzr-multi-agent-context` SKILL.md「L2 陷阱段」（跨 skill 不直链）。
-> AGENTS.md 索引段与 `MEMORY.md` / `SCRIPTS.md` 是同一份内容的两种投影——**改一处须同步另一处**
-> （lint `memory-not-indexed` 兜底；scripts 段由本文件 §一 discipline 提示手维护）。
+> **L2 索引 `@import` 收口（0.24.0+；0.23.0 短暂内联已回退）**：本文件加载时由下方的
+> `@MEMORY/MEMORY.md` 与 `@scripts/SCRIPTS.md` 两行 `@import` 自动展开——**Claude Code** 经
+> 薄壳 `CLAUDE.md → @AGENTS.md` 递归展开自动拿到 MEMORY / scripts 全文；**Qoder** 原生支持
+> `AGENTS.md` 内 `@import` 也透明加载；**Codex** 不展开 `@import`，由下方项目记忆段 HTML 注释
+> 的 Read 指引直接 `Read MEMORY/MEMORY.md` 拿索引。三家都见 L2 索引，**不**靠"内联副本 +
+> bloat guard"工程式补丁（0.23.0 短暂用过，因双写 / 词数膨胀等坑回退，详见
+> `yzr-multi-agent-context` SKILL.md「为何不再用内联」段；跨 skill 不直链）。
+> `MEMORY/MEMORY.md` 与 `scripts/SCRIPTS.md` 是单一真源，`@import` 引用同步指向全文，
+> **不**在 AGENTS.md 持有副本——无漂移风险。
+
+@MEMORY/MEMORY.md
+
+<!-- Codex（与不展开 `@import` 语法的 agent）：上方 `@MEMORY/MEMORY.md` 只是文本，
+     不会自动展开。请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，
+     再按需 Read 各 `MEMORY/<slug>.md` 正文。 -->
+
+@scripts/SCRIPTS.md
+
+<!-- Codex：上方 `@scripts/SCRIPTS.md` 同理，请直接 Read `scripts/SCRIPTS.md`。 -->
 
 ## 一、本 wiki 的边界
 
@@ -143,29 +147,14 @@
   - 任何 `MEMORY/*.md`（**仅完整条目**）的 frontmatter **仅 `title` 必填**（spec §5.2）
     ——`type` / `created` / `updated` / `tags` / `description` 全 optional；与 wiki 内容页
     5 必填规则解耦（MEMORY 是 agent 私有记忆，不走 wiki 用户面 5 必填）
-  - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——其 `## 索引` 段下的全部条目**内联**进下方
-    `#### 跨会话记忆（索引）` 段，所有读 `AGENTS.md` 的 agent 立即可见；写每条时**同步改两处**
-    （AGENTS.md 索引段 + `MEMORY.md`），否则下次会话读不到（lint `memory-not-indexed` 兜底）。
-    条目正文按需 `Read MEMORY/<slug>.md`
-  - **§一 `#### 跨会话记忆（索引）` 内联索引条数护栏（0.23.0+）**——`AGENTS.md` 是始终在
-    上下文（progressive disclosure L1）的 SSOT，不应无限膨胀。超过
-    `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值时 lint 报
-    `inlined-memory-index-bloating` warn（[lint-checklist §二.15](lint-checklist.md#15-agentsmd-内联-memory-索引条数阈值)）。
-    超阈**不强制处置**——agent 选一：(a) **短条目化**——索引行改 `- <slug> — 一句话`
-    不带链接（缩体积不减可见性，正文按需 `Read MEMORY/<slug>.md`）；(b) **分类摘要**——
-    按主题 / 时间聚合，AGENTS.md 只列 K 个分类节点 + top-N 明列；(c) **回写 `MEMORY.md`**——
-    低频条目迁回 `MEMORY.md`「完整条目」段，AGENTS.md 仅留 top-30 高频。MEMORY.md 本体
-    可自由增长（它是 SSOT，不受护栏约束）——护栏只挡 `AGENTS.md` 投影
+  - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——由本文件 `@MEMORY/MEMORY.md` `@import`
+    加载（详见顶部「L2 索引 `@import` 收口」段）。写每条时**只改 `MEMORY/MEMORY.md`**
+    这一份，`@import` 引用自动同步指向全文。条目正文按需 `Read MEMORY/<slug>.md`
+  - **不**引入 AGENTS.md 内联条数护栏（`INLINED_INDEX_MAX` 已删）——索引走 `@import` 不占 L1
+    词数；MEMORY 沉淀只改 `MEMORY.md`、AGENTS.md 同步单行引用，**无**双写漂移
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
   - **不**要求 inbound 链接
   - 目录结构与契约详见 `wiki-spec.md` §5
-
-#### 跨会话记忆（索引）
-
-<!-- 内联 `MEMORY/MEMORY.md ## 索引` 段下全部条目（一行一条：`- [slug](slug.md) — 一句话`）。
-     与 `MEMORY.md ## 索引` 同步；正文按需 `Read MEMORY/<slug>.md`。
-     详见顶部「L2 索引内联」段与 `yzr-multi-agent-context` SKILL.md L2 陷阱段。 -->
-（暂无条目 —— 与 `MEMORY/MEMORY.md ## 索引` 同步）
 
 ### `scripts/` —— 本 wiki 仓的自维护脚本目录（0.9.0+）
 
@@ -180,33 +169,20 @@
   ingest 前清洗等）。**不**放置 yzr-llm-wiki-management skill 自带脚本（那些 SSOT 在
   `yzr-llm-wiki-management/scripts/`）
 - 索引文件：`scripts/SCRIPTS.md`（无 frontmatter，与 `MEMORY/MEMORY.md` 同形态）。
-  AGENTS.md 顶部 L2 索引内联（0.23.0+ 改）的紧凑 one-liner 列表见下方 `#### Wiki-local scripts（索引）` 段；
-  完整分节契约（每脚本一段：使用场景 / 调用约定 / 作用 / 前置依赖）按需
-  `Read scripts/SCRIPTS.md` 各分节
+  由本文件顶部 `@scripts/SCRIPTS.md` `@import` 加载全文（详见顶部「L2 索引 `@import` 收口」段）。
+  完整契约（每脚本一段：使用场景 / 调用约定 / 作用 / 前置依赖）由 `@import` 自动可见，
+  agent 按需 `Read scripts/SCRIPTS.md` 取分节
 - 纪律：
-  - **添加 / 修改 / 删除脚本文件**与**同步更新两处**（下方 `#### Wiki-local scripts（索引）` 紧凑索引
-    行 + `SCRIPTS.md` 完整分节段）是原子动作——完成时两处必须一致，否则会出现"AGENTS.md 列出但分节缺"
-    或"分节有但 AGENTS.md 漏"
+  - **添加 / 修改 / 删除脚本文件**只改 `SCRIPTS.md` 一处即可——`@import` 引用同步指向全文，
+    **不**需要在 AGENTS.md 单独同步索引（0.23.0 「双处同步」已废）
   - **不**写 frontmatter（scripts/ 是代码，不是 wiki 内容页）
   - **`scripts/` 不参与 `lint_wiki.py` 扫描**——脚本代码质量由维护者自行负责
-  - **§一 `#### Wiki-local scripts（索引）` 内联索引同样受膨胀护栏**——与上面 MEMORY
-    索引同原则：`AGENTS.md` 一旦脚本条目过多（> `INLINED_INDEX_MAX`），蚕食 L1 加载
-    优势；超阈处置：(a) 短条目化（`- <name> — 一句话` 形式）；(b) 按主题分组列；
-    (c) 低频脚本只入 `SCRIPTS.md ## 分节契约`，AGENTS.md 索引段只留高频 top-N
-  - **agent 不自动遍历 `scripts/` 跑任何东西**——必须先看下方 `#### Wiki-local scripts（索引）`
-    知道有哪些脚本，再按需 `Read scripts/SCRIPTS.md` 拿到完整契约，再按"调用约定"显式执行；
-    防止意外 execute
+  - **agent 不自动遍历 `scripts/` 跑任何东西**——必须先看 `SCRIPTS.md`（`@import` 加载后即见）
+    知道有哪些脚本，再按"调用约定"显式执行；防止意外 execute
   - git 跟踪策略：默认跟踪；启用 git 时跟 wiki 一起 commit；未启用 git 时跟 wiki 走纯目录树
 - 不适用：yzr-llm-wiki-management skill 自带的 `lint_wiki.py` / `ingest_diff.py` / `log_format.py`
   ——这些脚本版本由 skill 仓管，**不**复制进 `scripts/`（避免版本漂移）
 - 完整契约与设计动机见 `wiki-spec.md` §14
-
-#### Wiki-local scripts（索引）
-
-<!-- 内联 `scripts/SCRIPTS.md ## 索引` 段下的 one-liner 列表（每行：`- \`<name>\` — <一句话用途>`）。
-     与 `SCRIPTS.md ## 索引` 同步；完整契约（使用场景 / 调用约定 / 作用 / 前置依赖）按需
-     `Read scripts/SCRIPTS.md` 各分节。详见顶部「L2 索引内联」段。 -->
-（暂无脚本 —— 与 `scripts/SCRIPTS.md ## 索引` 同步）
 
 ## 二、页面类型与 frontmatter 约定
 

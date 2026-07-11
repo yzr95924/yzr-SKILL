@@ -9,8 +9,8 @@
 
 | 层 | 文件 | 加载时机 | 内容特征 | 预算 |
 |----|------|---------|---------|------|
-| L1 常驻层 | `AGENTS.md` | 三家每次 session 必加载（Claude Code 经薄壳，Codex/Qoder 原生） | 项目身份 / 规约 / 命令 / 高层结构 / 协作摘要 + 内联记忆索引 | 正文 ≤1500 词（索引段不计入） |
-| L2 记忆层 | `MEMORY/` | 索引 inline 进 AGENTS.md 常驻，正文按需 Read | 跨会话“为什么”、设计决策、踩坑记录 | 索引 ≤ 200 行 |
+| L1 常驻层 | `AGENTS.md` | 三家每次 session 必加载（Claude Code 经薄壳，Codex/Qoder 原生） | 项目身份 / 规约 / 命令 / 高层结构 / 协作摘要 | 正文 ≤1500 词 |
+| L2 记忆层 | `MEMORY/MEMORY.md`（索引） + `MEMORY/<slug>.md`（正文） | 索引经 AGENTS.md 的 `@MEMORY/MEMORY.md` 一行引入 + Codex Read 指引；正文按需 `Read` | 跨会话”为什么”、设计决策、踩坑记录 | 索引行数不限（只存 `MEMORY.md`，AGENTS.md 单行引用不计入 L1） |
 
 > 只有这两层。本 skill **不生成任何 agent 专属的触发式 rule 文件**（如 Qoder 的 `.qoder/rules/`）——
 > 那类机制官方多未文档化，且 `AGENTS.md` 主路径已让读它的 agent 兼容；触发式拆分交给用户在目标
@@ -68,18 +68,19 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 <文件树 + 简要说明>
 
-## 跨会话记忆（索引）                ← L2 索引内联（R2；无 MEMORY/ 时省略本段）
+## 跨会话记忆（索引）                ← L2 索引 @import（R2；无 MEMORY/ 时省略本段）
 
-每条完整正文在 `MEMORY/<slug>.md`（与本索引同目录），需要详细背景时请读取对应文件：
+@MEMORY/MEMORY.md
 
-- [标题](MEMORY/<slug>.md) — 一句话摘要
-- ……
+<!-- Codex（与不展开 @import 语法的 agent）：上方 @MEMORY/MEMORY.md 只是文本，不会自动展开。
+请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，再按需 Read 各 MEMORY/<slug>.md 正文。 -->
 
 ## 注意事项                          ← CAUTION (L1 兜底)
 
 <零散的 tip / warning>
 ```
 
-**L1 词数控制**：正文总词数 ≤ 1500（**记忆索引段不计入**——它是导航，非内容）。如果超出，说明内容太
-详细——把“为什么”类设计决策下沉到 L2（`MEMORY/`），L1 只保留摘要；索引行建议 ≤ 40，超出走 R2 的
-overflow 降级。
+**L1 词数控制**：正文总词数 ≤ 1500，记忆索引段只占 2 行（`@MEMORY/MEMORY.md` + Codex Read 指引），
+**不**计入 L1 词数预算——索引真实数据走 `MEMORY/MEMORY.md`，AGENTS.md 这段本质是引用 + fallback，不是内容。
+如果 L1 内容超出 1500 词，说明描述太详细——把”为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
+L1 只保留摘要。索引本身无条数上限（之前版本的 `over 30 条降级` 补丁已废——索引只活在 `MEMORY/MEMORY.md`）。

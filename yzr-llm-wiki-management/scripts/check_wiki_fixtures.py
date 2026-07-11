@@ -22,9 +22,10 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
   落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 20 条 check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对——0.23.0+ 在原 7 条上加 2）；下一个 wiki spec 升级
-  只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读 references/canonical/
-  + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
+- 18 条 check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对——0.24.0+ 替换 0.23.0+ 两条：
+  `agents-md-no-at-imports` → `agents-md-has-at-imports`，新增 `agents-md-codex-read-hint`）；
+  下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
+  references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
   在 lint_wiki.py；本脚本硬编码确保 vendored 副本仍能跑）。
 """
@@ -87,7 +88,7 @@ CHECK_REGISTRY = [
         "id": "memory-index-no-frontmatter",
         "severity": "error",
         "rule_ref": "wiki-spec.md §5 + lint-checklist.md §三.5",
-        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目 0.23.0+ 改为内联进 AGENTS.md）",
+        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目 0.24.0+ 由 AGENTS.md 顶部 @MEMORY/MEMORY.md @import 加载）",
     },
     {
         "id": "memory-entries-indexed",
@@ -728,6 +729,10 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
       - ``section_headings``: List[str] — wiki 必须含这些 ``##`` 标题
       - ``gitignore_section_structure``: bool — 对照 fixtures/gitignore.txt，
         非 external 段齐全 + 每段 ≥1 规则（容忍用户删某条编辑器规则，不绑死具体行）
+      - ``at_imports_present``: List[str] — wiki 必须含这些 `@import` 单行（0.24.0+
+        `@import` 收口回归——本检查替代 0.23.0+ 的 `no_at_imports`）
+      - ``codex_read_hint``: bool — wiki 应含一行 HTML 注释，写明 Codex（不展开 `@import`）
+        直接 Read `MEMORY/MEMORY.md` 拿索引；0.24.0+ 新增，兜底 Codex 的 L2 索引可达性
     """
     missing = []  # type: List[str]
     lines = wiki_text.splitlines()
@@ -760,14 +765,32 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
             if s not in actual_secs:
                 missing.append(f"缺段标题 `{s}`")
 
+    if "at_imports_present" in signals:
+        # 0.24.0+ 取代 `no_at_imports`：正向断言 AGENTS.md 顶部必含特定 `@import`
+        # 单行。匹配规则同 `no_at_imports`（行首 `@` 紧跟字母数字 + `/` + 路径），
+        # 但此处断言"必须存在"。
+        actual_imports = {ln.strip() for ln in lines if re.match(r"^@(?:[A-Za-z]+)/[^\s]+\s*$", ln)}
+        for imp in signals["at_imports_present"]:  # type: ignore
+            if imp not in actual_imports:
+                missing.append(f"缺 `@import` 单行 `{imp}`（0.24.0+ `@import` 收口必填）")
+
+    if signals.get("codex_read_hint"):
+        # 0.24.0+ 新增：AGENTS.md 项目记忆段或附近应含 HTML 注释指引 Codex 直接
+        # Read `MEMORY/MEMORY.md`（Codex 不展开 `@import`）。匹配宽松——任意
+        # HTML 注释块含关键字 `Codex` + `MEMORY/MEMORY.md` + `Read` 即可。
+        if not re.search(
+            r"<!--.*?Codex.*?MEMORY/MEMORY\.md.*?Read.*?-->",
+            wiki_text,
+            re.DOTALL | re.IGNORECASE,
+        ):
+            missing.append("缺 Codex Read 指引 HTML 注释（Codex 不展开 @import，需要显式 Read MEMORY/MEMORY.md）")
+
     if signals.get("no_at_imports"):
-        # 扫 AGENTS.md 内的 `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` /
-        # `@wiki/...` 等 @import 行（行首 `@` 紧跟字母数字 + `/` + 路径）；
-        # 0.23.0+ 改内联后这些 import 行只剩 `@AGENTS.md`（在 CLAUDE.md 薄壳内，
-        # 不在 AGENTS.md 内，故此 check 不命中它）。
+        # 0.23.0 引入的反向检查（已废，保留作 dead-code detect）；
+        # 0.24.0+ 改用 `at_imports_present` 正向断言，详见上文 + wiki-spec §14.8。
         at_imports = re.findall(r"^@(?:[A-Za-z]+)/[^\s]+\s*$", wiki_text, re.MULTILINE)
         if at_imports:
-            missing.append(f"残留 @import 行: {at_imports}（0.23.0+ 改内联——Codex/Qoder 不展开 @import）")
+            missing.append(f"残留 @import 行: {at_imports}（0.23.0 旧检查，0.24.0+ 已废）")
 
     if signals.get("gitignore_section_structure"):
         fixture_text = _load_fixture_text("gitignore.txt")
@@ -847,25 +870,25 @@ SKELETON_SPECS = [
         "signals": {"h1": "# Tags", "blockquote": True},
     },
     {
-        "id": "agents-md-inline-index-sections",
-        "severity": "warn",
+        "id": "agents-md-has-at-imports",
+        "severity": "error",
         "wiki_path": "AGENTS.md",
-        "rule_ref": "wiki-spec.md §14.8 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 含 §一 #### 跨会话记忆（索引）+ #### Wiki-local scripts（索引）两段（0.23.0+ L2 内联必填）",
+        "rule_ref": "wiki-spec.md §5.1 + §14.3 + lint-checklist.md §二.14",
+        "desc": "AGENTS.md 顶部含 @MEMORY/MEMORY.md + @scripts/SCRIPTS.md 两行 @import（0.24.0+ `@import` 收口必填）",
         "signals": {
-            "section_headings": [
-                "#### 跨会话记忆（索引）",
-                "#### Wiki-local scripts（索引）",
-            ]
+            "at_imports_present": [
+                "@MEMORY/MEMORY.md",
+                "@scripts/SCRIPTS.md",
+            ],
         },
     },
     {
-        "id": "agents-md-no-at-imports",
-        "severity": "error",
+        "id": "agents-md-codex-read-hint",
+        "severity": "warn",
         "wiki_path": "AGENTS.md",
-        "rule_ref": "wiki-spec.md §14.8 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 不含 @MEMORY / @scripts / @wiki 等 @import 行（0.23.0+ 改内联——Codex/Qoder 不展开 @import）",
-        "signals": {"no_at_imports": True},
+        "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §二.14",
+        "desc": "AGENTS.md 含 Codex 不展开 @import 的 Read 指引 HTML 注释（兜底 Codex L2 索引可达性）",
+        "signals": {"codex_read_hint": True},
     },
 ]
 

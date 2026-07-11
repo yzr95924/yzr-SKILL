@@ -112,7 +112,9 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.23.0"  # 0.23.0 = AGENTS.md L2 索引改内联（多 agent 真兼容）+ memory-not-indexed 双轨扫
+CURRENT_WIKI_SPEC = (
+    "0.24.0"  # 0.24.0 = 回退 0.23.0 内联方案：L2 索引恢复 @MEMORY/MEMORY.md / @scripts/SCRIPTS.md @import 收口
+)
 
 
 def _assert_spec_version_sync() -> None:
@@ -805,10 +807,9 @@ LOG_ROTATION_THRESHOLD = 500
 # source 页 stale 摘要阈值（days）——`updated` 距今超过此值报 stale-summary（详见 lint-checklist §二.7）
 STALE_SUMMARY_DAYS = 90
 
-# AGENTS.md §一 #### 跨会话记忆（索引）内联索引条目数阈值——超过则报 inlined-memory-index-bloating
-# （详见 wiki-spec §5.1 + lint-checklist §二.15）。AGENTS.md 是始终在上下文的 SSOT，
-# 内联索引无限增长会蚕食渐进加载优势；MEMORY.md 本体可自由增长（仅 AGENTS.md 投影受护栏约束）。
-INLINED_INDEX_MAX = 50
+# 0.23.0 短暂引入的 INLINED_INDEX_MAX 内联条数护栏已删除（0.24.0+ 恢复 @import 收口；
+# MEMORY.md / SCRIPTS.md 索引走 @import 加载，AGENTS.md 仅单行引用、不占 L1 词数），
+# 同步删除 check_inlined_memory_index_size() 与 inlined-memory-index-bloating warn。
 
 
 def check_log_rotation(wiki_root: Path) -> List[str]:
@@ -1318,21 +1319,18 @@ def _check_index_review_badges(wiki_root):
 
 
 def check_memory_index(wiki_root: Path) -> List[str]:
-    """14. MEMORY.md 索引一致性——MEMORY/*.md（非 MEMORY.md）必须被至少一处索引列出
+    """14. MEMORY.md 索引一致性——MEMORY/*.md（非 MEMORY.md）必须被索引列出
 
-    MEMORY.md 是轻量索引（无 frontmatter）；0.23.0+ 之前其内容经 AGENTS.md 的
-    `@MEMORY/MEMORY.md` import 会话常驻（Claude Code 专属），其他 agent 不可见。
-    0.23.0+ 起改为**双轨**索引：MEMORY.md（仍是 SSOT）+ AGENTS.md §一
-    `#### 跨会话记忆（索引）` 段（内联投影，所有读 AGENTS.md 的 agent 都能看到）。
-    本检查把"有文件但**两处都未**索引"的拎出来——任一处列出即视为已索引
-    （AGENTS.md 投影与 MEMORY.md 是同一份内容的两种表示）。
+    MEMORY.md 是单一真源（无 frontmatter）；由 `<wiki-root>/AGENTS.md` 顶部
+    `@MEMORY/MEMORY.md` `@import` 自动加载全文（0.24.0+；详见 wiki-spec §5.1）。
+    本检查只扫 `MEMORY.md ## 索引` 段对 `MEMORY/*.md` 的覆盖——0.23.0 短暂的双轨
+    （MEMORY.md + AGENTS.md §一内联段并集）已废，单一真源下不再需要双处同步。
 
-    不走 wiki/index.md 强制入口；但每条经验条目至少需在两处之一列一行，
-    否则该 agent 视角下 MEMORY 沦为死库。本检查的 finding 在 0.23.0 之前只扫
-    MEMORY.md，0.23.0+ 改为双处并集（任一处即 pass）。
+    不走 wiki/index.md 强制入口；但每条经验条目需在 `MEMORY.md` 列一行，否则
+    下次 `@import` 加载后该 agent 视角下 MEMORY 沦为死库。
 
     反向（索引列了但文件不存在）已被 check_link_integrity 的 broken-link 覆盖
-    （MEMORY.md 与 AGENTS.md 的 markdown 链接都被扫）。
+    （`MEMORY.md` 的 markdown 链接都被扫）。
 
     MEMORY.md 不存在时静默跳过（老 wiki 迁移期 / spec <0.6.0，不报错）。
     severity = info（轻量索引非强制入口，类比 tag-not-in-taxonomy）。
@@ -1347,28 +1345,27 @@ def check_memory_index(wiki_root: Path) -> List[str]:
     memory_index = mem_dir / "MEMORY.md"
     if not memory_index.is_file():
         return findings
-    # 0.23.0+ 双轨索引：MEMORY.md（SSOT） + AGENTS.md §一 内联段（投影）。
-    # 任一处列出即视为已索引；空集 ∅ = 真违规。
+    # 0.24.0+ 单一真源：只扫 MEMORY.md 索引（`@import` 已自动加载全文）；任一条 `<slug>.md`
+    # 未列入 MEMORY.md 索引即报 `memory-not-indexed` info。
     indexed = set()  # type: Set[str]
     mem_dir_resolved = mem_dir.resolve()
-    for index_file in (memory_index, wiki_root / "AGENTS.md"):
-        if not index_file.is_file():
+    # 0.24.0+ 单一真源：MEMORY.md `## 索引` 段对 MEMORY/*.md 的覆盖即可
+    # （AGENTS.md 不再持有副本，`@import` 透明加载——无需双轨兜底）。
+    try:
+        text = memory_index.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return findings
+    for m in MD_LINK_RE.finditer(text):
+        target = resolve_link(memory_index, m.group(2))
+        if target is None:
             continue
+        # 只关心 MEMORY/ 范围内的链接
         try:
-            text = index_file.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+            target.relative_to(mem_dir_resolved)
+        except ValueError:
             continue
-        for m in MD_LINK_RE.finditer(text):
-            target = resolve_link(index_file, m.group(2))
-            if target is None:
-                continue
-            # 只关心 MEMORY/ 范围内的链接
-            try:
-                target.relative_to(mem_dir_resolved)
-            except ValueError:
-                continue
-            if target.is_file():
-                indexed.add(target.name)
+        if target.is_file():
+            indexed.add(target.name)
     # 扫 MEMORY/*.md（排除 MEMORY.md 本身）；任一不在 indexed → memory-not-indexed
     if not mem_dir.is_dir():
         return findings
@@ -1378,90 +1375,16 @@ def check_memory_index(wiki_root: Path) -> List[str]:
         if p.name not in indexed:
             rel = p.relative_to(wiki_root).as_posix()
             findings.append(
-                f"memory-not-indexed: {rel} 未在 MEMORY/MEMORY.md 或 AGENTS.md §一 "
-                f"#### 跨会话记忆（索引）段 列出；该条目下次会话读不到 "
+                f"memory-not-indexed: {rel} 未在 MEMORY/MEMORY.md 索引中列出；"
+                f"该条目下次会话读不到 "
                 f"（追加一行：- <slug> — <一句话> → [正文](<slug>.md)）"
             )
     return findings
 
 
-# AGENTS.md §一 内联索引段锚定（0.23.0+）——标题正则兼容全 / 半角括号（lint 不假设用户用哪个）
-AGENTS_MEMORY_INDEX_HEADER_RE = re.compile(r"^####\s+跨会话记忆[（(]索引[）)]")
-
-
-def check_inlined_memory_index_size(wiki_root: Path, threshold: int = INLINED_INDEX_MAX) -> List[str]:
-    """15+. AGENTS.md §一 内联 MEMORY 索引条数阈值（0.23.0+ bloat guard）
-
-    AGENTS.md 是 wiki 纪律 SSOT，始终在上下文（progressive disclosure L1）。0.23.0+ 起
-    `MEMORY.md` 索引内容**内联**进 `AGENTS.md` §一 `#### 跨会话记忆（索引）` 段
-    （多 agent 兼容设计——`@import` 只 Claude Code 展开，详见 wiki-spec §5.1）。但
-    AGENTS.md 不是无限容器：MEMORY 沉淀超过 `INLINED_INDEX_MAX`（默认 50）会让
-    AGENTS.md 越养越胖，蚕食渐进加载优势，违背"宪法要薄"的初衷。
-
-    本检查**只扫 AGENTS.md**——MEMORY.md 本体可自由增长（它是 SSOT），AGENTS.md 才是
-    受护栏约束的"投影"。段范围：以 `#### 跨会话记忆（索引）` 标题为起点，到下一个
-    `##`/`###`/`####`/`#####`/`######` 标题（或文件末尾）为止；统计 `- `/`* ` 开头的
-    bullet 行（短条目无链接也计入——它们同样吃 AGENTS.md 体积）。
-
-    模板未填（段内仅 `（暂无条目）` 占位）→ bullet_count = 0，不告警；段不存在 → 静默
-    跳过（spec 升级中 / 老 wiki 0.22.0- 仍走 `@import`）；含 `<!-- ... -->` 注释行被
-    排除。严重性 = warning——不是错误（AGENTS.md 偶尔超量不致命），但持续膨胀该提示。
-
-    超阈**不强制处置**（lint 只报告），agent 可选三条路：
-      (a) **短条目化**：索引行改 `- <slug> — 一句话`（去掉 `→ [正文](slug.md)`）——
-          缩体积不减可见性，正文仍按需 `Read MEMORY/<slug>.md`
-      (b) **分类摘要**：按主题 / 时间 / 来源聚合，AGENTS.md 只列 K 个分类节点 + top-N
-          明列——但有"部分条目被折叠"代价
-      (c) **回写 MEMORY.md**：低频条目迁回 MEMORY.md「完整条目」段，AGENTS.md 仅留
-          top-30 高频
-    """
-    findings = []  # type: List[str]
-    agents_path = wiki_root / "AGENTS.md"
-    if not agents_path.is_file():
-        return findings
-    try:
-        text = agents_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return findings
-    # 找段起点
-    lines = text.splitlines()
-    section_start = None
-    for i, line in enumerate(lines):
-        if AGENTS_MEMORY_INDEX_HEADER_RE.match(line):
-            section_start = i + 1  # 段内容从标题下一行起
-            break
-    if section_start is None:
-        return findings  # 段不存在——静默跳过（spec 升级中 / 模板未填）
-    # 找段终点（下一个 h2-h6 标题 / EOF）
-    section_end = len(lines)
-    for j in range(section_start, len(lines)):
-        if re.match(r"^#{2,6}\s+", lines[j]):
-            section_end = j
-            break
-    # 计 bullet——短 / 长条目都计入；占位 / 注释行排除
-    bullet_count = 0
-    for line in lines[section_start:section_end]:
-        stripped = line.lstrip()
-        if not (stripped.startswith("- ") or stripped.startswith("* ")):
-            continue
-        body = stripped[2:].strip()
-        if not body:
-            continue
-        # 跳过纯占位（"暂无条目"）与纯 HTML 注释行
-        if body.startswith("<!--"):
-            continue
-        if "暂无条目" in body or "暂无脚本" in body:
-            continue
-        bullet_count += 1
-    if bullet_count > threshold:
-        findings.append(
-            f"inlined-memory-index-bloating: AGENTS.md §一 #### 跨会话记忆（索引）段含 "
-            f"{bullet_count} 条 bullet，超过 {threshold} 阈值——AGENTS.md 是始终在上下文的 "
-            f"SSOT（progressive disclosure L1），膨胀蚕食加载优势。可选：(a) 短条目化（索引行 "
-            f"改 `- <slug> — 一句话` 不带链接）；(b) 分类摘要（按主题/时间聚合）；(c) 低频条目"
-            f"迁回 MEMORY.md「完整条目」段，AGENTS.md 仅留高频 top-{threshold}。"
-        )
-    return findings
+# 0.23.0+ 引入的 AGENTS_MEMORY_INDEX_HEADER_RE / check_inlined_memory_index_size / INLINED_INDEX_MAX /
+# inlined-memory-index-bloating 已删除（0.24.0+ 恢复 @import 收口——MEMORY.md / SCRIPTS.md 索引
+# 走 @import 加载，AGENTS.md 仅单行引用、不占 L1 词数，无需 bloat guard）；迁徙指南见 §14.8。
 
 
 def check_related_links(wiki_root: Path) -> List[str]:
@@ -1560,7 +1483,6 @@ def severity_of(finding: str) -> str:
             "contradiction-asymmetric",
             "oversized-page",
             "related-broken-link",
-            "inlined-memory-index-bloating",
         )
     ):
         return "warn"
@@ -2440,7 +2362,7 @@ def main() -> int:
     all_findings.extend(check_page_size(wiki_root))
     all_findings.extend(check_quality_signals(wiki_root))
     all_findings.extend(check_memory_index(wiki_root))
-    all_findings.extend(check_inlined_memory_index_size(wiki_root))
+    # check_inlined_memory_index_size(wiki_root) — 0.23.0- 内联方案 bloat guard；0.24.0+ 已删
     all_findings.extend(check_related_links(wiki_root))
 
     # 过滤

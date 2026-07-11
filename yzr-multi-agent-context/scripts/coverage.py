@@ -114,32 +114,65 @@ def collect_targets(root: Path) -> List[Tuple[str, int, str, frozenset]]:
 
 
 def check_memory_sync(root: Path) -> List[str]:
-    """比对 AGENTS.md 内联记忆索引的 slug 集合 ↔ MEMORY/ 下实际正文（除 MEMORY.md）。
+    r"""校验 R2 记忆 `@import` 收口的几何（R2：AGENTS.md 用 @MEMORY/MEMORY.md 单行 + Codex Read 指引）。
 
-    L2 内联规范（R2）：MEMORY.md 索引须 inline 进 AGENTS.md 的 ## 跨会话记忆 段落。本函数检查
-    AGENTS.md 里 (MEMORY/<slug>.md) 引用与 MEMORY/ 实际正文文件是否一致，报告缺失 / 多余，防止
-    内联副本与 MEMORY/ 脱节。无 MEMORY/ 或无 AGENTS.md 时返回空（跳过）。
+    检查三件事：
+    1. `MEMORY/MEMORY.md` 存在——L2 索引的真源在此，缺则 R2 引用会指向空气。
+    2. AGENTS.md 有且仅有一行 `@MEMORY/MEMORY.md`——多行（说明重复挂）或缺失（说明走的是旧方案 /
+       已改为内联）都算违反。
+    3. AGENTS.md `## 跨会话记忆（索引）` 段内有 Codex Read 指引 HTML 注释（Codex 不展开 @import，
+       缺指引则 L2 对 Codex 不可见）——存在提示语 `直接读 `MEMORY/MEMORY.md`` 视作命中（容许措辞微调）。
+    4. AGENTS.md 不再含旧内联形态（一堆 `- [标题](MEMORY/<slug>.md) — …`）——内联 + @import
+       两套并存让 L1 词数翻倍，诊断时按 v0.11.0 之前的残留处理。
+
+    无 MEMORY/ 或无 AGENTS.md 时返回空（不适用）。返回的报告行前缀沿用旧 [OK]/[不同步]，便于 caller
+    grep。
     """
     lines: List[str] = []
     memory = root / "MEMORY"
     agents = root / "AGENTS.md"
     if not memory.is_dir() or not agents.exists():
-        return lines  # 无 MEMORY/ 或无 AGENTS.md → 不适用
+        return lines
 
-    actual = {p.name for p in memory.glob("*.md")} - {"MEMORY.md"}
+    memory_index = memory / "MEMORY.md"
     text = agents.read_text(encoding="utf-8", errors="replace")
-    inline = set(re.findall(r"\(MEMORY/([^)]+\.md)\)", text))
 
-    missing = sorted(actual - inline)  # 有正文但 AGENTS.md 未内联
-    extra = sorted(inline - actual)  # AGENTS.md 内联了但 MEMORY/ 无正文
-
-    if not missing and not extra:
-        lines.append(f"  [OK] AGENTS.md 内联记忆索引 ↔ MEMORY/ 一致（{len(inline)} 条）")
+    # 1) MEMORY/MEMORY.md 真源
+    if not memory_index.exists():
+        lines.append("  [不同步] MEMORY/MEMORY.md 真源缺失——@MEMORY/MEMORY.md 引用会指向空气")
     else:
-        if missing:
-            lines.append(f"  [不同步] MEMORY/ 有正文但 AGENTS.md 未内联：{missing}")
-        if extra:
-            lines.append(f"  [不同步] AGENTS.md 内联了但 MEMORY/ 无正文：{extra}")
+        lines.append(f"  [OK] MEMORY/MEMORY.md 存在（{memory_index.stat().st_size} 字节）")
+
+    # 2) @MEMORY/MEMORY.md 引用（精确匹配单行，避免误伤 HTML 注释里提到 `@MEMORY/MEMORY.md` 的说明）
+    import_hits = [ln for ln in text.splitlines() if ln.strip() == "@MEMORY/MEMORY.md"]
+    if not import_hits:
+        lines.append("  [不同步] AGENTS.md 缺 `@MEMORY/MEMORY.md` 单行引用——记忆段未走 R2 收口")
+    elif len(import_hits) > 1:
+        lines.append(f"  [不同步] `@MEMORY/MEMORY.md` 出现 {len(import_hits)} 行——R2 要求单行")
+    else:
+        lines.append("  [OK] AGENTS.md 含单行 `@MEMORY/MEMORY.md` 引用")
+
+    # 3) Codex Read 指引（HTML 注释里出现 "直接读 `MEMORY/MEMORY.md`" 或等价格式）
+    codex_hint = bool(
+        re.search(r"<!--.*?直接读\s*`?MEMORY/MEMORY\.md`?", text, re.DOTALL)
+        or re.search(r"<!--.*?Read\s*`?MEMORY/MEMORY\.md`?", text, re.IGNORECASE | re.DOTALL)
+    )
+    if not codex_hint:
+        lines.append("  [不同步] AGENTS.md 缺 Codex Read 指引——Codex 看不到记忆索引")
+    else:
+        lines.append("  [OK] AGENTS.md 含 Codex Read 指引（HTML 注释）")
+
+    # 4) 旧内联形态检测（R2 已废弃；与 @import 同时存在会让 L1 词数翻倍）
+    # 判"`- [标题](MEMORY/<slug>.md) — ...`"行 ≥ 2（容忍 1 行示例 / 单条引用）
+    legacy_inline = len(re.findall(r"^- \[[^\]]+\]\(MEMORY/[^)]+\.md\)\s*[—–-]", text, re.MULTILINE))
+    if legacy_inline >= 2:
+        lines.append(
+            f"  [不同步] AGENTS.md 含 {legacy_inline} 行旧内联记忆索引——"
+            "v0.11.0 之前形态，与 @import 并存会双写 / 词数翻倍，按 R2 迁回 MEMORY.md"
+        )
+    else:
+        lines.append("  [OK] AGENTS.md 不含旧内联记忆索引形态")
+
     return lines
 
 
@@ -209,11 +242,11 @@ def coverage(root: Path, threshold: float, min_tokens: int) -> Tuple[List[str], 
         if len(flagged) > 80:
             lines.append(f"  … 还有 {len(flagged) - 80} 条，详见源（调整 --threshold 可收紧 / 放宽）")
 
-    # 记忆索引一致性（L2 内联规范）：AGENTS.md 内联索引 ↔ MEMORY/ 正文
+    # 记忆索引一致性（R2 @import 收口）：MEMORY.md 存在 / AGENTS.md 单行引用 / Codex Read 指引 / 无旧内联形态
     mem_sync = check_memory_sync(root)
     if mem_sync:
         lines.append("-" * 60)
-        lines.append("记忆索引一致性（AGENTS.md 内联 ↔ MEMORY/ 正文）：")
+        lines.append("记忆索引一致性（R2 @import 收口）：")
         lines.extend(mem_sync)
     return lines, len(flagged), evaluated
 
