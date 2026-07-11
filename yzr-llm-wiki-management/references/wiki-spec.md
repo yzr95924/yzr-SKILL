@@ -290,7 +290,7 @@
   AGENTS.md 正文里——同样直接读到
 - **内联索引条数护栏（0.23.0+ bloat guard）**——`AGENTS.md` 是 progressive disclosure L1
   （始终在上下文）的 SSOT，不应无限膨胀。MEMORY 沉淀超过
-  `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值（默认 **50**）时 lint 报
+  `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值时 lint 报
   `inlined-memory-index-bloating` warn（[lint-checklist §二.15](lint-checklist.md#15-agentsmd-内联-memory-索引条数阈值)）。
   **护栏只挡 `AGENTS.md` 投影**——`MEMORY/MEMORY.md` 本体可自由增长（它是 SSOT）；
   超阈**不强制处置**，agent 三选一：(a) 短条目化（索引行改 `- <slug> — 一句话` 不带链接）；(b) 分类摘要

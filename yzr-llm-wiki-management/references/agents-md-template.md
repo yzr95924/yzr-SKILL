@@ -19,7 +19,7 @@
 > **只 Claude Code 支持**（经薄壳 `CLAUDE.md → @AGENTS.md` 展开），Codex / Qoder / Gemini CLI 不展开
 > `AGENTS.md` 内的 `@import`，导致整个 `MEMORY/` 与 `SCRIPTS.md` 对它们不可见——"多 agent 兼容"
 > 沦为口号。**内联后所有 agent 一视同仁**（论证详见
-> [`yzr-multi-agent-context/SKILL.md`「L2 陷阱段」](../../yzr-multi-agent-context/SKILL.md)）。
+> 详见 `yzr-multi-agent-context` SKILL.md「L2 陷阱段」（跨 skill 不直链）。
 > AGENTS.md 索引段与 `MEMORY.md` / `SCRIPTS.md` 是同一份内容的两种投影——**改一处须同步另一处**
 > （lint `memory-not-indexed` 兜底；scripts 段由本文件 §一 discipline 提示手维护）。
 
@@ -78,7 +78,7 @@
   - anchor 有 entry 但 symlink 不存在 = lint 报 `external-symlink-missing`（error）
   - target 路径被改 / 删除后，anchor 仍记旧值——lint 立刻报 `external-target-dead`
   - LLM agent **可写** symlink + anchor（首次接入 + 漂移刷新）——这是 `raw/`
-    总纪律的**唯一例外**；LLM 主导接入流程见 SKILL.md §1.bulk
+    总纪律的**唯一例外**；LLM 主导接入流程见 SKILL.md §1 批处理摄取子节
   - LLM **不**修改 target 本身（外部仓是用户所有）；**不**编辑 `raw/external/`
     之外的 `raw/` 子树（articles / papers / assets / clippings 等仍"LLM 只读"）
 - `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `.symlink-anchor.toml`——
@@ -149,7 +149,7 @@
     条目正文按需 `Read MEMORY/<slug>.md`
   - **§一 `#### 跨会话记忆（索引）` 内联索引条数护栏（0.23.0+）**——`AGENTS.md` 是始终在
     上下文（progressive disclosure L1）的 SSOT，不应无限膨胀。超过
-    `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值（默认 **50**）时 lint 报
+    `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值时 lint 报
     `inlined-memory-index-bloating` warn（[lint-checklist §二.15](lint-checklist.md#15-agentsmd-内联-memory-索引条数阈值)）。
     超阈**不强制处置**——agent 选一：(a) **短条目化**——索引行改 `- <slug> — 一句话`
     不带链接（缩体积不减可见性，正文按需 `Read MEMORY/<slug>.md`）；(b) **分类摘要**——

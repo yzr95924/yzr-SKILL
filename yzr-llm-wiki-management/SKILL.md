@@ -6,8 +6,6 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
   跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest；
   支持以 symlink + .symlink-anchor.toml 路径接入外部代码仓（Linux kernel / Ray 源码等）
   作语料无需内嵌拷贝，按 git 可选 opt-in 的纯目录树 + Markdown 工作流维护。
-  0.23.0+ 起 wiki 真正 multi-agent 兼容：AGENTS.md 把 MEMORY / scripts 索引**内联**进正文
-  （之前用 `@import` 只 Claude Code 展开，Codex / Qoder / Gemini CLI 看不到）。
   不用于云端协作 wiki（Notion / Confluence / Outline Wiki / GitHub Wiki）——
   那些走 yzr-outline-wiki-upload（写 / 编辑）/ yzr-outline-wiki-search（搜 / 读）；
   不用于一次性文档生成、强结构化数据库、多人实时协作。
@@ -115,11 +113,9 @@ metadata:
 3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
    物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
    同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
-   是索引（无 frontmatter），其 `## 索引` 段下的全部条目**内联**进 `AGENTS.md` §一
-   `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用 `@MEMORY/MEMORY.md` import——但 `@import`
-   递归展开只 Claude Code 支持，Codex / Qoder / Gemini CLI 不展开 → 整个 `MEMORY/` 对它们不可见。
-   内联后所有 agent 一视同仁）——避免 MEMORY 沦为只写不读的死库。**AGENTS.md 内联段是 MEMORY.md
-   的"投影"，改一处须同步另一处**（lint `memory-not-indexed` 0.23.0+ 双轨扫兜底）。
+   是索引（无 frontmatter），其内容按 §四层架构第 4 点的内联规则**双处同步**——避免 MEMORY
+   沦为只写不读的死库。**AGENTS.md 内联段是 MEMORY.md 的"投影"，改一处须同步另一处**（lint
+   `memory-not-indexed` 兜底）。
    为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
@@ -173,13 +169,10 @@ metadata:
 >
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds（0.11.0+: 纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
->    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。**0.23.0+ 起**
->    AGENTS.md 正文自带 `#### 跨会话记忆（索引）` 与 `#### Wiki-local scripts（索引）` 两段（**内联** MEMORY /
->    scripts 索引，让所有读 AGENTS.md 的 agent 立即看到有哪些条目；之前用 `@MEMORY/MEMORY.md` +
->    `@scripts/SCRIPTS.md` import 只 Claude Code 展开）。在 wiki 根目录内工作时——Claude Code 经薄壳
->    `CLAUDE.md` → `@AGENTS.md` 自动加载 SSOT（含内联索引段）；读 `AGENTS.md` 的其他 agent
->    （Qoder / Codex / Gemini CLI 等）原生读 SSOT，同样看到内联段。**别处由 skill 按需读 AGENTS.md 时**
->    也直接读 AGENTS.md（含内联段），**不**再需额外 `Read MEMORY.md` 补齐索引（除非要看各 `<slug>.md` 正文）
+>    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
+>    含内联 MEMORY / scripts 索引段（详见 §四层架构第 4 点）——读到 AGENTS.md 的 agent 立即看到
+>    有哪些条目；**别处由 skill 按需读 AGENTS.md 时**直接读（含内联段），**不**再需额外
+>    `Read MEMORY.md` 补齐索引（除非要看各 `<slug>.md` 正文）
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
@@ -195,7 +188,7 @@ metadata:
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
    **唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM 可主导创建 symlink +
-   写 anchor 的 `[[entry]]` 块（详 §1.bulk 外部代码仓子节 + wiki-spec §13.3）
+   写 anchor 的 `[[entry]]` 块（详 §1 批处理摄取外部代码仓子节 + wiki-spec §13.3）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
 4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
@@ -330,7 +323,7 @@ SKILL 不动。
    → 同步 entity/concept(只 append "Sources" 段) → 更新 `wiki/index.md` → 追加 `log.md`
 4. **commit**（仅启用 git 时）：节奏由用户/agent 决定，**不**自动 commit
 
-### 1.bulk 批处理摄取（≥ 3 份 raw 同时摄入）
+### 批处理摄取（≥ 3 份 raw 同时摄入）
 
 走批处理路径而非逐份。**一次聚合、一次写入、一次索引**——避免 N 次重复 search / N 次
 index 更新 / N 条 log。5 步流程 + 为什么批处理 + log 标题前缀 `Bulk:` 的细节见
@@ -420,103 +413,22 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   走 lint-checklist §五（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
-### 0.18.0+ 新能力：fixtures 一致性检查（0.20.0+ 升级为字段级骨架比对；0.23.0+ 扩到 20 条）
-
-`--check-version` 自动调 `scripts/check_wiki_fixtures.py` 扫 wiki 仓的 9 类约定文件，
-finding 并入 `.migration-plan.json` 的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。
-**`metadata.fixtures_check_count` 条 check**——11 条结构探测 + 9 条 0.20.0+ 骨架字段比对
-（0.23.0+ 在原 7 条上新增 `agents-md-inline-index-sections` warn + `agents-md-no-at-imports`
-error 两条）；骨架 check 读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT
-（改 fixtures → check 自动跟随），纯骨架件全字段比对、成长件只比结构必填，**不动成长内容**。
-**0.23.0+ 新增 2 条**：
-- `agents-md-inline-index-sections`（warn）——AGENTS.md 含 `#### 跨会话记忆（索引）` +
-  `#### Wiki-local scripts（索引）` 两段（迁移期兜底，避免老 wiki 漏加内联段）
-- `agents-md-no-at-imports`（error）——AGENTS.md 不含 `@MEMORY` / `@scripts` / `@wiki` 等
-  `@import` 行（0.23.0+ 改内联——Codex / Qoder / Gemini CLI 不展开 `@import`，残留即 multi-agent 不达标）
-字段清单（升级时每个约定文件对齐什么）见
-[`references/migrate-workflow.md`](references/migrate-workflow.md)「fixtures 字段更新清单」节。
-
-**简要流程**（agent 驱动；详细 8 步 + 边界 + 与 lint 协同见
-[`references/migrate-workflow.md`](references/migrate-workflow.md)）：
-
-1. orient ritual（AGENTS.md + `wiki/index.md` + `wiki/log.md` 最近 ~30 行）
-2. 跑 `scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version`——dry-run 报告 + legacy
-   pattern 分组 + 冲突页标红 + fixtures-check 段（每条 failed 含 expected/actual）；
-   也可单独 `scripts/check_wiki_fixtures.py <wiki-root> [--json]` 跑约定文件扫描
-3. 询问用户"应用全部 / 部分 / 仅看清单"
-4. 用户同意 → `scripts/lint_wiki.py ... --check-version --apply` 落盘 `.migration-plan.json`
-   （含 legacy `actions[]` + fixtures `fixtures_actions[]`，已存在则拒绝覆盖）
-5. agent 按顺序修：先 `fixtures_actions[]`（约定文件）→ 再 `actions[]`（内容页 frontmatter）
-   → 跳过 `skipped_conflicts[]`（永不自动覆盖人工决策）；语义合并按 lint-checklist §五走
-6. Edit 改 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本" 为 `to_version`
-7. 重跑 `lint_wiki.py --check-version` 验证；`needs_migration == false` 即完成
-8. **清理临时文件**：删 `<wiki-root>/.migration-plan.json` + 升级产出的 `*.bak`（保证 wiki
-   干净；详见 [`references/migrate-workflow.md`](references/migrate-workflow.md) step 8）
-9. **不**追加 log 条目 / **不**触发 ingest / query / lint
-
-**完整样例**：[`references/examples.md`](references/examples.md) §五（"检查 wiki 是否需要升级到最新 spec"）。
+**fixtures 一致性检查**（0.18.0+）——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
+扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
+MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migration-plan.json` 的
+`fixtures_actions[]`（与 legacy `actions[]` 平行）。**`metadata.fixtures_check_count` 条 check**
+（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对；0.23.0+ 在原 7 条上加 2：`agents-md-inline-index-sections`
+warn + `agents-md-no-at-imports` error）。**简要流程** + 9 步详细 + 字段清单见
+[`references/migrate-workflow.md`](references/migrate-workflow.md)。
 
 ## 参考样例
 
 5 个完整样例（setup / ingest / query / lint / migrate）下放到
 [`references/examples.md`](references/examples.md)——按需 Read。
 
-## 与 OKF（Open Knowledge Format）的关系
-
-本 skill 的输出（`wiki/` 下 markdown + YAML frontmatter + `index.md`/`log.md`）刻意贴近
-[OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)——
-"markdown + frontmatter、人 / agent 都能读"的知识格式。它是 OKF 的**实用子集**，非逐字合规。
-
-**已对齐**：
-
-- 每个概念页都有可解析的 YAML frontmatter（OKF §9 ①）
-- 每页 frontmatter 含非空 `type`（OKF §9 ②）
-- 采用 OKF 推荐字段 `description`——`index.md` 条目摘要从它来，不在 index 里手写第二份（OKF §4.1）
-- bundle 根 `index.md` 声明 `okf_version: "0.1"`（OKF §11）
-
-**已知分歧（有意保留）**——本地单用户 wiki 优先"抓腐烂 + grep 友好"，而非跨工具互换：
-
-| 维度 | 本 skill | OKF v0.1 | 保留理由 |
-| --- | --- | --- | --- |
-| `index.md`/`log.md` 带 frontmatter | 有 | §6 index 无 frontmatter | 本地解析 / grep 方便 |
-| `log.md` 条目 | `## [date] op \| title` 单行 | §7 `## date` + `* **Update**` 列表 | 保留 op 维度，`grep "^## \["` 可用 |
-| 交叉链接 | 相对 `../concepts/x.md` | §5 推荐 bundle 绝对 `/concepts/x.md` | 全 skill / lint 解析建在相对路径，迁移成本高 |
-| 断链 | lint 报 **error** | §5.3 消费者须容忍断链 | 生产端主动抓腐烂才是 lint 价值 |
-| `type` 取值 | 固定 5 类 [^1] | §4.1 开放（生产者自定义） | OKF 开放集的子集 |
-
-[^1]: 5 类指 entity / concept / source / comparison / synthesis；另有 2 类 reserved（`type: index` / `type: log`）仅作文件标记用，详见 [wiki-spec.md §8](references/wiki-spec.md#8-frontmatter-字段全集cli-引用非生成内容页)。
-
-本 wiki 可被任意 OKF 消费端"尽力读取"（§9 的宽容消费模型要求不得因上述分歧拒收），但不声称
-100% 合规。要跨组织交换 bundle 时，再按"完全合规"档收敛（去掉 index/log frontmatter、log 改
-`## date` + 列表、相对链接换 bundle 绝对）。
-
 ## 与其他 skill 的边界
 
-| Skill | 场景 | 介质 |
-| --- | --- | --- |
-| **本 skill（yzr-llm-wiki-management）** | 个人 / 研究的本地复利型知识库 | 本地 Markdown（git 可选 opt-in） |
-| `yzr-outline-wiki-upload` | 团队 / 协作：写 / 编辑 / 推图到 Outline | Outline Wiki MCP |
-| `yzr-outline-wiki-search` | 团队 / 协作：搜 / 读 Outline 文档 | Outline Wiki MCP |
-| `design-doc-edit` | 单篇设计文档写作（含强制章节骨架） | 单文件 Markdown |
-| `gemini-paper-summary` | 单篇论文的结构化摘要（含视觉抽图） | 单文件 Markdown + 图片 |
+`yzr-outline-wiki-upload` / `yzr-outline-wiki-search` 走云端 Outline——团队协作、外部分享。
+`design-doc-edit` 走单篇 Markdown 写作。`gemini-paper-summary` 抽 PDF 摘要；本 skill
+负责 ingest 归档。Paper 域细节见 [`references/paper-wiki-profile.md`](references/paper-wiki-profile.md)。
 
-可串行：**gemini-paper-summary** 抽图 → 本 skill **ingest** 归档到 wiki →（未来独立 publish skill）→ `yzr-outline-wiki-upload` 分享对外
-
-### Paper 域：论文主题 wiki 的本地工作流
-
-> **本 skill 永远不推远端**。本节只规定**本地**的论文域约定；把论文发布到云端
-> / Outline 走**未来独立的 publish skill**（与本 skill 解耦，跨 skill 编排胶水
-> 不归本 skill 负责）。
-
-**触发条件**：用户想把一批论文沉淀到本地 wiki——`gemini-paper-summary` 抽 PDF
-是上游、本 skill 做归档 + 多轮蒸馏；不愿入 wiki 的临时读论文不适用本节。
-
-**权威定义**：[`references/paper-wiki-profile.md`](references/paper-wiki-profile.md)——
-含 raw 身份（gemini "全量抽取"，非 PDF / 非压缩 summary）、source 页生命周期
-（quick 初稿 → 多轮 refine 成熟）、新增 `refine` log op、与 `gemini-paper-summary`
-的职责切分、若干反模式。**本节不重抄**——profile 是 SSOT，profile 变时 SKILL.md
-同步引链接即可。
-
-**为什么单独成 profile 不污染通用 SKILL.md**：论文域的"raw = 全量抽取（贵读
-一次、文本层反复榨取）"是 Karpathy "复利"在单篇论文内部的重演，不该绑到通用
-wiki 规则上；profile 在通用规则上做变体，SSOT 仍干净。

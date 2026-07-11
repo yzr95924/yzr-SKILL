@@ -153,7 +153,7 @@ url: https://arxiv.org/abs/1706.03762
 
 ## 五、批处理摄取（≥ 3 份 raw 同时摄入）
 
-> 本节从 SKILL.md §1 Ingest「1.bulk 批处理摄取」下沉而来——主 SKILL.md 留 pointer，
+> 本节从 SKILL.md §1 Ingest「批处理摄取」下沉而来——主 SKILL.md 留 pointer，
 > 详细 5 步 + 为什么批处理 + log 标题前缀约定在本节。
 
 当 `ingest_diff.py` 返回 ≥ 3 个待摄取文件，或用户明确说"把这堆一起 ingest / 把这批论文

@@ -116,7 +116,7 @@ python3 ../path/to/scripts/lint_wiki.py .
 
 ## 与日常接入的关系
 
-- **首次接入**（用户说"把 X 仓纳入 wiki"）：见 SKILL.md §1.bulk 外部代码仓子节与
+- **首次接入**（用户说"把 X 仓纳入 wiki"）：见 SKILL.md §1 批处理摄取子节 外部代码仓段与
   spec §13.3；LLM 在**原机器**跑 5 步接入（读现有 anchor → 追加 `[[entry]]` 块）
 - **跨主机重建**（在新机器复现）：本文件；LLM 在**新机器**跑 5 步重建
   （每个 anchor entry 各自 Step 3-4 一遍）
