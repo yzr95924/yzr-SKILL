@@ -1,9 +1,9 @@
 # MEMORY/
 
 跨会话"为什么 + 边界规则"的纯索引（L2 SSOT）；`AGENTS.md` 的「跨会话记忆（索引）」段用单行
-`@MEMORY/MEMORY.md` 引入（Claude Code / Qoder 自动展开；Codex 不展开 `@import`，靠段内 HTML 注释的
-Read 指引），正文按需 `Read`（`MEMORY/<slug>.md`，同级）。新条目追加到本文件末尾即可，无需同步副本
-——只活这一份，AGENTS.md 单行引用负责把"指针"挂到 L1。
+`@MEMORY/MEMORY.md` 引入（支持递归 `@import` 的 agent / Qoder 自动展开；Codex 不展开
+`@import`，靠段内 HTML 注释的 Read 指引），正文按需 `Read`（`MEMORY/<slug>.md`，同级）。
+新条目追加到本文件末尾即可，无需同步副本——只活这一份，AGENTS.md 单行引用负责把"指针"挂到 L1。
 
 > 本文件是项目级规则的**唯一**真源；agent 会话级 memory 只放指向本文件的指针，不再持有内容副本，避免跟代码仓迁移时失同步。
 
@@ -47,11 +47,16 @@ yzr-llm-wiki-management 只管本地复利，远端发布独立成 skill；produ
 
 ### yzr-gemini-pdf-summary manual / whitepaper 改 full 风格（2026-07-05 翻面）
 
-manual / whitepaper / book 是给 LLM 消费的下游产物（供 llm-wiki 二次 ingest），按 PDF 原生章节顺序全文级转写；只有 paper quick 是给人看的精炼速读。模板 + 自检函数 + 文档已对齐，脚本对 book 的 latent 路由 bug 已顺手修。 → [正文](yzr-gemini-pdf-summary-manual-whitepaper-full-design.md)
+manual / whitepaper / book 是给 LLM 消费的下游产物（供 llm-wiki 二次 ingest），按 PDF 原生章节顺序
+全文级转写；只有 paper quick 是给人看的精炼速读。模板 + 自检函数 + 文档已对齐，脚本对 book 的 latent
+路由 bug 已顺手修。 → [正文](yzr-gemini-pdf-summary-manual-whitepaper-full-design.md)
 
 ### yzr-gemini-pdf-summary paper --full 单产物（2026-07-07 翻面）
 
-`paper --full` 从"双产物 quick+full"翻为"单产物 full"——与 manual / whitepaper / book 4 类 full 产物形态对齐（单文件 + LLM 消费底座）；quick 与 full 完全解耦，独立触发。supersede 旧 `gemini-paper-summary-full-mode-design.md` §1 (D1) + §2。 → [正文](yzr-gemini-pdf-summary-paper-full-single-output.md)
+`paper --full` 从"双产物 quick+full"翻为"单产物 full"——与 manual / whitepaper / book 4 类 full 产物形态
+对齐（单文件 + LLM 消费底座）；quick 与 full 完全解耦，独立触发。supersede 旧
+`gemini-paper-summary-full-mode-design.md` §1 (D1) + §2。 →
+[正文](yzr-gemini-pdf-summary-paper-full-single-output.md)
 
 ### H1 transform：publish 时注入，local 无 H1（parked）
 
@@ -95,12 +100,22 @@ workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-wo
 
 ### yzr-skill-creator 审计/归档记录不要每次都写
 
-按入口 4（原则校验）跑完检查后**直接交付结果 + 修复**就行——不要每次都把"audit-YYYY-MM-DD.md"那种报告归档到 skill 目录。用户没主动要 audit 文档时，结论放在回复里、修复改在文件里，不留 audit 文件也不写 MEMORY 历史。
+按入口 4（原则校验）跑完检查后**直接交付结果 + 修复**就行——不要每次都把
+"audit-YYYY-MM-DD.md" 那种报告归档到 skill 目录。用户没主动要 audit 文档时，结论放在回复里、
+修复改在文件里，不留 audit 文件也不写 MEMORY 历史。
 
 ### 设计优化阶段以 repo 内 SKILL 描述为准（2026-07-07）
 
-设计优化（重构 / bump / 调整路径 / 重新设计）只动仓库源——vendor 副本（`~/.agents/skills/`）是 npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答"当前 spec / schema / finding 是什么"一律 `Read` 当前 repo 的文件，不引用 vendor / 训练记忆 / web cache 里的旧版。日常维护型编辑（修 typo / 调 description）才走 [[skill-edits-sync-to-repo-source]] 的同步流程。 → [正文](design-optimization-ignore-vendor-state.md)
+设计优化（重构 / bump / 调整路径 / 重新设计）只动仓库源——vendor 副本（`~/.agents/skills/`）是
+npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答"当前 spec / schema / finding 是什么"
+一律 `Read` 当前 repo 的文件，不引用 vendor / 训练记忆 / web cache 里的旧版。日常维护型编辑
+（修 typo / 调 description）才走 [[skill-edits-sync-to-repo-source]] 的同步流程。 →
+[正文](design-optimization-ignore-vendor-state.md)
 
 ### markdownlint 从 skill 子目录跑会 MD013 假阳性
 
-`markdownlint <file>` 从 skill 子目录跑时，markdownlint-cli 不向上查找仓库根 `.markdownlint.jsonc`，退回默认 line_length 80 → 正常行被误报 MD013。从仓库根跑，或 `-c .markdownlint.jsonc` 显式指定 config。另：MD060（compact 表格竖线 `|---|` 无空格）是仓库全局既存噪音（`.markdownlint.jsonc` 用 `default:true` 未配 MD060），每个表格都触发、非新引入——判回归只看有无 **新错误类别**（如新出现 MD013/MD041），MD060 计数变化不算回归。
+`markdownlint <file>` 从 skill 子目录跑时，markdownlint-cli 不向上查找仓库根 `.markdownlint.jsonc`，
+退回默认 line_length 80 → 正常行被误报 MD013。从仓库根跑，或 `-c .markdownlint.jsonc` 显式指定 config。
+另：MD060（compact 表格竖线 `|---|` 无空格）是仓库全局既存噪音（`.markdownlint.jsonc` 用
+`default:true` 未配 MD060），每个表格都触发、非新引入——判回归只看有无 **新错误类别**
+（如新出现 MD013/MD041），MD060 计数变化不算回归。
