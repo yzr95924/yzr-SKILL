@@ -7,7 +7,7 @@ A skill "mentions" another when the other skill's frontmatter `name` appears
 anywhere in its SKILL.md (the description counts too — division-of-labor
 handoffs often live there). Two skills that mention each other are flagged as
 a *candidate* pair. Whether a pair is a real dependency cycle or benign
-division of labor (e.g. the outline-wiki-setup/search/upload trio handing
+division of labor (e.g. the yzr-outline-wiki-setup/search/upload trio handing
 work off to each other) is a semantic call this script does NOT make — it only
 narrows the search to candidate pairs and prints the evidence lines, so a
 human can judge direction.
@@ -62,8 +62,8 @@ def find_mentions(text: str, target_name: str) -> List[Tuple[int, str]]:
     """Lines (1-based number, stripped text) where target_name appears as a
     whole token — not a substring of a longer kebab-case identifier."""
     # name chars are [a-z0-9-]; a real mention is bounded by non-name chars on
-    # both sides, so "outline-wiki-search" won't match inside
-    # "outline-wiki-searchable".
+    # both sides, so "yzr-outline-wiki-search" won't match inside
+    # "yzr-outline-wiki-searchable".
     pattern = re.compile(r"(?<![a-z0-9-])" + re.escape(target_name) + r"(?![a-z0-9-])")
     hits: List[Tuple[int, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):

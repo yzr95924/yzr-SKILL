@@ -1,19 +1,19 @@
-# paper-wiki 与 llm-wiki-management 的整合设计（2026-06-29 重写）
+# paper-wiki 与 yzr-llm-wiki-management 的整合设计（2026-06-29 重写）
 
-> MEMORY 索引：见 [`MEMORY.md`](./MEMORY.md)。本文记录 2026-06-29「llm-wiki-management 管理
+> MEMORY 索引：见 [`MEMORY.md`](./MEMORY.md)。本文记录 2026-06-29「yzr-llm-wiki-management 管理
 > paper-wiki + 参考 gemini-paper-summary」分析会话沉淀的设计决策。decoupling refactor 后
 > 已按新单向口径重写——producer（gemini-paper-summary）不假设有 consumer，consumer
-> （llm-wiki-management）在自己的 SKILL.md / paper-wiki-profile.md §7 拥有完整集成契约。
+> （yzr-llm-wiki-management）在自己的 SKILL.md / paper-wiki-profile.md §7 拥有完整集成契约。
 > 核心立场保持不变；耦合方向归零。
 
 ## 核心边界（已拍板，firm）
 
-**llm-wiki-management 只负责本地，不负责推远端。** 远端发布（outline）后面用**独立 skill**。
+**yzr-llm-wiki-management 只负责本地，不负责推远端。** 远端发布（outline）后面用**独立 skill**。
 
 **Why：**
 
-- llm-wiki-management 的 description 白纸黑字写着"**不用于**云端协作 wiki…走
-  outline-wiki-upload / outline-wiki-search"。把发布塞进它 = 违反它自己的触发声明（description 是触发判定唯一信号），
+- yzr-llm-wiki-management 的 description 白纸黑字写着"**不用于**云端协作 wiki…走
+  yzr-outline-wiki-upload / yzr-outline-wiki-search"。把发布塞进它 = 违反它自己的触发声明（description 是触发判定唯一信号），
   糊掉"本地复利"身份。
 - 发布是跨 skill 的编排胶水（读本地页 + 驱动 outline MCP + 跟 outline_id + 图上传），不是任一现有
   skill 的本职；图的 attachment 3 步上传正是"跨用例重复 → 该捆绑"的信号。
@@ -24,9 +24,9 @@
 三 skill 流水线（**耦合方向 = consumer → producer**）：
 
 ```text
-llm-wiki-management
+yzr-llm-wiki-management
    ├── 调 gemini-paper-summary --full → 产 raw/papers/<slug>.{quick,full}.md + raw/assets/<slug>/
-   │       （producer 不假设有 llm-wiki-management；layout 沿用 Karpathy LLM Wiki 约定）
+   │       （producer 不假设有 yzr-llm-wiki-management；layout 沿用 Karpathy LLM Wiki 约定）
    ├── ingest_diff.py → 写 wiki/sources/<slug>.md（distill_state: draft）
    ├── 后续多轮对话 → refine op（Edit 追加 / 修订）→ distill_state: refining
    └──（未来 publish skill）→ outline-wiki
@@ -60,8 +60,8 @@ llm-wiki-management
 - **gemini-paper-summary**（独立 skill，本 profile **不**直接编写其代码）：
   - 提供 `--full` 模式产出全量抽取（沿用 Karpathy LLM Wiki raw 端约定）
   - 提供单次 quick summary 模式（默认 / single summary）
-  - **不**假设有 llm-wiki-management；consumer 在 profile §7 描述如何调用
-- **llm-wiki-management**（本 skill）：
+  - **不**假设有 yzr-llm-wiki-management；consumer 在 profile §7 描述如何调用
+- **yzr-llm-wiki-management**（本 skill）：
   - 维护 `references/paper-wiki-profile.md` §7 权威集成契约（含 7.1 raw 端契约 /
     7.2 推荐实现 / 7.3 职责切分 / 7.4 失败兜底）
   - ingest_diff.py 收窄 ingest 单元到 `*.md` 或排除 `raw/assets/`，否则 figure png 全报 untracked
@@ -78,11 +78,11 @@ llm-wiki-management
   [`gemini-paper-summary-full-mode-design.md`](./gemini-paper-summary-full-mode-design.md) §D1。
 - publish skill 何时从 profile 手工流程抽出来（看重复度）——未决。
 - source 页发布态 frontmatter 字段（`outline_id` + 可选 `distill_state: draft|refining|final`）——
-  由 publish skill 拥有，llm-wiki-management 不解释。
+  由 publish skill 拥有，yzr-llm-wiki-management 不解释。
 
 ## 关联
 
 - [[skill-source-vs-runtime-vendor]]——后续真改 skill 时改源别改 vendor
 - [[memory-synced-to-skill-source]]——这些设计落地时必须写进 SKILL 源，不只留 MEMORY（npx 分发不带 MEMORY）
 - [[gemini-paper-summary-full-mode-design]] — producer 侧 SSOT；本文 consumer 侧 SSOT 的对端
-- [`../llm-wiki-management/references/paper-wiki-profile.md` §7](../llm-wiki-management/references/paper-wiki-profile.md#7-与上游抽-pdf-工具的边界与集成gemini-paper-summary-是推荐实现) — 集成契约 SSOT（consumer 拥有）
+- [`../yzr-llm-wiki-management/references/paper-wiki-profile.md` §7](../yzr-llm-wiki-management/references/paper-wiki-profile.md#7-与上游抽-pdf-工具的边界与集成gemini-paper-summary-是推荐实现) — 集成契约 SSOT（consumer 拥有）

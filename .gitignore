@@ -47,6 +47,3 @@ Thumbs.db
 dist/
 build/
 *.pdf
-
-# yzr-skill-creator 跑评估时生成的 workspace 目录(随迭代 / 描述优化产生)
-**/*-workspace/

@@ -8,7 +8,7 @@ metadata:
 # SKILL 代码仓源 vs 运行时 vendor 副本
 
 **Why:** 本仓库是 SKILL 的代码仓（AGENTS.md / CLAUDE.md 顶层定义"个人自定义 AI skills 合集"）。
-仓库内每个 SKILL 目录（`gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `yzr-skill-creator/` /
+仓库内每个 SKILL 目录（`gemini-paper-summary/` / `yzr-outline-wiki-setup/` / `yzr-outline-wiki-search/` / `yzr-outline-wiki-upload/` / `yzr-skill-creator/` /
 `design-doc-edit/`）是**单一事实源（SSOT）**。运行时 agent 通过 `~/.claude/skills/` 加载 SKILL，
 而 `~/.claude/skills/` 实际是**软链**到 `~/.agents/skills/`，`.agents/skills/` 是 `npx skills add`
 install 出来的**真实目录（vendored 副本）**——和代码仓源是两份**独立**的副本，不是同步链接。

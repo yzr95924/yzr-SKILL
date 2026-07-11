@@ -7,7 +7,7 @@ metadata:
 
 # ddnsto relay 仅 HTTPS 443 才透到上游
 
-**Why：** 2026-06-30 给 self-hosted Outline 跑 outline-wiki-setup 时踩到——用户给的 endpoint 是 `http://myoutline.ddnsto.com/mcp`，脚本 `test_connection()` POST initialize 握手失败，报 "响应非 JSON-RPC 格式，无法解析"。手测 curl 发现：
+**Why：** 2026-06-30 给 self-hosted Outline 跑 yzr-outline-wiki-setup 时踩到——用户给的 endpoint 是 `http://myoutline.ddnsto.com/mcp`，脚本 `test_connection()` POST initialize 握手失败，报 "响应非 JSON-RPC 格式，无法解析"。手测 curl 发现：
 
 - HTTP 80：`Server: Caddy` + `Content-Length: 0`，**所有路径**（含 `/`、`/api/health`、`/api/auth/limited`、随机不存在路径）都回 200/0 字节、无 401/404/502 差异化错误
 - 和 ddnsto 主域栈（`ddnsto.com` → `Server: nginx/1.22.1`）的栈**不一致**——明显不是 ddnsto 自己
@@ -48,4 +48,4 @@ metadata:
 **关联：**
 
 - [[outline-mcp-permission-allowlist]] —— outline MCP 接入的另一类配置坑（settings.local.json 白名单）
-- 同步建议：在 `outline-wiki-setup/SKILL.md` "故障排查" 段加 1 行症状清单 + 解决方案（指向本 memory）
+- 同步建议：在 `yzr-outline-wiki-setup/SKILL.md` "故障排查" 段加 1 行症状清单 + 解决方案（指向本 memory）

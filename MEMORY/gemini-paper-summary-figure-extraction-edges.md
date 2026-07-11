@@ -304,7 +304,7 @@ python3 gemini-paper-summary/scripts/gemini_paper_summary.py \
 - 产图不再由 `--extract-figures`（默认 False）显式触发，而是 quick 模式**默认行为**
   （`want_figures = not args.no_figures`）
 - `--extract-figures` 降级为**向后兼容冗余 flag**（传了等价默认 + INFO），不破坏
-  outline-wiki-upload 等下游既有调用
+  yzr-outline-wiki-upload 等下游既有调用
 - 新增 `--no-figures` 关闭图导出（批量速读 / 纯文字速览场景）
 - Stage 2（`--refine-figures` 默认 True）与默认带图绑定，保证图质量（Gemini 视觉
   定位精修 bbox + 完整 caption + 过滤装饰图）

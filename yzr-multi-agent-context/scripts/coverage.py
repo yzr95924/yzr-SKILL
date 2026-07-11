@@ -4,7 +4,7 @@ Step 5 覆盖率验证：比对原 CLAUDE.md 与迁移后的 AGENTS.md + 薄壳 
 逐行检查原文的 ascii 信息点（路径 / 命令 / 标识符）是否在新结构里保留。
 
 原理：迁移会改写中文措辞并去品牌（Claude Code → agent），但**事实性 ascii 标识符**（如
-`outline-wiki-upload`、`run_eval.py`、`create_attachment`）应当保留。本脚把每条原文行的高信号
+`yzr-outline-wiki-upload`、`run_eval.py`、`create_attachment`）应当保留。本脚把每条原文行的高信号
 ascii token 拿去新结构里找：找不到 = 该行信息点可能丢失，需人工复核。
 
 用法：

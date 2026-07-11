@@ -7,7 +7,7 @@ metadata:
 
 # Outline MCP 吃掉 --- frontmatter → OKF 载体用 ```yaml 围栏
 
-**Why：** 2026-07-01 改进 `outline-wiki-upload` 的 OKF 上传格式时，要决定 OKF
+**Why：** 2026-07-01 改进 `yzr-outline-wiki-upload` 的 OKF 上传格式时，要决定 OKF
 元数据的物理载体。OKF 标准（[`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)
 是权威生产 / 消费端）用 `---...---` YAML frontmatter。但 Outline 的 MCP
 `create_document` / `update_document` 只收 Markdown 字符串，内部解析成 ProseMirror
@@ -34,7 +34,7 @@ metadata:
   bundle 根 `index.md` 声明，**单篇文档不写**；Outline 专属溯源放 `x-outline` 块
   （OKF `x-<producer>` 私有键）
 - 完整字段表 + 载体选型实测 + 与标准 / wiki 子集关系，见
-  [`outline-wiki-upload/references/doc_style.md` → OKF agent 可读基线](../outline-wiki-upload/references/doc_style.md#okf-agent-可读基线上传格式控制)
+  [`yzr-outline-wiki-upload/references/doc_style.md` → OKF agent 可读基线](../yzr-outline-wiki-upload/references/doc_style.md#okf-agent-可读基线上传格式控制)
   （SSOT 已落 skill，本条是跨会话指针，避免重跑实测 / 错误回退到 `---...---`）
 - 读 Outline 文档正文：本 server 上 `mcp__outline__fetch` 在 agent 里只回
   元数据（部分 agent 截断多 content block，正文在第 2 个 block 被丢，见

@@ -29,7 +29,7 @@ metadata:
   自检测试即可交付。vendor 副本（包括 `/root/.agents/skills/<name>/`、
   `/tmp/.../my_SKILL/.../` 的副本、任何其他机器的软链）**不要读、不要 diff、不要补、不要引用**
 - **SSOT 引用规则**：回答"当前 wiki spec §13 是什么" / "anchor 字段有哪些" / "路径
-  怎么写"——一律 `Read` 当前 repo 的 `llm-wiki-management/references/wiki-spec.md`
+  怎么写"——一律 `Read` 当前 repo 的 `yzr-llm-wiki-management/references/wiki-spec.md`
   等；**不**用 vendor 副本 / web cache / 训练记忆里的旧版本作答
 - **日常维护型编辑**（修 typo / 调一两句 description）：仍按
   [[skill-edits-sync-to-repo-source]] 走——改完源后 cp 到 vendor 让当前会话立即生效

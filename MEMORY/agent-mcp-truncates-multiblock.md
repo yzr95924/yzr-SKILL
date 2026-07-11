@@ -7,7 +7,7 @@ metadata:
 
 # 部分 agent 截断 MCP 多 content block → outline 读正文走 REST 旁路
 
-**Why：** 2026-07-01 优化 `outline-wiki-search` 时定位"为什么
+**Why：** 2026-07-01 优化 `yzr-outline-wiki-search` 时定位"为什么
 `mcp__outline__fetch` 只回元数据、读不到正文"。`curl` 直连 `POST /mcp` 发
 `tools/call fetch(document)` 绕开 agent harness 实测：server 实际返回
 `num_blocks: 2`——block[0] 是 JSON 元数据（~1.4K 字符），block[1] 是完整 markdown
@@ -27,7 +27,7 @@ outline 是标准 `type: http` 直连 endpoint，无 bridge）。
 
 - 读 outline 文档**完整正文**：走 REST `POST <base>/api/documents.info`（body
   `{"id":"<docId>"}`）→ 响应 `data.text`（curl 模板见
-  `outline-wiki-search/SKILL.md` §故障排查项 1）。**POST** 是实测可用方法（GET 在
+  `yzr-outline-wiki-search/SKILL.md` §故障排查项 1）。**POST** 是实测可用方法（GET 在
   本 host 上不可靠，曾测出 404，疑似 middlebox / 缺 id 所致——别用 GET）
 - token / `<base>` 同 MCP 配置（agent MCP 配置文件 `mcpServers.outline`，看 setup
   当时 scope）；与 MCP server 同一把 key
@@ -36,7 +36,7 @@ outline 是标准 `type: http` 直连 endpoint，无 bridge）。
   全文）
 - 待 agent 完整支持 MCP 多 content block（成功响应）后，`fetch` 即可直接返正文，
   届时撤销 REST 旁路——本条与 skill 里的旁路一起退役
-- SSOT 已落 `outline-wiki-search/SKILL.md`（§核心原则 #5 + §故障排查），本条是
+- SSOT 已落 `yzr-outline-wiki-search/SKILL.md`（§核心原则 #5 + §故障排查），本条是
   作者跨会话指针
 
 **关联：**

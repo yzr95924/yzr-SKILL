@@ -5,11 +5,11 @@
 1. "本代码仓是一个管理 SKILL 的代码仓，MEMORY 和 vendor 目录下的内容，原没有实际对应 SKILL 目录的内容重要，优先保证对 SKILL 效果影响的内容都同步到了对应文件夹"
 2. **"这些 SKILL 的目录后面用户会通过 npx skills 安装，安装时不会携带 MEMORY 的记录信息，所以需要确保 MEMORY 中影响 SKILL 效果的内容，都已经同步到了对应文件夹"**
 
-**根因**：用户最终通过 `npx skills add` 把 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` 等子目录分发出去，**分发包只含 SKILL 目录内容**（`SKILL.md` + `assets/` + `scripts/` + `references/`），**不含** `MEMORY/` 也不含仓库的"为什么"记录。**所以 MEMORY 里的"影响 SKILL 效果"的内容如果不显式落到 SKILL 目录，npx 装出去的版本就会丢这些规则。**
+**根因**：用户最终通过 `npx skills add` 把 `gemini-paper-summary/` / `yzr-outline-wiki-setup/` / `yzr-outline-wiki-search/` / `yzr-outline-wiki-upload/` 等子目录分发出去，**分发包只含 SKILL 目录内容**（`SKILL.md` + `assets/` + `scripts/` + `references/`），**不含** `MEMORY/` 也不含仓库的"为什么"记录。**所以 MEMORY 里的"影响 SKILL 效果"的内容如果不显式落到 SKILL 目录，npx 装出去的版本就会丢这些规则。**
 
 **优先级排序**（从高到低）：
 
-1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `outline-wiki-setup/` / `outline-wiki-search/` / `outline-wiki-upload/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，agent 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
+1. **SKILL 源**（仓库根 `gemini-paper-summary/` / `yzr-outline-wiki-setup/` / `yzr-outline-wiki-search/` / `yzr-outline-wiki-upload/` / `design-doc-edit/` / `yzr-skill-creator/`）—— SSOT，agent 触发 skill 时实际加载的上下文；**也是 npx 分发包的内容**，安装到其他机器上的就是这些文件。影响 SKILL 行为的**所有**修改必须先改这里
 2. **MEMORY**（`MEMORY/MEMORY.md` + 正文同级）—— 索引 + "为什么 + 边界规则"，**没有**实际运行效果，**也不会被 npx 分发**；只承载"为什么"注解，正文必须落到 SKILL 源
 3. **vendor**（`.agents/skills/<name>/` + `.claude/skills/<name>` 软链）—— 当前 session 加载副本，**派生**于 SKILL 源；同样**不被 npx 分发**（仅本机 session 用）
 

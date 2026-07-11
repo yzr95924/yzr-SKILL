@@ -14,7 +14,7 @@ metadata:
 2. `MEMORY/outline-mcp-permission-allowlist.md`（15 条 `mcp__outline__*`
    工具必须在 `.claude/settings.local.json#permissions.allow` 加白名单）
 
-如果只留 MEMORY，`npx skills install outline-wiki-setup` 出去后，**新用户拿着
+如果只留 MEMORY，`npx skills install yzr-outline-wiki-setup` 出去后，**新用户拿着
 SKILL.md + bundled refs 在另一台机器装，看不到 MEMORY**——前面踩过的坑等于
 白踩，会按"鉴权错 / 配置问题"再排 20+ 分钟。本轮把这两条经验同步进了
 `SKILL.md` 故障排查 + `references/onboarding.md` 常见问题，才彻底补上。

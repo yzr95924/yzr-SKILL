@@ -48,16 +48,16 @@ python3 scripts/install-dev-deps.py
 按职责分四类：
 
 - **知识库**（本地 / 私有，复利累积型）：
-  - `llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
-  - `llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
+  - `yzr-llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
+  - `yzr-llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
 - **论文 / 阅读**：
-  - `gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type` 路由 4 套模板）
+  - `yzr-gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type` 路由 4 套模板）
 - **代码评审 / 重构**：
   - `yzr-code-refactoring-review` —— 现有代码可重构点巡检（Fowler 60+ 重构 catalog + 4 语言插件；产出按严重度排序的审查报告，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：
-  - `outline-wiki-setup` —— Outline Wiki MCP 接入（一次性配置 + 重启验证）
-  - `outline-wiki-search` —— Outline Wiki 搜 / 读文档
-  - `outline-wiki-upload` —— Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
+  - `yzr-outline-wiki-setup` —— Outline Wiki MCP 接入（一次性配置 + 重启验证）
+  - `yzr-outline-wiki-search` —— Outline Wiki 搜 / 读文档
+  - `yzr-outline-wiki-upload` —— Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
 - **元 skill**（项目上下文 / skill 本体工程）：
   - `yzr-multi-agent-context` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
@@ -76,7 +76,7 @@ python3 scripts/install-dev-deps.py
 
 ### 依赖的 MCP
 
-- `outline`（Outline Wiki MCP）—— `outline-wiki-*` 三件套必需，按 `outline-wiki-setup` 接入
+- `outline`（Outline Wiki MCP）—— `yzr-outline-wiki-*` 三件套必需，按 `yzr-outline-wiki-setup` 接入
 - `Gemini Docs`（Gemini API 文档 MCP）—— 查 Gemini API 文档时按需
 
 ### 依赖的 Skills

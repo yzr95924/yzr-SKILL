@@ -4,7 +4,7 @@ description: |
   Use this skill when you need to 从零创建新 skill、改进/迭代现有 skill、跑 skill 评估 / 基准测试、
   独立优化某个已有 skill 的 description（触发准确率），或独立审计某个 skill 是否满足写作原则。
   四个独立入口任选其一：(1) 创建 skill（"帮我做一个 X 的 skill" / "把这段流程沉淀成 skill"）/
-  (2) 改进现有 skill（"改进 outline-wiki-upload 这个 skill" / "评估 + 迭代"）/
+  (2) 改进现有 skill（"改进 yzr-outline-wiki-upload 这个 skill" / "评估 + 迭代"）/
   (3) 独立优化 description（"帮我优化 XX 的描述，让它该触发时触发"——不要求先创建或改进那个 skill）/
   (4) 独立原则校验（"帮我检查 XX skill 写得规不规范"——只报告不改写）。
   核心能力：起草 SKILL.md / 跑 with-skill vs baseline 评估 / 优化触发 description / 审计写作原则符合度。
@@ -23,7 +23,7 @@ metadata:
 用户进入本 skill 通常属于以下四种之一。先判断用户属于哪一种，再介入：
 
 1. **创建新 skill** —— 从零做一个 skill（“帮我做一个关于 X 的 skill” / “把这段流程沉淀成 skill”）
-2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（“改进 outline-wiki-upload 这个 skill”）
+2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（“改进 yzr-outline-wiki-upload 这个 skill”）
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description / 触发准确率，不动 skill 正文（“帮我优化 XX 的描述，让它该触发时触发”）。**这是独立入口，不需要先创建或改进那个 skill**；脚本 `run_loop.py` / `improve_description.py` 原生支持指向任意 skill 目录，详见文末「描述优化（独立入口）」一节
 4. **校验某个 skill 的写作原则（独立入口）** —— 不动手改，拿写作原则当 checklist 审计某个已有 skill 符合多少、违反哪些（“帮我检查 XX skill 写得规不规范 / 有没有散弹式散落、口径冲突”）。**只报告、不改写**；要修让用户点头。详见文末「原则校验（独立入口）」一节
 
@@ -35,7 +35,7 @@ metadata:
 
 - **单步问询**（"X 是什么意思？"、"这段代码哪里报错？"）—— 一句话就能答，不必拉一整个 skill
 - **写代码 / 改代码**（"帮我写个 Python 函数"、"重构这段"）—— 直接写
-- **读 / 改既有文档**（"读完这份 PDF"、"改这篇 markdown 的措辞"）—— 走对应专用 skill（如 `outline-wiki-search` / `outline-wiki-upload` / `llm-wiki-management`），本 skill 不擅长
+- **读 / 改既有文档**（"读完这份 PDF"、"改这篇 markdown 的措辞"）—— 走对应专用 skill（如 `yzr-outline-wiki-search` / `yzr-outline-wiki-upload` / `yzr-llm-wiki-management`），本 skill 不擅长
 - **不涉及 skill 生命周期的杂事**（解释概念、调试输出、临时性 ETL）—— 本 skill 的输出是 SKILL.md / 评估产物 / 审计报告，跟这些场景对不上
 - **目标产物不是 skill**：用户最终要的是一个**已存在的脚本**、一个 docx、一段 prose——这些都不属于本 skill 范畴
 
@@ -416,7 +416,7 @@ kill $VIEWER_PID 2>/dev/null
 
 ### 样例二：迭代改进
 
-> 用户："这个 outline-wiki-upload skill 在上传大文档时总吞换行，你帮我改进一下"
+> 用户："这个 yzr-outline-wiki-upload skill 在上传大文档时总吞换行，你帮我改进一下"
 
 → 入口 2（改进）：先快照旧版 → 跑 with-skill vs baseline（同一 prompt，对照行为差异）→
   看 transcript 找"模型在哪里挣扎"→ 改 SKILL.md / 加 REST fallback 脚本 → 再跑同一轮 eval 看是否真的变好

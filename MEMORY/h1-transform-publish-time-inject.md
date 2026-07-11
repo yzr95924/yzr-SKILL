@@ -13,5 +13,5 @@
 
 **关联：**
 
-- [[paper-wiki-integration-design]]——本决策的父决策（publish skill 独立、远端不归 llm-wiki-management）
+- [[paper-wiki-integration-design]]——本决策的父决策（publish skill 独立、远端不归 yzr-llm-wiki-management）
 - [[gemini-paper-summary-full-mode-design]]——producer 侧 SSOT；本决策不与 D1-D4 冲突（layout 不变，仅 H1 由 publish 端补）

@@ -36,19 +36,19 @@ npx 分发包只含 SKILL 目录，影响行为的规则必须落 SKILL 源；ME
 
 ### paper-wiki 整合：本地与远端解耦
 
-llm-wiki-management 只管本地复利，远端发布独立成 skill；producer（gemini-paper-summary）不假设 consumer。 → [正文](paper-wiki-integration-design.md)
+yzr-llm-wiki-management 只管本地复利，远端发布独立成 skill；producer（gemini-paper-summary）不假设 consumer。 → [正文](paper-wiki-integration-design.md)
 
 ### gemini-paper-summary --full 模式 4 个设计决策
 
 --full 产全量转储当 raw 底座（D1-D4）；layout 基于 Karpathy 模式可识别性，不为特定 consumer。 → [正文](gemini-paper-summary-full-mode-design.md)
 
-### gemini-pdf-summary manual / whitepaper 改 full 风格（2026-07-05 翻面）
+### yzr-gemini-pdf-summary manual / whitepaper 改 full 风格（2026-07-05 翻面）
 
-manual / whitepaper / book 是给 LLM 消费的下游产物（供 llm-wiki 二次 ingest），按 PDF 原生章节顺序全文级转写；只有 paper quick 是给人看的精炼速读。模板 + 自检函数 + 文档已对齐，脚本对 book 的 latent 路由 bug 已顺手修。 → [正文](gemini-pdf-summary-manual-whitepaper-full-design.md)
+manual / whitepaper / book 是给 LLM 消费的下游产物（供 llm-wiki 二次 ingest），按 PDF 原生章节顺序全文级转写；只有 paper quick 是给人看的精炼速读。模板 + 自检函数 + 文档已对齐，脚本对 book 的 latent 路由 bug 已顺手修。 → [正文](yzr-gemini-pdf-summary-manual-whitepaper-full-design.md)
 
-### gemini-pdf-summary paper --full 单产物（2026-07-07 翻面）
+### yzr-gemini-pdf-summary paper --full 单产物（2026-07-07 翻面）
 
-`paper --full` 从"双产物 quick+full"翻为"单产物 full"——与 manual / whitepaper / book 4 类 full 产物形态对齐（单文件 + LLM 消费底座）；quick 与 full 完全解耦，独立触发。supersede 旧 `gemini-paper-summary-full-mode-design.md` §1 (D1) + §2。 → [正文](gemini-pdf-summary-paper-full-single-output.md)
+`paper --full` 从"双产物 quick+full"翻为"单产物 full"——与 manual / whitepaper / book 4 类 full 产物形态对齐（单文件 + LLM 消费底座）；quick 与 full 完全解耦，独立触发。supersede 旧 `gemini-paper-summary-full-mode-design.md` §1 (D1) + §2。 → [正文](yzr-gemini-pdf-summary-paper-full-single-output.md)
 
 ### H1 transform：publish 时注入，local 无 H1（parked）
 

@@ -107,14 +107,14 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── yzr-multi-agent-context/       # CLAUDE.md → AGENTS.md 单源 + CLAUDE.md 薄壳改造（元 skill）
-├── gemini-pdf-summary/          # 本地 PDF（论文 / 手册 / 白皮书 / 书）→ 中文 Markdown
+├── yzr-gemini-pdf-summary/      # 本地 PDF（论文 / 手册 / 白皮书 / 书）→ 中文 Markdown
 │                                # （Gemini 多模态直读；4 类模板路由）
-├── llm-wiki-management/         # 本地单 wiki 维护（llm-workspace-management 的内层）
-├── llm-workspace-management/    # 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
+├── yzr-llm-wiki-management/     # 本地单 wiki 维护（yzr-llm-workspace-management 的内层）
+├── yzr-llm-workspace-management/# 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
 │                                # Q&A / lint）
-├── outline-wiki-setup/          # Outline Wiki MCP 接入 + 重启验证（一次性配置）
-├── outline-wiki-search/         # Outline Wiki 搜 / 读文档（核心 2 个能力）
-├── outline-wiki-upload/         # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 +
+├── yzr-outline-wiki-setup/      # Outline Wiki MCP 接入 + 重启验证（一次性配置）
+├── yzr-outline-wiki-search/     # Outline Wiki 搜 / 读文档（核心 2 个能力）
+├── yzr-outline-wiki-upload/     # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 +
 │                                # Collection + 移动 / 删除
 ├── yzr-code-refactoring-review/ # 现有代码可重构点巡检（Fowler 60+ catalog +
 │                                # 4 语言插件；产出审查报告，不主动改文件）
@@ -165,23 +165,23 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ### 跨 skill 协作约定
 
-- `outline-wiki-*` 三个 skill（`outline-wiki-setup` / `outline-wiki-search` /
-  `outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 agent
+- `yzr-outline-wiki-*` 三个 skill（`yzr-outline-wiki-setup` / `yzr-outline-wiki-search` /
+  `yzr-outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 agent
   MCP 配置文件 + 重启验证；`search` 只读 search / read；`upload` 写 / 编辑 + 图片附件 3
   步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。三者均以 MCP 为主、
   不直连 REST，有两个例外：`upload` 在大文档整篇重写时走 REST 绕开 `update_document`
   的换行吞字 bug；`search` 读文档正文走 REST `POST /api/documents.info`，绕开部分 agent
   截断 MCP 多 content block 的缺陷（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持多
-  block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `outline-wiki-upload` 承担，必须先
+  block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `yzr-outline-wiki-upload` 承担，必须先
   在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
-- `gemini-pdf-summary` ↔ `outline-wiki-upload` 构成本地论文管线，单向流动：
-  - `gemini-pdf-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
+- `yzr-gemini-pdf-summary` ↔ `yzr-outline-wiki-upload` 构成本地论文管线，单向流动：
+  - `yzr-gemini-pdf-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
     （`--extract-figures` 模式产物）
-  - `outline-wiki-upload` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
+  - `yzr-outline-wiki-upload` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
     `create_attachment` → `curl` → Markdown 引用 `attachments.redirect?id=...`
   - 两个 skill **不互调**：上游只输出本地文件，下游只消费本地文件
   - 禁止任何一方写"调用对方 API / 编排对方 step"
-  - `--full` 模式由 `gemini-pdf-summary` 独自负责落到 `<wiki_root>/raw/papers/` 为止；
+  - `--full` 模式由 `yzr-gemini-pdf-summary` 独自负责落到 `<wiki_root>/raw/papers/` 为止；
     后续 publish 编排不在本仓库 skill 范围
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级
   （`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须
@@ -200,8 +200,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - [SKILL 代码仓优先级：源 > MEMORY > vendor](MEMORY/skill-source-priority-over-memory-vendor.md) — 影响行为的规则必须落 SKILL 源
 - [paper-wiki 整合：本地与远端解耦](MEMORY/paper-wiki-integration-design.md) — 远端发布独立成 skill，producer 不假设 consumer
 - [gemini-paper-summary --full 4 个设计决策](MEMORY/gemini-paper-summary-full-mode-design.md) — `--full` 产全量转储当 raw 底座（D1-D4）
-- [gemini-pdf-summary manual/whitepaper 改 full](MEMORY/gemini-pdf-summary-manual-whitepaper-full-design.md) — 按原生章节全文级转写
-- [gemini-pdf-summary paper --full 单产物](MEMORY/gemini-pdf-summary-paper-full-single-output.md) — 单产物 full，quick 解耦
+- [yzr-gemini-pdf-summary manual/whitepaper 改 full](MEMORY/yzr-gemini-pdf-summary-manual-whitepaper-full-design.md) — 按原生章节全文级转写
+- [yzr-gemini-pdf-summary paper --full 单产物](MEMORY/yzr-gemini-pdf-summary-paper-full-single-output.md) — 单产物 full，quick 解耦
 - [H1 transform：publish 时注入](MEMORY/h1-transform-publish-time-inject.md) — 产物无 H1，由未来 publish skill 注入
 - [ddnsto relay 仅 HTTPS 443 才透到上游](MEMORY/ddnsto-relay-https-only-quirk.md) — 隧道 MCP endpoint 必须用 `https://`
 - [Outline MCP 吃掉 --- frontmatter](MEMORY/outline-mcp-strips-yaml-frontmatter.md) — `---` YAML 被丢，元数据走 yaml 围栏
