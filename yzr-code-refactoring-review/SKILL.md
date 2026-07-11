@@ -1,5 +1,5 @@
 ---
-name: code-refactoring-review
+name: yzr-code-refactoring-review
 description: |
   Use this skill when you need to 对一段现有代码做"可重构点巡检"——
   产出一份按严重度排序的代码审查报告(表格 + 总结),不主动改文件。
@@ -15,7 +15,7 @@ metadata:
   category: code-quality
 ---
 
-# code-refactoring-review
+# yzr-code-refactoring-review
 
 ## 何时使用
 
@@ -27,7 +27,7 @@ metadata:
 
 **总结时机**:
 
-- 连续完成一批代码修改后,agent 主动询问"要不要用 code-refactoring-review 跑一遍"
+- 连续完成一批代码修改后,agent 主动询问"要不要用 yzr-code-refactoring-review 跑一遍"
 - 主功能代码落地后,用户确认巡检
 
 ## 何时不使用

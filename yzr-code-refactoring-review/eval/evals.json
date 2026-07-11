@@ -1,5 +1,5 @@
 {
-  "skill_name": "code-refactoring-review",
+  "skill_name": "yzr-code-refactoring-review",
   "evals": [
     {
       "id": 1,
@@ -17,7 +17,7 @@
     },
     {
       "id": 3,
-      "prompt": "我刚写完一批代码,能用 code-refactoring-review 跑一遍吗?",
+      "prompt": "我刚写完一批代码,能用 yzr-code-refactoring-review 跑一遍吗?",
       "expected_output": "询问代码位置 / 范围;得到回答后跑报告",
       "files": [],
       "should_trigger": true

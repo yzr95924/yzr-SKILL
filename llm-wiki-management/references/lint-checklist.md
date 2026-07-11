@@ -23,6 +23,7 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
   - [12. 页面体量](#12-页面体量)
   - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
   - [14. MEMORY.md 索引一致性](#14-memorymd-索引一致性)
+- [15. related / compared 路径引用完整性（0.22.0+）](#15-related--compared-路径引用完整性0220)
 - [三、半定性检查（agent 执行）](#三半定性检查agent-执行)
   - [15. 矛盾主张](#15-矛盾主张)
   - [16. 缺失交叉引用](#16-缺失交叉引用)
@@ -187,7 +188,9 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
   1. 解析 `<symlink>` 段（`Path(s).parts[2]`），段数 < 3 → 报 `sources-malformed`
   2. 校验 `raw/external/.symlink-anchor.toml`（0.17+ TOML）存在 → 缺则报 `sources-external-anchor-missing`
   3. 校验 symlink 文件本身存在 → 缺则报 `sources-external-symlink-missing`
-  4. 校验文件跟随 symlink 后可访问 → 不可访问报 `sources-missing`（复用原 finding）
+  4. 校验路径跟随 symlink 后可访问（文件或目录皆可——external repo 本身是 git 仓即
+     目录）→ 不可访问报 `sources-missing`（复用原 finding）；用 `sp.exists()` 而非
+     `sp.is_file()`（spec §13.3 LLM 责任澄清：external source 可指向整仓）
   全部合法才放过。**不要**回退本例外——任何 lint 仓 merge / 升级时若发现此例外被回退，
   立刻把它补回去；下游所有用 `raw/external/` 的 wiki 都退化到 12 error 误报
 - **不在本检查范围**：`type: synthesis` 的 `sources:`（指向 wiki 内其它页如 `concepts/...`，
@@ -320,6 +323,26 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
 
+### 15. related / compared 路径引用完整性（0.22.0+）
+
+- 校验 wiki 内容页 frontmatter 的 `related`（concept 页使用）与 `compared`
+  （comparison 页使用）字段中每条路径对应文件是否存在
+- **路径格式约定**（[wiki-spec §9 类型特化字段](wiki-spec.md#类型特化字段llm-写内容页时使用)）：
+  **wiki 根相对路径**（如 `concepts/transformer.md`），不带前导 `./`、不带 `../` 跨目录
+- 与正文 markdown 链接（约定用文件相对路径）的两层约定：
+  - **frontmatter 路径字段**（`related` / `compared` / `sources` 等）——机器消费为主
+    （lint / cross-page 综合），统一 wiki 根相对
+  - **正文 markdown 链接**（`[text](path)`）——人读为主，in-context 局部引用，
+    保持文件相对
+- 校验逻辑：每条元素以 `<wiki-root>/<item>` 直接解析（不 `.resolve()`，避免跟随
+  不存在的目录时静默吞错）；`is_file()` 判定
+- **finding 名**：`related-broken-link`（warn）
+- **严重性：warning**——frontmatter 路径字段是机器消费而非人直接阅读内容，与正文
+  `broken-link`（error）严重性区分；不阻断但提示用户修正
+- **不在本检查范围**：`contradictions` 字段——按 spec §9 既有约定走文件相对
+  （`resolve_link(p, c)` 解析），由 §二.13 既有逻辑处理；与 `related` / `compared`
+  的两层区分是有意保留
+
 ## 三、半定性检查（agent 执行）
 
 跑完 deterministic 检查后，agent 应当再做以下检查（**仅在 wiki 规模 < 200 页
@@ -385,6 +408,7 @@ python3 llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-versio
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
 [INFO] memory-not-indexed: MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
 [INFO] pending-review: wiki/concepts/flash-attention.md 未审核 — 待人工复审后置 reviewed: true
+[WARN] related-broken-link: wiki/concepts/self-attention.md related[1]='concepts/multi-head-attention.md' 按 wiki 根相对解析为 concepts/multi-head-attention.md，但文件不存在
 ```
 
 每条带：**严重性** + **类别** + **文件:行** + **描述**。

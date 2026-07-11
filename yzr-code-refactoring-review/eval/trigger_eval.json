@@ -1,6 +1,6 @@
 [
   {
-    "query": "我刚写完一批代码,能用 code-refactoring-review 跑一遍吗?",
+    "query": "我刚写完一批代码,能用 yzr-code-refactoring-review 跑一遍吗?",
     "should_trigger": true
   },
   {

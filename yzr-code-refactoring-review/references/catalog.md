@@ -2,7 +2,7 @@
 
 # Fowler 重构场景 Catalog(SSOT)
 
-本文件是 code-refactoring-review skill 的核心知识资产 — Fowler 经典重构场景卡片(语言中立)。
+本文件是 yzr-code-refactoring-review skill 的核心知识资产 — Fowler 经典重构场景卡片(语言中立)。
 
 ## 怎么读本 catalog
 

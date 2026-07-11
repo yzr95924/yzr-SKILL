@@ -112,7 +112,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.20.0"  # 0.20.0 = fixtures 骨架字段级比对（check 11→18，读 canonical/fixtures SSOT）+ .gitignore 加 .migration-plan.json + 升级末尾清理临时文件
+CURRENT_WIKI_SPEC = "0.22.0"  # 0.22.0 = related/compared 路径格式约定（wiki 根相对）+ 新增 related-broken-link lint check（warn）
 
 
 def _assert_spec_version_sync() -> None:
@@ -541,13 +541,19 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
         # 与 anchor 同名字段是否一致（spec §13.5）
         _check_git_anchor(findings, rel, target_path, anchor)
         # target 路径与当前 symlink 解析不一致：target 被迁移了
-        # 0.14.0+ anchor target 允许 ~/...，比较前先 expanduser（绝对路径展开后不变）
+        # 0.14.0+ anchor target 允许 ~/...，比较前 expanduser + resolve：
+        # 仅 expanduser 不够——若 home 目录（如 /home/yzr → /apsarapangu/...）本身是
+        # symlink，字面 expanduser 后仍带中间 symlink，会与 sl_path.resolve() 不等
+        # 而误报 drift。resolve() 把锚和 symlink 拉到同一物理路径再比。
         sl_path = external_dir / sl_name
         try:
             current_target = str(sl_path.resolve())
         except OSError:
             current_target = ""
-        expanded_anchor_target = str(Path(anchor["target"]).expanduser())
+        try:
+            expanded_anchor_target = str(Path(anchor["target"]).expanduser().resolve())
+        except OSError:
+            expanded_anchor_target = ""
         if current_target and expanded_anchor_target != current_target:
             findings.append(
                 f"external-target-drift: {rel} 当前 symlink 解析为 "
@@ -652,11 +658,12 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
                                         f"symlink {sl_name} 不存在"
                                     )
                                     continue
-                                # 文件跟随 symlink 后可访问——不 .resolve() 避免相对 wiki
-                                # 根判定；只检查文件是否可读
+                                # 路径跟随 symlink 后可访问——不 .resolve() 避免相对 wiki
+                                # 根判定；只检查可访问性（文件或目录皆可——external repo
+                                # 本身是 git 仓即目录，sources 可指向整个仓作语料）
                                 sp = wiki_root / s
-                                if not sp.is_file():
-                                    findings.append(f"sources-missing: {rel} sources='{s}' 文件不可访问")
+                                if not sp.exists():
+                                    findings.append(f"sources-missing: {rel} sources='{s}' 路径不可访问")
                                 continue
                             sp = (wiki_root / s).resolve()
                             try:
@@ -1356,6 +1363,60 @@ def check_memory_index(wiki_root: Path) -> List[str]:
     return findings
 
 
+def check_related_links(wiki_root: Path) -> List[str]:
+    """15. related / compared 路径引用完整性（0.22.0+）
+
+    校验 wiki 内容页 frontmatter 的 `related`（concept 页）与 `compared`
+    （comparison 页）字段——按 wiki 根相对路径解析，文件不存在则报
+    `related-broken-link` warn。
+
+    路径格式约定（spec §9 类型特化字段）：**wiki 根相对路径**（如
+    `concepts/transformer.md`），不带前导 `./`、不带 `../` 跨目录——与正文
+    Markdown 链接（约定用文件相对路径）形成清晰的两层约定。
+
+    为什么是 warn 而非 error：frontmatter 路径字段是机器消费（lint / cross-page
+    综合），不是人直接阅读内容；与正文 `broken-link`（error）严重性区分开，
+    让 LLM 在批量 ingest 时不被元数据小毛病阻断。
+
+    与 §二.4 `broken-link` 的区别：本检查覆盖 frontmatter 字段（`related` /
+    `compared`），§二.4 覆盖正文 markdown 链接。两者都用 wiki 根或文件相对解析，
+    路径校验，但作用域正交。
+    """
+    findings = []  # type: List[str]
+    pages = find_md_files(wiki_root)
+    target_pages = []  # type: List[Path]
+    for sub in WIKI_SUBDIRS:
+        target_pages.extend(pages[sub])
+    for p in target_pages:
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        fm = parse_frontmatter_simple(text)
+        rel = p.relative_to(wiki_root).as_posix()
+        # related / compared 字段——两字段同语义（按 wiki 根相对路径引用 wiki
+        # 内其它页），合并扫描。`contradictions` 走文件相对（§二.13 既有逻辑），
+        # 不在本检查范围——约定有意保留两层区分
+        for field_name in ("related", "compared"):
+            items = fm.get(field_name, [])
+            if not isinstance(items, list) or not items:
+                continue
+            for idx, item in enumerate(items):
+                if not isinstance(item, str):
+                    continue
+                # 防御：若元素是外部 URL（语义上不该出现但防御性兜底）→ 跳过
+                if is_external_url(item):
+                    continue
+                # wiki 根相对解析：直接拼到 wiki_root；不 .resolve() 避免跟随
+                # 实际不存在的目录或文件时静默吞错（is_file() 已能准确判定）
+                target = wiki_root / item
+                if not target.is_file():
+                    findings.append(
+                        f"related-broken-link: {rel} {field_name}[{idx}]='{item}' "
+                        f"按 wiki 根相对解析为 {item}，但文件不存在"
+                    )
+    return findings
+
+
 def severity_of(finding: str) -> str:
     """从 finding 的类别前缀推断严重性"""
     if finding.startswith(
@@ -1397,6 +1458,7 @@ def severity_of(finding: str) -> str:
             "contradiction-target-missing",
             "contradiction-asymmetric",
             "oversized-page",
+            "related-broken-link",
         )
     ):
         return "warn"
@@ -2276,6 +2338,7 @@ def main() -> int:
     all_findings.extend(check_page_size(wiki_root))
     all_findings.extend(check_quality_signals(wiki_root))
     all_findings.extend(check_memory_index(wiki_root))
+    all_findings.extend(check_related_links(wiki_root))
 
     # 过滤
     if args.severity != "all":

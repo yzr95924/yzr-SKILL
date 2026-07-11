@@ -179,7 +179,7 @@ type: concept
 tags: [attention, transformer, mechanism]
 created: 2026-06-24
 updated: 2026-06-24
-related: [transformer.md, multi-head-attention.md, scaled-dot-product-attention.md]
+related: [concepts/transformer.md, concepts/multi-head-attention.md, concepts/scaled-dot-product-attention.md]
 ---
 ```
 
@@ -291,7 +291,7 @@ type: comparison
 tags: [comparison, transformer, mamba, long-context]
 created: 2026-06-24
 updated: 2026-06-24
-compared: [../concepts/transformer.md, ../concepts/mamba.md]
+compared: [concepts/transformer.md, concepts/mamba.md]
 ---
 ```
 

@@ -12,8 +12,8 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-08
-  wiki_spec_version: 0.20.0
+  last_modified: 2026-07-11
+  wiki_spec_version: 0.22.0
   fixtures_check_count: 18
 ---
 
