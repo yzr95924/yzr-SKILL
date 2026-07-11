@@ -499,12 +499,11 @@ SKILL.md frontmatter 中的 `description` 字段是决定 agent 是否调用该 
 python -m scripts.run_loop \
   --eval-set <path-to-trigger-eval.json> \
   --skill-path <path-to-skill> \
-  --model <model-id-powering-this-session> \
   --max-iterations 5 \
   --verbose
 ```
 
-使用你系统 prompt 中的模型 ID，保证触发测试与用户实际体验一致
+`--model` 可选：省略时 `claude -p` 用本机 claude CLI 的默认模型（不强绑定具体模型）；要指定时传 `--model <id>`。
 跑的过程中，定期 tail 输出，告知用户当前在第几轮、分数长什么样
 这个脚本会自动跑完整个优化循环：把评估集按 `DEFAULT_HOLDOUT_RATIO` 拆训练 / 保留测试（SSOT 在 `scripts/run_loop.py`）
 

@@ -84,7 +84,7 @@ def improve_description(
     current_description: str,
     eval_results: dict,
     history: List[dict],
-    model: str,
+    model: Optional[str],
     test_results: Optional[dict] = None,
     log_dir: Optional[Path] = None,
     iteration: Optional[int] = None,
@@ -214,7 +214,7 @@ def main():
     parser.add_argument("--eval-results", required=True, help="Path to eval results JSON (from run_eval.py)")
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--history", default=None, help="Path to history JSON (previous attempts)")
-    parser.add_argument("--model", required=True, help="Model for improvement")
+    parser.add_argument("--model", default=None, help="Model to use for claude -p (default: user's configured model)")
     parser.add_argument("--verbose", action="store_true", help="Print thinking to stderr")
     args = parser.parse_args()
 

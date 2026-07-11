@@ -97,3 +97,7 @@ workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-wo
 ### 设计优化阶段以 repo 内 SKILL 描述为准（2026-07-07）
 
 设计优化（重构 / bump / 调整路径 / 重新设计）只动仓库源——vendor 副本（`~/.agents/skills/`）是 npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答"当前 spec / schema / finding 是什么"一律 `Read` 当前 repo 的文件，不引用 vendor / 训练记忆 / web cache 里的旧版。日常维护型编辑（修 typo / 调 description）才走 [[skill-edits-sync-to-repo-source]] 的同步流程。 → [正文](design-optimization-ignore-vendor-state.md)
+
+### markdownlint 从 skill 子目录跑会 MD013 假阳性
+
+`markdownlint <file>` 从 skill 子目录跑时，markdownlint-cli 不向上查找仓库根 `.markdownlint.jsonc`，退回默认 line_length 80 → 正常行被误报 MD013。从仓库根跑，或 `-c .markdownlint.jsonc` 显式指定 config。另：MD060（compact 表格竖线 `|---|` 无空格）是仓库全局既存噪音（`.markdownlint.jsonc` 用 `default:true` 未配 MD060），每个表格都触发、非新引入——判回归只看有无 **新错误类别**（如新出现 MD013/MD041），MD060 计数变化不算回归。

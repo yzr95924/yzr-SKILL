@@ -64,7 +64,7 @@ def run_loop(
     runs_per_query: int,
     trigger_threshold: float,
     holdout: float,
-    model: str,
+    model: Optional[str],
     verbose: bool,
     live_report_path: Optional[Path] = None,
     log_dir: Optional[Path] = None,
@@ -273,7 +273,7 @@ def main():
         default=DEFAULT_HOLDOUT_RATIO,
         help=f"Fraction of eval set to hold out for testing (0 to disable, default: {DEFAULT_HOLDOUT_RATIO})",
     )
-    parser.add_argument("--model", required=True, help="Model for improvement")
+    parser.add_argument("--model", default=None, help="Model to use for claude -p (default: user's configured model)")
     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")
     parser.add_argument(
         "--report",
