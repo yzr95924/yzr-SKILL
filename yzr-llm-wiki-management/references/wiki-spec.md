@@ -59,12 +59,17 @@
 ├── AGENTS.md                  # 0.11.0+：工具无关纪律 SSOT（详 §2）
 ├── CLAUDE.md                  # 0.11.0+：薄壳（@AGENTS.md，供 Claude Code 自动加载）
 ├── MEMORY/                    # 0.10.0+：agent 持久化记忆目录（详 §5）
-│   └── MEMORY.md              # MEMORY 索引；AGENTS.md 用 @MEMORY/MEMORY.md import 会话常驻
+│   └── MEMORY.md              # MEMORY 索引（无 frontmatter）；其 ## 索引 段条目
+│                              # **内联**进 AGENTS.md §一 #### 跨会话记忆（索引）段
+│                              # （0.23.0+ 改；详见 §5.1）
 ├── raw/
 │   ├── articles/
 │   └── assets/
 ├── scripts/                   # 0.9.0+：本 wiki 自维护脚本目录（详 §14）
-│   └── SCRIPTS.md             # scripts/ 索引；被 AGENTS.md 用 @scripts/SCRIPTS.md import
+│   └── SCRIPTS.md             # scripts/ 索引（无 frontmatter）；其 ## 索引 段
+│                              # one-liner 列表**内联**进 AGENTS.md §一
+│                              # #### Wiki-local scripts（索引）段
+│                              # （0.23.0+ 改；详见 §14.3）
 └── wiki/
     ├── comparisons/
     ├── concepts/
@@ -82,8 +87,11 @@
   不再嵌在 `wiki/` 下）——LLM agent 写入，用于沉淀跨 ingest / query / lint 的工作经验、
   踩坑记录、用户偏好；走 §5.2 的 frontmatter **1 必填（`title`）+ optional 字段**规则
   （MEMORY 是 agent 私有，不与 wiki 内容页共享 5 必填；详见 §5）。
-  其中 `MEMORY.md` 是索引，被 `<wiki-root>/AGENTS.md` 用 `@MEMORY/MEMORY.md` import
-  会话常驻——避免 MEMORY 沦为只写不读的死库。**为什么移到 `<wiki-root>/MEMORY/`**：
+  其中 `MEMORY.md` 是索引，其 `## 索引` 段下的全部条目**内联**进
+  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用
+  `@MEMORY/MEMORY.md` import，但 `@import` 递归展开只 Claude Code 支持——Codex / Qoder /
+  Gemini CLI 不展开，导致整个 `MEMORY/` 对它们不可见，详见 §5.1 加载机制段），
+  避免 MEMORY 沦为只写不读的死库。**为什么移到 `<wiki-root>/MEMORY/`**：
   对应 §四层架构第 3 层（独立于 wiki/ 内容，物理位置跟逻辑分层对齐）；未来 publish 时
   MEMORY 自然留作私有层不外传
 - **`wiki/tags.md` 是 wiki 仓的"tag 白名单"（0.8.0+）**——LLM agent 拥有，存放本 wiki
@@ -98,9 +106,11 @@
   仅当用户 `--git` opt-in 时，CLI 在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7）
 - **`scripts/` 是 wiki 仓的本机扩展脚本目录（0.9.0+）**——CLI init 时刻**始终创建**
   （与 `raw/articles/` 同：默认占位），用户 / agent 后续填入项目级 ingest 扩展、
-  外部 CLI 胶水脚本、自动化钩子等。`scripts/SCRIPTS.md` 是这个目录的索引，被
-  `<wiki-root>/AGENTS.md` 用 `@scripts/SCRIPTS.md` import 会话常驻——避免脚本沦为
-  "有脚本但 agent 不知道" 的死库。scripts/ **不**走 §9 5 必填、**不**参与 lint
+  外部 CLI 胶水脚本、自动化钩子等。`scripts/SCRIPTS.md` 是这个目录的索引，其
+  `## 索引` 段下的 one-liner 列表**内联**进 `<wiki-root>/AGENTS.md` §一
+  `#### Wiki-local scripts（索引）` 段（0.23.0+ 改；之前用 `@scripts/SCRIPTS.md`
+  import，同 MEMORY 一样 Codex / Qoder / Gemini CLI 不展开 → 详见 §14.3）——
+  避免脚本沦为"有脚本但 agent 不知道" 的死库。scripts/ **不**走 §9 5 必填、**不**参与 lint
   内容页扫描（**代码而非内容页**）。详见 §14。
 
 ## §2 AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
@@ -112,12 +122,20 @@
 > **维护方**：CLI 在 init 时刻按本节模板拷贝两份；后续修改由 **用户** 完成（AGENTS.md 是 wiki 的
 > schema，是用户的"宪法"）。LLM agent 不得编辑 AGENTS.md / CLAUDE.md；如需变更 schema，**先与用户确认**。
 >
+> **0.23.0+**：`@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 两行 `@import` 从 `AGENTS.md` 顶部
+> **删除**——其内容改为**内联**进 `AGENTS.md` 正文（§一 `#### 跨会话记忆（索引）` 与
+> `#### Wiki-local scripts（索引）` 两段）。原因：`@import` 递归展开**只 Claude Code 支持**（经薄壳
+> `CLAUDE.md → @AGENTS.md` 展开），Codex / Qoder / Gemini CLI 不展开 `AGENTS.md` 内的 `@import`，
+> 导致整个 `MEMORY/` 与 `SCRIPTS.md` 对它们不可见（"多 agent 兼容"沦为口号）。内联后所有 agent 一视同仁
+> （论证详见 `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。**AGENTS.md 索引段与 `MEMORY.md` /
+> `SCRIPTS.md` 是同一份内容的两种投影**——改一处须同步另一处（lint `memory-not-indexed` 兜底；
+> scripts 段由本文件 §一 discipline 提示手维护）。老 wiki 由 `lint_wiki.py --check-version --apply`
+> 配合 `check_wiki_fixtures.py` 新增 `agents-md-no-at-imports` check 检测。
+>
 > **0.11.0+**：`CLAUDE.md`（SSOT）→ 拆为 `AGENTS.md`（SSOT，工具无关）+ `CLAUDE.md`（薄壳）。
 > `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 两行 import 从原 CLAUDE.md 顶部移入 AGENTS.md 顶部
-> （@import 写在 SSOT 内，两边都能加载：Claude Code 经薄壳 CLAUDE.md → @AGENTS.md 递归展开加载；
-> Qoder / Codex 等读 `AGENTS.md` 的 agent 原生读，@import 能否展开取决于实现，最坏由 orient ritual
-> 显式 Read 兜底）。老 wiki（CLAUDE.md 仍是 SSOT 形态）由 `lint_wiki.py --check-version --apply`
-> 的 `claudemd-to-agents-md-split` action 迁移。
+> （@import 写在 SSOT 内，假设两边都能加载）。老 wiki（CLAUDE.md 仍是 SSOT 形态）由
+> `lint_wiki.py --check-version --apply` 的 `claudemd-to-agents-md-split` action 迁移。
 >
 > **0.8.0+**：SSOT 模板的 `### Tag Taxonomy` 段已被移除——tag 白名单现归
 > [`wiki/tags.md`](#91-tag-白名单来源080) 维护；CLI init 不再向 AGENTS.md 写入
@@ -125,7 +143,7 @@
 >
 > **0.9.0+**：SSOT 模板含 `### Wiki-local scripts` 段，引用
 > [`scripts/SCRIPTS.md`](#14-scripts本-wiki-仓扩展脚本目录090) 索引；CLI init 必须
-> 同时在 AGENTS.md 顶部插入 `@scripts/SCRIPTS.md` import 行。
+> 同时在 AGENTS.md 顶部插入 `@scripts/SCRIPTS.md` import 行（0.23.0+ 改内联）。
 > 老 wiki 迁移仅由 workspace CLI 处理（`lint_wiki.py --check-version --apply` 不为此
 > 出 legacy pattern——`scripts/` 是 opt-in 扩展，不存在不算违规）。
 
@@ -145,7 +163,8 @@
 - 路径：`<wiki-root>/CLAUDE.md`
 - 内容来源：本仓 `references/claude-md-template.md`（薄壳模板，`@AGENTS.md` + 声明，≤ 30 行）
 - CLI 实现时**逐字拷贝**该模板，仅替换 `{{TOPIC_NAME}}`（占主题名；不持 spec 版本——版本在 AGENTS.md §八）
-- 不含纪律正文、不含 `@MEMORY` / `@scripts` import（那些在 AGENTS.md 内）；仅 `@AGENTS.md` 一行
+- 不含纪律正文、不含 `@MEMORY` / `@scripts` / `@wiki/tags.md` 等 import（那些已 0.23.0+
+  全部**内联**进 AGENTS.md 正文）；仅 `@AGENTS.md` 一行
 
 ## §3 wiki/index.md
 
@@ -232,8 +251,9 @@
 - 目录名 `MEMORY` **大写**，区别于 `raw/` `wiki/` `wiki/index.md` 等小写目录/文件——这是为了
   在文件浏览器里一眼区分"agent 私有记忆"与"wiki 内容"
 - **`MEMORY/MEMORY.md`（索引）——CLI init 时刻写入**（fixtures 字面量见
-  `references/fixtures/memory-index.txt`）；被 `<wiki-root>/AGENTS.md` 用
-  `@MEMORY/MEMORY.md` import，会话常驻。详见 §5.1
+  `references/fixtures/memory-index.txt`）；其 `## 索引` 段下的全部条目**内联**进
+  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用
+  `@MEMORY/MEMORY.md` import，但 `@import` 只 Claude Code 展开）。详见 §5.1
 - 其余 `*.md` 经验条目由 LLM 在工作中追加，**文件命名与 wiki 内容页一致**；
   frontmatter 走 §5.2 的 **1 必填（`title`）+ optional 字段**规则（与 wiki 内容页 5 必填
   解耦——MEMORY 是 agent 私有，frontmatter 是可选 decoration）
@@ -252,19 +272,30 @@
 ### §5.1 MEMORY/MEMORY.md（索引）
 
 - 路径：`<wiki-root>/MEMORY/MEMORY.md`
-- **无 frontmatter**——它是被 `AGENTS.md` 用 `@MEMORY/MEMORY.md` import 内联的索引片段，
-  不是 wiki 内容页（对齐仓库根 `MEMORY/MEMORY.md` 形态）。lint 把它当 reserved 跳过 frontmatter /
-  tag / 命名校验
+- **无 frontmatter**——它是**被 `AGENTS.md` 内联**的索引片段（0.23.0+ 改；之前用 `@MEMORY/MEMORY.md`
+  import，但 Codex / Qoder / Gemini CLI 不展开 import → 详见 §5.1 加载机制段），不是 wiki 内容页
+  （对齐仓库根 `MEMORY/MEMORY.md` 形态）。lint 把它当 reserved 跳过 frontmatter / tag / 命名校验
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §4，**不**重复以免口径分裂）+
   `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §5.2 的 `MEMORY/<slug>.md`）
   - **短条目**：`- <一句话事实>`（无链接，对应无 `.md` 文件的索引行 reminder）
   - 判别尺度见 §5 总段「条目形式按事实颗粒度选」
-- **加载机制（agent 中立）**：agent 在 wiki 根目录工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md`
-  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent
-  （Qoder / Codex / Gemini CLI 等）原生读 SSOT，能否展开 `@import` 取决于实现。agent 在别处工作
-  （skill 经 `$LLM_WIKI_ROOT` 读 AGENTS.md）时，`@` 不自动展开，由 SKILL 的 orient ritual 显式
-  Read MEMORY.md 补齐
+- **加载机制（agent 中立；0.23.0+ 改）**：本文件 `## 索引` 段下的全部条目**内联**进
+  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段（之前用 `@MEMORY/MEMORY.md` import，
+  但 `@import` 递归展开只 Claude Code 支持，Codex / Qoder / Gemini CLI 不展开 → 详见
+  `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。agent 在 wiki 根目录工作时——
+  Claude Code 经薄壳 `CLAUDE.md → @AGENTS.md` 递归展开自动加载 SSOT，内联索引段随之加载 → 索引常驻；
+  读 `AGENTS.md` 的其他 agent（Qoder / Codex / Gemini CLI 等）原生读 SSOT，**同样看到**内联索引段
+  （无需 `@import` 展开）。agent 在别处工作（skill 经 `$LLM_WIKI_ROOT` 读 AGENTS.md）时，内联段仍在
+  AGENTS.md 正文里——同样直接读到
+- **内联索引条数护栏（0.23.0+ bloat guard）**——`AGENTS.md` 是 progressive disclosure L1
+  （始终在上下文）的 SSOT，不应无限膨胀。MEMORY 沉淀超过
+  `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 阈值（默认 **50**）时 lint 报
+  `inlined-memory-index-bloating` warn（[lint-checklist §二.15](lint-checklist.md#15-agentsmd-内联-memory-索引条数阈值)）。
+  **护栏只挡 `AGENTS.md` 投影**——`MEMORY/MEMORY.md` 本体可自由增长（它是 SSOT）；
+  超阈**不强制处置**，agent 三选一：(a) 短条目化（索引行改 `- <slug> — 一句话` 不带链接）；(b) 分类摘要
+  （按主题 / 时间聚合，AGENTS.md 只列 K 个分类节点 + top-N 明列）；(c) 低频条目迁回 `MEMORY.md`
+  「完整条目」段，AGENTS.md 仅留高频 top-M
 - **字面量见 fixtures**：`references/fixtures/memory-index.txt`（与 `references/canonical/memory-index.md`
   一致——MEMORY.md 无占位符，fixtures 与 canonical 内容相同）
 
@@ -290,7 +321,8 @@
   - `tags` 若取则必须是 list
   - **不**走 tag 白名单校验（§9.1 taxonomy 仅约束 wiki 内容页，不渗透到 agent 私有记忆）
   - **不**走 reviewed / pending-review 校验（MEMORY 无「人工 review」语义角色）
-  - `MEMORY/MEMORY.md`（索引）**不**参与此校验——本身无 frontmatter，是 AGENTS.md `@import` 的内联片段
+  - `MEMORY/MEMORY.md`（索引）**不**参与此校验——本身无 frontmatter，是 AGENTS.md §一
+    `#### 跨会话记忆（索引）` 段**内联**的索引片段（0.23.0+ 改；之前用 `@import`，Codex / Qoder 不展开）
 - 与 wiki 内容页的区别：
   - **不**强制在 `wiki/index.md` 列出
   - **不**要求有 inbound 链接
@@ -480,7 +512,7 @@ compared:
 
 **lint 兜底**：0.22.0+ 新增 `related-broken-link`（warn 级）——校验 `related` /
 `compared` 字段每条元素是否能在 wiki 根下解析到现存文件；详见
-[`lint-checklist.md` §二.15](lint-checklist.md#15-related--compared-路径引用完整性0220)。
+[`lint-checklist.md` §二.16](lint-checklist.md#16-related--compared-路径引用完整性0220)。
 
 ### 可选可信度与认知质量字段（LLM 按需写，全部可选）
 
@@ -534,7 +566,7 @@ CLI 仓跟随升级。
 | 子目录名 | 固定字母序（§1） | 5 个内容页子目录 |
 | 特殊目录名 `MEMORY` | **大写**（区别于小写 `raw` / `wiki` 等）；与 `wiki/` 平级（不再嵌在 `wiki/` 下） | `<wiki-root>/MEMORY/` |
 | 元数据文件 tags.md（0.8.0+） | 与 index.md / log.md 同——**无** frontmatter，裸 Markdown；lint 不走 frontmatter 校验（按 `MEMORY.md` 同形态） | `wiki/tags.md` |
-| 索引文件 SCRIPTS.md（0.9.0+） | 与 tags.md / MEMORY/MEMORY.md 同——**无** frontmatter，裸 Markdown；AGENTS.md `@` import 目标 | `scripts/SCRIPTS.md` |
+| 索引文件 SCRIPTS.md（0.9.0+） | 与 tags.md / MEMORY/MEMORY.md 同——**无** frontmatter，裸 Markdown；其 `## 索引` 段**内联**进 AGENTS.md §一 `#### Wiki-local scripts（索引）` 段（0.23.0+ 改；之前 `@import` Codex / Qoder 不展开） | `scripts/SCRIPTS.md` |
 | frontmatter 字段名 | 严格小写 + 下划线（`okf_version`、`created`、`updated`） | 所有 frontmatter |
 | frontmatter `type` 值 | 严格小写（5 类内容页 + 2 类 reserved：`index`/`log`） | 所有 wiki 页 |
 
@@ -794,7 +826,9 @@ raw/external/
 
 ```text
 <wiki-root>/scripts/
-├── SCRIPTS.md                  # 必填：索引；AGENTS.md 用 @scripts/SCRIPTS.md import
+├── SCRIPTS.md                  # 必填：索引；其 ## 索引 段 one-liner 列表
+│                               # **内联**进 AGENTS.md §一 #### Wiki-local scripts（索引）
+│                               # 段（0.23.0+ 改；详见 §14.3）
 └── <user scripts>              # 任意文件名 / 嵌套子目录（按工具性质自组织）
 ```
 
@@ -804,36 +838,52 @@ raw/external/
 - 子目录 / 文件命名**不限**(`foo.py` / `pdf-prep.sh` / `hooks/pre-commit.sh`
   / `batch/N-papers/main.py` 都可)——scripts/ 不是 wiki 内容页,不走 §11 kebab-case 约束
 
-### §14.3 索引 `SCRIPTS.md`(AGENTS.md `@` import 目标)
+### §14.3 索引 `SCRIPTS.md`（AGENTS.md §一 内联源；0.23.0+ 改）
 
 - **文件名**:`SCRIPTS.md`(大写,镜像 `MEMORY/MEMORY.md` "目录专属索引" 命名模式)
 - **路径**:`<wiki-root>/scripts/SCRIPTS.md`
 - **形态**:**无 frontmatter**(与 `MEMORY/MEMORY.md` 同),纯 Markdown
+- **加载机制（agent 中立；0.23.0+ 改）**：
+  本文件 `## 索引` 段下的 one-liner 列表**内联**进 `<wiki-root>/AGENTS.md` §一
+  `#### Wiki-local scripts（索引）` 段（之前用 `@scripts/SCRIPTS.md` import——`@import`
+  递归展开只 Claude Code 支持，Codex / Qoder / Gemini CLI 不展开 → 详见
+  `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。所有读 `AGENTS.md` 的 agent 都能立即看到
+  有哪些脚本；完整分节契约仍在本文件 `## 分节契约` 段，agent 按需 `Read` 各分节。
+  **同步改两处**（AGENTS.md 内联段 + 本文件分节段）是原子动作——stub 先写还是脚本文件先写
+  由维护者决定，但完成时两处必须同时一致。
 - **骨架**(CLI init 时刻拷贝):
 
   ```markdown
   # Scripts
 
   > 本目录存放本 wiki 自维护的脚本（项目级 ingest 扩展 / 外部 CLI 胶水 / 自动化 hook）。
-  > 索引文件被 `<wiki-root>/AGENTS.md` 用 `@scripts/SCRIPTS.md` import 会话常驻;
-  > 新增 / 修改 / 删除脚本必须同步更新本索引段，否则 agent 视为不可见。
+  >
+  > **加载机制（0.23.0+ 改）**：AGENTS.md 顶部 `#### Wiki-local scripts（索引）` 段**内联**
+  > 本文件 `## 索引` 段下的 one-liner 列表，让所有读 `AGENTS.md` 的 agent 都能立即看到
+  > 有哪些脚本；完整分节契约仍在本文件 `## 分节契约` 段，agent 按需 `Read`。脚本增删时
+  > **同步改两处**（AGENTS.md 紧凑索引行 + 本文件分节段）。
   >
   > 何时写 / 编排纪律见 SKILL §核心原则 §12（本文件不重复，避免口径分裂）。
 
   ## 索引
 
-  <!-- 每工具一段：## <name> — <short label> + 使用场景 + 调用约定 + 作用 -->
-  （暂无脚本 —— 在此追加 ## <name> — <label> 段）
+  <!-- 每脚本一行：- `<script-name>` — <一句话用途>（同步投影到 AGENTS.md §一 #### Wiki-local scripts（索引）） -->
+  （暂无脚本 —— 在此追加 `- \`<name>\` — <一句话用途>` 一行）
+
+  ## 分节契约（详细）
+
+  <!-- 每脚本一段：### <name> — <short label> + 使用场景 + 调用约定 + 作用（+ 可选前置依赖） -->
+  （暂无脚本 —— 在此追加 `### <name> — <label>` 段）
   ```
 
 - 字面量模板进 `references/fixtures/scripts.md.txt`(CLI init 拷贝)
-- **无**占位符——SCRIPTS.md 是 AGENTS.md 上下文里的"内部索引",与 `MEMORY/MEMORY.md`
-  / `wiki/tags.md` 同族(均无 frontmatter、wiki 名由 AGENTS.md §1 承载,SCRIPTS.md
-  不重复)
+- **无**占位符——SCRIPTS.md 是 wiki 内的"脚本契约",与 `MEMORY/MEMORY.md` / `wiki/tags.md`
+  同族(均无 frontmatter、wiki 名由 AGENTS.md §一承载,SCRIPTS.md 不重复)
 
-### §14.4 每工具一段的契约(LLM / 用户共同维护)
+### §14.4 每工具一段的契约(LLM / 用户共同维护；0.23.0+ 双段形态)
 
-每条 `## <name> — <label>` 段必含 4 个要素(顺序任意;lint 不解析但风格一致):
+SCRIPTS.md 内的"分节契约"采用 `### <name> — <label>` 子节(在 `## 分节契约` 段下)，
+每条必含 4 个要素(顺序任意;lint 不解析但风格一致):
 
 | 要素 | 例子 | 用途 |
 | --- | --- | --- |
@@ -841,6 +891,9 @@ raw/external/
 | **调用约定** | `python3 scripts/<name>.py "$LLM_WIKI_ROOT" [args]` | 一行可粘贴,假设 `$LLM_WIKI_ROOT` 在调用环境 |
 | **作用** | "本脚本做一次聚合 ingest:per-N 调一次 ingest,完成后用 `--bulk-rebuild-index` 一次性更新" | 解释做什么、产出什么、副作用范围 |
 | **前置依赖**(可选) | "需 `pip install pypdf`;需环境变量 `PAPERS_DIR`" | 显式声明非标依赖,避免 agent 误跑 |
+
+每脚本还需在 `## 索引` 段同步一条 **one-liner**（`` - `<name>` — <一句话用途> ``），
+投影到 AGENTS.md `#### Wiki-local scripts（索引）` 段——两边必须同步，详见 §14.3。
 
 ### §14.5 纪律(硬化约束)
 
@@ -863,11 +916,11 @@ raw/external/
 
 | | `MEMORY/MEMORY.md` | `wiki/tags.md` | `scripts/SCRIPTS.md` (本) |
 | --- | --- | --- | --- |
-| import 方式 | `@MEMORY/MEMORY.md` | `@wiki/tags.md` | `@scripts/SCRIPTS.md` |
+| AGENTS.md 加载方式（0.23.0+） | §一 `#### 跨会话记忆（索引）` 段**内联** `## 索引` 段条目 | 不内联——LLM 不需要看完整 tag 字典；按需 `Read` | §一 `#### Wiki-local scripts（索引）` 段**内联** `## 索引` 段 one-liner |
 | 形态 | 无 frontmatter | 无 frontmatter | 无 frontmatter |
 | 维护方 | LLM agent | LLM agent(用户审计) | 用户 + LLM agent |
 | 何时引入 | §5 (0.2.0) | §9.1 (0.8.0) | §14 (0.9.0) |
-| 列举对象 | 一行一条 MEMORY 条目 | 一行一条 tag | 一段一条工具 |
+| 列举对象 | 一行一条 MEMORY 条目 | 一行一条 tag | 一段一条工具（双段：索引 one-liner + 分节契约） |
 | 类别 | 知识 | 标签白名单 | 代码索引 |
 
 ### §14.7 老 wiki 迁移(对照 §10 升级路径)
@@ -882,6 +935,25 @@ raw/external/
 
 `lint_wiki.py --check-version --apply` 不为此出 legacy pattern——scripts/ 是 opt-in
 扩展,**不**存在不算违规。
+
+### §14.8 0.23.0+ 迁移（`@import` → 内联）
+
+升级至 0.23.0 后，老 wiki（`AGENTS.md` 顶部仍含 `@MEMORY/MEMORY.md` /
+`@scripts/SCRIPTS.md` import）需由 LLM agent 走以下迁移步骤（`lint_wiki.py --check-version
+--apply` 配合 `check_wiki_fixtures.py` 新增 `agents-md-no-at-imports` check 自动发现）：
+
+1. **删 `AGENTS.md` 顶部两行 `@import`**（`@MEMORY/MEMORY.md` 与 `@scripts/SCRIPTS.md`）
+2. **在 `AGENTS.md` §一 `### MEMORY/` 子节末尾追加 `#### 跨会话记忆（索引）` 段**，
+   内容**逐字**取自 `MEMORY/MEMORY.md ## 索引` 段（lint `memory-not-indexed` 兜底漏迁）
+3. **在 `AGENTS.md` §一 `### scripts/` 子节末尾追加 `#### Wiki-local scripts（索引）` 段**，
+   内容**逐字**取自 `scripts/SCRIPTS.md ## 索引` 段（scripts 段无 lint 兜底——agent 须手维护同步）
+4. **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
+5. **不**修改 `MEMORY/MEMORY.md` / `scripts/SCRIPTS.md` 本体（其 `## 索引` 段是 SSOT；
+   AGENTS.md 内联段是它的"投影"）
+6. Edit `<wiki-root>/AGENTS.md` §八「Wiki Spec 版本」行改为 `0.23.0`
+7. 重跑 `lint_wiki.py --check-version` 验证——`agents-md-no-at-imports` 应 pass
+
+迁移期间无新工具支持——LLM agent 按上述规则手工 Edit 即可。
 
 ---
 
@@ -902,6 +974,7 @@ CLI 在生成完成后，可执行以下验证：
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
+| 0.23.0 | 2026-07-11 | **`AGENTS.md` L2 索引改内联（多 agent 真兼容）+ 内联索引条数 bloat guard**——`@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 两行 `@import` 从 `AGENTS.md` 顶部**删除**，其内容改为**内联**进 `AGENTS.md` 正文：§一 `#### 跨会话记忆（索引）` 段逐字内联 `MEMORY/MEMORY.md ## 索引` 段全部条目；§一 `#### Wiki-local scripts（索引）` 段逐字内联 `scripts/SCRIPTS.md ## 索引` 段 one-liner 列表。**根因**：`@import` 递归展开只 Claude Code 支持（经薄壳 `CLAUDE.md → @AGENTS.md` 展开），Codex / Qoder / Gemini CLI 不展开 `AGENTS.md` 内的 `@import`——0.22.0 之前整个 `MEMORY/` 与 `SCRIPTS.md` 对它们**不可见**，"多 agent 兼容"沦为口号。**内联后所有 agent 一视同仁**（论证详见 `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。`scripts/SCRIPTS.md` 形态改为双段：顶部 `## 索引`（紧凑 one-liner 给 AGENTS.md 投影）+ 下方 `## 分节契约（详细）`（每脚本 `### <name>` 段，4 要素契约）。`check_wiki_fixtures.py` 新增 **2 条** check（共 **20 条**）：`agents-md-no-at-imports`（error，扫 `AGENTS.md` 残留 `@MEMORY` / `@scripts` / `@wiki/tags.md` 等 `@import` 行）+ `agents-md-inline-index-sections`（warn，迁移期兜底——扫 `#### 跨会话记忆（索引）` + `#### Wiki-local scripts（索引）` 两个 h4 段是否齐备）。`scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.23.0；新增常量 `INLINED_INDEX_MAX = 50` + 新增 `check_inlined_memory_index_size()`——扫 `AGENTS.md` §一 `#### 跨会话记忆（索引）` 段 bullet 数，超过阈值报 `inlined-memory-index-bloating` warn（**仅护 AGENTS.md 投影**，`MEMORY.md` 本体可自由增长）；`severity_of()` 加 `inlined-memory-index-bloating → warn` 映射。SKILL.md `metadata.wiki_spec_version` 升至 0.23.0 + `metadata.fixtures_check_count` 由 18 升至 20；`scripts/check_wiki_fixtures.py` CHECK_REGISTRY +2。`references/wiki-spec.md` §2 / §5 / §5.1（含新增"内联索引条数护栏"段）/ §5.2 / §11 / §14.3 / §14.4 / §14.6 / §14.7(新增 §14.8 迁移指南) / §目录树 / §5 加载机制段 全部同步重写对齐"内联"口径；`references/lint-checklist.md` 新增 §二.15「AGENTS.md 内联索引条数阈值」+ §二.14 措辞同步 + 目录重排（§15 related/compared → §16）；`references/agents-md-template.md` §一 新增两个 `####` 子段 + 各加一条"内联索引条数护栏"纪律条目、`@import` 行删除；`references/claude-md-template.md` 顶部声明改写（去掉 `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 提及）；`references/canonical/{memory-index,scripts}.md` + `references/fixtures/{memory-index,scripts.md}.txt` 顶部注释更新加载机制。**破坏性**：0.22.0- 老 wiki 升级后会立即报 `agents-md-no-at-imports`——LLM agent 按 §14.8 7 步迁移（删 `@import` 行 + 增两个 `####` 段 + 改 §八 版本号 + 不写 log + 不改 MEMORY.md / SCRIPTS.md 本体）。迁移后所有 agent 一视同仁看到 MEMORY 索引与 scripts 列表——这是 0.22.0 起承诺但实际未达成的"多 agent 兼容"的真正落地；老 wiki 升级后还会**新报** `inlined-memory-index-bloating` warn（若内联后条目 > 50），但属非阻断 warn，由 agent 选短条目化 / 分类摘要 / 回写 MEMORY.md 三选一 |
 | 0.22.0 | 2026-07-11 | **related / compared frontmatter 路径格式约定（wiki 根相对）+ 新增 `related-broken-link` lint check（warn）**——`wiki-spec.md §9`「类型特化字段」表 `related` / `compared` 行明确路径格式约定：**wiki 根相对路径**（如 `concepts/transformer.md`），裸文件名（`transformer.md`）与文件相对路径（`../concepts/transformer.md`）均不再被接受。新增 `§9 路径格式约定`段说明两层约定区分——frontmatter 路径字段（机器消费为主，wiki 根相对、跨子目录不丢信息）vs 正文 markdown 链接（人读为主，文件相对、in-context 局部）。`scripts/lint_wiki.py` 新增 `check_related_links()` 扫 `related` / `compared` 字段每条元素，按 wiki 根相对解析，`is_file()` 判定；不命中 → 报 `related-broken-link`（warn）——与正文 `broken-link`（error）严重性区分开（frontmatter 是机器消费、非人直接阅读内容）。`references/lint-checklist.md` 新增 §二.15 段；`severity_of()` 加 `related-broken-link → warn` 映射。`references/page-templates.md` concept / comparison 模板示例同步更新为 wiki 根相对路径。**非破坏性**：`related` / `compared` 字段为可选（spec §9「必填」列均为否），缺字段的 wiki 升级零影响；已有的裸文件名 / 文件相对路径 wiki 升级后会一次性报出所有 `related-broken-link` warn，由用户批量改写为 wiki 根相对形式。`contradictions` 字段按 spec §9 既有约定**保留**文件相对解析（与 `related` / `compared` 两层区分是有意保留），不在本检查范围。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.22.0 |
 | 0.21.0 | 2026-07-11 | **raw/external/ sources 允许指向目录（bug fix）**——`scripts/lint_wiki.py` `check_sources_field` external 分支（第 657 行）由 `sp.is_file()` 改为 `sp.exists()`：external repo 本身是 git 仓（即目录），`sources: [raw/external/<symlink>]` 语义合法；原 `is_file()` 对目录返回 `False` 导致误报 `sources-missing`。finding 消息由「文件不可访问」改为「路径不可访问」。普通 raw 路径（非 `raw/external/`）的 sources 仍要求指向**文件**——raw 子树语义是「已 ingest 的文档」，目录型 raw 来源暂无用例。spec §13.3「LLM agent 责任」补 `sources:` 元素类型澄清（文件或目录皆可，仅 external 分支）；`references/lint-checklist.md` §二.3 step 4 措辞同步。**非破坏性**：合规 0.20.0 wiki 升级 = bump AGENTS.md §八版本号即可，无内容改动；之前因 external sources 指向整仓而误报 `sources-missing` 的页面升级后自动消失。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.21.0 |
 | 0.20.0 | 2026-07-08 | **fixtures 字段级骨架比对 + 常规 lint 版本检查 + 升级末尾清理**——`check_wiki_fixtures.py` 从 11 条扩到 **18 条** check：新增 7 条骨架字段比对（`gitignore-init-rules-complete` / `index-md-frontmatter-complete` / `index-md-skeleton` / `log-md-frontmatter-complete` / `memory-index-skeleton` / `scripts-md-skeleton` / `tags-md-skeleton`），读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 **SSOT** 做字段级骨架比对（改 fixtures → check 自动跟随）：纯骨架件（.gitignore / tags.md / SCRIPTS.md / MEMORY.md）全字段骨架比对，成长件（index.md / log.md）只比结构必填（frontmatter 键 + H1 + 说明块），**不动成长内容**。`build_migration_plan()` 新增 `fixtures-fix-skeleton` 通用 action 类型（匹配 `*-skeleton` / `*-frontmatter-complete` / `*-init-rules-complete` cid，`to_action` 引用 expected 缺失项）。常规 lint 新增 `check_spec_version()`——每次 lint 查 AGENTS.md §八版本与 `CURRENT_WIKI_SPEC` 一致性，落后 / 领先给 warn 提示走 `--check-version` 升级（finding `wiki-spec-version-stale` / `-ahead` / `-unparsed`）。升级流程末尾新增「清理临时文件」步（删 `.migration-plan.json` + `*.bak`）。`fixtures/gitignore.txt` 加 `.migration-plan.json`（升级中间产物，用完即删 + 不进 git）。**纯检测覆盖增量，无文件格式变更**：合规的 0.19.0 wiki 升级 = bump AGENTS.md §八版本号即可，无内容改动；缺骨架字段的老 wiki 才首次收到 `fixtures-fix-skeleton` action。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.20.0；`SKILL.md` §0.18.0+ 段 + §5 Migrate + `references/migrate-workflow.md`（新增「fixtures 字段更新清单」节 + step 8 清理）+ `references/lint-checklist.md`（§二前置版本检查 + §八边界）+ `scripts/check_wiki_fixtures.py` docstring 同步 |

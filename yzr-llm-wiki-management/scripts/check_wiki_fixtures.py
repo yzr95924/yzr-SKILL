@@ -87,7 +87,7 @@ CHECK_REGISTRY = [
         "id": "memory-index-no-frontmatter",
         "severity": "error",
         "rule_ref": "wiki-spec.md §5 + lint-checklist.md §三.5",
-        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（被 AGENTS.md @import）",
+        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目 0.23.0+ 改为内联进 AGENTS.md）",
     },
     {
         "id": "memory-entries-indexed",
@@ -754,10 +754,20 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
             missing.append("缺说明块（`>` 引用行）")
 
     if "section_headings" in signals:
-        actual_secs = {ln.strip() for ln in lines if ln.startswith("## ")}
+        # 任意 H2-H6 heading（`## ` / `### ` / `#### ` / ...）——段标题可能在 §一 的子节里
+        actual_secs = {ln.strip() for ln in lines if re.match(r"^#{2,6} ", ln)}
         for s in signals["section_headings"]:  # type: ignore
             if s not in actual_secs:
                 missing.append(f"缺段标题 `{s}`")
+
+    if signals.get("no_at_imports"):
+        # 扫 AGENTS.md 内的 `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` /
+        # `@wiki/...` 等 @import 行（行首 `@` 紧跟字母数字 + `/` + 路径）；
+        # 0.23.0+ 改内联后这些 import 行只剩 `@AGENTS.md`（在 CLAUDE.md 薄壳内，
+        # 不在 AGENTS.md 内，故此 check 不命中它）。
+        at_imports = re.findall(r"^@(?:[A-Za-z]+)/[^\s]+\s*$", wiki_text, re.MULTILINE)
+        if at_imports:
+            missing.append(f"残留 @import 行: {at_imports}（0.23.0+ 改内联——Codex/Qoder 不展开 @import）")
 
     if signals.get("gitignore_section_structure"):
         fixture_text = _load_fixture_text("gitignore.txt")
@@ -835,6 +845,27 @@ SKELETON_SPECS = [
         "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.8",
         "desc": "wiki/tags.md 含 H1（# Tags）+ 说明块（无 ## 索引——tags 直接 bullet 列表）",
         "signals": {"h1": "# Tags", "blockquote": True},
+    },
+    {
+        "id": "agents-md-inline-index-sections",
+        "severity": "warn",
+        "wiki_path": "AGENTS.md",
+        "rule_ref": "wiki-spec.md §14.8 + lint-checklist.md §二.14",
+        "desc": "AGENTS.md 含 §一 #### 跨会话记忆（索引）+ #### Wiki-local scripts（索引）两段（0.23.0+ L2 内联必填）",
+        "signals": {
+            "section_headings": [
+                "#### 跨会话记忆（索引）",
+                "#### Wiki-local scripts（索引）",
+            ]
+        },
+    },
+    {
+        "id": "agents-md-no-at-imports",
+        "severity": "error",
+        "wiki_path": "AGENTS.md",
+        "rule_ref": "wiki-spec.md §14.8 + lint-checklist.md §二.14",
+        "desc": "AGENTS.md 不含 @MEMORY / @scripts / @wiki 等 @import 行（0.23.0+ 改内联——Codex/Qoder 不展开 @import）",
+        "signals": {"no_at_imports": True},
     },
 ]
 

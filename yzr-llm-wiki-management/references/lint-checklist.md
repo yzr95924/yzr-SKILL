@@ -23,7 +23,8 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
   - [12. 页面体量](#12-页面体量)
   - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
   - [14. MEMORY.md 索引一致性](#14-memorymd-索引一致性)
-- [15. related / compared 路径引用完整性（0.22.0+）](#15-related--compared-路径引用完整性0220)
+  - [15. AGENTS.md 内联 MEMORY 索引条数阈值](#15-agentsmd-内联-memory-索引条数阈值)
+  - [16. related / compared 路径引用完整性（0.22.0+）](#16-related--compared-路径引用完整性0220)
 - [三、半定性检查（agent 执行）](#三半定性检查agent-执行)
   - [15. 矛盾主张](#15-矛盾主张)
   - [16. 缺失交叉引用](#16-缺失交叉引用)
@@ -312,18 +313,51 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ### 14. MEMORY.md 索引一致性
 
-- `MEMORY/MEMORY.md` 是被 `<wiki-root>/AGENTS.md` 用 `@MEMORY/MEMORY.md` import 的轻量
-  索引（无 frontmatter），让 agent 每次会话都能看到 MEMORY 里有哪些条目——避免 MEMORY 沦为
-  只写不读的死库
+- `MEMORY/MEMORY.md` 是轻量索引（无 frontmatter），其 `## 索引` 段下的全部条目**内联**进
+  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用 `@MEMORY/MEMORY.md`
+  import，但 `@import` 递归展开只 Claude Code 支持——Codex / Qoder / Gemini CLI 不展开，
+  整个 `MEMORY/` 对它们不可见）——让所有读 `AGENTS.md` 的 agent 都能看到 MEMORY 里有哪些条目，
+  避免 MEMORY 沦为只写不读的死库
 - 扫 `<wiki-root>/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
   列出** → 报 `memory-not-indexed`
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
 - `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期 / spec <0.6.0 未补索引，不报错）
+- **0.23.0+ 同步校验（新增）**：除 `MEMORY.md` 索引本身外，本检查**同时**扫
+  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段——任一 `<slug>.md` 漏列于
+  AGENTS.md 索引段同样报 `memory-not-indexed`（老 wiki 0.22.0- 升级到 0.23.0+ 时此条会触发，
+  由 agent 按 wiki-spec §14.8 迁移）
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
 
-### 15. related / compared 路径引用完整性（0.22.0+）
+### 15. AGENTS.md 内联 MEMORY 索引条数阈值
+
+- AGENTS.md 是 wiki 纪律 SSOT，始终在上下文（progressive disclosure L1）——与薄壳 CLAUDE.md
+  （≤30 行）共守"宪法要薄"红线。0.23.0+ 起 `MEMORY.md` 内容**内联**进 `AGENTS.md` §一
+  `#### 跨会话记忆（索引）` 段（多 agent 兼容设计——`@import` 只 Claude Code 展开，详见
+  wiki-spec §5.1 加载机制段），但 AGENTS.md 不是无限容器——MEMORY 沉淀超过阈值会让
+  AGENTS.md 越养越胖，蚕食渐进加载优势
+- 扫 `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段：统计 dash + 空格 / asterisk + 空格
+  开头的 bullet 行（短条目无链接也计入——它们同样吃体积）；**只扫 AGENTS.md 投影**，
+  MEMORY.md 本体可自由增长（它是 SSOT，不受护栏约束）
+- 阈值 = `scripts/lint_wiki.py` 顶部 `INLINED_INDEX_MAX` 常量（默认 **50**）；超阈 →
+  `inlined-memory-index-bloating` warn
+- 模板占位（`（暂无条目）` / 段不存在）→ 静默跳过；不报错；HTML 注释行排除
+- **严重性：warning**——超阈不阻断，但持续膨胀会蚕食 L1 加载优势；用户/agent 应主动处置
+- **处置建议**（lint 只报告、不强制——三条路选其一）：
+  - **短条目化**——索引行改 `- <slug> — 一句话`（去掉 `→ [正文](slug.md)`），缩体积不减可见性
+    （正文按需 `Read MEMORY/<slug>.md`）
+  - **分类摘要**——按主题/时间/来源聚合，AGENTS.md 只列 K 个分类节点 + top-N 明列
+    （代价：部分条目被折叠，部分 agent 不会主动 Read 子条目）
+  - **回写 MEMORY.md**——低频条目迁回 MEMORY.md「完整条目」段，AGENTS.md 仅留 top-30 高频
+- 与 §二.5 `PAGE_SIZE_THRESHOLD`（**300**）的关系：`PAGE_SIZE_THRESHOLD` 守"单页内容长度"，
+  `INLINED_INDEX_MAX`（**50**）守"内联索引条数"——两者各自把守一道护栏，触发条件不同；
+  不互相替代
+- 实现见 `scripts/lint_wiki.py::check_inlined_memory_index_size`；与 §二.14
+  `memory-not-indexed` 双轨：前者按"条数"判，后者按"是否被索引"判（同一份 MEMORY 条目
+  在 lint 里既可能落入 not-indexed info，也可能让 bloat 阈值上升——两者互不替代）
+
+### 16. related / compared 路径引用完整性（0.22.0+）
 
 - 校验 wiki 内容页 frontmatter 的 `related`（concept 页使用）与 `compared`
   （comparison 页使用）字段中每条路径对应文件是否存在

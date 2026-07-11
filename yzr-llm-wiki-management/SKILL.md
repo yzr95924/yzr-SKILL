@@ -6,6 +6,8 @@ description: 用户在搭建或维护本地、单用户的复利型个人 wiki
   跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest；
   支持以 symlink + .symlink-anchor.toml 路径接入外部代码仓（Linux kernel / Ray 源码等）
   作语料无需内嵌拷贝，按 git 可选 opt-in 的纯目录树 + Markdown 工作流维护。
+  0.23.0+ 起 wiki 真正 multi-agent 兼容：AGENTS.md 把 MEMORY / scripts 索引**内联**进正文
+  （之前用 `@import` 只 Claude Code 展开，Codex / Qoder / Gemini CLI 看不到）。
   不用于云端协作 wiki（Notion / Confluence / Outline Wiki / GitHub Wiki）——
   那些走 yzr-outline-wiki-upload（写 / 编辑）/ yzr-outline-wiki-search（搜 / 读）；
   不用于一次性文档生成、强结构化数据库、多人实时协作。
@@ -13,8 +15,8 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-11
-  wiki_spec_version: 0.22.0
-  fixtures_check_count: 18
+  wiki_spec_version: 0.23.0
+  fixtures_check_count: 20
 ---
 
 # LLM Wiki Management
@@ -30,7 +32,12 @@ metadata:
 - **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + 0.18.0+ 新增
   **check_wiki_fixtures.py**（fixtures 一致性检查；`lint_wiki.py --check-version`
   自动调一次），把高频 deterministic 任务固化下来（**不**含 setup_wiki——wiki
-  仓的创建由外部 workspace CLI 负责）
+  仓的创建由外部 workspace CLI 负责）。**0.23.0+** 起 11 条结构探测 + 9 条
+  0.20.0+ 骨架字段比对（含 2 条 0.23.0+ 新增：`agents-md-inline-index-sections`
+  warn + `agents-md-no-at-imports` error），`fixtures_check_count = 20`；**0.23.0+**
+  起 `lint_wiki.py` 新增 `inlined-memory-index-bloating` warn（`scripts/lint_wiki.py`
+  顶部 `INLINED_INDEX_MAX = 50`），守"AGENTS.md §一 内联 MEMORY 索引条数"护栏——避免
+  渐进加载 L1 膨胀
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、lint-checklist §五
   (semantic-merge 规则，agent 走 .migration-plan.json 时的合并依据)
@@ -108,16 +115,24 @@ metadata:
 3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
    物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
    同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
-   是索引，被 `AGENTS.md` 用 `@MEMORY/MEMORY.md` import 会话常驻——避免 MEMORY 沦为只写不读的死库。
+   是索引（无 frontmatter），其 `## 索引` 段下的全部条目**内联**进 `AGENTS.md` §一
+   `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用 `@MEMORY/MEMORY.md` import——但 `@import`
+   递归展开只 Claude Code 支持，Codex / Qoder / Gemini CLI 不展开 → 整个 `MEMORY/` 对它们不可见。
+   内联后所有 agent 一视同仁）——避免 MEMORY 沦为只写不读的死库。**AGENTS.md 内联段是 MEMORY.md
+   的"投影"，改一处须同步另一处**（lint `memory-not-indexed` 0.23.0+ 双轨扫兜底）。
    为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
    集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
    `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
-   （Qoder / Codex / Gemini CLI 等）原生直读。没有它，LLM 会退化成普通聊天机器人；有它，LLM 是
-   "纪律严明的 wiki 维护者"。**为什么 AGENTS.md 作 SSOT + CLAUDE.md 薄壳**（套用
-   `yzr-multi-agent-context` 方法）：一套真源、Claude Code / Qoder 等 agent 双工具共存——`@import`
-   写在 SSOT 内，两边都能加载。
+   （Qoder / Codex / Gemini CLI 等）原生直读。**L2 索引内联（0.23.0+）**：
+   AGENTS.md 正文自带 `#### 跨会话记忆（索引）` 与 `#### Wiki-local scripts（索引）` 两段，
+   让所有读 `AGENTS.md` 的 agent 都能立即看到 MEMORY / scripts 有哪些条目——之前用 `@import`
+   只 Claude Code 展开，Codex / Qoder / Gemini CLI 看不到（详见 §四层架构第 3 点的内联注）。
+   没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明的 wiki 维护者"。**为什么 AGENTS.md
+   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、Claude Code /
+   Qoder / Codex / Gemini CLI 多 agent 一视同仁——`@import` 写在 SSOT 内**已经不够**，
+   必须内联才能跨 agent（详见 `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。
 
 ### 四个核心操作——为什么是四个
 
@@ -158,18 +173,20 @@ metadata:
 >
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds（0.11.0+: 纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
->    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11），但**含**
->    `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` import（0.9.0+ 起，写在 SSOT 内）。在 wiki 根目录内
->    工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md` 自动加载 SSOT（含索引）；读 `AGENTS.md`
->    的其他 agent（Qoder / Codex / Gemini CLI 等）原生读 SSOT；别处由 skill 按需读 AGENTS.md 时 `@`
->    **不**自动展开，需额外 `Read <$LLM_WIKI_ROOT>/MEMORY/MEMORY.md` + 视情况
->    `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md` 补齐索引
+>    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。**0.23.0+ 起**
+>    AGENTS.md 正文自带 `#### 跨会话记忆（索引）` 与 `#### Wiki-local scripts（索引）` 两段（**内联** MEMORY /
+>    scripts 索引，让所有读 AGENTS.md 的 agent 立即看到有哪些条目；之前用 `@MEMORY/MEMORY.md` +
+>    `@scripts/SCRIPTS.md` import 只 Claude Code 展开）。在 wiki 根目录内工作时——Claude Code 经薄壳
+>    `CLAUDE.md` → `@AGENTS.md` 自动加载 SSOT（含内联索引段）；读 `AGENTS.md` 的其他 agent
+>    （Qoder / Codex / Gemini CLI 等）原生读 SSOT，同样看到内联段。**别处由 skill 按需读 AGENTS.md 时**
+>    也直接读 AGENTS.md（含内联段），**不**再需额外 `Read MEMORY.md` 补齐索引（除非要看各 `<slug>.md` 正文）
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
-> 4. **0.9.0+：** `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md`——确认本 wiki 是否有
->    可用的项目级扩展脚本（批量 ingest / 外部 CLI 胶水 / 自动化 hook），有则按段中
->    "调用约定" 显式执行；不强制（wiki 可无 scripts/），但**触发非标工作流前**必须先查
+> 4. **0.9.0+：** `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md`（按需）——确认本 wiki 是否有
+>    项目级扩展脚本的**完整分节契约**（使用场景 / 调用约定 / 作用 / 前置依赖）；不强制（wiki 可无
+>    scripts/），但**触发非标工作流前**必须先查（AGENTS.md 顶部的 `#### Wiki-local scripts（索引）`
+>    段只列脚本名 + 一句话用途，详细契约仍在本文件）
 >
 > 四件套任一未读完不写任何 wiki 内容。100+ 页的 wiki 还应在 `wiki/` 全域
 > `Grep "<topic>"` 补一次——单看 index.md 可能漏掉 entity/concept 页之间的引用关系。
@@ -204,8 +221,14 @@ metadata:
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
    时主动追加；frontmatter **仅 `title` 必填**（其余 5 字段全 optional，与 wiki 内容页
    的 5 必填规则解耦——spec §5.2），**不在 index.md 强制列出**，**但每条
-   必须在 `MEMORY/MEMORY.md` 索引列一行**（该索引被 AGENTS.md `@` import 会话常驻，否则下次
-   读不到）。详见 spec §5 + [`wiki-spec.md`](references/wiki-spec.md#5-memory)
+   必须在 `MEMORY/MEMORY.md` 索引 + AGENTS.md `#### 跨会话记忆（索引）` 段 双处列一行**
+   （0.23.0+ 双轨；改一处须同步另一处，lint `memory-not-indexed` 双轨兜底，否则下次
+   读不到）。**AGENTS.md 内联索引条数受 `INLINED_INDEX_MAX = 50` 阈值护栏**——
+   `AGENTS.md` 是 progressive disclosure L1 的 SSOT，不应无限膨胀；
+   超阈 lint 报 `inlined-memory-index-bloating` warn（**仅护 AGENTS.md 投影**，
+   `MEMORY.md` 本体可自由增长），agent 选一：(a) 短条目化（索引行改 `- <slug> — 一句话`
+   不带链接）；(b) 分类摘要；(c) 低频条目迁回 `MEMORY.md`「完整条目」段。详见 spec §5 +
+   [`wiki-spec.md`](references/wiki-spec.md#5-memory) + [lint-checklist §二.15](references/lint-checklist.md#15-agentsmd-内联-memory-索引条数阈值)
 10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
    query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**
    回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
@@ -224,9 +247,11 @@ metadata:
 
 12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（0.9.0+ 起，详
    [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md`
-   被 wiki 仓 `AGENTS.md` 用 `@scripts/SCRIPTS.md` import 会话常驻；agent **必须**先
-   `Read SCRIPTS.md` 找段、再按"调用约定"显式执行，**不**自动遍历 `scripts/`；脚本与索引段修改是
-   **原子动作**。`scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本
+   含 `## 索引`（紧凑 one-liner，给 AGENTS.md 投影）+ `## 分节契约（详细）`（每脚本完整契约）双段。
+   **AGENTS.md `#### Wiki-local scripts（索引）` 段（0.23.0+ 内联）**含 one-liner 列表；agent **必须**先
+   看该索引段知道有哪些脚本，再按需 `Read scripts/SCRIPTS.md` 取完整契约，再按"调用约定"显式执行，
+   **不**自动遍历 `scripts/`；AGENTS.md 索引行与 SCRIPTS.md 分节段修改是**原子动作**。
+   `scripts/` 不走 §9 5 必填、不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本
    （版本漂移风险）。`agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
 
 ### 边界
@@ -395,13 +420,19 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   走 lint-checklist §五（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
-### 0.18.0+ 新能力：fixtures 一致性检查（0.20.0+ 升级为字段级骨架比对）
+### 0.18.0+ 新能力：fixtures 一致性检查（0.20.0+ 升级为字段级骨架比对；0.23.0+ 扩到 20 条）
 
 `--check-version` 自动调 `scripts/check_wiki_fixtures.py` 扫 wiki 仓的 9 类约定文件，
 finding 并入 `.migration-plan.json` 的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。
-**`metadata.fixtures_check_count` 条 check**——11 条结构探测 + 7 条 0.20.0+ 骨架字段比对；
-骨架 check 读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT
+**`metadata.fixtures_check_count` 条 check**——11 条结构探测 + 9 条 0.20.0+ 骨架字段比对
+（0.23.0+ 在原 7 条上新增 `agents-md-inline-index-sections` warn + `agents-md-no-at-imports`
+error 两条）；骨架 check 读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT
 （改 fixtures → check 自动跟随），纯骨架件全字段比对、成长件只比结构必填，**不动成长内容**。
+**0.23.0+ 新增 2 条**：
+- `agents-md-inline-index-sections`（warn）——AGENTS.md 含 `#### 跨会话记忆（索引）` +
+  `#### Wiki-local scripts（索引）` 两段（迁移期兜底，避免老 wiki 漏加内联段）
+- `agents-md-no-at-imports`（error）——AGENTS.md 不含 `@MEMORY` / `@scripts` / `@wiki` 等
+  `@import` 行（0.23.0+ 改内联——Codex / Qoder / Gemini CLI 不展开 `@import`，残留即 multi-agent 不达标）
 字段清单（升级时每个约定文件对齐什么）见
 [`references/migrate-workflow.md`](references/migrate-workflow.md)「fixtures 字段更新清单」节。
 
