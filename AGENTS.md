@@ -2,8 +2,6 @@
 
 This file provides guidance to AI coding agents when working with code in this repository.
 
-@MEMORY/MEMORY.md
-
 ## 项目定位
 
 个人自定义 AI skills 合集。仓库本身既是 skills 的消费载体（每个子目录是一个独立 skill），
@@ -188,6 +186,34 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级
   （`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须
   在同一轮并行启动，不要串行。
+
+## 跨会话记忆（索引）
+
+每条完整正文在 `MEMORY/<slug>.md`（与本索引同目录），需要详细背景时请读取对应文件：
+
+- [Python 最低 3.7](MEMORY/python-min-3-7.md) — 新脚本最低 Python 3.7（对齐 pyproject target）
+- [后续脚本优先 Python 3 而非 shell](MEMORY/python-preferred-over-shell.md) — 脚本首选 Python 3，仅纯文本流用 shell
+- [SKILL 描述类修改默认同步仓库源](MEMORY/skill-edits-sync-to-repo-source.md) — 改 SKILL 默认改源，改完 `cp` 回源 + `git` 确认
+- [SKILL 源 vs 运行时 vendor](MEMORY/skill-source-vs-runtime-vendor.md) — 改源才进 git、才随 npx 分发
+- [影响 SKILL 输出的"为什么"必须同步到 SKILL 源](MEMORY/memory-synced-to-skill-source.md) — 影响输出 / 行为的决策须落 SKILL 源
+- [outline MCP 加 settings.local.json 白名单](MEMORY/outline-mcp-permission-allowlist.md) — 加 `mcp__outline__*` 白名单避拦截，退路走 REST
+- [SKILL 代码仓优先级：源 > MEMORY > vendor](MEMORY/skill-source-priority-over-memory-vendor.md) — 影响行为的规则必须落 SKILL 源
+- [paper-wiki 整合：本地与远端解耦](MEMORY/paper-wiki-integration-design.md) — 远端发布独立成 skill，producer 不假设 consumer
+- [gemini-paper-summary --full 4 个设计决策](MEMORY/gemini-paper-summary-full-mode-design.md) — `--full` 产全量转储当 raw 底座（D1-D4）
+- [gemini-pdf-summary manual/whitepaper 改 full](MEMORY/gemini-pdf-summary-manual-whitepaper-full-design.md) — 按原生章节全文级转写
+- [gemini-pdf-summary paper --full 单产物](MEMORY/gemini-pdf-summary-paper-full-single-output.md) — 单产物 full，quick 解耦
+- [H1 transform：publish 时注入](MEMORY/h1-transform-publish-time-inject.md) — 产物无 H1，由未来 publish skill 注入
+- [ddnsto relay 仅 HTTPS 443 才透到上游](MEMORY/ddnsto-relay-https-only-quirk.md) — 隧道 MCP endpoint 必须用 `https://`
+- [Outline MCP 吃掉 --- frontmatter](MEMORY/outline-mcp-strips-yaml-frontmatter.md) — `---` YAML 被丢，元数据走 yaml 围栏
+- [影响分发后行为的经验必须进 SKILL](MEMORY/experience-affecting-skill-distribution-goes-to-skill-not-memory.md) — 新坑先进 SKILL 后 MEMORY
+- [部分 agent 截断 MCP 多 content block](MEMORY/agent-mcp-truncates-multiblock.md) — 读正文走 REST `POST /api/documents.info`
+- [字数限制用"字符"单一单位](MEMORY/prompt-length-unit-character.md) — 字数上限只用"字符"，不用"词"
+- [gemini-paper-summary 图片提取边界](MEMORY/gemini-paper-summary-figure-extraction-edges.md) — 视觉定位 / caption / quick 带图等设计决策
+- [wiki-spec ↔ workspace-spec type enum 耦合](MEMORY/wiki-workspace-spec-type-coupling.md) — 改 type enum 须同步查两 spec §13/§9.1
+- [wiki/workspace 纪律 AGENTS.md SSOT + CLAUDE.md 薄壳](MEMORY/wiki-spec-0-11-agents-md-ssot.md) — 套用 yzr-multi-agent-context
+- yzr-skill-creator 审计 / 归档记录不要每次都写 — 直接交付结果 + 修复，不归档 audit 文档（短条目，无正文）
+- [设计优化阶段以 repo 内 SKILL 描述为准](MEMORY/design-optimization-ignore-vendor-state.md) — 设计优化只动仓库源，不查 / 补 vendor
+- markdownlint 从 skill 子目录跑会 MD013 假阳性 — 从仓库根跑，或 `-c` 指定 config（短条目，无正文）
 
 ## 注意事项
 
