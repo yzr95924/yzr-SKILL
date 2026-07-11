@@ -1,7 +1,7 @@
 # Migrate（升级 wiki spec）详细流程
 
 > 本文件从 `SKILL.md` §5 Migrate 整段下沉而来——主 SKILL.md 留 pointer 即可，
-> 详细流程按需 Read 本文件。SSOT 是 [`wiki-spec.md` 附录 B](wiki-spec.md#附录-b版本历史)
+> 详细流程按需 Read 本文件。SSOT 是 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)
 > （迁移依据每行写在那边），本文件是 agent 视角的执行流。
 
 ## 触发
@@ -22,9 +22,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 - **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / 落盘
   `.migration-plan.json`，**不**改任何 wiki 内容
-- **agent**（本节定义）= 修复者。按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用
+- **agent**（本节定义）= 修复者。按 `.migration-plan.json` + [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 用
   Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
-- **`wiki-spec.md` 附录 B** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
+- **[`wiki-spec-changelog.md`](wiki-spec-changelog.md)** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
 - **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
 
 ## 流程（agent 驱动，与 SKILL.md §1-§4 风格一致）
@@ -40,11 +40,11 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - 与 SKILL 仓 `metadata.wiki_spec_version`（`scripts/lint_wiki.py` 顶部常量
      `CURRENT_WIKI_SPEC`）比对：相等 / 老 / 新
    - 扫已知 legacy 现场：老字段（`confidence`）+ 其它受 spec 演进影响的内容（详见
-     [wiki-spec 附录 B](wiki-spec.md#附录-b版本历史)）
+     [`wiki-spec-changelog.md`](wiki-spec-changelog.md)）
      - 退役 `type` 值（`type: memory`）
    - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，**agent 不覆盖**
 3. **dry-run 报告**（默认必走）：
-   - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec.md 附录 B 哪行"
+   - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec-changelog.md 哪行"
    - 冲突页单独标红，**绝不自动覆盖**——等用户裁定
    - 询问用户：应用全部 / 部分应用 / 仅看清单
 4. **生成 plan**（用户同意应用时）：

@@ -19,7 +19,7 @@ lint_wiki.py — deterministic 健康检查
 --check-version 扫描当前 wiki 的 spec 版本（解析 CLAUDE.md §八 "Wiki Spec 版本"），
   与 SKILL 仓 metadata.wiki_spec_version 比对，列出老格式 legacy 现场。默认仅打印报告
   （不动任何文件）；加 `--apply` 会落盘 `<wiki-root>/.migration-plan.json` 供 agent 按
-  wiki-spec.md 附录 B 规则用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
+  wiki-spec-changelog.md 规则用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
 
 退出码：
 - 0 = 全部指定严重性级别内无 finding / --check-version 报告完成（无论是否需迁移）
@@ -109,7 +109,7 @@ def _is_absolute_path(p: str) -> bool:
 
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
-# 详见 references/wiki-spec.md §10「版本钉死」与附录 B「版本历史」。
+# 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
 CURRENT_WIKI_SPEC = "0.23.0"  # 0.23.0 = AGENTS.md L2 索引改内联（多 agent 真兼容）+ memory-not-indexed 双轨扫
@@ -145,7 +145,7 @@ def _assert_spec_version_sync() -> None:
         sys.stderr.write(
             f"[lint_wiki] WARNING: CURRENT_WIKI_SPEC ({CURRENT_WIKI_SPEC}) "
             f"!= SKILL.md metadata.wiki_spec_version ({declared}). "
-            f"升 wiki spec 版本时需同步改脚本常量（SSOT 见 references/wiki-spec.md 附录 B）。\n"
+            f"升 wiki spec 版本时需同步改脚本常量（SSOT 见 references/wiki-spec-changelog.md）。\n"
         )
 
 
@@ -155,14 +155,14 @@ _assert_spec_version_sync()
 MIGRATION_PLAN_FILENAME = ".migration-plan.json"
 
 # 已知 legacy pattern 的"pattern key"——为后续扩展预留，每个 key 是一类迁移动作。
-# rule_ref 指向 wiki-spec.md 附录 B 的对应行；agent 修复时按此引用。
+# rule_ref 指向 wiki-spec-changelog.md 的对应行；agent 修复时按此引用。
 LEGACY_PATTERN_KEYS = {
-    "confidence-field": "wiki-spec.md#附录-b-0-7-0",
+    "confidence-field": "wiki-spec-changelog.md#0-7-0",
     # 0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法（spec §5.2）；
     # 本规则仅对 wiki 5 类内容页误用 reserved `type: memory` 报错。
-    "type-memory-value": "wiki-spec.md#附录-b-0-19-0",
-    "claudemd-tag-section": "wiki-spec.md#附录-b-0-8-0",
-    "claudemd-not-thinshell": "wiki-spec.md#附录-b-0-11-0",
+    "type-memory-value": "wiki-spec-changelog.md#0-19-0",
+    "claudemd-tag-section": "wiki-spec-changelog.md#0-8-0",
+    "claudemd-not-thinshell": "wiki-spec-changelog.md#0-11-0",
 }
 
 # 严重性等级
@@ -1662,7 +1662,7 @@ def _migrate_confidence_in_text(text: str, conf_value: str, today: str) -> str:
 # ---------------------------------------------------------------------------
 # --check-version：扫描 wiki 的 spec 版本 + 老格式 legacy 现场
 # 设计见 yzr-llm-wiki-management/docs/superpowers/specs/<date>-migrate-design.md
-# 职责：纯探测（不动 wiki 内容）；agent 拿到 plan 后按 wiki-spec.md 附录 B 走 Edit/Write 修复。
+# 职责：纯探测（不动 wiki 内容）；agent 拿到 plan 后按 wiki-spec-changelog.md 走 Edit/Write 修复。
 # ---------------------------------------------------------------------------
 
 # CLAUDE.md §八 表格行匹配：
@@ -1926,7 +1926,7 @@ def build_migration_plan(
     """把 detect_legacy_patterns 的发现 + fixtures-check 的发现组织成 agent 可执行的 plan。
 
     每个 action 含 file / type / rule_ref / 具体 remove & add_or_modify；
-    agent 按 wiki-spec.md 附录 B 引用 rule_ref 走 Edit/Write。
+    agent 按 wiki-spec-changelog.md 引用 rule_ref 走 Edit/Write。
     fixtures-fix-* 类动作落进 `fixtures_actions[]`，与 legacy pattern 的 actions[] 平行——
     agent 走 plan 时两套都得跑（fixtures 修复优先于内容页 frontmatter 修复）。
     """
@@ -2167,7 +2167,7 @@ def build_migration_plan(
         "to_version": CURRENT_WIKI_SPEC,
         "skill_path": "yzr-llm-wiki-management/SKILL.md",
         "spec_doc": "yzr-llm-wiki-management/references/wiki-spec.md",
-        "rule_doc": "yzr-llm-wiki-management/references/wiki-spec.md#附录-b-版本历史",
+        "rule_doc": "yzr-llm-wiki-management/references/wiki-spec-changelog.md",
         "actions": actions,
         "fixtures_actions": fixtures_actions,
         "skipped_conflicts": legacy.get("conflicts", []),  # type: ignore

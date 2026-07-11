@@ -124,7 +124,7 @@
      comparison   : older
      needs_migration: true
      [LEGACY] 共 12 处老格式现场
-       - confidence-field (12) → wiki-spec.md#附录-b-0-7-0
+       - confidence-field (12) → wiki-spec-changelog.md#附录-b-0-7-0
            wiki/sources/llama-2.md  [CONFLICT] ← 同时有 reviewed，需人工裁定
            wiki/sources/llama-3.md
            ...

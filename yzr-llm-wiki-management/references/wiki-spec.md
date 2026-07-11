@@ -49,7 +49,7 @@
 - [§13 raw/external/——外部代码仓接入](#13-rawexternal外部代码仓接入可选)
 - [§14 scripts/——本 wiki 仓扩展脚本目录（0.9.0+）](#14-scripts本-wiki-仓扩展脚本目录090)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
-- [附录 B：版本历史](#附录-b版本历史)
+- [附录 B：版本历史](wiki-spec-changelog.md)  *(changelog 已拆出独立文件)*
 
 ## §1 目录结构
 
@@ -332,33 +332,12 @@
 
 ## §6 .gitignore
 
-CLI 必须生成一份最小 `.gitignore`，至少包含以下忽略规则：
-
-```gitignore
-# OS / 编辑器
-.DS_Store
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Obsidian 配置（保留 vault 内容）
-.obsidian/workspace*
-.obsidian/cache
-
-# 临时文件
-*.tmp
-*.bak
-
-# 外部代码仓 symlink（详见 §13）
-raw/external/*
-!raw/external/**/.symlink-anchor.json
-```
-
-**必须不**忽略：`wiki/`、`raw/`（除上方的 `raw/external/*` 例外）、`CLAUDE.md`、`.gitignore` 自身。
-
-- `.gitignore` **无论是否 opt-in git 都生成**：无 git 时它是无害的空操作，且便于后续补 git；
-  不因"未启用 git"而省略本文件。
+`.gitignore` **无论是否 opt-in git 都生成**（无 git 时是无害空操作，便于后续补 git）。完整字节
+SSOT 在 [`references/fixtures/gitignore.txt`](fixtures/gitignore.txt)——CLI 按该文件逐字
+落盘，`scripts/check_wiki_fixtures.py` 的 `gitignore-init-rules-complete` check 做字段级
+骨架比对。**必含 4 段**：OS / 编辑器忽略 / Obsidian 配置 / 临时文件 / 外部代码仓 symlink
+（保留 `raw/external/.symlink-anchor.toml` 元数据）；**必不**忽略 `wiki/`、`raw/`
+（除 `raw/external/*` 例外）、`CLAUDE.md`、`.gitignore` 自身。
 
 ## §7 Git 初始化（opt-in，默认跳过）
 
@@ -972,22 +951,6 @@ CLI 在生成完成后，可执行以下验证：
 
 ## 附录 B：版本历史
 
-| 版本 | 日期 | 变更 |
-| --- | --- | --- |
-| 0.23.0 | 2026-07-11 | **`AGENTS.md` L2 索引改内联（多 agent 真兼容）+ 内联索引条数 bloat guard**——`@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 两行 `@import` 从 `AGENTS.md` 顶部**删除**，其内容改为**内联**进 `AGENTS.md` 正文：§一 `#### 跨会话记忆（索引）` 段逐字内联 `MEMORY/MEMORY.md ## 索引` 段全部条目；§一 `#### Wiki-local scripts（索引）` 段逐字内联 `scripts/SCRIPTS.md ## 索引` 段 one-liner 列表。**根因**：`@import` 递归展开只 Claude Code 支持（经薄壳 `CLAUDE.md → @AGENTS.md` 展开），Codex / Qoder / Gemini CLI 不展开 `AGENTS.md` 内的 `@import`——0.22.0 之前整个 `MEMORY/` 与 `SCRIPTS.md` 对它们**不可见**，"多 agent 兼容"沦为口号。**内联后所有 agent 一视同仁**（论证详见 `yzr-multi-agent-context/SKILL.md`「L2 陷阱段」）。`scripts/SCRIPTS.md` 形态改为双段：顶部 `## 索引`（紧凑 one-liner 给 AGENTS.md 投影）+ 下方 `## 分节契约（详细）`（每脚本 `### <name>` 段，4 要素契约）。`check_wiki_fixtures.py` 新增 **2 条** check（共 **20 条**）：`agents-md-no-at-imports`（error，扫 `AGENTS.md` 残留 `@MEMORY` / `@scripts` / `@wiki/tags.md` 等 `@import` 行）+ `agents-md-inline-index-sections`（warn，迁移期兜底——扫 `#### 跨会话记忆（索引）` + `#### Wiki-local scripts（索引）` 两个 h4 段是否齐备）。`scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.23.0；新增常量 `INLINED_INDEX_MAX = 50` + 新增 `check_inlined_memory_index_size()`——扫 `AGENTS.md` §一 `#### 跨会话记忆（索引）` 段 bullet 数，超过阈值报 `inlined-memory-index-bloating` warn（**仅护 AGENTS.md 投影**，`MEMORY.md` 本体可自由增长）；`severity_of()` 加 `inlined-memory-index-bloating → warn` 映射。SKILL.md `metadata.wiki_spec_version` 升至 0.23.0 + `metadata.fixtures_check_count` 由 18 升至 20；`scripts/check_wiki_fixtures.py` CHECK_REGISTRY +2。`references/wiki-spec.md` §2 / §5 / §5.1（含新增"内联索引条数护栏"段）/ §5.2 / §11 / §14.3 / §14.4 / §14.6 / §14.7(新增 §14.8 迁移指南) / §目录树 / §5 加载机制段 全部同步重写对齐"内联"口径；`references/lint-checklist.md` 新增 §二.15「AGENTS.md 内联索引条数阈值」+ §二.14 措辞同步 + 目录重排（§15 related/compared → §16）；`references/agents-md-template.md` §一 新增两个 `####` 子段 + 各加一条"内联索引条数护栏"纪律条目、`@import` 行删除；`references/claude-md-template.md` 顶部声明改写（去掉 `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` 提及）；`references/canonical/{memory-index,scripts}.md` + `references/fixtures/{memory-index,scripts.md}.txt` 顶部注释更新加载机制。**破坏性**：0.22.0- 老 wiki 升级后会立即报 `agents-md-no-at-imports`——LLM agent 按 §14.8 7 步迁移（删 `@import` 行 + 增两个 `####` 段 + 改 §八 版本号 + 不写 log + 不改 MEMORY.md / SCRIPTS.md 本体）。迁移后所有 agent 一视同仁看到 MEMORY 索引与 scripts 列表——这是 0.22.0 起承诺但实际未达成的"多 agent 兼容"的真正落地；老 wiki 升级后还会**新报** `inlined-memory-index-bloating` warn（若内联后条目 > 50），但属非阻断 warn，由 agent 选短条目化 / 分类摘要 / 回写 MEMORY.md 三选一 |
-| 0.22.0 | 2026-07-11 | **related / compared frontmatter 路径格式约定（wiki 根相对）+ 新增 `related-broken-link` lint check（warn）**——`wiki-spec.md §9`「类型特化字段」表 `related` / `compared` 行明确路径格式约定：**wiki 根相对路径**（如 `concepts/transformer.md`），裸文件名（`transformer.md`）与文件相对路径（`../concepts/transformer.md`）均不再被接受。新增 `§9 路径格式约定`段说明两层约定区分——frontmatter 路径字段（机器消费为主，wiki 根相对、跨子目录不丢信息）vs 正文 markdown 链接（人读为主，文件相对、in-context 局部）。`scripts/lint_wiki.py` 新增 `check_related_links()` 扫 `related` / `compared` 字段每条元素，按 wiki 根相对解析，`is_file()` 判定；不命中 → 报 `related-broken-link`（warn）——与正文 `broken-link`（error）严重性区分开（frontmatter 是机器消费、非人直接阅读内容）。`references/lint-checklist.md` 新增 §二.15 段；`severity_of()` 加 `related-broken-link → warn` 映射。`references/page-templates.md` concept / comparison 模板示例同步更新为 wiki 根相对路径。**非破坏性**：`related` / `compared` 字段为可选（spec §9「必填」列均为否），缺字段的 wiki 升级零影响；已有的裸文件名 / 文件相对路径 wiki 升级后会一次性报出所有 `related-broken-link` warn，由用户批量改写为 wiki 根相对形式。`contradictions` 字段按 spec §9 既有约定**保留**文件相对解析（与 `related` / `compared` 两层区分是有意保留），不在本检查范围。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.22.0 |
-| 0.21.0 | 2026-07-11 | **raw/external/ sources 允许指向目录（bug fix）**——`scripts/lint_wiki.py` `check_sources_field` external 分支（第 657 行）由 `sp.is_file()` 改为 `sp.exists()`：external repo 本身是 git 仓（即目录），`sources: [raw/external/<symlink>]` 语义合法；原 `is_file()` 对目录返回 `False` 导致误报 `sources-missing`。finding 消息由「文件不可访问」改为「路径不可访问」。普通 raw 路径（非 `raw/external/`）的 sources 仍要求指向**文件**——raw 子树语义是「已 ingest 的文档」，目录型 raw 来源暂无用例。spec §13.3「LLM agent 责任」补 `sources:` 元素类型澄清（文件或目录皆可，仅 external 分支）；`references/lint-checklist.md` §二.3 step 4 措辞同步。**非破坏性**：合规 0.20.0 wiki 升级 = bump AGENTS.md §八版本号即可，无内容改动；之前因 external sources 指向整仓而误报 `sources-missing` 的页面升级后自动消失。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.21.0 |
-| 0.20.0 | 2026-07-08 | **fixtures 字段级骨架比对 + 常规 lint 版本检查 + 升级末尾清理**——`check_wiki_fixtures.py` 从 11 条扩到 **18 条** check：新增 7 条骨架字段比对（`gitignore-init-rules-complete` / `index-md-frontmatter-complete` / `index-md-skeleton` / `log-md-frontmatter-complete` / `memory-index-skeleton` / `scripts-md-skeleton` / `tags-md-skeleton`），读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 **SSOT** 做字段级骨架比对（改 fixtures → check 自动跟随）：纯骨架件（.gitignore / tags.md / SCRIPTS.md / MEMORY.md）全字段骨架比对，成长件（index.md / log.md）只比结构必填（frontmatter 键 + H1 + 说明块），**不动成长内容**。`build_migration_plan()` 新增 `fixtures-fix-skeleton` 通用 action 类型（匹配 `*-skeleton` / `*-frontmatter-complete` / `*-init-rules-complete` cid，`to_action` 引用 expected 缺失项）。常规 lint 新增 `check_spec_version()`——每次 lint 查 AGENTS.md §八版本与 `CURRENT_WIKI_SPEC` 一致性，落后 / 领先给 warn 提示走 `--check-version` 升级（finding `wiki-spec-version-stale` / `-ahead` / `-unparsed`）。升级流程末尾新增「清理临时文件」步（删 `.migration-plan.json` + `*.bak`）。`fixtures/gitignore.txt` 加 `.migration-plan.json`（升级中间产物，用完即删 + 不进 git）。**纯检测覆盖增量，无文件格式变更**：合规的 0.19.0 wiki 升级 = bump AGENTS.md §八版本号即可，无内容改动；缺骨架字段的老 wiki 才首次收到 `fixtures-fix-skeleton` action。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.20.0；`SKILL.md` §0.18.0+ 段 + §5 Migrate + `references/migrate-workflow.md`（新增「fixtures 字段更新清单」节 + step 8 清理）+ `references/lint-checklist.md`（§二前置版本检查 + §八边界）+ `scripts/check_wiki_fixtures.py` docstring 同步 |
-| 0.19.0 | 2026-07-08 | **MEMORY frontmatter 解耦 + raw/external/ sources 例外**——`scripts/lint_wiki.py` `check_frontmatter` 拆分为两段：wiki 5 类内容页保留 5 必填（`title`/`type`/`created`/`updated`/`tags`），**MEMORY/*.md 改为仅 `title` 必填**（其余 5 字段全 optional——spec §5「agent 私有」定位 + 与短条目「1 行索引行」形态对齐）。`VALID_TYPES` 扩展 `memory` / `memory-entry` 两类（spec §5.2 + §9）；`check_reviewed_signals` 与 `check_tag_taxonomy` 的 `target_pages` 不再含 MEMORY 桶（MEMORY 是 agent 私有，不走 wiki 用户面 reviewed 校验 + 不共享 tag taxonomy）。`check_sources_field` 加 `raw/external/<symlink>/...` 例外分支（spec §13.3）：`.resolve()` 后落 wiki 根外是 symlink 预期行为，改为校验 anchor + symlink 存在 + 文件可访问；新增 finding `sources-external-anchor-missing` / `sources-external-symlink-missing` / `sources-malformed`。**破坏性**：`type: memory` / `type: memory-entry` 在 MEMORY/*.md 上从「非法」变「合法」（无需迁）；5 必填 MEMORY 老页面继续合法（不强制减字段）；wiki 5 类内容页规则不变。SKILL.md `metadata.wiki_spec_version` + `scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.19.0；`references/lint-checklist.md` §5.1 / §二.2 / §二.3 / §二.11 / §二.13 / §九.1 + `references/page-templates.md` §一 + `references/wiki-spec.md` §5.2 全部同步重写对齐新口径 |
-| 0.18.0 | 2026-07-07 | **fixtures 一致性检查能力增量**——`--check-version` 自动调一次 `scripts/check_wiki_fixtures.py`，扫 wiki 约定文件（AGENTS.md §八版本行 / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md / MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）是否满足当前 wiki spec 的字节合规，并入 report["fixtures_check"]；`build_migration_plan()` 新增 `fixtures_actions[]` 数组（与 legacy `actions[]` 平行；type 前缀 `fixtures-fix-*`，含 `expected`/`actual`），落 `.migration-plan.json` 供 agent 走 Edit/Write 修约定文件。**11 条** check：agents-version-is-current / gitignore-external-track-toml / symlink-anchor-toml-schema / symlink-anchor-toml-symlink-matches / symlink-anchor-flat-not-legacy / index-md-categories-stable / memory-index-no-frontmatter / memory-entries-indexed / log-md-format-strict / scripts-md-no-frontmatter / tags-md-no-frontmatter。`fixtures-fix-anchor-merge / -anchor-schema / -anchor-symlink-matches` 三条按 `lint-checklist.md` §五.3 五步迁移（不是单 Edit）——其余可单 Edit 落。**语义合并规则**落到 `references/lint-checklist.md` §五（frontmatter 合并 / index 重复条目 / 0.16.0 → 0.17.0 anchor 多 entry 归并 / MEMORY supersede 等），由 LLM 按该规则人工合并——scripts/ 不替代语义判断（脚本只产 plan）。SKILL.md `metadata.wiki_spec_version` 升至 0.18.0；`SKILL.md` §1 交付物 + §5 Migrate + 「输入 / 输出」 + 「四个核心操作」段加 fixtures-check 描述；`scripts/lint_wiki.py` `CURRENT_WIKI_SPEC` 升至 0.18.0 + `_run_fixtures_check()` 新增（subprocess 调 check_wiki_fixtures.py + 解析 JSON）+ `build_migration_plan()` 新增 `fixtures_actions` 落盘 + `_print_fixtures_check()` 新增 |
-| 0.17.0 | 2026-07-07 | **§13 raw/external/ 扁平化 + anchor 改 TOML**：anchor 从「每仓一份 `<source-name>/.symlink-anchor.json`（JSON object）」改为「单文件 `external/.symlink-anchor.toml`（TOML array-of-tables，支持注释）」——所有外部仓的 symlink 直接放在 `raw/external/` 下、共享一份 anchor。`[[entry]]` 数组每元素含 `symlink` / `target` / `captured_at` / `kind` 必填 + git 扩展字段（git 仓时必填）+ `tag` / `notes` 可选；顶层 `schema_version = 1` 可选。**破坏性变更**：0.16.0- 老 wiki 跑 `lint_wiki.py` 会报 `external-anchor-missing`（旧 `<source-name>/.symlink-anchor.json` 不再被识别）——LLM agent 按 §13.6 迁移指南手工 Edit/Write 升级（`--check-version --apply` 不为此自动迁移，结构差异太大）。SKILL.md `metadata.wiki_spec_version` 升至 0.17.0；`scripts/lint_wiki.py` `check_external_symlinks` + `_parse_anchor` + `_check_git_anchor` 全部重写——`tomllib`（py3.11+）解析、entry 级 git 字段校验、新增 finding `external-anchor-orphan`（warn：symlink 存在但 anchor 无 entry）/ `external-symlink-missing`（error：anchor 有 entry 但 symlink 不在 `external/` 顶层）/ `external-source-name-invalid`（error：symlink 命名不合 `^[a-z0-9][a-z0-9-]*$`）。`agents-md-template.md` §一 / `external-repo-rebuild.md` / `lint-checklist.md` / `SKILL.md` §1.bulk + 核心原则 + 边界 + 反模式 / `references/fixtures/gitignore.txt`（`**/.symlink-anchor.json` → `.symlink-anchor.toml`）同步对齐扁平形态。`subpath` 字段退役——直接创建多 symlink 表达 |
-| 0.16.0 | 2026-07-07 | **红线贯彻：CLI 撤掉全部 git 操作**——§7 重写。CLI init 仅落盘目录结构 + touch .gitkeep + 打印 hint，**完全不碰 git**（不 `git init` / `git symbolic-ref` / `git config` / `git add` / `git commit`）。**根因**：0.16.0 前 CLI 在 `--git` opt-in 时自动跑 `git init` + `git symbolic-ref HEAD refs/heads/main` + `git config user.email` 占位 + `git add .` + `git commit`，违反"所有 git 操作由用户触发"红线。CLI 主动 git init 还会让 raw/ 整体 0 tracked 等问题被"假提交"掩盖（init 时仓是空的，commit 后 raw/articles/ + raw/assets/ 仍是空目录、靠 0.15.0 的 `.gitkeep` 占位才进 git，但前提是 CLI 真做了 git add）。CLI 退回纯落盘后，**用户**看到 wiki 落盘后**自己决定**是否 init + add + commit——所有 git 操作都可追溯到用户意图。**破坏性**：CLI 0.16.0+ 升级后，老用户（CLI 0.16.0 之前 init 过 git 的 wiki）**不受影响**——git 仓已存在、history 已写，新 CLI 不再主动 add/commit 不会破坏 history；新用户（首次 init）需手动 `cd <wiki-root> && git init && git add . && git commit -m "..."`。**包含 0.15.0 设计的 raw/.gitkeep 占位**——CLI 仍 touch `raw/articles/.gitkeep` + `raw/assets/.gitkeep`，但**不**自动 `git add`；用户首次 `git add .` 时由 git 自然纳入（前提是用户 init git，否则纯目录树）。SKILL.md `metadata.wiki_spec_version` 升至 0.16.0；`lint-checklist.md` §二.1 raw-modified 措辞更新（前提改为"wiki 仓在 git 内 + raw/ 有 tracked 文件"——CLI 不再保证 git init，"未启用 git"是更常见的状态）；`agents-md-template.md` §一 加"git 由用户触发"纪律 |
-| 0.14.0 | 2026-07-07 | §13.2 `target` 字段类型放宽为「绝对路径 **或** `~/...` home-relative 形式（推荐后者）」——同 home 布局的多机可共享同一 anchor 不需重写；`scripts/lint_wiki.py` 在 §13.5 校验前已 `Path(target).expanduser()` 统一展开，**不**需新增 finding（绝对路径展开后不变，`~/...` 展开为 `$HOME/...`）。SKILL.md `metadata.wiki_spec_version` 升至 0.14.0；`SKILL.md` §1.bulk / `agents-md-template.md` / `external-repo-rebuild.md` / `lint-checklist.md` §二.3 措辞同步对齐"允许 `~/...`"。**老 wiki 兼容**：0.13.0 及更早的 anchor 写的是绝对路径，`expanduser` 展开后等价不变，lint 行为不变；新接入/重写 anchor 时推荐改用 `~/...` 形式（用户主动改） |
-
-> **更早版本**（0.13.0 → 0.1.0）摘要：`sources-absolute-path` finding（0.13.0）/ `raw/external/`
-> schema + git 锚定（0.12.0）/ AGENTS.md SSOT + CLAUDE.md 薄壳拆分（0.11.0）/ MEMORY/ 平级
-> 目录（0.10.0）/ `scripts/` + `SCRIPTS.md`（0.9.0）/ `wiki/tags.md` tag 白名单（0.8.0）/
-> `reviewed` / `reviewed_at` 二态替代 `confidence`（0.7.0）/ MEMORY 索引改名 MEMORY.md
-> （0.6.0）/ `contested` / `contradictions` 字段（0.5.0）/ `raw/external/` 首次引入（0.4.0）/
-> git 初始化 opt-in（0.3.0）/ MEMORY 目录首次引入（0.2.0）/ 初始版本（0.1.0）。详细 changelog
-> 见 git log / 老 wiki 的 spec 历史 tag。
+完整 spec 演进日志（0.14.0 → 0.23.0，每版的 spec / SKILL / lint / agents-md 同步范围）已
+拆出到 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)——CLI 不读，agent 追"为什么
+这条规则存在"时按需 Read。

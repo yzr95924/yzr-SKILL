@@ -87,7 +87,7 @@ legacy 老格式现场：
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
 # 加 --json 输出机器可读 JSON（agent 程序化消费）
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --json
-# 加 --apply 落盘 .migration-plan.json 供 agent 按 wiki-spec.md 附录 B 走 Edit/Write 修复
+# 加 --apply 落盘 .migration-plan.json 供 agent 按 wiki-spec-changelog.md 走 Edit/Write 修复
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
 ```
 
@@ -107,7 +107,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **不**写 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
 完整 agent 修复路径、边界、与 lint 检查的协同见 [SKILL.md §5 Migrate](../SKILL.md#5-migrate升级-wiki-spec)。
-规则 SSOT 见 [`wiki-spec.md` 附录 B](wiki-spec.md#附录-b版本历史)。
+规则 SSOT 见 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)。
 
 ## 二、Deterministic 检查清单（脚本执行）
 

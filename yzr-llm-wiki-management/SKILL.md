@@ -406,10 +406,10 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 - **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 0.18.0+ `check_wiki_fixtures.py`
   扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
-- **agent** = 修复者，按 `.migration-plan.json` + `wiki-spec.md` 附录 B 用 Edit/Write 改
+- **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md) 用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
   语义合并按 [`references/semantic-merge.md`](references/semantic-merge.md) 走
-- **`wiki-spec.md` 附录 B** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
+- **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 semantic-merge.md（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
