@@ -21,6 +21,7 @@
 - **有辨识度**：description 要和其它 skill 争夺 agent 的注意力——写得独特、一眼能认出来。
 - **反复失败就换结构**：同一思路连续失败时，换句式 / 换措辞，别钻牛角尖。
 - **鼓励创造性**：多轮迭代里换不同风格尝试，最终只取最高分那版。
+- **不写工作流摘要（保留能力清单 / 入口列表，不写"先做 X 再做 Y"）**：description 只列"用户意图类别 + 关键能力 + 触发场景"，**不**写"先做 X → 再做 Y → ..."的步骤序列。步骤属于 SKILL.md 正文——description 写步骤会让 agent 把 description 当 shortcut 跳读 skill 正文、按 description 的步骤摘要执行（丢失正文里的"为什么"与例外处理），尤其在 `DESCRIPTION_MAX_CHARS` 硬截断时（见 `scripts/utils.py`，超限被截）会丢掉关键约束。**冲突说明**：superpowers 等其它方法论建议"description 永不写步骤"——yzr-skill-creator 保留"能力清单 + 入口列表"形式（这是**意图 + 触发场景**而非步骤），仅禁"step-by-step 流程摘要"——即"列出 4 个入口"是允许的，"入口 1 → 入口 2 → 入口 3 → 入口 4"按顺序串讲不允许。
 
 ## 正文写作原则
 
@@ -47,3 +48,33 @@
 - **跨 skill 依赖单向（避免双向依赖 / 成环）**：skill 之间通过正文措辞（“转交 / 调用 / 产物交给 X 消费 / 风格对齐 X / 前置条件依赖 X”等）表达的依赖关系必须构成**有向无环图（DAG）**——A 依赖 B 时，B 不得反过来依赖 A。双向依赖的典型长相是：A 正文写“这步走 B / 产物交给 B / 对齐 B 的风格”，同时 B 正文也写“输入来自 A / 调 A 的能力 / 转回 A 处理”。它会混淆模型对上下游的判断（跨 skill 任务按错方向转交），也让两个 skill 的演进互相锁死（动 A 就得同步动 B）。这是**仓库级原则**（其余原则都针对单个 skill）；判断依赖方向属语义判断，`scripts/check_skill_dependencies.py` 只筛查“互相提及”的候选对并给证据，但“互提”不等于“互依”（分工转交、风格对齐是良性的），是否成环仍需人工读正文确认。确需双向协作时，把分工约定集中写在**一处**（根 `CLAUDE.md` 的“跨 skill 协作约定”，或某个协调 skill 如 `yzr-llm-wiki-management` 统一编排论文管线），别让两个 skill 各写一半互相指。
 - **跨 skill 相对路径引用禁止（链接 target 只限本 skill 目录）**：SKILL.md / `references/*.md` 中的 markdown 链接只能指向本 skill 目录（`<skill-name>/**`）下的文件——即相对路径必须以 `./` 开头（同一目录引用）或在本目录树内（如 `references/foo.md` / `../scripts/foo.py`）。跨 skill 目录（如 `../../other-skill/references/foo.md`）的相对路径**禁止**作为 markdown 链接使用。原因：跨 skill 路径在目标 skill 目录结构变化（重命名 / 移动文件 / 重构子目录）时**无声断裂**——渲染时是死链，但 markdownlint 等静态检查不一定能抓到（链接 fragment 不在目标 skill 的 SSOT 范围）。skill 是独立分发的（npx / vendored 副本），跨 skill 链接在不同机器 / 不同 commit hash / 副本路径下都可能漂移。若需指向其他 skill 的某个约定 / 章节，**用纯文本**（"X 侧 spec §Y" / "对齐 X 侧 §Z" / "X 仓的 <file> "）描述，不带链接。审计 grep：`grep -rEn '\]\(\.\./\.\./[a-z]' <skill>/**/*.md`——出现即报"跨 skill 相对路径引用"，按本条原则违规处理（默认改成纯文本，不保留链接）。
 - **markdown 链接相对路径基准匹配（防漂移死链）**：markdown 链接的相对路径基准是**当前文件所在目录**——不是 skill 根、也不是任意约定。从 SKILL.md（在 skill 根）引用写 `references/foo.md`；从 `references/a.md`（在 references/）引用同目录 `b.md` 写 `b.md`，**不**写 `../b.md`（那会退到 skill 根的 `b.md`，不存在 = 死链）；引用 skill 根的 `scripts/foo.py` 写 `../scripts/foo.py`（合法，target 确实在 skill 根）。**最常见错误**：`references/` 内文档互相引用时误写 `../X.md`（多退一层）→ 解析到 `<skill>/X.md` 不存在。与"跨 skill 相对路径引用禁止"互补——那条禁 `../../` 跨 skill，本条管 skill 内基准。**例外**：code fence 内的"教学示例"路径（演示 wiki 内 / 目标产物内引用，如 `sources/foo.md` / `../concepts/x.md`）不受此约束——它们在围栏内、target 本就不该存在；agent 审计时需区分（看是否在 code fence 围栏内），别误报。**审计检查操作**：(1) 把 skill 内每条链接的 path 相对当前文件目录解析，target 文件不存在 = 死链嫌疑；(2) 粗筛 `grep -rnE '\]\(\.\./[a-z_0-9-]+\.(md|py)' references/` 找 `references/` 内指向 skill 根层级的引用，逐个确认 target 是 skill 根真文件（`../scripts/foo.py` 合法）还是同级误加 `../`（`../page-templates.md` 应为 `page-templates.md`）；(3) **fragment 漂移**：`path#anchor` 的 anchor 若目标 heading 改名 / spec 演进后没跟着改 = 失效（典型：heading 从 `wiki/MEMORY` 改 `MEMORY/`，slug 变、旧 anchor 失效），需对比目标 heading 实际 slug（GitHub 风格：小写 + 去标点 + 空格转 `-`；全角标点 `：` / `、` / `（` / `）` 是**删除**而非转 `-`）。
+- **Iron Law（没观察到失败就别写 skill）**：任何"以改变 agent 行为"为目的的 skill——纪律型 / 塑形型 / 模式型（见下方"形式匹配失败"原则的 skill 类型区分）——写之前必须先**不带 skill 跑一遍典型任务**，记录 agent 怎么违反、用了什么借口（从 transcript 逐字摘），再起草 skill。三阶段：**RED**（不带 skill / 用旧版 skill 跑 2–3 个典型 prompt；agent 说的"为简化" / "用户没说明" / "这样更快" / "应该等价"等借口**原样**抄进 Rationalization Table 输入池）；**GREEN**（写**最小** skill 针对刚观察到的具体违规——不要预先堵"可能存在的"漏洞，过度泛化是反模式）；**REFACTOR**（用新 skill 重跑同一批 prompt，每条违规都被堵住即"过"；任何漏洞被发现就回 GREEN 重写，不要跳过 REFACTOR 直接发版）。**规则**：先观察到 agent 犯错 → 再写 skill 防止犯错。**没观察到失败就写 skill = 在赌运气**，大概率漏堵关键漏洞或过度泛化。**纯参考资料型 skill**（API 速查 / 文件路径 / 命令清单——只聚合信息、不改变 agent 行为决策）不强制 baseline（仍建议写测试 prompt 验证"agent 读后能正确引用"，但不需要 Rationalization Table）。
+  - **适用于 EDITS，与新建同标准**：改进现有 skill 的 edit 也适用——若你**没有**先跑当前版本（带旧 skill）记录"哪些行为仍不对 / agent 又找出什么新借口"，那这个 edit 是**未经验证**的，立即丢弃并回到 RED。原则：edit 与新建同标准，不存在"小改免测"的灰色地带。
+  - **审计检查操作**：`grep -nE "迭代|baseline|transcript|Rationalization|RED|GREEN|REFACTOR" <skill>/SKILL.md <skill>/references/*.md` 命中其中 ≥ 1 项 = 有 baseline 证据；纪律型 / 塑形型 skill（grep 命中禁令或步骤式措辞）若无 baseline transcript 证据，按"未经验证"标注。粗筛命令：`grep -rEn "(iteration-[0-9]+|without_skill|old_skill)" <workspace>/` 验证工作区是否真跑过 baseline。
+- **形式匹配失败（prohibition vs recipe vs structural）**：skill 形式必须**匹配要堵的失败类型**——三类形式对应三类失败，错配会反效果。skill 类型判定（technique / pattern / reference / discipline-enforcing）见本原则后半段；下表为按失败类型选形式。
+  - 三类失败 → 对应形式（从 RED transcript 判定 agent 是"知道但偷懒" / "想做但不会" / "根本不知道"哪个）：
+    - **纪律失败**（agent 知道规则但懒 / 漏 / 找借口绕开）→ **结构性禁令** + Rationalization Table + Red Flags（见下方"反合理化"原则）。例："NEVER skip the test step before commit"。
+    - **塑形失败**（agent 想做但不知道怎么做 / 做法不对）→ **配方式步骤**（具体步骤 + 例子 + 何时用）。例："Step 1: 读 X，Step 2: 解析 Y，Step 3: 写 Z"。
+    - **知识失败**（agent 不知道某事实 / 引用错地方）→ **参考资料式**（聚合文档 + 链接 + 索引）。例：API 速查表 / 命令清单 / 文件路径表。
+  - **反模式**：
+    - 纪律失败用配方 → agent 配方做对了但**关键一步仍被跳**（因为跳那步最省事），配方无能为力。
+    - 塑形失败用禁令 → agent 知道"不许做 X"但**不知道该做什么**，停下来等你手把手。
+    - 知识失败用禁令 → 信息密度低、查不到东西。
+  - **禁止 nuance / 例外条款**：写禁令时**不要**加 "if convenient" / "unless..." / "in most cases"——任何开口子都给借口开口子，agent 压力下都会"合理"地走例外。纪律禁令要么写、要么不写，没有"软版本"。**例外条款本身就是反模式**，发现应删除。**自包含说明**：本条自身举例的反例措辞（"if convenient" 等）为反例示意用引号框起，**不是**给本条开口子——本条无例外。
+  - **审计提示**：纯 judgment-based——审计 agent 需读 RED transcript 判断失败类型归属，再核对 skill 形式是否匹配；混合使用多种形式时（如既有禁令又有配方），需确认每段形式对应其要堵的具体失败，不要一刀切归类。
+- **反合理化（仅适用于纪律型 skill）**：纪律型 skill 的核心风险是 agent 压力下找借口绕开禁令——必须用**三件套**堵漏洞，缺任一都不合规。
+  - **三件套**：
+    1. **Rationalization Table**（合理化借口表）：从 RED transcript 摘出 agent **实际说过的**借口，逐条配"为什么这是错的 / 应改做什么"。例：agent 说"为节省时间跳过这步" → 反驳："这步是正确性前提，跳过 = 错误率↑，节省时间但交付物不可用"。**只收录 agent 实际说过的**，不预写"可能存在的"借口——预写 = 噪声 + 干扰信号；RED 没观察到 = 当前不需要。
+    2. **"违反字面 = 违反精神"** 原则（violating the letter = violating the spirit）：skill 必须明确写"违反 X 字面表述 = 违反 X 精神——包括任何看起来不同但效果一致的绕法"。agent 倾向把禁令字面解读（"我没做 Y 所以没违反"——但实际做了 Z 实现 Y），需提前堵。**禁止**用"严格按字面 / 严格按精神"等二选一措辞给 agent 留"按字面就行"的退路。
+    3. **Red Flags list**（红旗清单）：列出"出现以下念头 = 你正在找借口，停下来重读 skill"的征兆清单。例："觉得自己'理解精神了可以省一步'" / "觉得'这一步对当前 case 不必要'" / "觉得'用户没明确说要这步'"。**关键**：红旗是**念头**而非行为——念头出现 = 警告（要重读 skill），不是"已违反"——分清"念头"与"行动"两层。
+  - **触发条件**：纪律型 skill（用禁令形式）**必须**带三件套；塑形 / 知识型 skill **不**需要（按形式匹配失败原则判定）。纪律型 skill 缺三件套 = 几乎必然被绕开。
+  - **审计检查操作**：`grep -nE "NEVER|ALWAYS|必须|禁止|不能|不得" <skill>/SKILL.md <skill>/references/*.md` 命中 → 检查同一文件是否同时含 Rationalization Table + Red Flags + "violating letter = violating spirit"（或"违反字面 = 违反精神"）三段；缺任一 = 纪律型 skill 不合规。**反查**：`grep -nE "Rationalization|合理化|借口|Red ?Flag|红旗" <skill>/**/*.md` 在纪律型 skill 中应至少命中 1 次（用于抓出"用了禁令但忘了三件套"的常见漏）。
+- **精简原则（每段先答 3 问再动笔）**：默认假设 agent 已够聪明——写每段 prose 前先答：(1) agent 真需要这解释吗？(2) 能假设 agent 自己知道吗？(3) 这段值它的 token 成本吗？任一答"否"→ 删或挪到 references/。Anthropic 教学对照：50 token 的"`Use pdfplumber for text extraction`+ 一段代码" vs 150 token 的"PDF (Portable Document Format) files are a common file format..."——3x 缩比（删 agent 已知的常识铺垫）。
+  - **量化软目标**（不取代 5000 词硬上限）：参考资料型（API / 命令清单）< 300 词；高频触发 skill < 800 词；普通 skill < 2000 词；元 skill / 多入口 < 5000 词。**审计指标冲突说明**：本仓库无 `scripts/utils.py` 常量承托 tiered 阈值，prose 字面数字是软目标不是 SSOT；与"脚本常量作 SSOT 时的 prose 引用规范"子原则张力留作未来 TODO。
+  - **修法优先级**（按收益与风险）：(1) 挪到 references/（-800 ~ -1500 词，低风险，正向加新文件不破坏结构）；(2) 挪到 tool help（`Run --help for details.` 替列所有 flag）；(3) 交叉引用（`See references/x.md` 替重写）；(4) 跨 skill 引用（`**REQUIRED SUB-SKILL:** Use <x>` 替复述，**禁用 `@` 强制加载**——会烧 200k+ context）；(5) 压示例（42 词 → 20 词）；(6) 删字（-100 ~ -300 词，高风险最后手段）。
+  - **引用深度硬上限（one level deep）**：`SKILL.md → references/*.md` 合法；`references/a.md → references/b.md` **禁止**——agent 在嵌套引用时用 `head -100` 预览，丢信息。所有 reference 必须从 SKILL.md 直接挂。**例外**：CLI 字面拷贝给目标仓的模板文件不适用此约束（同上"模板文件例外"原则）。
+  - **避免 time-sensitive 信息**：会过期事实（如 "v2 API 取代 v1"）写 `CHANGELOG.md` / `MEMORY/`，SKILL.md 引用而非内联——内联会随时间变成错信息。yzr-skill-creator 仓库不用 HTML `<details>` 折叠块，改用 markdown reference。
+  - **避免太多选项**：每个决策点给"1 个推荐 + 1 个 escape hatch"，不列 N 个等价选项（"你可以用 A / B / C / D..."）——N 个等价选项逼 agent 自己判断，反而拖慢决策。
+  - **executable scripts 优于生成代码**：可脚本化 + agent 多次需要时**写脚本**而非让 agent 现场生成——节省 token（脚本输出占 context、源码不占）、节省时间、保证一致性。论据来自 Anthropic skill 写作指南。
+  - **one excellent example > 多个平庸样例**：一个完整可运行示例胜过 5 个模板填空 / 多语言实现（python + js + go + ...）——agent 自己会移植语言，选最相关的 1 个写好就够。
+  - **审计检查操作**：`wc -w <skill>/SKILL.md` 应 < 5000 词（硬限）；超 tier 软目标但 < 5000 词标"WARN 偏臃肿"；跑 `grep -nE "(PDF (Portable|is a|are a)|files? (is|are) a common|is a common file format)" <skill>/**/*.md` 找"通用背景铺垫"类冗余段。
