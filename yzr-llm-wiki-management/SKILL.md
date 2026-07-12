@@ -1,14 +1,10 @@
 ---
 name: yzr-llm-wiki-management
-description: 用户在搭建或维护本地、单用户的复利型个人 wiki
-  （Karpathy "LLM owns wiki, humans only read" 模式）时使用本 skill
-  ——把原始资料（论文 / 文章 / 剪藏 / 笔记）持续摄入本地 wiki、做跨页综合查询、
-  跑矛盾 / 孤儿 / 过期摘要 lint、围绕新主题接入新 wiki 并引导首次 ingest；
-  支持以 symlink + .symlink-anchor.toml 路径接入外部代码仓（Linux kernel / Ray 源码等）
-  作语料无需内嵌拷贝，按 git 可选 opt-in 的纯目录树 + Markdown 工作流维护。
-  不用于云端协作 wiki（Notion / Confluence / Outline Wiki / GitHub Wiki）——
-  那些走 yzr-outline-wiki-upload（写 / 编辑）/ yzr-outline-wiki-search（搜 / 读）；
-  不用于一次性文档生成、强结构化数据库、多人实时协作。
+description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（Karpathy 'LLM owns wiki' 模式）
+  打交道时使用本 skill —— 覆盖：初始搭建、批量摄取 raw/ 资料（论文 / 文章 / 剪藏 /
+  外部代码仓 symlink 接入）、跨页综合 / 对比 / 矛盾协调 / 答案归档回 wiki、
+  矛盾 / 孤儿 / 过期摘要 lint、spec 升级迁移。坚持 raw/ 用户掌控 + wiki/ LLM 拥有 +
+  AGENTS.md 单一真源 四层纪律。不用于云端 / 团队协作 wiki（Notion / Confluence / Outline / GitHub Wiki）
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -30,7 +26,7 @@ metadata:
 - **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + **check_wiki_fixtures.py**
   （fixtures 一致性检查；`lint_wiki.py --check-version` 自动调一次）。把高频
   deterministic 任务固化下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI
-  负责）。当前 `fixtures_check_count = 18`（详见
+  负责）。当前检查项数见 `metadata.fixtures_check_count`（详见
   [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、semantic-merge.md（语义合并）
@@ -76,7 +72,8 @@ metadata:
 ### 操作产物
 
 - **setup** → 由外部 workspace CLI 完成（按 [`references/wiki-spec.md`](references/wiki-spec.md) 落盘），
-  本 skill 不实现创建逻辑；产物形态为目录结构 + AGENTS.md（SSOT）+ CLAUDE.md（薄壳）+ wiki/index.md + wiki/log.md + MEMORY/MEMORY.md + .gitignore
+  本 skill 不实现创建逻辑；产物形态为目录结构 + AGENTS.md（SSOT）+ CLAUDE.md（薄壳）+
+  wiki/index.md + wiki/log.md + MEMORY/MEMORY.md + .gitignore
 - **ingest** → 新增 / 更新 `wiki/sources/<slug>.md` + 同步实体 / 概念页 + 追加
   `log.md` 条目 + 更新 `index.md`
 - **query** → 对话中给出答案（带引用），**可选**把答案归档为 `wiki/comparisons/`
@@ -96,7 +93,8 @@ metadata:
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
    对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM **可**创建 symlink +
-   写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见 [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
+   写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
+   [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
    - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
    （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
    **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
@@ -135,7 +133,7 @@ metadata:
 | **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
 | **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
 | **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
-| **migrate** | 整个 wiki（含 AGENTS.md §八） | legacy 报告 + `.migration-plan.json` + agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
+| **migrate** | 含 §八 的 wiki | legacy + `.migration-plan.json` +<br>agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
 
 每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
 不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
@@ -166,8 +164,8 @@ metadata:
 > ——按以下顺序读完四件套再动手：
 >
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
->    Page Thresholds（0.11.0+: 纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
->    AGENTS.md 不再含 tag 白名单（0.8.0+ 迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
+>    Page Thresholds（纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
+>    AGENTS.md 不再含 tag 白名单（迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
 >    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——agent 自动展开
 >    拿到 MEMORY / scripts 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
 >    顶部 HTML 注释 Read 指引）。**别处由 skill 按需读 AGENTS.md 时** 也走相同的 `@import` 链路，
@@ -175,7 +173,7 @@ metadata:
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
 >    ingest / 漏归档旧工作
-> 4. **0.9.0+：** `Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md`（按需）——确认本 wiki 是否有
+> 4. **`Read <$LLM_WIKI_ROOT>/scripts/SCRIPTS.md`**（按需）——确认本 wiki 是否有
 >    项目级扩展脚本的**完整分节契约**（使用场景 / 调用约定 / 作用 / 前置依赖）；不强制（wiki 可无
 >    scripts/），但**触发非标工作流前**必须先查（AGENTS.md 顶部的 `@scripts/SCRIPTS.md` import
 >    已加载全文，详细契约随读出）
@@ -186,7 +184,7 @@ metadata:
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/AGENTS.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
-   **唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM 可主导创建 symlink +
+   **唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可主导创建 symlink +
    写 anchor 的 `[[entry]]` 块（详 §1 批处理摄取外部代码仓子节 + wiki-spec §13.3）
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
@@ -200,7 +198,7 @@ metadata:
    **例外**：
    - `wiki/index.md` / `wiki/log.md` = **4 字段必填**（省 `description`）
    - `MEMORY/MEMORY.md` / `wiki/tags.md` = **无 frontmatter**（索引片段 + tag 白名单）
-   - `MEMORY/*.md`（0.19.0+）= **仅 `title` 必填**（其余 5 字段全 optional——MEMORY 是 agent
+   - `MEMORY/*.md` = **仅 `title` 必填**（其余 5 字段全 optional——MEMORY 是 agent
      私有记忆，frontmatter 是可选 decoration）；`type` 若取扩到 7 类（5 内容页 + `memory` /
      `memory-entry`）；`tags` 若取**不**走 `wiki/tags.md` 白名单；`reviewed` / `reviewed_at`
      不进 lint 兜底（MEMORY 无"人工 review"语义角色）
@@ -228,7 +226,7 @@ metadata:
     > §二「认知质量信号」末段——那里是 wiki 自带的 AGENTS.md 模板必须自包含（跨仓引不到 SKILL.md）；
     > 两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
-11. **tag 白名单在 `wiki/tags.md`**（0.8.0+ 起，详
+11. **tag 白名单在 `wiki/tags.md`**（详
    [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）——LLM auto-extend bullet +
    用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无
    frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。
@@ -247,7 +245,7 @@ metadata:
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件——LLM 只读；用户可改，改后由 ingest 重新消化
-  **唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM 可创建 symlink +
+  **唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可创建 symlink +
   写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新；spec §13.3）
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
@@ -273,6 +271,55 @@ metadata:
 - 把外部代码仓接入走 `cp -r` 内嵌到 `raw/` 而非 `raw/external/` symlink——失去
   commit 锚点 + 占用空间 + 违反 spec §13 纪律
 
+### 反合理化三件套（纪律型 skill 必带）
+
+> 本 skill 含 14+ 行"必须 / 禁止 / 不"+"**不**" 起始段 = 纪律型。纪律型禁令在
+> LLM 压力下会被以各种合理化借口绕开——三件套只堵一类：**已被合理化的违反**。
+> 未被合理化的违反（直接忽略规则）= 缺 §反模式 清单本身，与三件套无关。
+
+#### Rationalization Table（仅占位 — Iron Law baseline 后替换为真实 transcript）
+
+| 常见借口 | 为什么是错的 | 应改做什么 |
+| --- | --- | --- |
+| "用户没明说要我做这一步" | 本 skill 的纪律点（log / lint / reviewed 戳 / 等）触发条件是**事**而非**人**——写了 wiki 页就是触发 lint，写了 source 就是清 reviewed 戳——用户没说 = 沉默 ≠ 豁免 | 先按 §执行原则走完纪律，再决定是否省略；省略要写明理由进 log 条目 |
+| "这次是单页 ingest，跳过 entity/concept 同步更快" | 知识孤岛 = wiki 复利亏空——单页也一样要 cross-link；"更快"是把当前 case 凌驾于复利结构之上 | 哪怕只挂 1 个 entity 页也要同步；交叉引用是 wiki 的 ROI 核心 |
+| "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 唯一例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
+| "`reviewed: true` 是一周前人标的，我没改多少内容，留着就行" | `reviewed: true` 是"这一刻内容背书"快照，**任何** LLM 对正文的修改都让它失效（包括 typos / 字段补全）——留戳 = 假装审过 | 任何 Edit/Write 后**必须**删 `reviewed` + `reviewed_at` 两字段，回到默认未审核态 |
+| "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 失去 commit 锚点 + 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
+| "这个 wiki 没 git，不写 log 也行" | log.md 是**审计 + 时间线 + ingest_diff 识别新文件**的输入，不是 git 历史替代品——git 缺位时 log 更重要 | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
+
+> **占位声明**：上表 6 条是基于本 skill §反模式 / §边界 段"反推"出的 LLM 嫌疑借口，**未**经过
+> 实跑 baseline transcript 验证。Red Flags 同样如此。下次 Iron Law 跑出真实借口后，**只替换 /
+> 不追加**——保持"只收录 agent 实际说过的"原则（预写 = 噪声 + 信号干扰）。
+
+#### 违反字面 = 违反精神
+
+任何对 §核心原则 / §边界 / §反模式 三段禁令的"看起来不同但效果一致"绕法都算违反——本 skill 常见绕法前三：
+
+- 把 `Edit` / `Write` 改为 `Read` + 手动生成新内容再 `Write`——**不算**绕开"用 Read 之外工具做自动修改"禁令，操作工具是 Write 一样算
+- 把"不删除 wiki 页"解释为"先把内容拷出去再 `rm` 然后写回"——**不算**绕开不删禁令，状态效果完全等同
+- 把"raw/ 由用户掌控，LLM 只读"解释为"我`cp` 进 raw/ 后立即再`rm`，窗口里我读到了内容 = 等价于只读"——**不算**，写入发生在第一步
+
+**禁止**用"严格按字面 / 严格按精神"二选一措辞给 agent 留退路——任何"看起来不同但效果等价"都是违反。
+
+#### Red Flags（念头清单 — 出现即停）
+
+念头出现 ≠ 已违反；念头 = 警告 = 重读 §核心原则 / §边界 / §反模式 三段。
+
+- "我觉得这一步对当前 case 不必要"
+- "用户没明说要我做这步"
+- "这样更快 / 更省 token / 更高效"
+- "spec 没禁止"
+- "我已经做了等价的事" / "效果一样不算违反"
+- "先这样留着，回头再补"
+- "我自己生成字段比 frontmatter 严格写更灵活"
+- "log 条目这次先跳过，反正是 wiki 不是 git"
+- "raw 反正用户也天天改，我帮一下忙"
+- "lint 报了一堆，反正都是 warn 不算错"
+
+> 没有"念头清单 = 已违反"的递进——念头出现是**信号**，再走下去才成**行动**。
+> 但**念头后仍继续** = 默认承担违反精神的责任。
+
 ## 工作流 / 步骤
 
 ### 0. 一次性 setup（首次使用）—— 由 workspace CLI 完成
@@ -289,7 +336,7 @@ metadata:
 # 1. 调 workspace CLI 创建 wiki 仓（具体命令以 CLI 文档为准）
 workspace wiki init "LLM Systems"
 # CLI 按 wiki-spec.md 落盘：目录结构 + AGENTS.md（SSOT）+ CLAUDE.md（薄壳）+
-# wiki/index.md + wiki/log.md + .gitignore + scripts/SCRIPTS.md（0.9.0+）+
+# wiki/index.md + wiki/log.md + .gitignore + scripts/SCRIPTS.md +
 # git 默认跳过（用户 --git opt-in 时才 init）。完整产物清单见 wiki-spec.md §1-§7。
 
 # 2. 把原始资料放进 raw/（用户手动 / Obsidian Web Clipper / 浏览器下载）
@@ -359,7 +406,7 @@ git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描
 2. 脚本覆盖（10 大类，详见 [`references/lint-checklist.md`](references/lint-checklist.md)）：
    raw 不可变性 / frontmatter 字段 / 孤儿页 / 断链 / log.md 格式 / 过期摘要 / 页面体量
    / 认知质量与可信度信号（`reviewed` / `contested` / `contradictions`）/ `raw/external/`
-   symlink ↔ anchor 关联（spec §13）/ fixtures 一致性（0.18.0+，见 §0.18.0+ 段）
+   symlink ↔ anchor 关联（spec §13）/ fixtures 一致性（见下文「fixtures 一致性检查」段）
 3. 脚本输出后 **agent 还要做半定性检查**：矛盾主张 / 缺失交叉引用 / 建议新摄取方向
 4. 报告 + 询问用户哪些修
 
@@ -401,19 +448,20 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 **职责切分**（避免与 ingest / lint 混淆）：
 
-- **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 0.18.0+ `check_wiki_fixtures.py`
+- **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 `check_wiki_fixtures.py`
   扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
-- **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md) 用 Edit/Write 改
+- **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
+  用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
   语义合并按 [`references/semantic-merge.md`](references/semantic-merge.md) 走
 - **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 semantic-merge.md（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
-**fixtures 一致性检查**（0.18.0+）——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
+**fixtures 一致性检查**——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
 扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
 MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migration-plan.json` 的
-`fixtures_actions[]`（与 legacy `actions[]` 平行）。当前 `metadata.fixtures_check_count = 18`，
+`fixtures_actions[]`（与 legacy `actions[]` 平行）。当前检查项数同 `metadata.fixtures_check_count`，
 覆盖 11 条结构探测 + 骨架字段比对两类（`agents-md-has-at-imports` 断言 `@import` 两行均在、
 `agents-md-codex-read-hint` 断言 Codex HTML Read 指引注释在位）。**简要流程** + 9 步详细 +
 字段清单见 [`references/migrate-workflow.md`](references/migrate-workflow.md)。
