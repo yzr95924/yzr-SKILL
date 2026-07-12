@@ -125,7 +125,7 @@ LLM 修改都会让戳失效。纪律：
 
 > **本节约定**：每类模板只列**路径 + 必填 frontmatter + 极简正文骨架**（节名 + 一句
 > "..."占位）。**完整正文示例**（"Llama 3" / "Self-Attention" / "Transformer vs Mamba" 等
-> 100+ 行的填充示例）见 [`examples.md`](examples.md) 已有样例（样例二含 source 摘要实例）——按需 Read 即可，避免本文件膨胀。
+> 100+ 行的填充示例见 SKILL.md §参考样例段样例二（source 摘要实例）——按需 Read，避免本文件膨胀。
 
 ### 1. `entity`（实体页）
 
@@ -461,5 +461,5 @@ updated: YYYY-MM-DD
 4. **归档 query 答案**——根据答案性质选 `comparison`（对比）或 `synthesis`（综合）
 5. **完整正文示例**——本文件只留 frontmatter SSOT + 极简骨架（节名 + `...` 占位）；
    真实 wiki 里 5 类模板的 100+ 行填充实例（"Llama 3" / "Self-Attention" / "Transformer vs
-   Mamba" / "Long-Context 演进" / "index.md 列表"）见 [`examples.md`](examples.md) 「样例二」
-   的 source 摘要实例 + 各类 wiki 实例的典型样例；按需 Read 即可，无需把详细实例塞进本文件
+   Mamba" / "Long-Context 演进" / "index.md 列表"）见 SKILL.md §参考样例段样例二 + 样例三
+   的 source 摘要与综合 markdown 实例——按需 Read，无需把详细实例塞进本文件

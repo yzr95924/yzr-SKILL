@@ -712,17 +712,10 @@ raw/external/*
 !raw/external/.symlink-anchor.toml
 ```
 
-> **理由**：symlink 会被 git 当成 symlink 记录（指向一个不可解析的 target，在另一台
-> 机器 clone 时毫无意义），但 `.symlink-anchor.toml` 是真实文件、记录"接入意图"——
-> `!` 否定号让 anchor 文件被跟踪。跨机器 clone 后：
->
-> - **同 home 布局**（`target: "~/src/..."` 形式，0.14.0+ 推荐）：lint 把 `target`
->   展开为当前 `$HOME/src/...`，symlink 重新创建后即可用；lint 不报 `external-target-dead`
-> - **跨 home 布局**（如 macOS `/Users/foo` vs Linux `/home/foo`）：lint 报
->   `external-target-dead`，LLM 读 anchor 的 `remote_url` / `commit` 重建
->   （见 `external-repo-rebuild.md`）
-> - **老 wiki 兼容**：0.14.0 之前的 anchor 写的是绝对路径，跨机器时
->   `expanduser` 展开后不变，仍会 `external-target-dead`，走重建协议
+> **理由**：symlink 会被 git 当成 symlink 记录（指向一个不可解析的 target，跨机器
+> clone 时毫无意义），而 `.symlink-anchor.toml` 是真实文件、记录"接入意图"——
+> `!` 否定号让 anchor 文件被跟踪。跨机器 / 跨 home 布局的重建协议详见
+> [`references/external-repo-rebuild.md`](external-repo-rebuild.md)。
 
 ### §13.5 git 仓锚定要求（lint 强制）
 
@@ -737,11 +730,8 @@ raw/external/*
 - `target` 不在 git 仓内（如手动下载的源码包、未初始化的目录）时，三字段
   全部可选，lint 跳过 git 校验
 
-> **为什么 git 仓必须强制 3 字段**：anchor 是 wiki 重建外部源代码的**唯一**
-> 信息源——symlink 不进 git、target 路径（无论绝对或 `~/...`）在跨 home 布局的
-> 机器上仍可能失效——若三字段缺失，跨机器 clone 后无法重建出"用户接入瞬间"
-> 的精确 commit。lint 实时校验防止 anchor 因用户日常 `git pull` 漂移而失去
-> 重建能力。
+> 重建协议详见 [`references/external-repo-rebuild.md`](external-repo-rebuild.md)——
+> git 三字段是跨机器 clone 后还原"接入瞬间 commit"的唯一信息源，缺一即不可重建。
 
 ### §13.6 从 0.16.0 迁移到 0.17.0（破坏性变更）
 
@@ -766,23 +756,7 @@ raw/external/
 └── ...
 ```
 
-**迁移步骤**（LLM agent 跑）：
-
-1. 扫 `raw/external/<source-name>/` 子目录；对每个子目录：
-   - 读 `<source-name>/.symlink-anchor.json` 拿到 `{target, captured_at, kind, ...}`
-   - 找出 `<source-name>/` 下所有 symlink（每个 symlink 都对应一条 entry）
-   - 对每个 symlink `<name>`：
-     - `mv <source-name>/<name> <name>`（移 symlink 到 `external/` 顶层；如新位置已有同名
-       symlink / 文件冲突，提示用户改名后再迁）
-     - 把 anchor 数据 + 新 `symlink = "<name>"` 字段塞进 `[[entry]]` 块
-   - 删除 `<source-name>/` 目录 + 旧 `.symlink-anchor.json`
-2. 写新 `raw/external/.symlink-anchor.toml`（含 `schema_version = 1` + 所有 entry 块；
-   按 symlink 名字典序排版，便于 git diff 阅读）
-3. Edit `<wiki-root>/AGENTS.md` §八「Wiki Spec 版本」行改为 `0.17.0`
-4. **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
-5. 重跑 `lint_wiki.py` 验证（不应再报 `external-anchor-missing` 等 0.16.0 形态的 finding）
-
-迁移期间无新工具支持——LLM agent 按上述规则手工 Edit / 落盘即可。
+**迁移步骤**（LLM agent 跑）：详见 [`migrate-workflow.md` §六 §5.3](migrate-workflow.md#六语义合并规则0180-从-references-semantic-merge-md-并入)。
 
 ---
 

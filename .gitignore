@@ -47,3 +47,8 @@ Thumbs.db
 dist/
 build/
 *.pdf
+
+# yzr-skill-creator 评估工作区（Iron Law baseline / 描述优化 / 改进循环产物）
+# 与 skill 同级，transient，eval outputs 可能包含大量 agent transcript，跑过后
+# 不入库——下次 entry 2 重新走 run_eval.py 即可重建。
+*-workspace/

@@ -26,29 +26,23 @@
 
 | 层 | 位置 | 性质 | 谁写 |
 | --- | --- | --- | --- |
-| **PDF 原文** | wiki 外 / 仅 URL 或本地引用 | 终极真相 | 用户 |
-| **全量抽取（raw）** | `raw/papers/<slug>.full.md` + `raw/assets/<slug>/*.png` | gemini 多模态读懂后<br>**完整结构化转储（不压缩）** | gemini-paper-summary（user-driven） |
-| **蒸馏总结（wiki）** | `wiki/sources/<slug>.md` | 跨多轮对话沉淀出的**成熟**总结；首页时是 quick summary 占位 | LLM（agent 写） |
+| **PDF 原文** | wiki 外（URL 或本地引用） | 终极真相 | 用户 |
+| **全量抽取（raw）** | `raw/papers/<slug>.full.md` + `raw/assets/<slug>/*.png` | gemini 多模态读懂后的完整结构化转储 | gemini-paper-summary |
+| **蒸馏总结（wiki）** | `wiki/sources/<slug>.md` | 跨多轮对话沉淀出的成熟总结（首版是 quick summary 占位） | LLM |
 
-**关键判断：raw 放"全量抽取"，不放 PDF、也不放压缩 summary。** 全量抽取 = 贵
-的多模态读只付一次，之后所有提问都在廉价文本层反复榨取——这是 Karpathy
-"复利"在**单篇论文内部**的重演。
-
-> raw/ 的 LLM 只读纪律**保持不变**（见 `wiki-spec.md` §一 + `agents-md-template.md` §一）。
-> 本 profile 不破坏这条——gemini 输出的全量抽取仍由 LLM 视为只读底座。
+> **关键判断**：raw 放"全量抽取"——贵读一次多模态，之后所有提问都走廉价文本层反复榨取。
+> raw/ 的 LLM 只读纪律**保持不变**（`wiki-spec.md` §一），本 profile 不破坏这条。
 
 ## 3. 命名约定
 
-| 文件 / 目录 | 命名规则 | 例子 |
-| --- | --- | --- |
-| `raw/papers/<slug>.full.md` | kebab-case `<slug>.full.md` | `attention-is-all-you-need.full.md` |
-| `raw/assets/<slug>/` | 抽出的图，PNG 原样存，编号 `-01` `-02` ... | `raw/assets/attention-is-all-you-need/fig-01.png` |
-| `raw/articles/<slug>.md` | 同一论文若有 markdown 摘录版，存这里<br>（与 .full.md 共存，sources 字段可同时引用） | `raw/articles/attention-is-all-you-need.md` |
-| `wiki/sources/<slug>.md` | 蒸馏总结；slug 与 raw 同名 | `wiki/sources/attention-is-all-you-need.md` |
-| `wiki/concepts/<concept>.md` | 跨论文概念，**不**带论文后缀 | `wiki/concepts/self-attention.md` |
+| 文件 / 目录 | 例子 |
+| --- | --- |
+| `raw/papers/<slug>.full.md` | `attention-is-all-you-need.full.md` |
+| `raw/assets/<slug>/fig-NN.png` | `raw/assets/attention-is-all-you-need/fig-01.png` |
+| `wiki/sources/<slug>.md` | `wiki/sources/attention-is-all-you-need.md` |
+| `wiki/concepts/<concept>.md` | `wiki/concepts/self-attention.md` |
 
-`slug` 一旦确定就是永久 ID（与 wiki 通则一致）——重命名走 `git rename`（启用 git
-时保留 history）或普通 `mv`（裸目录树）+ 全量更新所有引用，包括 raw / wiki / log。
+`slug` 一旦确定就是永久 ID——重命名走 `git rename`（启用 git）或 `mv`（裸目录树）+ 全量更新所有引用。
 
 ## 4. 两阶段工作流
 
@@ -58,44 +52,35 @@
 
 **流程：**
 
-1. 调 `gemini-paper-summary` 一次性产出**两份**产物：
-   - **quick summary**（其现有能力，精炼 ≤2500 字）—— 用作：
-     - (a) `wiki/sources/<slug>.md` 的**初稿**（source 页是"占位 + 后续 refine"，首版就是 quick summary）
-     - (b) 早期远端发布的输入（**此动作属未来 publish skill，本 skill 不做**）
-   - **全量抽取**（`raw/papers/<slug>.full.md` + `raw/assets/<slug>/*.png`）—— 落 raw/，LLM 视为只读底座
-2. 本 skill 的 **ingest 操作**：在 `wiki/sources/<slug>.md` 写**初版**（frontmatter `sources` 指向
-   `raw/papers/<slug>.full.md` + `raw/articles/<slug>.md` 如有 + raw 内的图）；
-   同步相关 `concepts/` 页（若新概念则新建，若已存在则追加"参考来源"段，**不重写**）；
-   追加 `log.md` `ingest` 条目
-3. 同步 `wiki/index.md`（sources 段 + concepts 段）
+1. 调 `gemini-paper-summary --full` 产**两份**（quick summary + 全量抽取）：
+   - quick summary → `wiki/sources/<slug>.md` 初稿（首版是占位，后续 refine）
+   - 全量抽取 → `raw/papers/<slug>.full.md` + `raw/assets/<slug>/*.png`
+2. **ingest 操作**：在 `wiki/sources/<slug>.md` 写初版（frontmatter `sources` 指向 raw）；
+   同步 `concepts/`（新概念新建 / 已存在追加"参考来源"段，**不重写**）；
+   追加 `log.md` `ingest` 条目；同步 `wiki/index.md`
 
-> **当前限制**：gemini-paper-summary 是否原生支持"一次调用出两份"取决于它的实现——
-> 若它只产 quick summary，全量抽取要用户**额外调一次**它（或其 `--full` 模式，**如该
-> skill 后续支持**）。本 profile 不绑死具体实现，只规定"必须有 raw 层的全量抽取"。
+> 若 `gemini-paper-summary` 只产 quick summary，全量抽取要用户**额外调一次**它——本 profile
+> 不绑死实现，只规定"必须有 raw 层全量抽取"。
 
 ### 阶段 2：多轮蒸馏（廉价 / 纯文本 / 反复）
 
-**触发：** 用户在对话中对某篇论文提新问题（基于其 .full.md）。
+**触发：** 用户对某篇论文提新问题。
 
 **流程：**
 
-1. LLM **不**重新读 PDF、**不**重新跑多模态——只读 `raw/papers/<slug>.full.md`（文本层）
-2. 回答用户问题，引用形式带 `.full.md` 内的章节
-3. **若答案对 source 页有补全价值**（新事实 / 新角度 / 修正旧描述）—— 询问用户
-   "是否把这段写进 `wiki/sources/<slug>.md`？" 用户同意后用 **Edit** 更新 source 页：
-   - 在合适小节追加 / 修订
-   - 必更 `frontmatter.updated`
-   - 追加 `log.md` `refine` 条目（**新增 op**，见 §5）
-   - 若新增 / 改动了概念，**同步** `concepts/` 页 + `index.md`
-4. 用户判定"彻底 ready"后，**回写** quick summary（若是首次发布则新 publish，若是更新则 update）——
-   **此动作属未来 publish skill，本 skill 不做**。本 profile 不解释 `outline_id` 等远端字段。
+1. **不**重新读 PDF / 重新跑多模态——只读 `raw/papers/<slug>.full.md`
+2. 引用形式带 `.full.md` 内的章节
+3. 若答案对 source 页有补全价值——询问用户是否写进 `wiki/sources/<slug>.md`？用户同意后用 **Edit** 更新：
+   - 追加 / 修订合适小节
+   - bump `frontmatter.updated`（保留 `title` / `type` / `sources` / `created`）
+   - 追加 `log.md` `refine` 条目（新增 op，见 §5）
+   - 同步 `concepts/` 页 + `index.md`（若有概念改动）
 
-**关键纪律：**
+**关键纪律**：
 
-- **不 Write 覆盖**——refine 阶段永远用 Edit，保留前序对话沉淀
-- **不**把每轮问答都塞进 source 页——只有"对源页有补全价值的"才写
-- **不**丢失 frontmatter——重写时必须保留 `title` / `type` / `sources` / `created`（只 bump `updated`）
-- **跨论文的概念**必须走 `concepts/`，**不**在 source 页里散开定义
+- **不 Write 覆盖**——refine 永远用 Edit，保留前序对话沉淀
+- **不**把每轮问答都塞 source 页——只有"对源页有补全价值的"才写
+- **跨论文概念**走 `concepts/`，**不**在 source 页散开
 
 ## 5. log op 扩展（`refine`）
 
