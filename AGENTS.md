@@ -27,6 +27,13 @@ This file provides guidance to AI coding agents when working with code in this r
   - **短 memory**：一句话能讲清的纯事实 / 单一偏好 / 无需 why+how 的提醒——直接以
     `- 一行事实` 索引行承载，不单独建 `<slug>.md`
   - 判别尺度交给事实本身：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
+  - **MEMORY 重复 → 直接删**（不要留 thin pointer）：MEMORY 条目内容已落
+    SKILL 源（`<skill-name>/SKILL.md` / `scripts/` / `references/`）→ **直接删**
+    MEMORY 条目 + `MEMORY.md` 索引指针。反模式：留 pointer = 死代码 + 漂移风险
+    （详见 `skill-source-priority-over-memory-vendor.md` "反模式"段）。
+    **MEMORY 只记 SKILL 源不涵盖的跨会话 meta**——SKILL 开发配置相关（python / 
+    skill workflow / wiki-spec 耦合等）才进 MEMORY；具体 SKILL 用法问题（具体
+    skill 踩到的坑 / 经验）必须随 SKILL 文件夹分发，不进 MEMORY。
 - frontmatter `quick_validate.py` 的 `ALLOWED_PROPERTIES = {name, description, license,
   allowed-tools, metadata, compatibility}`。`dependencies` 字段曾被 `paper-summary`
   试用过，但与 allowlist 冲突；该 skill 已被整体删除。
