@@ -13,7 +13,7 @@
   - [1. `entity`（实体页）](#1-entity实体页)
   - [2. `concept`（概念页）](#2-concept概念页)
   - [3. `source`（资料页）](#3-source资料页)
-  - [4. `comparison`（对比页）](#4-comparison页)
+  - [4. `comparison`（对比页）](#4-comparison对比页)
   - [5. `synthesis`（综合页）](#5-synthesis综合页)
   - [6. `index`（index.md）](#6-indexindexmd)
   - [7. `log.md`（log）](#7-logmdlog)

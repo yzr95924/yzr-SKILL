@@ -489,7 +489,7 @@ compared:
 
 **lint 兜底**：0.22.0+ 新增 `related-broken-link`（warn 级）——校验 `related` /
 `compared` 字段每条元素是否能在 wiki 根下解析到现存文件；详见
-[`lint-checklist.md` §二.16](lint-checklist.md#16-related--compared-路径引用完整性0220)。
+[`lint-checklist.md` §二.15](lint-checklist.md#15-related--compared-路径引用完整性0220)。
 
 ### 可选可信度与认知质量字段（LLM 按需写，全部可选）
 
@@ -756,7 +756,7 @@ raw/external/
 └── ...
 ```
 
-**迁移步骤**（LLM agent 跑）：详见 [`migrate-workflow.md` §六 §5.3](migrate-workflow.md#六语义合并规则0180-从-references-semantic-merge-md-并入)。
+**迁移步骤**（LLM agent 跑）：详见 [`migrate-workflow.md` §六 §5.3](migrate-workflow.md#六语义合并规则0180从-referencessemantic-mergemd-并入)。
 
 ---
 
