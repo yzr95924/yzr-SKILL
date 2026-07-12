@@ -125,18 +125,10 @@ python3 ../path/to/scripts/lint_wiki.py .
 
 ## 反模式
 
-- **不要在新机器直接 `cp -r` 外部仓到 wiki 仓内**——失去 commit 锚点 + 占用空间 +
-  违反 spec §13 纪律（SKILL.md 反模式清单末条）
-- **不要修改 anchor 的 `remote_url` / `commit` / `branch`**——这三字段是接入意图，
-  不是机器状态；新机器若需要升级 commit，请 Edit `commit` 字段并在原机器 push，
-  让所有机器同步刷新
-- **不要绕过 anchor 直接 `ln -s`**——没有对应 `[[entry]]` 的 symlink = lint 报
-  `external-anchor-orphan`，且新机器无法重建
+> 前 4 条已并入 SKILL.md §反模式段（外部代码仓相关）。本节仅留**本流程特有的 1 条**：
+
 - **不要把 symlink 文件本身 commit 进 git**——已由 `.gitignore` 排除，强行 `--force`
   add 会污染仓
-- **不要在 `raw/external/` 下开 `<source-name>/` 子目录**（0.17.0+ 已废弃）——
-  扁平布局，所有 symlink 直接 in `external/`；老 wiki 残留会被 lint 报
-  `external-source-name-invalid`
 
 ## 失败兜底
 

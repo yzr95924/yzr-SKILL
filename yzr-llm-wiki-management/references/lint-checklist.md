@@ -422,9 +422,10 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ## 五、Semantic-merge 规则
 
-0.18.0+ 起的语义合并规则（agent 走 `.migration-plan.json` 时的合并依据）已拆出到独立文件
-[`references/semantic-merge.md`](semantic-merge.md)——含 frontmatter 字段合并 / index 条目合并 /
-anchor TOML 迁移 5 步 / MEMORY 经验合并 / log 严格保留 / 决策树 6 节。本节只留指针。
+> 0.18.0+ 起的语义合并规则（agent 走 `.migration-plan.json` 时的合并依据）已并入
+> [`references/migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则0180-从-references-semantic-merge-md-并入)——
+> 含 frontmatter 字段合并 / index 条目合并 / anchor TOML 迁移 5 步 / MEMORY 经验合并 /
+> log 严格保留 / 决策树。本节只留指针。
 
 ## 六、lint 之后
 
