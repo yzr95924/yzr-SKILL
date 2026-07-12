@@ -71,9 +71,19 @@ from scripts.utils import parse_skill_md  # noqa: E402
 # Anchor detection is done separately by splitting on `#` after the target.
 _LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 
-# Fenced code block delimiters (``` or ~~~). We skip links on lines inside
-# a fenced block — those are prose illustrations, not real cross-references.
-_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+# Fenced code block opening: 3+ backticks or 3+ tildes, ≤ 3 leading spaces
+# (CommonMark). We capture the full run so a 4-backtick fence (````) can
+# contain 3-backtick (```) lines as *content* — matching the opener's run
+# length is what tells content-closers apart from real closers. The info
+# string after the fence (e.g. ```` ```yaml ````) is ignored.
+_FENCE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})")
+
+# Explicit HTML anchor tags. GitHub honors `<a id="...">` and `<a name="...">`
+# as navigation targets independent of heading slugs — skills use these for
+# stable TOC anchors that survive heading rewording (see
+# yzr-gemini-pdf-summary/references/full-mode-contract.md). We must treat
+# them as valid anchor destinations, else every such TOC reads as drift.
+_EXPLICIT_ANCHOR_RE = re.compile(r"""<a\b[^>]*\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 
 # Heading line: ATX-style (# ... ######). Indent ≤ 3 spaces, then 1-6 '#',
 # then a space, then the heading text. Setext (=== / ---) is rare in this
@@ -117,17 +127,25 @@ def extract_links(text: str) -> List[Tuple[int, str, str]]:
     """
     hits: List[Tuple[int, str, str]] = []
     in_fence = False
-    fence_marker: Optional[str] = None
+    fence_char: Optional[str] = None  # "`" or "~"
+    fence_len: int = 0  # opener run length; closer must match char + be >= this long
     for lineno, line in enumerate(text.splitlines(), start=1):
         fence_match = _FENCE_RE.match(line)
         if fence_match:
-            marker = fence_match.group(1)
+            run = fence_match.group(2)
+            char = run[0]
+            length = len(run)
             if not in_fence:
                 in_fence = True
-                fence_marker = marker
-            elif fence_marker == marker:
+                fence_char = char
+                fence_len = length
+            elif char == fence_char and length >= fence_len:
+                # Real closer (CommonMark: closer run must be ≥ opener).
                 in_fence = False
-                fence_marker = None
+                fence_char = None
+                fence_len = 0
+            # else: a fence-char line inside an open fence is *content*
+            # (e.g. ``` inside a ```` block) — ignore, stay in_fence.
             continue
         if in_fence:
             continue
@@ -230,6 +248,16 @@ def collect_heading_slugs(text: str) -> Dict[str, int]:
             if slug and slug not in slugs:
                 slugs[slug] = i  # 1-indexed: the underline line is i+1, heading is i
     return slugs
+
+
+def collect_explicit_anchor_ids(text: str) -> set:
+    """Return the set of explicit anchor IDs declared in *text* via
+    `<a id="...">` / `<a name="...">` HTML tags. GitHub honors these as
+    navigation targets independent of heading slugs, so a TOC that points
+    at `#foo` resolves if the file contains `<a id="foo">` even when no
+    heading slug matches. We read the raw text (these tags are inline
+    HTML, not rendered by our heading scan)."""
+    return {m.group(1) for m in _EXPLICIT_ANCHOR_RE.finditer(text)}
 
 
 # ---------------------------------------------------------------------------
@@ -356,27 +384,31 @@ def scan_file(md_path: Path, skill_root: Path) -> List[Dict[str, str]]:
         if anchor:
             target_text = resolved.read_text()
             slugs = collect_heading_slugs(target_text)
-            if anchor not in slugs:
-                # Suggest close matches: any slug containing the anchor as
-                # substring, or with low edit distance. Simple substring
-                # filter is good enough — gives a hint without false
-                # positives from aggressive Levenshtein.
-                candidates = [s for s in slugs if anchor[:5] in s or s[:5] in anchor]
-                hint = f"; similar slugs: {candidates[:5]}" if candidates else ""
-                issues.append(
-                    {
-                        "file": str(md_path.relative_to(skill_root)),
-                        "line": str(lineno),
-                        "link_text": link_text,
-                        "target": raw_target,
-                        "anchor": anchor,
-                        "status": "ANCHOR-DRIFT",
-                        "reason": (
-                            f"anchor #{anchor} not found in {resolved.name}"
-                            f" (computed slug for {len(slugs)} heading(s))" + hint
-                        ),
-                    }
-                )
+            explicit_ids = collect_explicit_anchor_ids(target_text)
+            # Valid if the anchor matches a heading slug OR an explicit
+            # <a id>/<a name> anchor (GitHub honors both).
+            if anchor in slugs or anchor in explicit_ids:
+                continue
+            # Suggest close matches: any slug containing the anchor as
+            # substring, or with low edit distance. Simple substring
+            # filter is good enough — gives a hint without false
+            # positives from aggressive Levenshtein.
+            candidates = [s for s in slugs if anchor[:5] in s or s[:5] in anchor]
+            hint = f"; similar slugs: {candidates[:5]}" if candidates else ""
+            issues.append(
+                {
+                    "file": str(md_path.relative_to(skill_root)),
+                    "line": str(lineno),
+                    "link_text": link_text,
+                    "target": raw_target,
+                    "anchor": anchor,
+                    "status": "ANCHOR-DRIFT",
+                    "reason": (
+                        f"anchor #{anchor} not found in {resolved.name}"
+                        f" ({len(slugs)} heading slug(s), {len(explicit_ids)} explicit anchor(s))" + hint
+                    ),
+                }
+            )
     return issues
 
 

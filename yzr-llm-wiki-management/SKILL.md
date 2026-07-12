@@ -94,7 +94,7 @@ metadata:
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
    对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM **可**创建 symlink +
    写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
-   [wiki-spec §13.3](references/wiki-spec.md#13-责任切分用户--llm-共有)
+   [wiki-spec §13.3](references/wiki-spec.md#133-责任切分用户--llm-共有)
    - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
    （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
    **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
@@ -233,7 +233,7 @@ metadata:
    `agents-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
 
 12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（详
-   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录)）——`SCRIPTS.md`
+   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md`
    单段形态：每脚本以 `` - `<name>` — <一句话用途> `` one-liner 起头 + `### <name> — <label>`
    子节含 4 要素契约（使用场景 / 调用约定 / 作用 / 可选前置依赖）。AGENTS.md 顶部
    `@scripts/SCRIPTS.md` `@import` 自动加载全文——agent **必须**先看该索引行知道有哪些脚本，
@@ -404,7 +404,7 @@ git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描
 
 ### 3. Lint（健康检查）
 
-**触发**："lint wiki" / 定期（频率阈值见 [lint-checklist.md §六](references/lint-checklist.md#六lint-频率)）/ 大型 wiki 主动建议。
+**触发**："lint wiki" / 定期（频率阈值见 [lint-checklist.md §七](references/lint-checklist.md#七lint-频率)）/ 大型 wiki 主动建议。
 
 **流程**：
 
@@ -459,7 +459,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
   用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
-  语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则0180-从-references-semantic-merge-md-并入) 走
+  语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则0180从-referencessemantic-mergemd-并入) 走
 - **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 migrate-workflow.md §六（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）

@@ -237,8 +237,8 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
    - 读 `<wiki>/wiki/MEMORY/` 拿 memory files 数（仅文件名）
 3. 读 `<workspace>/MEMORY/MEMORY.md` 索引（知晓已有跨 wiki 记忆，供 query 路由 / scan 报告
    引用）；按 wiki name 字母序聚合，写 `<workspace>/INDEX.md`（格式见
-   [spec §4](references/workspace-spec.md#4-indexmdskill-维护)）+ `<workspace>/STATS.md`
-   （格式见 [spec §5](references/workspace-spec.md#5-statsmdskill-维护)）
+   [spec §5](references/workspace-spec.md#5-indexmdskill-维护)）+ `<workspace>/STATS.md`
+   （格式见 [spec §6](references/workspace-spec.md#6-statsmdskill-维护)）
 4. 原子写（POSIX `tmp + fsync + rename`）
 5. 对话中报告："已刷新 INDEX.md / STATS.md，X 个 wiki，Y 个 page，Z 个原始资料"
 
