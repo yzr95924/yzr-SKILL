@@ -1,3 +1,10 @@
+---
+name: gemini-paper-summary-full-mode-design
+description: gemini-paper-summary `--full` 模式 = 单次多模态读 PDF 出两份产物（quick summary + full 全量抽取），layout 沿用 Karpathy LLM Wiki raw 端约定；full 是 agent Q&A 底座、quick 是给人看的速读。
+metadata:
+  type: project
+---
+
 # gemini-paper-summary --full 模式设计说明（新口径，2026-06-29 重写）
 
 > MEMORY 索引:见 [`MEMORY.md`](./MEMORY.md)。本文是 producer 侧的设计 SSOT——

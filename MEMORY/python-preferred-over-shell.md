@@ -1,3 +1,10 @@
+---
+name: python-preferred-over-shell
+description: 新脚本首选 Python 3 而非 bash / shell（统一脚本语言 + Python 生态管理）；仅一行管道 / awk / sed / grep 等 shell 天然更自然的场景用 shell。
+metadata:
+  type: project
+---
+
 # 后续脚本优先 Python 3 而非 shell
 
 **Why：** 在 2026-06-20 反馈中明确——后续脚本优先用 Python 3 而非 bash / shell 实现。理由：脚本语言统一用 Python 3 便于在 Python 生态内统一管理（包管理、`subprocess`、`pathlib` 等），不被 bash 平台差异 / shell 解析边界问题分神。

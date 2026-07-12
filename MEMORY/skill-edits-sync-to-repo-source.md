@@ -1,3 +1,10 @@
+---
+name: skill-edits-sync-to-repo-source
+description: 改 SKILL.md / references / scripts 默认目标是仓库源（git 跟踪的 <skill-name>/），不是 vendored 副本（~/.claude/skills/）；改完用 cp 拷回源 + git status 确认。
+metadata:
+  type: project
+---
+
 # SKILL 描述类修改：默认同步仓库源
 
 **Why：** 本仓库是 SKILL 的"源 / 描述"载体（`yzr-outline-wiki-setup/` / `yzr-outline-wiki-search/` / `yzr-outline-wiki-upload/` / `gemini-paper-summary/` / `yzr-skill-creator/` / `design-doc-edit/` 等顶层子目录即各 skill 源），而 agent 加载的是 `.claude/skills/<name> -> ../../.agents/skills/<name>` 的软链（vendored 副本，被 `.gitignore` 排除）。两套文件**不同 inode**——`Edit` 默认改的是 vendored 副本，不在 git 跟踪范围内，会随下次 `npx skills` 同步被覆盖。

@@ -1,3 +1,10 @@
+---
+name: h1-transform-publish-time-inject
+description: Gemini 产物保持无 H1（标题在 outline title 字段），H1 由未来 publish skill 推送时注入，不回写 local；park 等 publish skill 落地再实现 transform。
+metadata:
+  type: project
+---
+
 # H1 transform 决策：publish 时注入，local 保持无 H1（parked, 2026-06-29）
 
 **Why：** 2026-06-29 用户提出——Gemini 产物（local `.md`）当前无 H1，标题在 outline `title` 字段（即 document ID）里、不在 markdown body。推送到 outline-wiki 后 outline doc 缺 H1，**浪费一级标题**且正文读者看不到标题。H1 注入是 **publish 时的 transform**——不属于 `gemini-paper-summary` 的职责（它要维持"无 H1"的 local 约定，与项目其他 4 个 SKILL.md 一致）。

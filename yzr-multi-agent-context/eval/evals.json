@@ -1,0 +1,23 @@
+[
+  {"query": "我有个项目目前只有 CLAUDE.md，怎么迁移成 AGENTS.md 让 Codex / Qoder 也能读？", "should_trigger": true},
+  {"query": "项目同时有 CLAUDE.md 和 AGENTS.md，内容互相重复 / 冲突，帮我合并去重", "should_trigger": true},
+  {"query": "Codex 不展开 @import，我 AGENTS.md 里的 @MEMORY/MEMORY.md 索引它看不见，怎么办？", "should_trigger": true},
+  {"query": "现有 AGENTS.md 里还有大量 Claude Code 字样残留，怎么规范成多 agent 通用工具无关", "should_trigger": true},
+  {"query": "我们项目以前把 MEMORY.md 索引行直接列在 AGENTS.md 里（内联方案），想回退到 @MEMORY/MEMORY.md 一行 + Codex Read 指引", "should_trigger": true},
+  {"query": "现有 CLAUDE.md 里硬绑 Claude 的部分想抽出来，薄壳 CLAUDE.md 应该放什么 / AGENTS.md 应该放什么", "should_trigger": true},
+  {"query": "新接手一个项目，已存在 AGENTS.md + CLAUDE.md 并存，怎么诊断哪些段该合并、哪些是 Claude 专属该进逃生舱", "should_trigger": true},
+  {"query": "Claude Code / Codex / Qoder 三家 AI coding agent 各自怎么加载同一份 AGENTS.md？谁展开 @import、谁不展开？", "should_trigger": true},
+  {"query": "我们想做一个工程化迁移：把项目从 CLAUDE.md-only 彻底改成「AGENTS.md 单源 + CLAUDE.md 薄壳」，给个步骤清单", "should_trigger": true},
+  {"query": "我手动 AGENTS.md 写了一堆 .claude/ 路径引用，迁移完成 Step 5 覆盖率验证怎么跑才算合格", "should_trigger": true},
+
+  {"query": "帮我做一个关于按 PNG 路径批量下载论文图的 skill", "should_trigger": false},
+  {"query": "我有个 30 页 PDF 想提取第三章文字 + 图表存成本地 markdown", "should_trigger": false},
+  {"query": "Outline Wiki 上传图片 attachment 的 3 步流程是什么", "should_trigger": false},
+  {"query": "我想给 .claude/settings.local.json 加个 npm install 的 permission 白名单", "should_trigger": false},
+  {"query": "我的项目是裸的（没 CLAUDE.md 也没 AGENTS.md），先帮我初始化一个", "should_trigger": false},
+  {"query": "Cursor 项目想写 .cursor/rules/*.mdc 让它跟 AGENTS.md 同步，怎么搞？", "should_trigger": false},
+  {"query": "scripts/precheck.py 跑起来报 ModuleNotFoundError: No module named 'yaml'", "should_trigger": false},
+  {"query": "我本机的 outline MCP 服务挂了，怎么重启 claude-mcp 这条配置", "should_trigger": false},
+  {"query": "用 google-genai SDK 写个 Python 脚本批量总结论文 PDF 摘要", "should_trigger": false},
+  {"query": "我自己写了 AGENTS.md，但只想问：行宽要不要守 120 字符（不动我的 AGENTS.md，只是确认下规范）", "should_trigger": false}
+]

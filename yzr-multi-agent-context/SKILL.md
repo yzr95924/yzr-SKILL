@@ -1,17 +1,15 @@
 ---
 name: yzr-multi-agent-context
-description: 在用户想把一个工程的项目上下文收敛成「一份 AGENTS.md、多个 AI coding agent 兼容」时使用
-  本 skill——把现有 CLAUDE.md / AGENTS.md / MEMORY 归约成单一真源的工具无关 AGENTS.md，Claude Code（经
-  薄壳引入）、Codex、Qoder 各用各的入口加载同一份内容；L2 记忆层用 `@MEMORY/MEMORY.md` import + Codex
-  Read 指引，不再内联副本。典型触发：CLAUDE.md 转 AGENTS.md / CLAUDE.md 与 AGENTS.md 并存想合并去重 /
-  让项目在 Codex、Qoder 也能直接用 / 已有 AGENTS.md 想规范化成多 agent 通用标准 / 之前用内联方案发现
-  扩展性 / 一致性有问题想回退到 @import。不适用：裸项目从零生成（先用 agent 的 /init）/ 迁向不读
-  AGENTS.md 的 agent（Cursor、Gemini 等专属格式先手动转成 AGENTS.md / CLAUDE.md 再来）/ 改权限 /
-  MCP / scripts 配置。
+description: 在用户处理 AI coding agent 项目上下文收敛成一份工具无关 AGENTS.md（多 agent 原生加载）的
+  任一子问题时使用——典型场景：CLAUDE.md 改薄壳 @AGENTS.md（含 Claude 专属逃生舱）/ 合并去重并存
+  CLAUDE.md + AGENTS.md / 抽硬绑 Claude 内容进逃生舱 / 回退内联 MEMORY 索引到 @MEMORY/MEMORY.md +
+  Codex Read 指引 / 规范化现有 AGENTS.md / 跑迁移覆盖率验证。两条入口：CLAUDE.md 迁移 / AGENTS.md
+  规范化。不适用：裸项目（先用 /init）/ 不读 AGENTS.md 的 agent（Cursor / Windsurf / Gemini 先手动
+  转）/ 改权限 / MCP / scripts。
 metadata:
   author: Zuoru YANG
   category: project-config
-  last_modified: 2026-07-11
+  last_modified: 2026-07-12
 ---
 
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
@@ -63,10 +61,8 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   └── <!-- Claude Code 专属 -->  几行无法泛化的工具绑定内容（如有）
 ```
 
-任一 agent 启动 → 读 `AGENTS.md` 正文（含 L1 内容 + `@MEMORY/MEMORY.md` 引用 + Codex 指引）→
-Claude Code / Qoder 自动展开成索引正文，Codex 按指引 `Read MEMORY/MEMORY.md` 拿到 → 三家都见 L2
-索引 → 按需 `Read MEMORY/<slug>.md` 取正文。完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见
-[`references/layering.md`](references/layering.md)——Step 1 给段落分类时读它。
+任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或指引读——Step 1 段落分层决策树见
+[`references/layering.md`](references/layering.md)。
 
 ## 何时使用 / 不使用
 
@@ -136,10 +132,11 @@ Claude Code / Qoder 自动展开成索引正文，Codex 按指引 `Read MEMORY/M
   Step 2 / 3 改写时对照。
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引 + Codex / 不展开 import 的 agent 的显式 Read `MEMORY/MEMORY.md` 指引。**不**内联索引行
-  ——理由见上方「设计与原理」L2 记忆层段；完整规则见
-  [`references/rewrite-rules.md`](references/rewrite-rules.md) R2。
-- **R3 行宽不变**：原文遵守的行宽约束（≤ 120 字符，见 `.markdownlint.jsonc` MD013）改写后继续遵守。
-- **R4 MEMORY 改写**：MEMORY 正文按 R1 去品牌；目录结构和文件数量不变。
+  ——理由见上方「设计与原理」L2 记忆层段（Step 2 段会引用同一 R2 的段落模板）。
+- **R3 行宽不变**：保持原文 ≤ 120 字符（见 `.markdownlint.jsonc` MD013）——完整约束见
+  [`references/rewrite-rules.md`](references/rewrite-rules.md) R3。
+- **R4 MEMORY 改写**：MEMORY 正文按 R1 去品牌，目录结构 / 文件数不变（仅改措辞，不合并 / 拆分 /
+  删除条目）——完整约束见 [`references/rewrite-rules.md`](references/rewrite-rules.md) R4。
 - **R5 逃生舱**：无法泛化的工具专属内容（如脚本硬编码 `claude -p` 子进程），在 AGENTS.md 写泛化版、
   在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱。
 

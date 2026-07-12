@@ -1,3 +1,10 @@
+---
+name: gemini-paper-summary-figure-extraction-edges
+description: gemini-paper-summary 图片提取决策：Stage 2 Gemini 视觉定位（归一化 0-1000 bbox / 重试机制 / caption fallback 3 策略）+ caption 写 markdown image alt（中文翻译+总结 v3.2）+ outline-wiki attachment 能力边界。
+metadata:
+  type: project
+---
+
 # gemini-paper-summary 图片提取边界与设计决策
 
 > MEMORY 索引:见 [`MEMORY.md`](./MEMORY.md)。本文是正文,记录 2026-06-15 「优化 PDF 图片提取」会话沉淀下来的

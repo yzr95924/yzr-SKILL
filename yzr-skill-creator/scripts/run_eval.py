@@ -8,6 +8,7 @@ for a set of queries. Outputs results as JSON.
 import argparse
 import json
 import os
+import re
 import select
 import shutil
 import subprocess
@@ -22,6 +23,14 @@ from typing import Dict, List, Optional
 # `python3 scripts/run_eval.py` (standalone) and
 # `python3 -m scripts.run_eval` (from yzr-skill-creator/). Resolves B1.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Match any per-query eval clone, not just the one assigned to the current
+# query. With ProcessPoolExecutor(10), all 10 in-flight clones coexist in
+# ~/.claude/skills/ with identical descriptions, and the model picks one
+# arbitrarily — crediting only the specific `clean_name` would register most
+# real triggers as misses (recall ~6%). 8 hex chars matches
+# `uuid.uuid4().hex[:8]` at line 81.
+EVAL_SKILL_PATTERN = re.compile(r"_eval_skill_[a-f0-9]{8}")
 
 from scripts.utils import parse_skill_md
 
@@ -182,12 +191,12 @@ def run_single_query(
                             delta = se.get("delta", {})
                             if delta.get("type") == "input_json_delta":
                                 accumulated_json += delta.get("partial_json", "")
-                                if clean_name in accumulated_json:
+                                if EVAL_SKILL_PATTERN.search(accumulated_json):
                                     return True
 
                         elif se_type in ("content_block_stop", "message_stop"):
                             if pending_tool_name:
-                                return clean_name in accumulated_json
+                                return bool(EVAL_SKILL_PATTERN.search(accumulated_json))
                             if se_type == "message_stop":
                                 return False
 
@@ -199,9 +208,9 @@ def run_single_query(
                                 continue
                             tool_name = content_item.get("name", "")
                             tool_input = content_item.get("input", {})
-                            if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
+                            if tool_name == "Skill" and EVAL_SKILL_PATTERN.search(tool_input.get("skill", "")):
                                 triggered = True
-                            elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
+                            elif tool_name == "Read" and EVAL_SKILL_PATTERN.search(tool_input.get("file_path", "")):
                                 triggered = True
                             return triggered
 

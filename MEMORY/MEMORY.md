@@ -104,6 +104,16 @@ workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-wo
 "audit-YYYY-MM-DD.md" 那种报告归档到 skill 目录。用户没主动要 audit 文档时，结论放在回复里、
 修复改在文件里，不留 audit 文件也不写 MEMORY 历史。
 
+### run_eval / run_loop 并行克隆冲突（harness 结构性缺陷）
+
+ProcessPoolExecutor(10 workers) 并行跑评测时，10 个 _eval_skill_<uuid> 克隆（描述相同）共存，
+模型任意调用其中一个，grader 只认分配给当前查询的克隆 → recall 结构性压到 ~6%（即使直接
+probe 单克隆能 100% 触发）。已安装 skill 还多一层"真 skill 偷调用"冲突。修法见正文：grader 改
+为认任一 _eval_skill_<hex> 命中即触发（已实测：recall 从 6% 升到 56% Train / 42% Test）。
+**本机曾未跑通过 run_loop**（修前全系统 0 个 iteration-* / best_description commit）——
+其它 skill 描述"看着 OK"是因为根本没经过优化，harness 缺陷从未暴露。修 grader 后实测有效。 →
+[正文](run-eval-harness-parallel-clone-collision.md)
+
 ### 设计优化阶段以 repo 内 SKILL 描述为准（2026-07-07）
 
 设计优化（重构 / bump / 调整路径 / 重新设计）只动仓库源——vendor 副本（`~/.agents/skills/`）是

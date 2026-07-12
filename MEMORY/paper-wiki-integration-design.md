@@ -1,3 +1,10 @@
+---
+name: paper-wiki-integration-design
+description: paper-wiki 整合：yzr-llm-wiki-management 只管本地复利、远端发布独立成 skill；耦合方向 = consumer → producer；producer 不假设 consumer；raw/papers 全量抽取当只读底座。
+metadata:
+  type: project
+---
+
 # paper-wiki 与 yzr-llm-wiki-management 的整合设计（2026-06-29 重写）
 
 > MEMORY 索引：见 [`MEMORY.md`](./MEMORY.md)。本文记录 2026-06-29「yzr-llm-wiki-management 管理

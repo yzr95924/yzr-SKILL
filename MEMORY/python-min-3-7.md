@@ -1,3 +1,10 @@
+---
+name: python-min-3-7
+description: 仓库脚本最低支持 Python 3.7（2026-07-01 起放弃 CentOS 7 / 3.6 兼容）；附 3.8+ / 3.9+ / 3.10+ 必须避开特性清单与静态扫描自检方法。
+metadata:
+  type: project
+---
+
 # Python 最低 3.7
 
 **Why：** 2026-07-01 起放弃 CentOS 7 / Python 3.6 兼容，最低支持版本提到 3.7，与 `pyproject.toml` 的 `target-version = "py37"` 对齐。历史：曾因部署目标含 CentOS 7（官方源最高只到 Python 3.6，通过 `python36` / SCL `rh-python36` 提供）而保 3.6；现该约束已撤销。

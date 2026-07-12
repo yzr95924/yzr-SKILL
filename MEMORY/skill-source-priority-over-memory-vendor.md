@@ -1,3 +1,10 @@
+---
+name: skill-source-priority-over-memory-vendor
+description: SKILL 源是 SSOT 也是 npx 分发包内容；MEMORY 不分发只记"为什么"；vendor 副本派生且仅当前 session 生效——影响行为的规则必须先落 SKILL 源。
+metadata:
+  type: project
+---
+
 # SKILL 代码仓优先级：SKILL 源 > MEMORY > vendor
 
 **Why：** 2026-06-21 用户明确——

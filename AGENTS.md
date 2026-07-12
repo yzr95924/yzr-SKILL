@@ -16,8 +16,14 @@ This file provides guidance to AI coding agents when working with code in this r
 - 全部 Markdown 文件需经格式化 + lint，行宽 ≤ 120 字符（`.markdownlint.jsonc`，MD013 已放宽）。
 - 跨会话需要持久化的"为什么"与边界规则写入根目录 `MEMORY/`（`MEMORY.md` 是索引）。
   两种条目形式按事实颗粒度选：
-  - **完整 memory**：含设计决策 / 工作流约束 / 跨文件关系 → 建 `MEMORY/<slug>.md`（含
-    frontmatter 与正文），`MEMORY.md` 加 `[Title](slug.md)` 指针
+  - **完整 memory**：含设计决策 / 工作流约束 / 跨文件关系 → 建 `MEMORY/<slug>.md`（**YAML
+    frontmatter 起手：`name` + `description` + `metadata.type` 三件套**，正文 H1 + body），
+    `MEMORY.md` 加 `[Title](slug.md)` 指针。**禁止**直接 `# 起手 / **Why:** / **How to apply:**`
+    等无 frontmatter 写法（recall 阶段无法用 description 字段做 relevance 判定）。
+    frontmatter 三件套字段要求：
+    - `name`：kebab-case slug，必须等于文件名 `<slug>.md` 的 slug
+    - `description`：一行 ≤ 200 字符的事实摘要，用于机器 relevance 召回
+    - `metadata.type`：四选一 `user | feedback | project | reference`
   - **短 memory**：一句话能讲清的纯事实 / 单一偏好 / 无需 why+how 的提醒——直接以
     `- 一行事实` 索引行承载，不单独建 `<slug>.md`
   - 判别尺度交给事实本身：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
