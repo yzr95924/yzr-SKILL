@@ -250,7 +250,8 @@ agent 通识，避免"通用背景铺垫"占 token。写作风格 / 语言原则
 > 用户："帮我看看 yzr-skill-creator 自己写得规不规范、有没有散弹式散落"
 
 → 入口 4（原则校验）：跑 `quick_validate.py`（frontmatter）+ `check_skill_dependencies.py`（互依）
-  + grep 阈值 / 重复概念，按 `references/skill-writing-principles.md` 逐条 pass/fail；
+  + `check_anchor_health.py`（跨文件 link anchor 漂移，spec 演进后必跑）+ grep 阈值 /
+  重复概念，按 `references/skill-writing-principles.md` 逐条 pass/fail；
   产报告**不改写**，等用户决定
 
 ## 描述优化（独立入口）
@@ -350,6 +351,7 @@ python -m scripts.run_loop \
    | --- | --- |
    | frontmatter 合法性 | `python -m scripts.quick_validate <skill-dir>` |
    | 跨 skill 双向依赖 | `python -m scripts.check_skill_dependencies <repo-root>`（"互提" ≠ "互依"，是否成环靠 agent 读正文确认） |
+   | 跨文件 link anchor 漂移（spec 演进 / 段号变 / 章节删后无人察觉） | `python -m scripts.check_anchor_health <skill-dir>` 或 `--repo-root` 全扫；`--json` 出机器可读；`--include-templates` 强制审 `*-template.md`（默认跳过——模板里的相对路径在 copy 进 wiki 后才有效） |
    | 正文长度 / 跨文件重复 / scripts 常量与 prose / 自包含例外 / 链接路径基准 / Iron Law baseline / 纪律三件套 / 形式匹配 / `wc -w` 量化精简 | 见 `references/skill-writing-principles.md` 各原则的"审计检查操作"小段（不在 SKILL.md 重抄） |
 
 4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法。
