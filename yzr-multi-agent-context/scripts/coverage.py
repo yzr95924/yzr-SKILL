@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import yaml
+
 # Bootstrap sys.path：保持 `python3 -m scripts.coverage` 与 `python3 scripts/coverage.py` 一致。
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -79,6 +81,11 @@ STOPWORDS = {
 }
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# 完整 memory frontmatter 三件套约束（参见本仓库 AGENTS.md「仓库规约」段——禁止无 frontmatter 起手）。
+# 与 yzr-skill-creator 的 DESCRIPTION_MAX_CHARS（SKILL description 上限）是两套独立常量，本脚本不复用。
+ALLOWED_MEMORY_TYPES = frozenset({"user", "feedback", "project", "reference"})
+MEMORY_DESCRIPTION_MAX_CHARS = 200
 
 
 def tokenize(text: str) -> List[str]:
@@ -176,6 +183,101 @@ def check_memory_sync(root: Path) -> List[str]:
     return lines
 
 
+def parse_memory_frontmatter(text: str) -> Tuple[Optional[dict], Optional[str]]:
+    """解析 MEMORY/<slug>.md 开头的 YAML frontmatter。返回 (meta, error_msg)。
+
+    失败情形（首行非 --- / 第二 --- 缺失 / YAML 解析错 / 非映射）→ 返回 (None, 错误描述字符串)。
+    成功返回 (dict, None)。
+    """
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None, "缺 frontmatter 起手标记 ---（首行必须以 --- 开头）"
+    end: Optional[int] = None
+    for i, ln in enumerate(lines[1:], 1):
+        if ln.strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, "frontmatter 未闭合（缺第二个 ---）"
+    yaml_block = "\n".join(lines[1:end])
+    try:
+        meta = yaml.safe_load(yaml_block)
+    except yaml.YAMLError as e:
+        return None, f"YAML 解析失败：{e}"
+    if not isinstance(meta, dict):
+        return None, "frontmatter 非映射（应为 key: value 形式）"
+    return meta, None
+
+
+def check_memory_frontmatter(root: Path) -> List[str]:
+    r"""校验 MEMORY/<slug>.md frontmatter 三件套合法性（AGENTS.md「仓库规约」约定）。
+
+    本仓库的"完整 memory"必须带 YAML frontmatter 三件套——`name`（必须等于文件 slug）/
+    `description`（一行 ≤ 200 字符事实摘要，供 recall 阶段 relevance 判定）/
+    `metadata.type`（四选一 user / feedback / project / reference）。短 memory 走 MEMORY.md
+    索引行（不是单文件），不在本函数范围。
+
+    检查逐文件：
+    1. 文件首行 --- 起手 + 第二 --- 闭合——三件套的载体
+    2. `name` 字段非空且等于文件 stem（kebab-case slug）
+    3. `description` 字段是字符串、非空、**单行**（不含 `\n`）、≤ 200 字符
+    4. `metadata.type` ∈ ALLOWED_MEMORY_TYPES
+
+    无 MEMORY/ 或无 <slug>.md 单文件时返回空。报告行前缀 [OK]/[违规] 区分通过与不通过。
+    """
+    memory = root / "MEMORY"
+    if not memory.is_dir():
+        return []
+
+    files = sorted(p for p in memory.glob("*.md") if p.name != "MEMORY.md")
+    if not files:
+        return []
+
+    pass_count = 0
+    fail_count = 0
+    detail: List[str] = []
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        meta, err = parse_memory_frontmatter(text)
+        issues: List[str] = []
+
+        if err:
+            issues.append(err)
+        else:
+            slug = path.stem
+            name = meta.get("name")
+            if name != slug:
+                issues.append(f"name 字段={name!r} ≠ 文件 slug={slug!r}")
+
+            desc = meta.get("description")
+            if not isinstance(desc, str) or not desc.strip():
+                issues.append("description 缺 / 非字符串 / 仅空白")
+            elif "\n" in desc or len(desc) > MEMORY_DESCRIPTION_MAX_CHARS:
+                issues.append(
+                    f"description {len(desc)} 字符 / 含换行——AGENTS.md 要求单行（≤ {MEMORY_DESCRIPTION_MAX_CHARS} 字符）"
+                )
+
+            metadata = meta.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                issues.append("metadata 缺 / 非映射")
+            else:
+                typ = metadata.get("type")
+                if typ not in ALLOWED_MEMORY_TYPES:
+                    issues.append(f"metadata.type={typ!r} 不在 {sorted(ALLOWED_MEMORY_TYPES)}")
+
+        if issues:
+            fail_count += 1
+            detail.append(f"  [违规] {path.name}")
+            for issue in issues:
+                detail.append(f"    - {issue}")
+        else:
+            pass_count += 1
+            detail.append(f"  [OK] {path.name}")
+
+    summary = f"[统计] {pass_count} 合规 / {fail_count} 不合规 （共 {len(files)} 个 MEMORY/<slug>.md 文件）"
+    return [summary] + detail
+
+
 def overlap_coeff(a: frozenset, b: frozenset) -> float:
     """Szymkiewicz–Simpson：|A∩B| / min(|A|,|B|)。语义＝"A 的 token 有多少出现在 B"。"""
     if not a or not b:
@@ -258,12 +360,29 @@ def main() -> int:
     ap.add_argument("--min-tokens", type=int, default=4, help="行参与比对的最低 token 数（默认 4）")
     args = ap.parse_args()
 
-    lines, flag_count, evaluated = coverage(Path(args.root).resolve(), args.threshold, args.min_tokens)
+    root = Path(args.root).resolve()
+    lines, flag_count, evaluated = coverage(root, args.threshold, args.min_tokens)
     print("\n[coverage] Step 5 覆盖率验证")
     print("-" * 60)
     for ln in lines:
         print(ln)
     print("-" * 60)
+
+    # frontmatter 三件套合法性独立打印：不依赖 Step 1 快照存在，
+    # 用户哪怕没跑迁移、只想体检 MEMORY 也能用。
+    fm_sync = check_memory_frontmatter(root)
+    if fm_sync:
+        print("-" * 60)
+        print("记忆正文 frontmatter 三件套合法性：")
+        for ln in fm_sync:
+            print(ln)
+        print("-" * 60)
+        # 三件套有违规时非零退出，让 CI 能挂住（advisory 用可忽略）
+        fail_count = sum(1 for ln in fm_sync if "[违规]" in ln)
+        if fail_count and flag_count >= 0:
+            print(f"结论：frontmatter 违规 {fail_count} 处——补 name/description/metadata.type 后再跑。")
+            return 1
+
     if flag_count < 0:
         print("结论：硬错误，未完成比对。")
         return 1
