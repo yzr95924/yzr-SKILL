@@ -120,15 +120,25 @@ def collect_targets(root: Path) -> List[Tuple[str, int, str, frozenset]]:
     return targets
 
 
+def _extract_preamble(text: str) -> str:
+    r"""提取 AGENTS.md 的前导区：首个 H1（`# ...`）之后、首个 `## ` 之前的文本。
+
+    顶部强制 Read 指令必须落在此区（agent 加载 AGENTS.md 第一屏读到）。无 H1 或无 `## ` 时返回
+    H1 之后的全部文本（容错）。
+    """
+    m = re.search(r"^# .+$\n([\s\S]*?)(?=^## )", text, re.MULTILINE)
+    return m.group(1) if m else ""
+
+
 def check_memory_sync(root: Path) -> List[str]:
-    r"""校验 R2 记忆 `@import` 收口的几何（R2：AGENTS.md 用 @MEMORY/MEMORY.md 单行 + Codex Read 指引）。
+    r"""校验 R2 记忆 `@import` 收口的几何（R2：AGENTS.md 顶部强制 Read 指令 + @MEMORY/MEMORY.md 单行）。
 
     检查三件事：
     1. `MEMORY/MEMORY.md` 存在——L2 索引的真源在此，缺则 R2 引用会指向空气。
     2. AGENTS.md 有且仅有一行 `@MEMORY/MEMORY.md`——多行（说明重复挂）或缺失（说明走的是旧方案 /
        已改为内联）都算违反。
-    3. AGENTS.md `## 跨会话记忆（索引）` 段内有 Codex Read 指引 HTML 注释（Codex 不展开 @import，
-       缺指引则 L2 对 Codex 不可见）——存在提示语 `直接读 `MEMORY/MEMORY.md`` 视作命中（容许措辞微调）。
+    3. AGENTS.md 顶部（H1 后、首个 `##` 前）有强制 Read 指令 blockquote（含 `@` + Read 两特征）——
+       通吃所有 agent：自动展开 `@import` 的读了无害，不展开的据此读 `@` 引用。缺则 L2 对不展开的不可见。
     4. AGENTS.md 不再含旧内联形态（一堆 `- [标题](MEMORY/<slug>.md) — …`）——内联 + @import
        两套并存让 L1 词数翻倍，诊断时按旧内联残留处理。
 
@@ -159,15 +169,16 @@ def check_memory_sync(root: Path) -> List[str]:
     else:
         lines.append("  [OK] AGENTS.md 含单行 `@MEMORY/MEMORY.md` 引用")
 
-    # 3) Codex Read 指引（HTML 注释里出现 "直接读 `MEMORY/MEMORY.md`" 或等价格式）
-    codex_hint = bool(
-        re.search(r"<!--.*?直接读\s*`?MEMORY/MEMORY\.md`?", text, re.DOTALL)
-        or re.search(r"<!--.*?Read\s*`?MEMORY/MEMORY\.md`?", text, re.IGNORECASE | re.DOTALL)
+    # 3) 顶部强制 Read 指令（前导区 blockquote，含 `@` + Read 两特征——通吃所有 agent）
+    preamble = _extract_preamble(text)
+    top_directive = bool(preamble) and bool(
+        re.search(r"^>.*@.*$", preamble, re.MULTILINE)
+        and re.search(r"^>.*Read", preamble, re.MULTILINE | re.IGNORECASE)
     )
-    if not codex_hint:
-        lines.append("  [不同步] AGENTS.md 缺 Codex Read 指引——Codex 看不到记忆索引")
+    if not top_directive:
+        lines.append("  [不同步] AGENTS.md 缺顶部强制 Read 指令——不展开 @import 的 agent 拿不到 @ 引用")
     else:
-        lines.append("  [OK] AGENTS.md 含 Codex Read 指引（HTML 注释）")
+        lines.append("  [OK] AGENTS.md 含顶部强制 Read 指令（H1 后 blockquote）")
 
     # 4) 旧内联形态检测（R2 已废弃；与 @import 同时存在会让 L1 词数翻倍）
     # 判"`- [标题](MEMORY/<slug>.md) — ...`"行 ≥ 2（容忍 1 行示例 / 单条引用）
@@ -344,7 +355,7 @@ def coverage(root: Path, threshold: float, min_tokens: int) -> Tuple[List[str], 
         if len(flagged) > 80:
             lines.append(f"  … 还有 {len(flagged) - 80} 条，详见源（调整 --threshold 可收紧 / 放宽）")
 
-    # 记忆索引一致性（R2 @import 收口）：MEMORY.md 存在 / AGENTS.md 单行引用 / Codex Read 指引 / 无旧内联形态
+    # 记忆索引一致性（R2 @import 收口）：MEMORY.md 存在 / AGENTS.md 单行引用 / 顶部强制 Read 指令 / 无旧内联形态
     mem_sync = check_memory_sync(root)
     if mem_sync:
         lines.append("-" * 60)

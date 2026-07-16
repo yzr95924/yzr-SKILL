@@ -3,7 +3,7 @@
   {"query": "项目同时有 CLAUDE.md 和 AGENTS.md，内容互相重复 / 冲突，帮我合并去重", "should_trigger": true},
   {"query": "Codex 不展开 @import，我 AGENTS.md 里的 @MEMORY/MEMORY.md 索引它看不见，怎么办？", "should_trigger": true},
   {"query": "现有 AGENTS.md 里还有大量 Claude Code 字样残留，怎么规范成多 agent 通用工具无关", "should_trigger": true},
-  {"query": "我们项目以前把 MEMORY.md 索引行直接列在 AGENTS.md 里（内联方案），想回退到 @MEMORY/MEMORY.md 一行 + Codex Read 指引", "should_trigger": true},
+  {"query": "我们项目以前把 MEMORY.md 索引行直接列在 AGENTS.md 里（内联方案），想回退到 @MEMORY/MEMORY.md 一行让多 agent 都能读", "should_trigger": true},
   {"query": "现有 CLAUDE.md 里硬绑 Claude 的部分想抽出来，薄壳 CLAUDE.md 应该放什么 / AGENTS.md 应该放什么", "should_trigger": true},
   {"query": "新接手一个项目，已存在 AGENTS.md + CLAUDE.md 并存，怎么诊断哪些段该合并、哪些是 Claude 专属该进逃生舱", "should_trigger": true},
   {"query": "Claude Code / Codex / Qoder 三家 AI coding agent 各自怎么加载同一份 AGENTS.md？谁展开 @import、谁不展开？", "should_trigger": true},

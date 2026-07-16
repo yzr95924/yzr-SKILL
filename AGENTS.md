@@ -2,6 +2,9 @@
 
 This file provides guidance to AI coding agents when working with code in this repository.
 
+> **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具按需
+> 读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
+
 ## 项目定位
 
 个人自定义 AI skills 合集。仓库本身既是 skills 的消费载体（每个子目录是一个独立 skill），
@@ -203,10 +206,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ## 跨会话记忆（索引）
 
 @MEMORY/MEMORY.md
-
-<!-- Codex（与不展开 @import 语法的 agent）：上方 @MEMORY/MEMORY.md 只是文本，不会自动展开。
-请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，再按需 Read 各 MEMORY/<slug>.md 正文。 -->
-
 
 ## 注意事项
 

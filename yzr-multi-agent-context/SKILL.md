@@ -3,8 +3,8 @@ name: yzr-multi-agent-context
 description: 在用户处理 AI coding agent 项目上下文收敛成一份工具无关 AGENTS.md（多 agent 原生加载）的
   任一子问题时使用——典型场景：CLAUDE.md 改薄壳 @AGENTS.md（含 Claude 专属逃生舱）/ 合并去重并存
   CLAUDE.md + AGENTS.md / 抽硬绑 Claude 内容进逃生舱 / 回退内联 MEMORY 索引到 @MEMORY/MEMORY.md +
-  Codex Read 指引 / 规范化现有 AGENTS.md / 跑迁移覆盖率验证。两条入口：CLAUDE.md 迁移 / AGENTS.md
-  规范化。不适用：裸项目（先用 /init）/ 不读 AGENTS.md 的 agent（Cursor / Windsurf / Gemini 先手动
+  顶部强制 Read 指令 / 规范化现有 AGENTS.md / 跑迁移覆盖率验证。两条入口：CLAUDE.md 迁移 / AGENTS.md
+  规范化。不适用：裸项目（先用 /init）/ 不读 AGENTS.md、只认自家专属格式的 agent（先手动
   转）/ 改权限 / MCP / scripts。
 metadata:
   author: Zuoru YANG
@@ -15,61 +15,60 @@ metadata:
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
 
 把一个工程的项目上下文归约成「**AGENTS.md 作单一真源（SSOT）、对多个 agent 兼容**」——`CLAUDE.md`
-或已有的 `AGENTS.md` 经两条路径收敛到同一份工具无关的 `AGENTS.md`，Claude Code / Codex / Qoder
-各用各的入口加载它，不必维护两份。
+或已有的 `AGENTS.md` 经两条路径收敛到同一份工具无关的 `AGENTS.md`，各 agent 各用各的入口加载它
+（原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md → @AGENTS.md` 的），不必维护两份。
 
 ## 设计与原理
 
 核心是让 **`AGENTS.md` 成为单一真源**：所有项目上下文只在这里维护一份，`CLAUDE.md` 退化成引入它的
-薄壳（加少量 Claude 专属逃生舱）。`AGENTS.md` 是跨 agent 的事实标准——任何读它的 agent（Codex / Qoder）
-都**原生识别**，无需额外配置（例见 [Qoder 官方 Rules 文档](https://docs.qoder.com/user-guide/rules)
-原文：”copy your `AGENTS.md` file to your project directory. The Agent will automatically recognize
-and utilize the rules defined in the file”）；Claude Code 则经薄壳 `CLAUDE.md → @AGENTS.md` 引入同一份内容，
+薄壳（加少量 Claude 专属逃生舱）。`AGENTS.md` 是跨 agent 的事实标准——原生读它的 agent 都**原生识别**，
+无需额外配置；不原生读 `AGENTS.md` 的 agent 则经薄壳 `CLAUDE.md → @AGENTS.md` 引入同一份内容，
 且支持**递归** `@import`，故 AGENTS.md 内的 `@MEMORY/MEMORY.md` 也会被自动展开。
 
 **L2 记忆层用 `@MEMORY/MEMORY.md` 收口**（R2；此理由只在此讲一次，Step 2 / 3 均引用本段）：
-`MEMORY.md`（索引文件）放在 `MEMORY/` 下，AGENTS.md 用 `@MEMORY/MEMORY.md` 单行引入——Claude Code（递归
-import）/ Qoder（AGENTS.md 原生支持 `@MEMORY/...`）都会把索引正文展开到上下文。Codex **不展开**
-`@import`（openai/codex#17401 仍未实现），故 AGENTS.md 的「跨会话记忆（索引）」段同时挂一条面向
-Codex / 其它不展开 import 的 agent 的**显式 Read 指引**：让它直接 `Read MEMORY/MEMORY.md` 拿到索引。
+`MEMORY.md`（索引文件）放在 `MEMORY/` 下，AGENTS.md 用 `@MEMORY/MEMORY.md` 单行引入——会自动展开
+`@import` 的 agent（递归 import / 原生支持 `@path`）会把索引正文展开到上下文；不展开 `@import` 的
+agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
+指令**（对所有 agent 一视同仁）：凡 `@` 引用都用 Read 读——不展开的据此 `Read MEMORY/MEMORY.md` 拿到
+索引，展开的读了也无害（从「段内逐点补指引」升级为「一条通则兜底」，不再绑定具体 agent）。
 
 为什么不把 MEMORY.md 索引内联进 AGENTS.md 正文：内联要双写（MEMORY.md 改一处就得回贴 AGENTS.md，
-必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成”MEMORY.md + AGENTS.md”双源。而 Claude Code /
-Qoder 都能 `@import` 自动展开，只 Codex 例外——一条 Read 指引就补回，不值得为它内联。
+必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成”MEMORY.md + AGENTS.md”双源。而自动展开
+`@import` 的 agent 本就把索引读入，不展开的由顶部指令补回——不值得为不展开的少数内联。
 
 完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见 [`references/layering.md`](references/layering.md)
 ——Step 1 给段落分类时读它；改写规则 R1–R5 + 路径 2 诊断清单见
 [`references/rewrite-rules.md`](references/rewrite-rules.md)——Step 2 / 3 / 4 对照执行。
 
-三家兼容性矩阵：
+兼容性矩阵（按加载行为分类，不逐家点名——是否自动展开 `@import` 已由顶部强制 Read 指令通吃）：
 
-| 层 | Claude Code | Codex | Qoder |
-|---|---|---|---|
-| L1 AGENTS.md 正文 | 经薄壳 `@AGENTS.md` | 原生读 | 原生读 |
-| L2 记忆索引 | `@MEMORY/MEMORY.md` 递归展开 | 不展开，靠 AGENTS.md 内 Read 指引直接读 `MEMORY/MEMORY.md` | `@MEMORY/MEMORY.md` 原生展开 |
-| L2 记忆正文 | 按需 Read | 按需 Read | 按需 Read |
-| 触发式 rule | 不涉及（全读） | 层级 AGENTS.md | `.qoder/rules/`（本 skill 不生成） |
+| 层 | 原生读 AGENTS.md 的 agent | 经薄壳 `CLAUDE.md → @AGENTS.md` 的 agent |
+|---|---|---|
+| L1 正文 | 原生读 | 经薄壳 `@AGENTS.md` 引入 |
+| L2 记忆索引 | `@MEMORY/MEMORY.md` 一行；顶部强制 Read 指令通吃展开与否 | 同左（薄壳递归展开后同效） |
+| L2 记忆正文 | 按需 Read | 按需 Read |
+| 触发式 rule | 不涉及（全读）；部分 agent 自家触发式 rule 目录本 skill 不生成 | 同左 |
 
 薄壳结构 + 三家信息流：
 
 ```text
 AGENTS.md                    唯一真源（工具无关，人工维护的唯一目标）
-  └── ## 跨会话记忆（索引）  @MEMORY/MEMORY.md + Codex Read 指引（Codex 用）
+  └── ## 跨会话记忆（索引）  @MEMORY/MEMORY.md（顶部强制 Read 指令兜底不展开 @import 的 agent）
 
 CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   ├── @AGENTS.md             引入全部共用内容（递归展开里面的 @MEMORY/MEMORY.md）
   └── <!-- Claude Code 专属 -->  几行无法泛化的工具绑定内容（如有）
 ```
 
-任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或指引读——Step 1 段落分层决策树见
+任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或按顶部强制 Read 指令读——Step 1 段落分层决策树见
 [`references/layering.md`](references/layering.md)。
 
 ## 何时使用 / 不使用
 
 > 触发场景已在上方 description 给出；本节只补充 description 没说的边界细节。
 
-典型适用：用户从 Claude Code 切到读 `AGENTS.md` 的 agent（Qoder / Codex），或想让多个 IDE 同时用同一个
-项目；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之前部分迁移），想规范化成多 agent 通用标准。
+典型适用：用户想让多个 IDE / agent 共用同一份项目上下文（从只读 `CLAUDE.md` 切到读 `AGENTS.md` 的多
+agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之前部分迁移），想规范化成多 agent 通用标准。
 
 不使用（边界）：
 
@@ -79,8 +78,8 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 - **迁向不读 `AGENTS.md` 的 agent**——主路径对任何读 `AGENTS.md` 的 agent 都成立；只有目标 agent 完全
   不读 `AGENTS.md`（只认自家专属格式）才不适用
 - **生成 agent 专属触发式 rule 文件**（如 `.qoder/rules/`）——官方多未文档化，交给用户在目标 agent IDE 配置
-- **解析 agent 专属触发式 / 格式**（Cursor `.cursor/rules/*.mdc`、Gemini `GEMINI.md`、Windsurf
-  `.windsurfrules` 等）——格式各异且多带触发条件，先手动转成 `AGENTS.md` / `CLAUDE.md` 再来
+- **解析 agent 专属触发式 / 格式**（各家专属格式各异且多带触发条件，如 `.cursor/rules/*.mdc`、
+  `GEMINI.md`、`.windsurfrules` 等）——先手动转成 `AGENTS.md` / `CLAUDE.md` 再来
 - **裸项目从零生成**（既无 `CLAUDE.md` 又无 `AGENTS.md`）——本 skill 只归约**已有**的 agent 上下文；
   裸项目先用 agent 自带的 `/init` 生成初始上下文，再来归约
 
@@ -98,8 +97,8 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 ```text
 <project-root>/
-├── AGENTS.md                 新/改：工具无关真源（agent 原生读 + Claude Code 经薄壳引入），
-│                             含「## 跨会话记忆（索引）」段：@MEMORY/MEMORY.md + Codex Read 指引
+├── AGENTS.md                 新/改：工具无关真源（原生读 / 经薄壳 CLAUDE.md 引入），
+│                             含「## 跨会话记忆（索引）」段：@MEMORY/MEMORY.md（顶部强制 Read 指令在文件顶部）
 ├── CLAUDE.md                 薄壳（@AGENTS.md + <!-- Claude Code 专属 --> 逃生舱）——让 Claude Code 也
 │                             加载同一份 AGENTS.md（含递归 @MEMORY/MEMORY.md 展开）；有现有 CLAUDE.md
 │                             则改写，纯 AGENTS.md 项目则新建最小薄壳
@@ -118,7 +117,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 | 有 `AGENTS.md`（可能 +`CLAUDE.md`） | **2 规范化** | 诊断现有 AGENTS.md（品牌残留？记忆段形式？）+ 合并并存 CLAUDE.md，冲突让用户裁定；清单见 [`references/rewrite-rules.md`](references/rewrite-rules.md) |
 | 都没有（裸项目） | 硬阻塞 | 不在本 skill 范围——先用 agent 的 `/init` 生成初始 `CLAUDE.md` / `AGENTS.md` 再来 |
 
-两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让 Claude Code 也加载同一份内容。
+两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让不原生读 `AGENTS.md` 的 agent 也加载同一份内容。
 
 ## 执行原则
 
@@ -131,8 +130,8 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   `agent CLI` 等，含”何时保留工具名”判定）见 [`references/rewrite-rules.md`](references/rewrite-rules.md)——
   Step 2 / 3 改写时对照。
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
-  引入索引 + Codex / 不展开 import 的 agent 的显式 Read `MEMORY/MEMORY.md` 指引。**不**内联索引行
-  ——理由见上方「设计与原理」L2 记忆层段（Step 2 段会引用同一 R2 的段落模板）。
+  引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
+  段内不再单挂指引。**不**内联索引行——理由见上方「设计与原理」L2 记忆层段（Step 2 引用同一 R2 模板）。
 - **R3 行宽不变**：保持原文 ≤ 120 字符（见 `.markdownlint.jsonc` MD013）——完整约束见
   [`references/rewrite-rules.md`](references/rewrite-rules.md) R3。
 - **R4 MEMORY 改写**：MEMORY 正文按 R1 去品牌，目录结构 / 文件数不变（仅改措辞，不合并 / 拆分 /
@@ -174,15 +173,16 @@ python3 scripts/precheck.py <project-root>
    - **路径 1**：CLAUDE.md 段落去品牌改写入骨架。
    - **路径 2**：在现有 AGENTS.md 基础上规范化（改记忆段为 `@MEMORY/MEMORY.md`、去品牌残留、
      合并 CLAUDE.md 内容去重），冲突口径让用户裁定。
-2. 有 `MEMORY/` 时加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`** + Codex
-   Read 指引（见 [`references/rewrite-rules.md`](references/rewrite-rules.md) R2 的完整段落模板）。
+2. 有 `MEMORY/` 时加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`**——段内不再
+   挂段内指引（不展开 `@import` 的 agent 由顶部强制 Read 指令兜底）。完整段落模板见
+   [`references/rewrite-rules.md`](references/rewrite-rules.md) R2。
 3. 应用 R1（去品牌）+ R3（行宽）。
 4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`references/layering.md`](references/layering.md)）；
    超出把详细内容下沉到 L2（`MEMORY/`）。
 5. 自检：
    - `grep -iE “claude code|\.claude/” AGENTS.md` 应无命中（去品牌通过）
    - 有 `MEMORY/` 时 `grep -nE '^@MEMORY/MEMORY\.md$' AGENTS.md` 应有 1 行命中（R2 引用）
-   - 有 `MEMORY/` 时 `## 跨会话记忆（索引）` 段内应有 Codex Read 指引（无 `MEMORY/` 跳过）
+   - 顶部应有强制 Read 指令 blockquote（H1 后、首个 `##` 前；含 `@` + Read 特征——所有 AGENTS.md 必备）
 
 ### Step 3：改写 MEMORY（LLM，如存在）
 
@@ -191,7 +191,7 @@ python3 scripts/precheck.py <project-root>
 
 ### Step 4：生成 CLAUDE.md 薄壳
 
-让 Claude Code 也能加载同一份 `AGENTS.md`：有现有 `CLAUDE.md`（路径 1；路径 2 并存场景）则改写成薄壳；
+让不原生读 `AGENTS.md` 的 agent（经 `CLAUDE.md` 加载）也能用上同一份：有现有 `CLAUDE.md`（路径 1；路径 2 并存场景）则改写成薄壳；
 纯 `AGENTS.md` 项目（路径 2 无 CLAUDE.md）则新建最小薄壳。按 [`references/rewrite-rules.md`](references/rewrite-rules.md)
 的薄壳模板：顶部「薄壳声明」（点明 AGENTS.md 是单一真源、勿在此编辑共用部分）+ `@AGENTS.md` +
 `<!-- Claude Code 专属 -->` 逃生舱（Step 2 识别出的 TOOL_SPECIFIC 内容，按 R5 处理）。没有逃生舱内容就省略注释块。
