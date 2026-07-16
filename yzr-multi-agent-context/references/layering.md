@@ -9,10 +9,10 @@
 
 | 层 | 文件 | 加载时机 | 内容特征 | 预算 |
 |----|------|---------|---------|------|
-| L1 常驻层 | `AGENTS.md` | 三家每次 session 必加载（Claude Code 经薄壳，Codex/Qoder 原生） | 项目身份 / 规约 / 命令 / 高层结构 / 协作摘要 | 正文 ≤1500 词 |
-| L2 记忆层 | `MEMORY/MEMORY.md`（索引） + `MEMORY/<slug>.md`（正文） | 索引经 AGENTS.md 的 `@MEMORY/MEMORY.md` 一行引入 + Codex Read 指引；正文按需 `Read` | 跨会话”为什么”、设计决策、踩坑记录 | 索引行数不限（只存 `MEMORY.md`，AGENTS.md 单行引用不计入 L1） |
+| L1 常驻层 | `AGENTS.md` | 两类 agent 每次 session 必加载：原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md` 的 | 项目身份 / 规约 / 命令 / 高层结构 / 协作摘要 | 正文 ≤1500 词 |
+| L2 记忆层 | `MEMORY/MEMORY.md`（索引） + `MEMORY/<slug>.md`（正文） | 索引经 AGENTS.md 顶部强制 Read 指令 + `@MEMORY/MEMORY.md` 一行引入；正文按需 `Read` | 跨会话”为什么”、设计决策、踩坑记录 | 索引行数不限（只存 `MEMORY.md`，AGENTS.md 单行引用不计入 L1） |
 
-> 只有这两层。本 skill **不生成任何 agent 专属的触发式 rule 文件**（如 Qoder 的 `.qoder/rules/`）——
+> 只有这两层。本 skill **不生成任何 agent 专属的触发式 rule 文件**（如部分 agent 的自家触发式 rule 目录）——
 > 那类机制官方多未文档化，且 `AGENTS.md` 主路径已让读它的 agent 兼容；触发式拆分交给用户在目标
 > agent 的 IDE 里自行配置。本 skill 只负责产出工具无关的 `AGENTS.md` + 薄壳 `CLAUDE.md` + `MEMORY/`。
 
@@ -50,6 +50,10 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 ```markdown
 # AGENTS.md
 
+> **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具按需
+> 读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
+<!-- ↑ 顶部强制 Read 指令（H1 后、首个 `##` 前必放；有导语则放导语后）。逐字拷入,不内联到段内。 -->
+
 ## 项目定位                          ← IDENTITY (L1)
 
 <一两段描述仓库是什么、做什么>
@@ -72,14 +76,12 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 @MEMORY/MEMORY.md
 
-<!-- Codex Read 指引：完整注释模板见 rewrite-rules.md R2，逐字拷入本段 -->
-
 ## 注意事项                          ← CAUTION (L1 兜底)
 
 <零散的 tip / warning>
 ```
 
-**L1 词数控制**：正文总词数守 L1 预算（§两层定义），记忆索引段只占 2 行（`@MEMORY/MEMORY.md` + Codex Read 指引），
+**L1 词数控制**：正文总词数守 L1 预算（§两层定义），记忆索引段只占 1 行（`@MEMORY/MEMORY.md`），
 **不**计入 L1 词数预算——索引真实数据走 `MEMORY/MEMORY.md`，AGENTS.md 这段本质是引用 + fallback，不是内容。
 如果 L1 内容超出 L1 预算，说明描述太详细——把”为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
 L1 只保留摘要。索引本身无条数上限——索引只活在 `MEMORY/MEMORY.md`，AGENTS.md 只引用不计数。

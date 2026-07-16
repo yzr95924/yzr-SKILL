@@ -60,8 +60,8 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
     if memory.is_dir():
         n = sum(1 for _ in memory.glob("*.md"))
         lines.append(f"  [OK] MEMORY/ 存在（{n} 个 .md）——Step 3 一并去品牌化")
-        lines.append("  [INFO] L2 记忆索引走 AGENTS.md 内单行 @MEMORY/MEMORY.md 引入 + Codex Read 指引")
-        lines.append("         (Claude Code / Qoder 自动展开;Codex 不展开 @import,靠 HTML 注释里 Read 指引)")
+        lines.append("  [INFO] L2 记忆索引走 AGENTS.md 顶部强制 Read 指令 + 单行 @MEMORY/MEMORY.md 引入")
+        lines.append("         (自动展开 @import 的 agent 读入全文;不展开的按顶部指令 Read MEMORY/MEMORY.md)")
         # 检出 AGENTS.md 是否已挂记忆段（旧内联方案残留时 Step 2 顺带改）
         memory_index = memory / "MEMORY.md"
         if agents.exists() and memory_index.exists():
@@ -71,7 +71,7 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
                     lines.append("  [提示] AGENTS.md 已有记忆段但未用 @MEMORY/MEMORY.md（老内联方案残留）")
                     lines.append("         → Step 2 / 路径 2 诊断会触发规范化（行 2-3）")
                 else:
-                    lines.append("  [提示] AGENTS.md 缺记忆段——Step 2 会追加 @MEMORY/MEMORY.md + Codex Read 指引")
+                    lines.append("  [提示] AGENTS.md 缺记忆段——Step 2 会追加 @MEMORY/MEMORY.md + 顶部强制 Read 指令")
     else:
         lines.append("  [INFO] 无 MEMORY/ 目录——Step 3 跳过")
 
