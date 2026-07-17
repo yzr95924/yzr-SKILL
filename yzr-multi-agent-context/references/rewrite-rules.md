@@ -54,6 +54,15 @@
 路径 2 诊断时若发现"AGENTS.md 把记忆索引 inline 进正文"这种老形态，按 R2 改造为 `@MEMORY/MEMORY.md`
 一行；切勿两套并存（内联 + `@import` 同时存在会让 L1 词数翻倍，且不知道哪家真源赢）。
 
+### 写统一（可选）：记忆写入规约
+
+R2 上面解决的是**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一——要求 agent 把新记忆写到
+`MEMORY/` 而非各自私有 memory——是**可选**的：它依赖 agent 把 AGENTS.md 当执行指令，而各 agent 对"执行
+AGENTS.md 写入指令"的程度不一，故不强求。启用的项目在 AGENTS.md「仓库规约」段保留**记忆写入规约模板**
+（见 `layering.md` 骨架「仓库规约」可选块）——核心是"持久化的'为什么'写 `MEMORY/`、不写私有 memory"
++ 两种条目形式（完整带 frontmatter 三件套 / 短 memory 索引行）。项目方自定是否启用；不启用也不影响
+读侧统一（@import 收口照常生效）。
+
 ## R3 — 行宽不变
 
 原文遵守的行宽约束（本仓库是 ≤ 120 字符，见 `.markdownlint.jsonc` MD013）在改写后继续遵守。

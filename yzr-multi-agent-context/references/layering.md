@@ -62,6 +62,13 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 <命名规范、文件格式、必须遵守的约束>
 
+<!-- ↓ 可选：启用统一记忆管理（让多 agent 共用同一份 MEMORY/，而非各自私有 memory）。
+     启用 = 保留以下规约 + 下方「跨会话记忆（索引）」段；不启用 = 删本注释 + 规约 + 那段。 -->
+- 跨会话需持久化的"为什么 / 边界规则"写入根目录 `MEMORY/`（`MEMORY.md` 是索引），不写 agent 私有 memory。
+  - 完整 memory（设计决策 / 工作流约束）→ `MEMORY/<slug>.md`，带 frontmatter 三件套：
+    `name`(=文件 slug) + `description`(≤200 字符事实摘要) + `metadata.type`(user|feedback|project|reference)
+  - 短 memory（一句话事实）→ 直接写 `MEMORY.md` 索引行，不单独建文件
+
 ## 常用命令                          ← COMMANDS (L1)
 
 ### 校验 skill
