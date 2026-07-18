@@ -7,25 +7,13 @@
 > [`wiki-spec.md`](wiki-spec.md) §2 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改
 > 都视为"非标准配置"，skill 行为不再保证一致。
 >
-> **L2 索引 `@import` 收口（0.24.0+；0.23.0 短暂内联已回退）**：本文件加载时由下方的
-> `@MEMORY/MEMORY.md` 与 `@scripts/SCRIPTS.md` 两行 `@import` 自动展开——**Claude Code** 经
-> 薄壳 `CLAUDE.md → @AGENTS.md` 递归展开自动拿到 MEMORY / scripts 全文；**Qoder** 原生支持
-> `AGENTS.md` 内 `@import` 也透明加载；**Codex** 不展开 `@import`，由下方项目记忆段 HTML 注释
-> 的 Read 指引直接 `Read MEMORY/MEMORY.md` 拿索引。三家都见 L2 索引，**不**靠"内联副本 +
-> bloat guard"工程式补丁（0.23.0 短暂用过，因双写 / 词数膨胀等坑回退，详见
-> `yzr-multi-agent-context` SKILL.md「为何不再用内联」段；跨 skill 不直链）。
-> `MEMORY/MEMORY.md` 与 `scripts/SCRIPTS.md` 是单一真源，`@import` 引用同步指向全文，
-> **不**在 AGENTS.md 持有副本——无漂移风险。
+> **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`、`@scripts/SCRIPTS.md`），
+> 都用 Read 工具按需读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，
+> 否则漏上下文。
 
 @MEMORY/MEMORY.md
 
-<!-- Codex（与不展开 `@import` 语法的 agent）：上方 `@MEMORY/MEMORY.md` 只是文本，
-     不会自动展开。请用 Read 工具直接读 `MEMORY/MEMORY.md` 拿到完整索引，
-     再按需 Read 各 `MEMORY/<slug>.md` 正文。 -->
-
 @scripts/SCRIPTS.md
-
-<!-- Codex：上方 `@scripts/SCRIPTS.md` 同理，请直接 Read `scripts/SCRIPTS.md`。 -->
 
 ## 一、本 wiki 的边界
 

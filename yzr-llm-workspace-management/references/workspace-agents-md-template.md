@@ -8,10 +8,13 @@
 > 按 [`workspace-spec.md`](workspace-spec.md) §4 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则
 > 冲突的修改都视为"非标准配置"，skill 行为不再保证一致。
 >
-> **读取机制（agent 中立）**：维护本 workspace 的 agent 应在每次跨 wiki 操作前读本文件。在 workspace 根目录内
-> 工作时——**Claude Code** 经同目录薄壳 `CLAUDE.md`（`@AGENTS.md` 递归展开）自动加载本文件；**读 `AGENTS.md`
-> 的其他 agent**（Qoder / Codex / Gemini CLI 等）原生直读本文件。在别处工作时由 skill 经 `$LLMW_WORKSPACE` 按需读取——
-> **不依赖 symlink**，多终端 / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于 Claude Code 自动加载约定，无独立纪律。）
+> **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具
+> 按需读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
+>
+> **读取机制（agent 中立）**：维护本 workspace 的 agent 应在每次跨 wiki 操作前读本文件。在 workspace
+> 根目录内工作时——经同目录薄壳 `CLAUDE.md`（`@AGENTS.md` 递归展开）自动加载，或被原生读 `AGENTS.md`
+> 的 agent 直读。在别处工作时由 skill 经 `$LLMW_WORKSPACE` 按需读取——**不依赖 symlink**，
+> 多终端 / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于经薄壳加载的 agent，无独立纪律。）
 >
 > **作用域（scope）声明**：本文件（`AGENTS.md` + 同目录 `CLAUDE.md` 薄壳）**仅约束跨 wiki
 > 工作**——即 agent cwd 在 workspace 根目录或外部 cwd 下调用 `yzr-llm-workspace-management`
@@ -20,12 +23,10 @@
 > 接管，特别要警惕 MEMORY scope 边界（workspace `MEMORY/` = 跨 wiki；`<wiki>/MEMORY/` =
 > 单 wiki）与 ingest / log 写入归属（wiki 内写 `<wiki>/wiki/` + `<wiki>/wiki/log.md`，
 > 而非 workspace 级 `INDEX.md` / `STATS.md`）。不同 agent 的 `@AGENTS.md` 级联行为各异
->（Claude Code / Qoder / Codex / Gemini CLI 等），识别到 cwd 在本 workspace 下某个
-> `<wiki>/` 子目录时应跳过本目录的 `CLAUDE.md` / `AGENTS.md`，避免与
+>（是否自动加载同目录 `CLAUDE.md` / 展开嵌套 `@import` 取决于实现），识别到 cwd 在本 workspace
+> 下某个 `<wiki>/` 子目录时应跳过本目录的 `CLAUDE.md` / `AGENTS.md`，避免与
 > `<wiki>/AGENTS.md` 的单 wiki 纪律冲突。
 
-<!-- @import 写在 SSOT 内（两边都能加载）：Claude Code 下经薄壳 CLAUDE.md → @AGENTS.md 递归展开后会话常驻；
-     其他 agent 能否展开 @import 取决于实现，最坏由启动检查显式 Read 兜底。agent 写 memory 时同步更新本索引。 -->
 @MEMORY/MEMORY.md
 
 <!-- 本段（§一归属表 / §二跨 wiki 约定 / §三查询纪律 / §四 lint / §五 Memory）与
@@ -45,7 +46,7 @@
 | `workspace_models.toml` | workspace CLI | 模型注册表（API key 等敏感信息）；skill **不读不写** |
 | `.gitignore` | workspace CLI | 排除 `workspace_models.toml` 等敏感文件 |
 | `AGENTS.md` | **用户**（CLI init 时拷 SSOT 模板） | workspace 纪律 SSOT（工具无关）；skill 只读 |
-| `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供 Claude Code 自动加载 |
+| `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供经薄壳自动加载的 agent |
 | `INDEX.md` / `STATS.md` | yzr-llm-workspace-management skill | workspace 入口文档 + 结构化统计 |
 | `LINT.md` | yzr-llm-workspace-management skill | 最近一次 workspace lint 报告（快照） |
 | `cross_queries/` | yzr-llm-workspace-management skill | 跨 wiki 综合答案归档 |

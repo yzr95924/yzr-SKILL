@@ -22,8 +22,10 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
   落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 18 条 check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对——0.24.0+ 替换 0.23.0+ 两条：
-  `agents-md-no-at-imports` → `agents-md-has-at-imports`，新增 `agents-md-codex-read-hint`）；
+- 18 条 check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对——0.25.0+ 把 `agents-md-codex-read-hint`
+  重命名 + 改逻辑为 `agents-md-top-read-directive`（agent 无关顶部 Read 指令断言，对齐
+  yzr-multi-agent-context R2）；0.24.0+ 曾替换 0.23.0+ 两条 `agents-md-no-at-imports`
+  → `agents-md-has-at-imports`）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
   references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
@@ -731,8 +733,9 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
         非 external 段齐全 + 每段 ≥1 规则（容忍用户删某条编辑器规则，不绑死具体行）
       - ``at_imports_present``: List[str] — wiki 必须含这些 `@import` 单行（0.24.0+
         `@import` 收口回归——本检查替代 0.23.0+ 的 `no_at_imports`）
-      - ``codex_read_hint``: bool — wiki 应含一行 HTML 注释，写明 Codex（不展开 `@import`）
-        直接 Read `MEMORY/MEMORY.md` 拿索引；0.24.0+ 新增，兜底 Codex 的 L2 索引可达性
+      - ``top_read_directive``: bool — wiki 顶部（首个 `## ` 前）的 blockquote 区应同时含
+        `@` 引用 + `Read` 关键字（强制 Read 指令，兜底不展开 `@import` 的 agent；agent 无关，
+        对齐 yzr-multi-agent-context R2）；0.25.0+ 取代 `codex_read_hint`
     """
     missing = []  # type: List[str]
     lines = wiki_text.splitlines()
@@ -774,16 +777,17 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
             if imp not in actual_imports:
                 missing.append(f"缺 `@import` 单行 `{imp}`（0.24.0+ `@import` 收口必填）")
 
-    if signals.get("codex_read_hint"):
-        # 0.24.0+ 新增：AGENTS.md 项目记忆段或附近应含 HTML 注释指引 Codex 直接
-        # Read `MEMORY/MEMORY.md`（Codex 不展开 `@import`）。匹配宽松——任意
-        # HTML 注释块含关键字 `Codex` + `MEMORY/MEMORY.md` + `Read` 即可。
-        if not re.search(
-            r"<!--.*?Codex.*?MEMORY/MEMORY\.md.*?Read.*?-->",
-            wiki_text,
-            re.DOTALL | re.IGNORECASE,
-        ):
-            missing.append("缺 Codex Read 指引 HTML 注释（Codex 不展开 @import，需要显式 Read MEMORY/MEMORY.md）")
+    if signals.get("top_read_directive"):
+        # 0.25.0+ 取代 codex_read_hint：断言 AGENTS.md 顶部（首个 `## ` 段标题前）的
+        # blockquote 区含强制 Read 指令——同时出现 `@` 引用 + `Read` 关键字（agent 无关；
+        # 对齐 yzr-multi-agent-context R2「顶部强制 Read 指令收口，段内不单挂指引」）。
+        first_h2 = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
+        quote_blob = "\n".join(ln for ln in lines[:first_h2] if ln.lstrip().startswith(">"))
+        if not (quote_blob and re.search(r"@", quote_blob) and re.search(r"Read", quote_blob, re.IGNORECASE)):
+            missing.append(
+                "缺顶部强制 Read 指令 blockquote（首个 `## ` 前的 `>` 区应含 `@` 引用 + `Read`，"
+                "兜底不展开 `@import` 的 agent）"
+            )
 
     if signals.get("no_at_imports"):
         # 0.23.0 引入的反向检查（已废，保留作 dead-code detect）；
@@ -883,12 +887,12 @@ SKELETON_SPECS = [
         },
     },
     {
-        "id": "agents-md-codex-read-hint",
+        "id": "agents-md-top-read-directive",
         "severity": "warn",
         "wiki_path": "AGENTS.md",
         "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 含 Codex 不展开 @import 的 Read 指引 HTML 注释（兜底 Codex L2 索引可达性）",
-        "signals": {"codex_read_hint": True},
+        "desc": "AGENTS.md 顶部（首个 ## 前）blockquote 区含 @ 引用 + Read 强制指令（agent 无关，兜底不展开 @import 的 agent）",
+        "signals": {"top_read_directive": True},
     },
 ]
 

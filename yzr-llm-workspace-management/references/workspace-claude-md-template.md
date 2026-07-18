@@ -4,7 +4,7 @@
 > 自动加载它的薄壳——Claude Code 在 workspace 根启动时读 `CLAUDE.md`，`@AGENTS.md` 递归展开引入
 > 全部纪律 + `@MEMORY/MEMORY.md` 跨 wiki 索引。
 >
-> **改纪律请改 `AGENTS.md`，不要改本文件。** 用其他 agent（Codex / Gemini CLI 等）维护本 workspace 时
+> **改纪律请改 `AGENTS.md`，不要改本文件。** 用其他 agent 维护本 workspace 时
 > 直接读 `AGENTS.md`，本文件不参与。
 
 @AGENTS.md

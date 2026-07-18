@@ -47,7 +47,7 @@
 ├── workspace.toml                  # CLI init 时写（§2）
 ├── workspace_models.toml           # CLI init 时写（§3，gitignored）
 ├── AGENTS.md                       # CLI init 时按 §4 拷 SSOT 模板；用户所有（工具无关纪律）
-├── CLAUDE.md                       # CLI init 时按 §4 拷薄壳模板（@AGENTS.md）；供 Claude Code 自动加载
+├── CLAUDE.md                       # CLI init 时按 §4 拷薄壳模板（@AGENTS.md）；供经薄壳加载的 agent
 ├── INDEX.md                        # skill scan 时建 + 维护（§5）
 ├── STATS.md                        # skill scan 时建 + 维护（§6）
 ├── cross_queries/                  # skill 可选建（§7）
@@ -64,7 +64,7 @@
 | `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + 全局默认；skill **不写** |
 | `workspace_models.toml` | CLI 写 | **CLI**（`model add / remove / set-default`） | 模型注册表（API key 等敏感信息）；skill **不写** |
 | `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读** | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
-| `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读** | 仅供 Claude Code 自动加载 SSOT |
+| `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读** | 仅供经薄壳自动加载的 agent |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
 | `STATS.md` | CLI **不写**（留空） | **skill**（scan 时一并刷新） | workspace 结构化统计 |
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
@@ -149,8 +149,8 @@
 ## §4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
 
 > **agent 中立设计**（0.4.0+）：workspace 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
-> 收敛为薄壳（`@AGENTS.md` + 声明），仅供 Claude Code 经自动加载约定读到 SSOT。读 `AGENTS.md` 的其他
-> agent（Qoder / Codex / Gemini CLI 等）原生直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
+> 收敛为薄壳（`@AGENTS.md` + 声明），仅供经薄壳自动加载的 agent 读到 SSOT。原生读 `AGENTS.md` 的
+> 其他 agent 直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
 >
 > **维护方**：CLI 在 init 时刻按 [`workspace-agents-md-template.md`](workspace-agents-md-template.md)
 > （SSOT）+ [`workspace-claude-md-template.md`](workspace-claude-md-template.md)（薄壳）拷两份模板生成。
@@ -395,10 +395,10 @@
 - **无 frontmatter**——它是被 `<workspace>/AGENTS.md` 用 `@MEMORY/MEMORY.md` import 内联的
   索引片段，不是 workspace 内容页（对齐仓库根 `MEMORY/MEMORY.md` / wiki-spec §5.1 形态）。
   lint / scan 把它当索引跳过 frontmatter / type 校验
-- **加载机制（agent 中立）**：agent 在 workspace 根目录工作时——Claude Code 经薄壳 `CLAUDE.md` → `@AGENTS.md`
-  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；读 `AGENTS.md` 的其他 agent
-  （Qoder / Codex / Gemini CLI 等）原生读 SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读
-  AGENTS.md）时，`@` 不自动展开，由 SKILL §0 启动检查显式 Read MEMORY.md 补齐
+- **加载机制（agent 中立）**：agent 在 workspace 根目录工作时——经薄壳 `CLAUDE.md` → `@AGENTS.md`
+  递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；原生读 `AGENTS.md` 的其他 agent
+  直读 SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md）时，`@` 不自动展开，
+  由 AGENTS.md 顶部强制 Read 指令 + SKILL §0 启动检查显式 Read MEMORY.md 补齐
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
   口径分裂）+ `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §9.2 的 `MEMORY/<slug>.md`）
@@ -631,6 +631,7 @@ CLI 在生成完成后，可执行以下验证：
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
+| 0.6.2 | 2026-07-18 | **对齐 `yzr-multi-agent-context` R1+R2：顶部强制 Read 指令 + 去品牌**——`AGENTS.md` 顶部新增**强制 Read 指令 blockquote**（"凡 `@path/to/file` 形式的引用…都用 Read 工具按需读取…不自动展开 `@import` 的 agent 尤须手动执行"，逐字移植自 `yzr-multi-agent-context/references/layering.md` 骨架）；删除 `@MEMORY/MEMORY.md` 上方段内 HTML 注释 Read 指引（职责由顶部指令接管——R2「段内不再单挂指引」）。SSOT（模板 + spec）去品牌 R1：`Claude Code` / `Qoder` / `Codex` / `Gemini CLI` 点名改行为化措辞（"经薄壳加载的 agent" / "原生读 `AGENTS.md` 的 agent" / "不展开 `@import` 的 agent"）；`CLAUDE.md` 薄壳保留 `Claude Code`（标题 + 薄壳声明 = R5 逃生舱）。SKILL.md `metadata.workspace_spec_version` 升至 0.6.2；`references/{workspace-agents-md,workspace-claude-md}-template.md` 顶部改造；`references/workspace-spec.md` §1 / §2 / §4 / §9.1 去品牌。**非破坏性**：加指令 + 去品牌是 additive / cosmetic，无 checker 驱动、无强制迁移；老 workspace 顶部补一条强制 Read 指令 blockquote 即对齐（可选） |
 | 0.6.1 | 2026-07-08 | **`.gitignore` `settings*.json` 通配加固**：§10 把 `**/.x/settings.local.json` 加宽到 `**/.x/settings*.json`——覆盖 `settings.json` / `settings.local.json` / `settings.<env>.json` 等所有 settings 变体（非 local 版也可能含 token / MCP 配置）；附录 A.4 自检文案同步。**老 workspace 迁移**：`.gitignore` 把 `settings.local.json` 改成 `settings*.json` 即可（合并 0.6.0 一并做单步迁移） |
 | 0.6.0 | 2026-07-08 | **`.gitignore` `**/` 通配补根目录层**：§10 把 `*/.claude/settings.local.json` + `*/.qoder/settings.local.json` 改成 `**/.claude/settings.local.json` + `**/.qoder/settings.local.json`——原 `*/` 模式只匹配 depth-1+（漏 `<workspace>/.claude/settings.local.json` 与 `<workspace>/.qoder/settings.local.json` 根级两行），`**/` 单行覆盖 workspace 根 + 任意深度子目录，不再需要分两行写。附录 A.4 自检文案同步。**老 workspace 迁移**：把 `.gitignore` 里两行 `*/.x/settings.local.json` 改成 `**/.x/settings.local.json` 即可（不影响 0.5.0 迁移） |
 | 0.5.0 | 2026-07-08 | **`.qoder` 与 `.claude` 同管理逻辑**：§10 `.gitignore` 模板在 `*/.claude/settings.local.json` 后追加 `*/.qoder/settings.local.json`（Qoder IDE 项目级 settings，可能含 token）；附录 A gitignored 自检同步补 `.qoder`；老 workspace 迁移：在 workspace 根 `.gitignore` 手动追加一行即可 |
