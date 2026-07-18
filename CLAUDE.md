@@ -18,5 +18,3 @@ This file provides guidance to Claude Code when working with code in this reposi
   不能只改这里。详见 [[skill-source-vs-runtime-vendor]]（注意：此 MEMORY 链接需手动 Read）。
 - `~/.claude.json#mcpServers.outline` 是当前 session 的 Outline MCP 配置；`/api/documents.info`
   REST 旁路读正文用它同源 key，body `{"id":"<docId>"}` → `data.text`。
-- 部分 agent（含当前 Claude Code）会截断 MCP `fetch` 多 content block——读 outline 文档完整
-  正文需走 REST 旁路；详见 [agent-mcp-truncates-multiblock](MEMORY/agent-mcp-truncates-multiblock.md)。

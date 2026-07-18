@@ -34,7 +34,7 @@ This file provides guidance to AI coding agents when working with code in this r
     SKILL 源（`<skill-name>/SKILL.md` / `scripts/` / `references/`）→ **直接删**
     MEMORY 条目 + `MEMORY.md` 索引指针。反模式：留 pointer = 死代码 + 漂移风险
     （详见 `skill-source-priority-over-memory-vendor.md` "反模式"段）。
-    **MEMORY 只记 SKILL 源不涵盖的跨会话 meta**——SKILL 开发配置相关（python / 
+    **MEMORY 只记 SKILL 源不涵盖的跨会话 meta**——SKILL 开发配置相关（python /
     skill workflow / wiki-spec 耦合等）才进 MEMORY；具体 SKILL 用法问题（具体
     skill 踩到的坑 / 经验）必须随 SKILL 文件夹分发，不进 MEMORY。
 - frontmatter `quick_validate.py` 的 `ALLOWED_PROPERTIES = {name, description, license,
