@@ -313,20 +313,19 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ### 14. MEMORY.md 索引一致性
 
-- `MEMORY/MEMORY.md` 是轻量索引（无 frontmatter），其 `## 索引` 段下的全部条目**内联**进
-  `<wiki-root>/AGENTS.md` §一 `#### 跨会话记忆（索引）` 段（0.23.0+ 改；之前用 `@MEMORY/MEMORY.md`
-  import，但 `@import` 递归展开只 Claude Code 支持——Codex / Qoder / Gemini CLI 不展开，
-  整个 `MEMORY/` 对它们不可见）——让所有读 `AGENTS.md` 的 agent 都能看到 MEMORY 里有哪些条目，
-  避免 MEMORY 沦为只写不读的死库
+- `MEMORY/MEMORY.md` 是轻量索引（无 frontmatter），由 `<wiki-root>/AGENTS.md` 顶部单行
+  `@MEMORY/MEMORY.md` `@import` 加载全文——自动展开 `@import` 的 agent 透明拿到索引；
+  不展开 `@import` 的 agent 由 AGENTS.md 顶部强制 Read 指令兜底（直接 `Read MEMORY/MEMORY.md`）。
+  MEMORY.md 是单一真源、AGENTS.md 不持有副本——让所有读 `AGENTS.md` 的 agent 都能看到 MEMORY 里
+  有哪些条目，避免 MEMORY 沦为只写不读的死库
 - 扫 `<wiki-root>/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
   列出** → 报 `memory-not-indexed`
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
 - `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期 / spec <0.6.0 未补索引，不报错）
-- 0.24.0+ 简化：MEMORY.md 是单一真源，AGENTS.md 用 `@MEMORY/MEMORY.md` `@import` 单行加载
-  全文——索引**只活在 `MEMORY.md`**，`memory-not-indexed` 只扫 `MEMORY/MEMORY.md ## 索引`
-  段对 `MEMORY/*.md` 的覆盖。0.23.0 双轨扫描（同步查 AGENTS.md h4 段）已废；老 wiki 0.23.0
-  升级到 0.24.0 按 wiki-spec §14.8 迁移（删 AGENTS.md 两个 h4 段，改 `@import` 加 Codex 指引）
+- `check_wiki_fixtures.py` 的 `agents-md-has-at-imports`（error）断言 AGENTS.md 顶部 `@MEMORY/MEMORY.md`
+  import 行在位；`agents-md-top-read-directive`（warn）断言顶部强制 Read 指令 blockquote 在位（0.25.0+
+  取代 0.24.0 的 `agents-md-codex-read-hint`）。老 wiki 升级按 wiki-spec §14.8 / §14.9 迁移
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
 

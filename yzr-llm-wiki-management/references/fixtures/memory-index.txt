@@ -2,14 +2,8 @@
 
 > LLM agent 的持久化记忆索引（无 frontmatter）。
 >
-> **加载机制（0.24.0+ `@import` 收口）**：`<wiki-root>/AGENTS.md` 顶部单行
-> `@MEMORY/MEMORY.md` 自动加载本文件全文——Claude Code 经薄壳 `CLAUDE.md → @AGENTS.md`
-> 递归展开 / Qoder 原生支持 `AGENTS.md` 内 `@MEMORY/...` import 透明拿到索引；Codex
-> 不展开 `@import`，由 AGENTS.md 项目记忆段 HTML 注释的 Read 指引直接 `Read MEMORY/MEMORY.md`
-> 拿到完整索引。三家都见 MEMORY 索引，无需在 AGENTS.md 复制副本。
->
-> 0.23.0 短暂改"内联 AGENTS.md"——因双写 / 词数膨胀等坑回退（论证详见
-> `yzr-multi-agent-context/SKILL.md`「为何不再用内联」段）。
+> **加载机制**：`<wiki-root>/AGENTS.md` 顶部单行 `@MEMORY/MEMORY.md` 自动加载本文件全文；
+> 不展开 `@import` 的 agent 由 AGENTS.md 顶部 Read 指令兜底（直接 `Read MEMORY/MEMORY.md`）。
 >
 > 条目增删时**只改本文件**——`@import` 引用自动同步指向全文，AGENTS.md 不持有副本，无漂移。
 > 各条目正文（`MEMORY/<slug>.md`）按需 `Read`，lint `memory-not-indexed` 兜底漏列（见

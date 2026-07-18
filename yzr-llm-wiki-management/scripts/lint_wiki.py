@@ -113,7 +113,7 @@ def _is_absolute_path(p: str) -> bool:
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
 CURRENT_WIKI_SPEC = (
-    "0.24.0"  # 0.24.0 = 回退 0.23.0 内联方案：L2 索引恢复 @MEMORY/MEMORY.md / @scripts/SCRIPTS.md @import 收口
+    "0.25.0"  # 0.25.0 = 对齐 yzr-multi-agent-context R1+R2：顶部强制 Read 指令收口 + 去品牌（@import 收口延续 0.24.0）
 )
 
 

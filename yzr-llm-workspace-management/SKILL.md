@@ -14,8 +14,8 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-08
-  workspace_spec_version: 0.6.1
+  last_modified: 2026-07-18
+  workspace_spec_version: 0.6.2
 ---
 
 # LLM Workspace Management
@@ -197,9 +197,9 @@ spec 文件做契约对齐。
 1. 定位 workspace 路径：`$LLMW_WORKSPACE` → 默认 `~/yzr_llm_wiki_workspace` → 交互问
 2. 验证 `<workspace>/workspace.toml` 存在——不存在提示用户 "workspace 还没 init，
    跑 `llmw init` 初始化"（**不**替用户跑）
-3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时——Claude Code 经薄壳 `<workspace>/CLAUDE.md`
-   → `@AGENTS.md` 自动加载 SSOT，`@MEMORY/MEMORY.md` 已把索引内联会话常驻；读 `AGENTS.md` 的其他 agent
-   （Qoder / Codex / Gemini CLI 等）原生读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
+3. **加载跨 wiki MEMORY 索引**：在 workspace 根目录工作时——经薄壳 `<workspace>/CLAUDE.md`
+   → `@AGENTS.md` 自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；原生读 `AGENTS.md` 的其他
+   agent 直读 SSOT；非根目录工作时（skill 经 `$LLMW_WORKSPACE`
    读 AGENTS.md，`@` 不自动展开）→ 显式 `Read <$LLMW_WORKSPACE>/MEMORY/MEMORY.md` 补齐索引，
    知晓已有哪些跨 wiki 记忆
 4. **加载作用域边界判定**（见下方"加载作用域边界"小节）——若当前 agent cwd 在某
@@ -216,7 +216,7 @@ workspace 顶层 AGENTS.md / CLAUDE.md——避免与 `<wiki>/AGENTS.md` 单 wik
 MEMORY scope 边界（workspace `MEMORY/` = 跨 wiki；`<wiki>/MEMORY/` = 单 wiki）、
 log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/log.md`，
 非 workspace 级 `INDEX.md` / `STATS.md`）。不同 agent 的 `@AGENTS.md` 级联行为各异
-（Claude Code / Qoder / Codex / Gemini CLI），本 skill 不替具体 agent 实现判定，统一通过
+（是否自动加载同目录 `CLAUDE.md` / 展开嵌套 `@import` 取决于实现），本 skill 不替具体 agent 实现判定，统一通过
 **"在 wiki 子目录工作时 workspace skill 纪律不接管"**这条边界让 agent 自决；
 `<workspace>/AGENTS.md` 模板顶部自含 scope 声明供级联方识别。
 

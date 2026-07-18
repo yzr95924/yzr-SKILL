@@ -8,8 +8,8 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-11
-  wiki_spec_version: 0.24.0
+  last_modified: 2026-07-18
+  wiki_spec_version: 0.25.0
   fixtures_check_count: 18
 ---
 
@@ -115,16 +115,14 @@ metadata:
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
    集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
-   `@AGENTS.md` 薄壳，仅供 Claude Code 经自动加载约定读到 SSOT；读 `AGENTS.md` 的其他 agent
-   （Qoder / Codex / Gemini CLI 等）原生直读。**L2 索引走 `@import` 收口**：
-   AGENTS.md 顶部单行 `@MEMORY/MEMORY.md` + 单行 `@scripts/SCRIPTS.md` ——agent 自动展开
-   拿到 L2 索引（详见 spec §5.1 + §14.3；Codex 不展开 `@import`，由
-   [`references/agents-md-template.md`](references/agents-md-template.md) 顶部 HTML 注释
-   Read 指引直接 Read，两处不重复实现）。
+   `@AGENTS.md` 薄壳，仅供经薄壳自动加载的 agent 读到 SSOT；原生读 `AGENTS.md` 的其他 agent
+   直读。**L2 索引走 `@import` 收口 + 顶部强制 Read 指令**：AGENTS.md 顶部 `@MEMORY/MEMORY.md` 与
+   `@scripts/SCRIPTS.md` 两行 `@import`——自动展开 `@import` 的 agent 透明拿到 L2 索引；不展开 `@import`
+   的 agent 由 AGENTS.md **顶部强制 Read 指令** blockquote 兜底（详见 spec §5.1 + §14.3 +
+   [`references/agents-md-template.md`](references/agents-md-template.md) 顶部）。
    没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明的 wiki 维护者"。**为什么 AGENTS.md
-   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、
-   Claude Code / Qoder / Codex 多 agent 兼容（详见 `yzr-multi-agent-context/SKILL.md`「设计
-   与原理」段）。
+   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、多 agent 兼容
+   （详见 `yzr-multi-agent-context/SKILL.md`「设计与原理」段）。
 
 ### 四个核心操作——为什么是四个
 
@@ -166,9 +164,10 @@ metadata:
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds（纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
 >    AGENTS.md 不再含 tag 白名单（迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
->    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——agent 自动展开
->    拿到 MEMORY / scripts 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
->    顶部 HTML 注释 Read 指引）。**别处由 skill 按需读 AGENTS.md 时** 也走相同的 `@import` 链路，
+>    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——自动展开 `@import`
+>    的 agent 透明拿到 MEMORY / scripts 全文，不展开的由 AGENTS.md 顶部强制 Read 指令兜底
+>    （详见 [`references/agents-md-template.md`](references/agents-md-template.md) 顶部）。**别处由 skill
+>    按需读 AGENTS.md 时** 也走相同的 `@import` 链路，
 >    **不**需要单独 `Read MEMORY.md` 补齐索引（除非要看各 `<slug>.md` 正文）。
 > 2. `Read <$LLM_WIKI_ROOT>/wiki/index.md`——知道有哪些页、分布在哪些类别，避免重复创建 / 漏交叉引用
 > 3. `Read <$LLM_WIKI_ROOT>/wiki/log.md`（最近 ~30 行即可）——看清最近活动，避免重复
@@ -469,7 +468,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migration-plan.json` 的
 `fixtures_actions[]`（与 legacy `actions[]` 平行）。当前检查项数同 `metadata.fixtures_check_count`，
 覆盖 11 条结构探测 + 骨架字段比对两类（`agents-md-has-at-imports` 断言 `@import` 两行均在、
-`agents-md-codex-read-hint` 断言 Codex HTML Read 指引注释在位）。**简要流程** + 9 步详细 +
+`agents-md-top-read-directive` 断言 AGENTS.md 顶部强制 Read 指令 blockquote 在位）。**简要流程** + 9 步详细 +
 字段清单见 [`references/migrate-workflow.md`](references/migrate-workflow.md)。
 
 ## 参考样例

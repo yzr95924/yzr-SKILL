@@ -21,8 +21,8 @@
    → 读 ~/wiki/llm-systems/AGENTS.md 确认主题名替换正确（CLAUDE.md 是薄壳，行数 ≤ 30）
    → 验证 wiki/index.md / wiki/log.md 存在且 frontmatter 完整
    → 提示用户：raw/articles/ 作为"资料投放口"，可放剪藏 / PDF / 笔记
-4. 提示用户：wiki 根目录内的 AGENTS.md 在 Claude Code 下经薄壳 CLAUDE.md 自动加载、
-   在其他 agent（Codex / Gemini CLI 等）下原生直读；别处工作时 skill 经 $LLM_WIKI_ROOT 按需读取，不必 symlink
+4. 提示用户：wiki 根目录内的 AGENTS.md 经薄壳 CLAUDE.md 自动加载（经薄壳加载的 agent），
+   或被原生读 AGENTS.md 的 agent 直读；别处工作时 skill 经 $LLM_WIKI_ROOT 按需读取，不必 symlink
 ```
 
 ## 样例二：ingest 一篇论文摘要
