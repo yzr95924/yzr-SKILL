@@ -8,9 +8,9 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-18
+  last_modified: 2026-07-19
   wiki_spec_version: 0.25.0
-  fixtures_check_count: 18
+  fixtures_check_count: 20
 ---
 
 # LLM Wiki Management
@@ -92,7 +92,7 @@ metadata:
 四层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局，0.17.0+**）下 LLM **可**创建 symlink +
+   对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM **可**创建 symlink +
    写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
    [wiki-spec §13.3](references/wiki-spec.md#133-责任切分用户--llm-共有)
    - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
@@ -226,13 +226,13 @@ metadata:
     > 两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
 
 11. **tag 白名单在 `wiki/tags.md`**（详
-   [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源080)）——LLM auto-extend bullet +
+   [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源)）——LLM auto-extend bullet +
    用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无
    frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。
    `agents-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
 
 12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（详
-   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录090)）——`SCRIPTS.md`
+   [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录)）——`SCRIPTS.md`
    单段形态：每脚本以 `` - `<name>` — <一句话用途> `` one-liner 起头 + `### <name> — <label>`
    子节含 4 要素契约（使用场景 / 调用约定 / 作用 / 可选前置依赖）。AGENTS.md 顶部
    `@scripts/SCRIPTS.md` `@import` 自动加载全文——agent **必须**先看该索引行知道有哪些脚本，
@@ -273,7 +273,7 @@ metadata:
   不是机器状态（详见 [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)）
 - 绕过 anchor 直接 `ln -s`——没有对应 `[[entry]]` 的 symlink = lint 报
   `external-anchor-orphan`
-- 在 `raw/external/` 下开 `<source-name>/` 子目录（0.17.0+ 已废弃）——扁平布局，
+- 在 `raw/external/` 下开 `<source-name>/` 子目录（已废弃）——扁平布局，
   所有 symlink 直接 in `external/`；老 wiki 残留会被 lint 报 `external-source-name-invalid`
 
 ### 反合理化三件套（纪律型 skill 必带）
@@ -408,7 +408,7 @@ git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描
 **流程**：
 
 1. 跑 `scripts/lint_wiki.py <wiki-root>` 做 deterministic 检查
-2. 脚本覆盖（10 大类，详见 [`references/lint-checklist.md`](references/lint-checklist.md)）：
+2. 脚本覆盖（大类如下，权威清单见 [`references/lint-checklist.md`](references/lint-checklist.md)）：
    raw 不可变性 / frontmatter 字段 / 孤儿页 / 断链 / log.md 格式 / 过期摘要 / 页面体量
    / 认知质量与可信度信号（`reviewed` / `contested` / `contradictions`）/ `raw/external/`
    symlink ↔ anchor 关联（spec §13）/ fixtures 一致性（见下文「fixtures 一致性检查」段）
@@ -458,18 +458,20 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
   用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
-  语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则0180从-referencessemantic-mergemd-并入) 走
+  语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则) 走
 - **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 migrate-workflow.md §六（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
 **fixtures 一致性检查**——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
 扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
-MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migration-plan.json` 的
-`fixtures_actions[]`（与 legacy `actions[]` 平行）。当前检查项数同 `metadata.fixtures_check_count`，
-覆盖 11 条结构探测 + 骨架字段比对两类（`agents-md-has-at-imports` 断言 `@import` 两行均在、
-`agents-md-top-read-directive` 断言 AGENTS.md 顶部强制 Read 指令 blockquote 在位）。**简要流程** + 9 步详细 +
-字段清单见 [`references/migrate-workflow.md`](references/migrate-workflow.md)。
+MEMORY/MEMORY.md / MEMORY/*.md 条目 / SCRIPTS.md / .symlink-anchor.toml），finding 并入
+`.migration-plan.json` 的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。检查项数同
+`metadata.fixtures_check_count`（结构探测 + 骨架字段比对两类，breakdown 见
+[`references/lint-checklist.md`](references/lint-checklist.md)；`agents-md-has-at-imports`
+断言 `@import` 两行均在、`agents-md-top-read-directive` 断言 AGENTS.md 顶部强制 Read 指令
+blockquote 在位）。**简要流程** + 详细步骤 + 字段清单见
+[`references/migrate-workflow.md`](references/migrate-workflow.md)。
 
 ## 参考样例
 
@@ -478,5 +480,4 @@ MEMORY/MEMORY.md / SCRIPTS.md / .symlink-anchor.toml），finding 并入 `.migra
 ## 与其他 skill 的边界
 
 `yzr-outline-wiki-upload` / `yzr-outline-wiki-search` 走云端 Outline——团队协作、外部分享。
-`design-doc-edit` 走单篇 Markdown 写作。`gemini-paper-summary` 抽 PDF 摘要；本 skill
-负责 ingest 归档。Paper 域细节见 [`references/paper-wiki-profile.md`](references/paper-wiki-profile.md)。
+`design-doc-edit` 走单篇 Markdown 写作。

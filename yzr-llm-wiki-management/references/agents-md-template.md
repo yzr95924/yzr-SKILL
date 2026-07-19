@@ -30,9 +30,9 @@
     --check-stale` 会按 mtime vs source 页 `updated` 标记这类待重新摄取的文件
   - raw 文件路径是 wiki 内 source 页的 `sources` 字段的"永久引用"——改名会断链
   - raw/ 的内容是真相之源；wiki 摘要如与 raw 矛盾，**以 raw 为准**
-  - raw/ 进 git（spec §6 不排除）；空目录在 init 时由 CLI 放 `.gitkeep` 占位（0.15.0+ 起
+  - raw/ 进 git（spec §6 不排除）；空目录在 init 时由 CLI 放 `.gitkeep` 占位（
     `raw/articles/` + `raw/assets/`），后续真实文件由用户 `git add`（与 wiki/ 行为一致）
-- **所有 git 操作由用户触发**（0.16.0+ 起红线）——LLM agent **不**主动 `git init` /
+- **所有 git 操作由用户触发**（红线）——LLM agent **不**主动 `git init` /
   `git add` / `git commit` / `git config` / `git symbolic-ref`；用户看到 wiki 落盘后自行决定是否 init git
 
 #### `raw/external/` —— 外部代码仓接入（symlink）
@@ -41,7 +41,7 @@
 - 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、papers-with-code 项目等）
   作语料纳入 wiki；**不**内嵌拷贝（占空间 + 失去 commit 锚点），走 symlink +
   锚定元数据
-- **0.17.0+ 扁平布局**——symlink + anchor 直接在 `raw/external/` 顶层，不要开
+- **扁平布局**——symlink + anchor 直接在 `raw/external/` 顶层，不要开
   `<source-name>/` 子目录；anchor 单文件记录所有外部仓：
 
   ```text
@@ -55,8 +55,8 @@
 
 - **纪律（用户 + LLM 共有；详见 spec §13.3）**：
   - **每 entry 最小必填 4 字段**：`symlink`（kebab-case，对应 `raw/external/`
-    同名 symlink）+ `target`（**推荐 `~/src/<name>` home-relative 形式**，
-    0.14.0+；也接受绝对路径，lint 端 `Path(target).expanduser()` 统一展开判定）+
+    同名 symlink）+ `target`（**推荐 `~/src/<name>` home-relative 形式**；
+    也接受绝对路径，lint 端 `Path(target).expanduser()` 统一展开判定）+
     `captured_at`（接入当天）+ `kind: "external-repo"`
   - **git 仓扩展字段**（当 entry.target 在 git 仓内时强制——见 spec §13.5）：
     `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报
@@ -144,7 +144,7 @@
   - **不**要求 inbound 链接
   - 目录结构与契约详见 `wiki-spec.md` §5
 
-### `scripts/` —— 本 wiki 仓的自维护脚本目录（0.9.0+）
+### `scripts/` —— 本 wiki 仓的自维护脚本目录
 
 > **本段 SSOT 反指**：`scripts/` 目录契约 / SCRIPTS.md 索引 / 4 要素 / 6 条纪律的权威定义在
 > `wiki-spec.md` §14；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
@@ -162,7 +162,7 @@
   agent 按需 `Read scripts/SCRIPTS.md` 取分节
 - 纪律：
   - **添加 / 修改 / 删除脚本文件**只改 `SCRIPTS.md` 一处即可——`@import` 引用同步指向全文，
-    **不**需要在 AGENTS.md 单独同步索引（0.23.0 「双处同步」已废）
+    **不**需要在 AGENTS.md 单独同步索引
   - **不**写 frontmatter（scripts/ 是代码，不是 wiki 内容页）
   - **`scripts/` 不参与 `lint_wiki.py` 扫描**——脚本代码质量由维护者自行负责
   - **agent 不自动遍历 `scripts/` 跑任何东西**——必须先看 `SCRIPTS.md`（`@import` 加载后即见）
@@ -212,8 +212,7 @@ sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / conc
 > 与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
 
 `tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 的 tag
-白名单放在 [`wiki/tags.md`](wiki/tags.md)（**0.8.0+ 起从此处迁出，原先嵌在本纪律文件
-（0.11.0 前为 `CLAUDE.md`）的 `### Tag Taxonomy` 段，由 `--check-version --apply` 自动迁移）；本 wiki 创建时由
+白名单放在 [`wiki/tags.md`](wiki/tags.md)；本 wiki 创建时由
 workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分类（**10-20 个一级 tag 是建议值，
 非权威阈值**——具体数量由用户/agent 共同裁定，按主题复杂度伸缩）。
 
@@ -287,7 +286,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
    不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指
 4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（§二 13）；与用户一起裁定后，
-   移除 `contested`（**不再保留 `confidence` 字段**——0.7.0 起已退役；如该页此前已审核，
+   移除 `contested`（**不再保留 `confidence` 字段**——已退役；如该页此前已审核，
    按"生命周期规则"判断是否需要重新审）
 
 ### Index 扩容（防 index.md 翻不到底）

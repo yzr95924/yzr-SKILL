@@ -148,7 +148,7 @@
 
 ## §4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
 
-> **agent 中立设计**（0.4.0+）：workspace 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
+> **agent 中立设计**：workspace 纪律的**单一真源是 `AGENTS.md`**——工具无关。`CLAUDE.md`
 > 收敛为薄壳（`@AGENTS.md` + 声明），仅供经薄壳自动加载的 agent 读到 SSOT。原生读 `AGENTS.md` 的
 > 其他 agent 直读 SSOT，不依赖薄壳。改纪律请改 `AGENTS.md`，不要改 `CLAUDE.md` 薄壳。
 >
@@ -550,13 +550,13 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | `workspace-stats` | `<workspace>/STATS.md`（唯一） | workspace reserved |
 | `workspace-lint` | `<workspace>/LINT.md`（唯一） | workspace reserved |
 | `cross-query` | `<workspace>/cross_queries/<slug>.md` | workspace reserved |
-| `workspace-memory` | `<workspace>/MEMORY/*.md`（非 MEMORY.md） | workspace reserved，本 spec 新增（0.2.0） |
+| `workspace-memory` | `<workspace>/MEMORY/*.md`（非 MEMORY.md） | workspace reserved |
 
 > **与 wiki-spec §9 的关系**：workspace-spec 的 `workspace-memory`（`<workspace>/MEMORY/*.md`
 > 经验条目）与 wiki 内容页 5 类 enum（`<wiki>/wiki/MEMORY/*.md` 可按记忆性质选）location 区分，
-> 不冲突。两份 `MEMORY.md` 索引（workspace 与 wiki 各一份）均**无 frontmatter**——wiki-spec
-> 0.6.0 起 `<wiki>/wiki/MEMORY/MEMORY.md` 亦无 frontmatter，本 spec 对齐。lint 工具需要识别本
-> spec 新增的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
+> 不冲突。两份 `MEMORY.md` 索引（workspace 与 wiki 各一份）均**无 frontmatter**——与 wiki-spec
+> 的 `<wiki>/wiki/MEMORY/MEMORY.md` 无 frontmatter 形态对齐。lint 工具需要识别本
+> spec 的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
 
 ### 类型特化字段
 

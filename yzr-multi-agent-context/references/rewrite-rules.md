@@ -65,7 +65,7 @@ AGENTS.md 写入指令"的程度不一，故不强求。启用的项目在 AGENT
 
 ## R3 — 行宽不变
 
-原文遵守的行宽约束（本仓库是 ≤ 120 字符，见 `.markdownlint.jsonc` MD013）在改写后继续遵守。
+原文遵守的行宽约束（本仓库示例：`.markdownlint.jsonc` MD013）在改写后继续遵守。
 改写时若加了文字，注意回行；最后 Step 5 跑 `markdownlint` 复核 0 error。
 
 ## R4 — MEMORY 改写
