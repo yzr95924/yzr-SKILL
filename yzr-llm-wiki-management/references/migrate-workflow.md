@@ -13,8 +13,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 [`wiki-spec.md` §10](wiki-spec.md#10-版本钉死) 规定每个 wiki 仓在
 `<wiki-root>/AGENTS.md` §八 钉一份 `Wiki Spec 版本`（CLI init 时从 SKILL 仓
-`metadata.wiki_spec_version` 镜像）。spec 演进时（0.5.0 → 0.6.0 → 0.7.0…）
-老 wiki 会**有意识地保留**部分旧字段（如 `confidence`）——避免一刀切破坏用户沉淀的内容。
+`metadata.wiki_spec_version` 镜像）。spec 演进时，老 wiki 会**有意识地保留**部分旧字段（如 `confidence`）——避免一刀切破坏用户沉淀的内容。
 本节定义**检测 + 自动修复**的 workflow：让用户/agent 对着一份"按 spec 升级的清单"逐项
 把 wiki 推到与 SKILL 仓一致的格式。
 
@@ -62,7 +61,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - `file-move`：先读源 → 写目标 → 删源
    - `frontmatter-retype`：按 `action.note` 与 `wiki-spec §5.2` 决定具体改法
    - **跳过 `skipped_conflicts[]`**——永不自动覆盖人工决策
-6. **同步 `<wiki-root>/AGENTS.md` 到当前模板**（0.26.0+ 模板渲染比对机制，wiki-spec §10.1）：
+6. **同步 `<wiki-root>/AGENTS.md` 到当前模板**（模板渲染比对机制，wiki-spec §10.1）：
    - plan 含 `fixtures-fix-agents-md-resync` 时按其 `to_action` 走 4 步：
      (1) 从旧 AGENTS.md §八 提取 主题 / 创建日期 / CLI 版本（主题 fallback H1）；
      (2) 渲染 [`agents-md-template.md`](agents-md-template.md)——三变量用旧值，
@@ -118,7 +117,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT 做字段级骨架比对
 （改 fixtures → check 自动跟随）。
 
-### 模板渲染件（整文以模板为准；0.26.0+）
+### 模板渲染件（整文以模板为准）
 
 | 文件 | 模板源 | per-wiki 变量（迁移时保留旧值） |
 | --- | --- | --- |

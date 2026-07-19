@@ -323,10 +323,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
 - `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期未补索引，不报错）
-- `check_wiki_fixtures.py` 的 `agents-md-template-sync`（error，0.26.0+）对 AGENTS.md 整文做
+- `check_wiki_fixtures.py` 的 `agents-md-template-sync`（error）对 AGENTS.md 整文做
   模板渲染字节比对——顶部 `@MEMORY/MEMORY.md` import 行 / 强制 Read 指令 blockquote 等全部
-  结构要素由字节比对一次性覆盖（取代 0.25.0- 的 `agents-md-has-at-imports` /
-  `agents-md-top-read-directive` 存在性断言）。不一致 → 按 wiki-spec §10.1 全量重渲染，
+  结构要素由字节比对一次性覆盖。不一致 → 按 wiki-spec §10.1 全量重渲染，
   本地定制逐条与用户裁定搬 `MEMORY/` 或丢弃
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
@@ -407,7 +406,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 [ERROR] sources-absolute-path: wiki/sources/linux-kernel.md sources 含绝对路径 '/home/user/src/linux/net/ipv4/tcp.c'；必须用相对 wiki 根的路径（如 raw/articles/... 或 raw/external/<symlink>/...），与 lint-checklist §二.3 一致
 [ERROR] external-anchor-missing: raw/external/ 下有 symlink ['linux-kernel', 'ray'] 但缺 '.symlink-anchor.toml'（spec §13 必填）
 [ERROR] external-anchor-corrupt: raw/external/.symlink-anchor.toml 解析失败或 0 个有效 entry
-[ERROR] external-source-name-invalid: raw/external/linux-kernel/ 是子目录，但 0.17.0+ raw/external/ 扁平——symlink + anchor 应直接 in external/，不要开 <source-name>/ 子目录
+[ERROR] external-source-name-invalid: raw/external/linux-kernel/ 是子目录，但 raw/external/ 为扁平布局——symlink + anchor 应直接 in external/，不要开 <source-name>/ 子目录
 [ERROR] external-symlink-missing: anchor [[entry]] symlink='ray' target='~/src/ray' 但 raw/external/ray symlink 不存在（spec §13 必填关联）
 [WARN] external-anchor-orphan: raw/external/my-snapshot 是 symlink 但 anchor 无对应 [[entry]]（spec §13 必填关联）
 [WARN] external-target-drift: raw/external/linux-kernel 当前 symlink 解析为 '/home/foo/src/linux-kernel'，但 anchor 记录 '/apsarapangu/disk10/src/linux-kernel'（展开后 '/home/foo/src/linux-kernel'）；anchor 需更新

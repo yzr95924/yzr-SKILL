@@ -225,7 +225,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 
 1. 读 `<workspace>/workspace.toml` 拿 `[wikis]` 注册表
 2. 对每个 wiki：
-   - 读 `<wiki>/wiki_metadata.toml`（CLI 维护，schema v2）
+   - 读 `<wiki>/wiki_metadata.toml`（CLI 维护）
    - 读 `<wiki>/AGENTS.md` §0（拿主题名）+ §一（拿边界）
    - 读 `<wiki>/wiki/index.md`（已有内容 + 段落骨架）
    - 扫 `<wiki>/wiki/{entities,concepts,sources,comparisons,syntheses}/` 拿 page counts
@@ -242,8 +242,8 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 **何时不做 scan**：用户只想做 query → 先用现有 INDEX.md；INDEX.md 缺失或过期超过 N 天
 再提示先 scan。
 
-**为何不调脚本**：v1 阶段聚合逻辑需要 LLM 判断"key entities"和"one-line summary"，
-纯脚本搞不定。等沉淀稳定后可以拆出 `scripts/scan_workspace.py`（v2 TODO）。
+**为何不调脚本**：聚合逻辑需要 LLM 判断"key entities"和"one-line summary"，
+纯脚本搞不定；沉淀稳定后可拆出 `scripts/scan_workspace.py`。
 
 ### 2. Query（跨 wiki Q&A）
 

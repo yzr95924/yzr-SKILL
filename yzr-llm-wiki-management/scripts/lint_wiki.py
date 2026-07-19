@@ -490,7 +490,7 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
         if entry.is_dir():
             rel = entry.relative_to(wiki_root).as_posix()
             findings.append(
-                f"external-source-name-invalid: {rel}/ 是子目录，但 0.17.0+ raw/external/ 扁平——"
+                f"external-source-name-invalid: {rel}/ 是子目录，但 raw/external/ 为扁平布局——"
                 f"symlink + anchor 应直接 in external/，不要开 <source-name>/ 子目录"
             )
             continue
@@ -498,7 +498,7 @@ def check_external_symlinks(wiki_root: Path) -> List[str]:
         rel = entry.relative_to(wiki_root).as_posix()
         findings.append(
             f"external-source-name-invalid: {rel} 是普通文件，但 raw/external/ 顶层只允许 "
-            f"symlink + '{ANCHOR_FILENAME}'（0.17.0+ 扁平布局）"
+            f"symlink + '{ANCHOR_FILENAME}'（扁平布局）"
         )
 
     # 解析 anchor 文件
@@ -1378,11 +1378,6 @@ def check_memory_index(wiki_root: Path) -> List[str]:
                 f"（追加一行：- <slug> — <一句话> → [正文](<slug>.md)）"
             )
     return findings
-
-
-# 0.23.0+ 引入的 AGENTS_MEMORY_INDEX_HEADER_RE / check_inlined_memory_index_size / INLINED_INDEX_MAX /
-# inlined-memory-index-bloating 已删除（0.24.0+ 恢复 @import 收口——MEMORY.md / SCRIPTS.md 索引
-# 走 @import 加载，AGENTS.md 仅单行引用、不占 L1 词数，无需 bloat guard）；迁徙指南见 §14.8。
 
 
 def check_related_links(wiki_root: Path) -> List[str]:

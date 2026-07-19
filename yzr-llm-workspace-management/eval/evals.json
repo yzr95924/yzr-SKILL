@@ -12,7 +12,7 @@
       "id": 2,
       "name": "scan-refresh-index",
       "prompt": "扫一下我的 workspace，把全局 INDEX.md 和 STATS.md 更新一下。",
-      "expected_output": "skill 应：1) 定位 workspace（$LLMW_WORKSPACE 或默认 ~/yzr_llm_wiki_workspace）；2) 读 workspace.toml 拿到 [wikis] 注册表；3) 对每个 wiki 读 wiki_metadata.toml + wiki 的 SSOT（AGENTS.md §0，0.11.0+；老 wiki fallback CLAUDE.md §0）+ wiki/index.md + wiki/log.md 末条 + 扫 entities/concepts/sources/.../ 计数 + 扫 raw/ 计数；4) 写 INDEX.md（frontmatter 完整：title / type=workspace-index / tags / created / updated）+ STATS.md（同 frontmatter，type=workspace-stats）；5) 原子写（tmp + rename）；6) 对话中报告：刷新了哪些文件、各 wiki 的 page count 与 raw file 数。",
+      "expected_output": "skill 应：1) 定位 workspace（$LLMW_WORKSPACE 或默认 ~/yzr_llm_wiki_workspace）；2) 读 workspace.toml 拿到 [wikis] 注册表；3) 对每个 wiki 读 wiki_metadata.toml + wiki 的 SSOT（AGENTS.md §0；老 wiki fallback CLAUDE.md §0）+ wiki/index.md + wiki/log.md 末条 + 扫 entities/concepts/sources/.../ 计数 + 扫 raw/ 计数；4) 写 INDEX.md（frontmatter 完整：title / type=workspace-index / tags / created / updated）+ STATS.md（同 frontmatter，type=workspace-stats）；5) 原子写（tmp + rename）；6) 对话中报告：刷新了哪些文件、各 wiki 的 page count 与 raw file 数。",
       "files": []
     },
     {
