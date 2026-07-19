@@ -70,8 +70,16 @@ CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYY
 ## AGENTS.md / CLAUDE.md 占位符（不在 fixture 范围）
 
 0.11.0+ 起 wiki 根有两份模板产物：**`AGENTS.md`（SSOT）** 由 CLI 拷 `references/agents-md-template.md`、
-**`CLAUDE.md`（薄壳）** 由 CLI 拷 `references/claude-md-template.md`。两者都**不在** fixture 覆盖范围
-（fixture 只覆盖 CLI init 时刻的"成品"，AGENTS.md / CLAUDE.md 是模板替换产物）。CLI 必须替换的占位符：
+**`CLAUDE.md`（薄壳）** 由 CLI 拷 `references/claude-md-template.md`。两者都**不在**本目录 fixture 覆盖范围
+（fixture 只覆盖 CLI init 时刻的"成品"，AGENTS.md / CLAUDE.md 是模板替换产物）。
+
+> **0.26.0+ 注**：AGENTS.md 虽不进 fixtures/canonical 字节比对，但**有独立的运行时同步检查**——
+> `check_wiki_fixtures.py` 的 `agents-md-template-sync` 从 wiki §八 提取 4 个变量值反向渲染
+> `references/agents-md-template.md`，与 wiki 实际 AGENTS.md 字节比对（spec §10.1）。机制同源：
+> 都建立在"AGENTS.md = 模板 + 4 个占位符替换"这一事实上；区别只在本目录管 **init 时刻**、
+> template-sync 管 **init 之后的整个生命周期**（含 spec 升级重渲染）。
+
+CLI 必须替换的占位符：
 
 | 占位符 | 替换为 | 出现在 |
 |---|---|---|

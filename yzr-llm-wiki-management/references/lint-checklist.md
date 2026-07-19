@@ -323,9 +323,11 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
 - `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期未补索引，不报错）
-- `check_wiki_fixtures.py` 的 `agents-md-has-at-imports`（error）断言 AGENTS.md 顶部 `@MEMORY/MEMORY.md`
-  import 行在位；`agents-md-top-read-directive`（warn）断言顶部强制 Read 指令 blockquote 在位。
-  老 wiki 升级按 wiki-spec §14.8 / §14.9 迁移
+- `check_wiki_fixtures.py` 的 `agents-md-template-sync`（error，0.26.0+）对 AGENTS.md 整文做
+  模板渲染字节比对——顶部 `@MEMORY/MEMORY.md` import 行 / 强制 Read 指令 blockquote 等全部
+  结构要素由字节比对一次性覆盖（取代 0.25.0- 的 `agents-md-has-at-imports` /
+  `agents-md-top-read-directive` 存在性断言）。不一致 → 按 wiki-spec §10.1 全量重渲染，
+  本地定制逐条与用户裁定搬 `MEMORY/` 或丢弃
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
 

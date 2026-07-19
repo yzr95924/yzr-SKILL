@@ -22,14 +22,19 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
   落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 20 条 check（11 条结构探测 + 9 条骨架字段比对）；
+- 19 条 check（12 条结构探测 + 7 条骨架字段比对）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
   references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
+- AGENTS.md 走**模板渲染比对**（0.26.0+ `agents-md-template-sync`）：从 wiki §八 提取
+  主题/创建日期/CLI 版本三变量 + wiki 自钉 spec 版本，渲染 references/agents-md-template.md
+  后字节比对——一次性覆盖"旧版本残留 + 本地改动"全部漂移，取代 0.25.0- 的两条存在性检查
+  （has-at-imports / top-read-directive）。定制纪律应沉淀到 MEMORY/，不进 AGENTS.md。
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
   在 lint_wiki.py；本脚本硬编码确保 vendored 副本仍能跑）。
 """
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -52,6 +57,12 @@ CHECK_REGISTRY = [
         "severity": "error",
         "rule_ref": "wiki-spec.md §10 + lint-checklist.md §三.1",
         "desc": "AGENTS.md §八 Wiki Spec 版本行需与 --target-spec 一致",
+    },
+    {
+        "id": "agents-md-template-sync",
+        "severity": "error",
+        "rule_ref": "wiki-spec.md §10.1 + lint-checklist.md §二.14",
+        "desc": "AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（§八 四变量替换后）；定制纪律应沉淀到 MEMORY/",
     },
     {
         "id": "gitignore-external-track-toml",
@@ -119,6 +130,10 @@ CHECK_REGISTRY = [
 SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
 LOG_LINE_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$")
 AGENTS_VERSION_ROW_RE = re.compile(r"^\s*\|\s*Wiki Spec 版本\s*\|\s*([^|]+?)\s*\|")
+AGENTS_TOPIC_ROW_RE = re.compile(r"^\s*\|\s*主题\s*\|\s*([^|]+?)\s*\|")
+AGENTS_SETUP_DATE_ROW_RE = re.compile(r"^\s*\|\s*创建日期\s*\|\s*([^|]+?)\s*\|")
+AGENTS_CLI_VERSION_ROW_RE = re.compile(r"^\s*\|\s*CLI 版本\s*\|\s*([^|]+?)\s*\|")
+AGENTS_H1_TOPIC_RE = re.compile(r"^#\s+(.+?)\s+Wiki\s+—\s+LLM 维护守则\s*$")
 INDEX_CATEGORY_RE = re.compile(r"^## (.+)$")
 SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 GITIGNORE_TRACK_TOML_RE = re.compile(r"^!\s*raw/external/\.symlink-anchor\.toml\s*(#.*)?$")
@@ -328,6 +343,71 @@ def check_agents_version(wiki_root: Path, info: Dict[str, str]) -> Dict[str, obj
         out["actual"] = found_version
         out["expected"] = target_spec
         out["comparison"] = cmp  # type: ignore
+    return out
+
+
+def _extract_agents_row(text: str, row_re: "re.Pattern[str]") -> Optional[str]:
+    """从 AGENTS.md §八 表格提取某字段行单元格；未命中返 None。"""
+    for line in text.splitlines():
+        m = row_re.match(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def check_agents_md_template_sync(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+    """check#12: AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（0.26.0+）。
+
+    per-wiki 变量只有 4 个（主题 / 创建日期 / CLI 版本 / Wiki Spec 版本，全在 H1 + §八），
+    正文 §一~§七 跨 wiki 逐字相同——故用"提取变量 → 渲染模板 → 字节比对"一次覆盖
+    旧版本残留 + 本地改动全部漂移，取代 0.25.0- 的两条存在性检查（has-at-imports /
+    top-read-directive）。{{WIKI_SPEC_VERSION}} 用 wiki 自钉版本替换，与 check#1
+    （版本行对齐 target）保持正交——本 check 只管"正文与模板同步"，不管版本新旧。
+    修复路径：plan 的 fixtures-fix-agents-md-resync（全量重渲染；本地定制逐条与用户
+    裁定搬 MEMORY/ 或丢弃）。
+    """
+    out = {"passed": True, "severity": "error", "file": "AGENTS.md"}  # type: Dict[str, object]
+    wiki_text = _read_text(wiki_root / "AGENTS.md")
+    if wiki_text is None:
+        out["passed"] = None
+        out["skipped"] = "AGENTS.md 不存在"
+        return out
+    template = _read_text(Path(__file__).resolve().parent.parent / "references" / "agents-md-template.md")
+    if template is None:
+        out["passed"] = None
+        out["skipped"] = "references/agents-md-template.md 未找到（无法模板比对）"
+        return out
+
+    topic = _extract_agents_row(wiki_text, AGENTS_TOPIC_ROW_RE)
+    if topic is None:  # fallback H1 `# <主题> Wiki — LLM 维护守则`
+        h1 = next((ln for ln in wiki_text.splitlines() if ln.startswith("# ")), "")
+        h1m = AGENTS_H1_TOPIC_RE.match(h1)
+        if h1m:
+            topic = h1m.group(1).strip()
+    setup_date = _extract_agents_row(wiki_text, AGENTS_SETUP_DATE_ROW_RE)
+    cli_version = _extract_agents_row(wiki_text, AGENTS_CLI_VERSION_ROW_RE)
+    spec_cell = _extract_agents_row(wiki_text, AGENTS_VERSION_ROW_RE) or ""
+    spec_semver = SEMVER_RE.search(spec_cell)
+
+    if not topic or not setup_date or not cli_version or spec_semver is None:
+        out["passed"] = False  # type: ignore
+        out["expected"] = "§八 含可解析的 主题 / 创建日期 / CLI 版本 / Wiki Spec 版本 四行（模板比对前置）"
+        out["actual"] = "§八 字段解析失败——走 fixtures-fix-agents-md-resync 全量重渲染（agent 人工提取变量）"
+        return out
+
+    rendered = (
+        template.replace("{{TOPIC_NAME}}", topic)
+        .replace("{{SETUP_DATE}}", setup_date)
+        .replace("{{CLI_VERSION}}", cli_version)
+        .replace("{{WIKI_SPEC_VERSION}}", spec_semver.group(0))
+    )
+    if rendered != wiki_text:
+        diff = list(difflib.unified_diff(wiki_text.splitlines(), rendered.splitlines(), lineterm="", n=0))
+        changed = [ln for ln in diff if ln.startswith(("+", "-")) and not ln.startswith(("+++", "---"))]
+        preview = "; ".join(ln[:60] for ln in changed[:4])
+        out["passed"] = False  # type: ignore
+        out["expected"] = "AGENTS.md 与渲染模板字节一致（定制纪律沉淀到 MEMORY/，不进本文件）"
+        out["actual"] = f"{len(changed)} 行与模板渲染稿不一致（首处: {preview}）" if preview else "与模板渲染稿不一致"
     return out
 
 
@@ -728,11 +808,6 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
       - ``section_headings``: List[str] — wiki 必须含这些 ``##`` 标题
       - ``gitignore_section_structure``: bool — 对照 fixtures/gitignore.txt，
         非 external 段齐全 + 每段 ≥1 规则（容忍用户删某条编辑器规则，不绑死具体行）
-      - ``at_imports_present``: List[str] — wiki 必须含这些 `@import` 单行（0.24.0+
-        `@import` 收口回归——本检查替代 0.23.0+ 的 `no_at_imports`）
-      - ``top_read_directive``: bool — wiki 顶部（首个 `## ` 前）的 blockquote 区应同时含
-        `@` 引用 + `Read` 关键字（强制 Read 指令，兜底不展开 `@import` 的 agent；agent 无关，
-        对齐 yzr-multi-agent-context R2）；0.25.0+ 取代 `codex_read_hint`
     """
     missing = []  # type: List[str]
     lines = wiki_text.splitlines()
@@ -764,34 +839,6 @@ def _check_skeleton_signals(wiki_text: str, signals: Dict[str, object]) -> List[
         for s in signals["section_headings"]:  # type: ignore
             if s not in actual_secs:
                 missing.append(f"缺段标题 `{s}`")
-
-    if "at_imports_present" in signals:
-        # 0.24.0+ 取代 `no_at_imports`：正向断言 AGENTS.md 顶部必含特定 `@import`
-        # 单行。匹配规则同 `no_at_imports`（行首 `@` 紧跟字母数字 + `/` + 路径），
-        # 但此处断言"必须存在"。
-        actual_imports = {ln.strip() for ln in lines if re.match(r"^@(?:[A-Za-z]+)/[^\s]+\s*$", ln)}
-        for imp in signals["at_imports_present"]:  # type: ignore
-            if imp not in actual_imports:
-                missing.append(f"缺 `@import` 单行 `{imp}`（0.24.0+ `@import` 收口必填）")
-
-    if signals.get("top_read_directive"):
-        # 0.25.0+ 取代 codex_read_hint：断言 AGENTS.md 顶部（首个 `## ` 段标题前）的
-        # blockquote 区含强制 Read 指令——同时出现 `@` 引用 + `Read` 关键字（agent 无关；
-        # 对齐 yzr-multi-agent-context R2「顶部强制 Read 指令收口，段内不单挂指引」）。
-        first_h2 = next((i for i, ln in enumerate(lines) if ln.startswith("## ")), len(lines))
-        quote_blob = "\n".join(ln for ln in lines[:first_h2] if ln.lstrip().startswith(">"))
-        if not (quote_blob and re.search(r"@", quote_blob) and re.search(r"Read", quote_blob, re.IGNORECASE)):
-            missing.append(
-                "缺顶部强制 Read 指令 blockquote（首个 `## ` 前的 `>` 区应含 `@` 引用 + `Read`，"
-                "兜底不展开 `@import` 的 agent）"
-            )
-
-    if signals.get("no_at_imports"):
-        # 0.23.0 引入的反向检查（已废，保留作 dead-code detect）；
-        # 0.24.0+ 改用 `at_imports_present` 正向断言，详见上文 + wiki-spec §14.8。
-        at_imports = re.findall(r"^@(?:[A-Za-z]+)/[^\s]+\s*$", wiki_text, re.MULTILINE)
-        if at_imports:
-            missing.append(f"残留 @import 行: {at_imports}（0.23.0 旧检查，0.24.0+ 已废）")
 
     if signals.get("gitignore_section_structure"):
         fixture_text = _load_fixture_text("gitignore.txt")
@@ -870,27 +917,6 @@ SKELETON_SPECS = [
         "desc": "wiki/tags.md 含 H1（# Tags）+ 说明块（无 ## 索引——tags 直接 bullet 列表）",
         "signals": {"h1": "# Tags", "blockquote": True},
     },
-    {
-        "id": "agents-md-has-at-imports",
-        "severity": "error",
-        "wiki_path": "AGENTS.md",
-        "rule_ref": "wiki-spec.md §5.1 + §14.3 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 顶部含 @MEMORY/MEMORY.md + @scripts/SCRIPTS.md 两行 @import（@import 收口必填）",
-        "signals": {
-            "at_imports_present": [
-                "@MEMORY/MEMORY.md",
-                "@scripts/SCRIPTS.md",
-            ],
-        },
-    },
-    {
-        "id": "agents-md-top-read-directive",
-        "severity": "warn",
-        "wiki_path": "AGENTS.md",
-        "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 顶部（首个 ## 前）blockquote 区含 @ 引用 + Read 强制指令（agent 无关，兜底不展开 @import 的 agent）",
-        "signals": {"top_read_directive": True},
-    },
 ]
 
 
@@ -937,6 +963,7 @@ CHECK_REGISTRY.extend(
 
 CHECK_FUNCTIONS = [
     ("agents-version-is-current", check_agents_version),
+    ("agents-md-template-sync", check_agents_md_template_sync),
     ("gitignore-external-track-toml", check_gitignore_external_track),
     ("symlink-anchor-toml-schema", check_symlink_anchor_toml_schema),
     ("symlink-anchor-toml-symlink-matches", check_symlink_anchor_toml_symlink_matches),

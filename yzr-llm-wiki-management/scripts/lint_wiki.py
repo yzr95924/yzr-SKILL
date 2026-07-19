@@ -112,9 +112,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = (
-    "0.25.0"  # 0.25.0 = 对齐 yzr-multi-agent-context R1+R2：顶部强制 Read 指令收口 + 去品牌（@import 收口延续 0.24.0）
-)
+CURRENT_WIKI_SPEC = "0.26.0"  # 0.26.0 = AGENTS.md 模板渲染比对（agents-md-template-sync）取代两条存在性检查；升级 = 全量重渲染 + 定制搬 MEMORY
 
 
 def _assert_spec_version_sync() -> None:
@@ -1980,6 +1978,26 @@ def build_migration_plan(
                         ),
                     }
                 )
+            elif cid == "agents-md-template-sync":
+                # 0.26.0+ 模板渲染比对失败 → 全量重渲染（不是单行 Edit）；
+                # 详见 migrate-workflow.md §5 step 6 + wiki-spec.md §10.1
+                fixtures_actions.append(
+                    {
+                        **base,
+                        "type": "fixtures-fix-agents-md-resync",
+                        "to_action": (
+                            "AGENTS.md 全量重渲染（0.26.0+ 模板同步机制，4 步）："
+                            "(1) 从旧 AGENTS.md §八 提取 主题 / 创建日期 / CLI 版本（主题 fallback："
+                            "H1 `# <主题> Wiki — LLM 维护守则`）；"
+                            "(2) 渲染 references/agents-md-template.md——{{TOPIC_NAME}} / {{SETUP_DATE}} / "
+                            "{{CLI_VERSION}} 用旧值，{{WIKI_SPEC_VERSION}} 用 to_version；"
+                            "(3) diff 旧文件 vs 渲染稿：旧文件**多出的行/段** = 本地定制，逐条列给用户裁定——"
+                            "搬 MEMORY/（一行事实写 MEMORY/MEMORY.md 索引短条目；含 why 的建 "
+                            "MEMORY/<slug>.md 完整条目 + 索引行）或丢弃；"
+                            "(4) Write 渲染稿覆盖 AGENTS.md——成长内容仅 §八 四行变量，其余以模板为准"
+                        ),
+                    }
+                )
             elif cid == "symlink-anchor-flat-not-legacy":
                 fixtures_actions.append(
                     {
@@ -2109,6 +2127,7 @@ def build_migration_plan(
             "fixtures-fix-anchor-merge / -anchor-schema / -anchor-symlink-matches 三条都是『多文件迁移』型 action——必须按 to_action 5 步走，单 Edit 不能完成",
             "fixtures-fix-strip-frontmatter 仅删首部 frontmatter 块，保留全文正文一字不动",
             "fixtures-fix-skeleton（0.20.0+）：按 expected 补缺失骨架字段（frontmatter 键 / H1 / 说明块 / 段标题 / .gitignore 段），单 Edit 可落；成长型内容（index 类别 / log 历史 / MEMORY 经验 / tag bullet）不动",
+            "fixtures-fix-agents-md-resync（0.26.0+）：AGENTS.md 全量重渲染——§八 变量保留旧值（Wiki Spec 版本行用 to_version），旧文件多出的定制行/段逐条与用户裁定搬 MEMORY/ 或丢弃；其余以模板渲染稿为准，不做局部 Edit",
             "fixtures 改造与 lint-checklist §五『语义合并规则』配合读——结构性合规由 fixtures-fix-* 完成，跨条目语义合并由 LLM 按 §五判断",
         ],
     }  # type: Dict[str, object]

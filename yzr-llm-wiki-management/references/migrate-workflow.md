@@ -62,8 +62,17 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - `file-move`：先读源 → 写目标 → 删源
    - `frontmatter-retype`：按 `action.note` 与 `wiki-spec §5.2` 决定具体改法
    - **跳过 `skipped_conflicts[]`**——永不自动覆盖人工决策
-6. **改 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本"**：
-   - 用 Edit 替换为 `to_version`（其它字段不动）
+6. **同步 `<wiki-root>/AGENTS.md` 到当前模板**（0.26.0+ 模板渲染比对机制，wiki-spec §10.1）：
+   - plan 含 `fixtures-fix-agents-md-resync` 时按其 `to_action` 走 4 步：
+     (1) 从旧 AGENTS.md §八 提取 主题 / 创建日期 / CLI 版本（主题 fallback H1）；
+     (2) 渲染 [`agents-md-template.md`](agents-md-template.md)——三变量用旧值，
+     `{{WIKI_SPEC_VERSION}}` 用 `to_version`；
+     (3) diff 旧文件 vs 渲染稿，旧文件**多出的行/段** = 本地定制——逐条列给用户裁定：
+     搬 `MEMORY/`（一行事实写 MEMORY.md 索引短条目；含 why 建 `MEMORY/<slug>.md` 完整
+     条目 + 索引行）或丢弃；
+     (4) Write 渲染稿覆盖 AGENTS.md（**不**做局部 Edit——成长内容仅 §八 四行变量）
+   - plan 仅含 `fixtures-fix-agents-version`（正文已与模板同步、只版本行落后）时：
+     用 Edit 把 §八 Wiki Spec 版本行改为 `to_version` 即可
    - 这是**迁移本身**的操作，**不**触及 reviewed 戳机制（AGENTS.md 不参与 SKILL.md
      核心原则 §10 的 `reviewed-stale` 兜底）
 7. **验证**：重跑 `lint_wiki.py --check-version`：
@@ -108,6 +117,17 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 升级 wiki spec 时，约定文件（fixtures）必须对齐当前 spec 的骨架。`check_wiki_fixtures.py`
 读 `references/canonical/` + `references/fixtures/gitignore.txt` 作 SSOT 做字段级骨架比对
 （改 fixtures → check 自动跟随）。
+
+### 模板渲染件（整文以模板为准；0.26.0+）
+
+| 文件 | 模板源 | per-wiki 变量（迁移时保留旧值） |
+| --- | --- | --- |
+| `AGENTS.md` | `references/agents-md-template.md` | 主题（H1 + §八）/ 创建日期 / CLI 版本（§八）；`{{WIKI_SPEC_VERSION}}` 用 `to_version` |
+
+→ 升级时：`agents-md-template-sync` 提取 §八 变量渲染模板后**字节比对**；任何不一致
+（旧版本残留 / 本地改动）产 `fixtures-fix-agents-md-resync` action，agent 走全量重渲染
+（step 6 的 4 步），**不**做局部 Edit。本地定制纪律的归处是 `MEMORY/`——重渲染前逐条
+与用户裁定搬移或丢弃。
 
 ### 纯骨架件（结构不变，只追加 bullet/段/行）—— 全字段骨架比对
 

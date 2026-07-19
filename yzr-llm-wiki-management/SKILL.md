@@ -9,8 +9,8 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-19
-  wiki_spec_version: 0.25.0
-  fixtures_check_count: 20
+  wiki_spec_version: 0.26.0
+  fixtures_check_count: 19
 ---
 
 # LLM Wiki Management
@@ -457,7 +457,8 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
 - **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
   用 Edit/Write 改
-  frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八；走 plan.fixtures_actions[] 修约定文件；
+  frontmatter / 移文件 / 补索引 / 同步 AGENTS.md 到模板（0.26.0+ 全量重渲染，wiki-spec §10.1）；
+  走 plan.fixtures_actions[] 修约定文件；
   语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则) 走
 - **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 migrate-workflow.md §六（与 §三 字节合规分离）
@@ -468,9 +469,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 MEMORY/MEMORY.md / MEMORY/*.md 条目 / SCRIPTS.md / .symlink-anchor.toml），finding 并入
 `.migration-plan.json` 的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。检查项数同
 `metadata.fixtures_check_count`（结构探测 + 骨架字段比对两类，breakdown 见
-[`references/lint-checklist.md`](references/lint-checklist.md)；`agents-md-has-at-imports`
-断言 `@import` 两行均在、`agents-md-top-read-directive` 断言 AGENTS.md 顶部强制 Read 指令
-blockquote 在位）。**简要流程** + 详细步骤 + 字段清单见
+[`references/lint-checklist.md`](references/lint-checklist.md)；其中 `agents-md-template-sync`
+（0.26.0+）对 AGENTS.md 整文做**模板渲染字节比对**——不一致走全量重渲染 + 本地定制搬
+MEMORY/，详见 wiki-spec §10.1）。**简要流程** + 详细步骤 + 字段清单见
 [`references/migrate-workflow.md`](references/migrate-workflow.md)。
 
 ## 参考样例

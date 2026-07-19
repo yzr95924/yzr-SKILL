@@ -5,7 +5,9 @@
 >
 > **本文件（`AGENTS.md`）是本 wiki 纪律的单一真源（SSOT）**——工具无关。由 workspace CLI 在初始化时按
 > [`wiki-spec.md`](wiki-spec.md) §2 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改
-> 都视为"非标准配置"，skill 行为不再保证一致。
+> 都视为"非标准配置"，skill 行为不再保证一致。**本 wiki 特有的纪律 / 偏好请沉淀到 `MEMORY/`**
+> （由下方 `@import` 加载，会话常驻），不要写进本文件——spec 升级时本文件按 skill 最新模板
+> **全量重渲染**（wiki-spec §10.1），本地修改一律不保留。
 >
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`、`@scripts/SCRIPTS.md`），
 > 都用 Read 工具按需读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，
@@ -340,6 +342,9 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 
 - 本文件是 schema，**不是 wiki 内容**——不要往里塞 wiki 主题相关的笔记
 - 改本文件 = 改 skill 行为 = 大事；先和用户确认
+- **spec 升级时本文件按 skill 最新模板全量重渲染**（`agents-md-template-sync` fixtures
+  检查强制）——本地定制先沉淀到 `MEMORY/` 再升级，否则重渲染时丢失；§八 四行变量
+  （主题 / 创建日期 / CLI 版本 / Wiki Spec 版本）是仅有的 per-wiki 内容，升级时保留
 - 若 wiki 启用 git，每次改建议 commit 并加清晰的 commit message；未启用 git 跳过此步
 
 ## 八、当前配置
