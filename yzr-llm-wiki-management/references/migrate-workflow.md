@@ -99,7 +99,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **`current_spec > skill_spec`**（wiki 比 SKILL 新）：**不**阻断，告警用户升级 SKILL 仓；
   **不**改 wiki
 
-## fixtures 字段更新清单（0.20.0+）
+## fixtures 字段更新清单
 
 > **本节回答"升级时每个约定文件要对齐什么"**——集中一处，避免散落在 SKILL.md / spec 附录 B。
 > 权威信号清单是 `scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`（数 = SKILL.md `metadata.fixtures_check_count`）；
@@ -143,7 +143,7 @@ ingest/query 流程维护，迁移不触及。
 
 - 骨架信号定义：`scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`
 - 字节金标准：`references/canonical/*.md`（`.gitignore` 见 `references/fixtures/gitignore.txt`）
-- 语义合并（跨条目归并）：见 §六（0.18.0+ 规则已并入本文件）
+- 语义合并（跨条目归并）：见 §六
 
 ## 与现有 lint 检查的协同
 
@@ -151,7 +151,7 @@ ingest/query 流程维护，迁移不触及。
 - 迁移**不**触及 `reviewed-stale` warn（页面正文未改，仅字段重命名；按 SKILL.md
   核心原则 §10 "LLM 修改页面正文"边界，本操作属于元数据重命名，不算正文修改——但若用户谨慎，
   可在迁移后跑 `lint_wiki.py --severity warn` 让人工审视 reviewed 戳）
-- 与 `--migrate-confidence`（0.5.0→0.7.0 单点硬编码迁移）的关系：`--migrate-confidence`
+- 与 `--migrate-confidence`（单点硬编码迁移）的关系：`--migrate-confidence`
   保留仅供旧用法兼容；新流程一律走 `--check-version --apply`（覆盖其功能 + 范围更广）
 
 ## 完整样例
@@ -160,9 +160,8 @@ ingest/query 流程维护，迁移不触及。
 
 ---
 
-## 六、语义合并规则（0.18.0+，从 `references/semantic-merge.md` 并入）
+## 六、语义合并规则
 
-> 本节从 `references/semantic-merge.md` 整篇并入（0.18.0+ 拆出 → 此版收回）——原文件已删除。
 > `scripts/lint_wiki.py --check-version --apply` 落盘的 `.migration-plan.json`（含 `actions[]`
 > 修内容页 frontmatter + `fixtures_actions[]` 修约定文件）走 agent 执行时，**结构性字节合规**
 > 由 `scripts/check_wiki_fixtures.py` 扫并产出 `fixtures-fix-*` action；**跨 entry 的语义合并**
@@ -177,9 +176,9 @@ ingest/query 流程维护，迁移不触及。
 - 同时含 `confidence` + `reviewed` → **`legacy-confidence-conflict`**，转人工裁定，
   永远不进 plan（已在 plan["skipped_conflicts"] 里标红）
 - `type: memory` / `type: memory-entry`（MEMORY 扩展类型）→ **保留原样**——
-  0.19.0 起 MEMORY 桶的 `type` 字段经 `VALID_TYPES` 扩展后两类均合法（spec §5.2）；
+  MEMORY 桶的 `type` 字段两类均合法（spec §5.2）；
   无需迁到 `memory-entry` 也无需删除 `type`
-- `subpath:` 字段（0.17.0 退役的 anchor 字段）→ 走 §6.3 anchor 合并处理，不在本节管
+- `subpath:` 字段（已退役的 anchor 字段）→ 走 §6.3 anchor 合并处理，不在本节管
 
 ### 6.2 wiki/index.md 条目合并
 
@@ -192,7 +191,7 @@ ingest/query 流程维护，迁移不触及。
   是 entity 重命名（保留新路径、合并到老路径）还是概念拆页（重命名其中之一）由人决定
 - **新分类（如 0.X 引入第六类 `Comparisons`）→ 老 wiki 无该类时**，在 wiki/index.md 末尾
   按 wiki-spec §3 模板加新类别 H2 + 一行 `<!-- agent: TODO 归类旧页 -->` 占位，提醒人工归类
-- **`raw/external/<symlink>` 形式的源条目**——0.17.0+ 改用 symlink 名（kebab-case）而非
+- **`raw/external/<symlink>` 形式的源条目**——改用 symlink 名（kebab-case）而非
   老 `<source-name>/` 子目录；index.md 里所有 `raw/external/<source-name>/...`
   形式条目同步改为 `raw/external/<symlink>/...`
 

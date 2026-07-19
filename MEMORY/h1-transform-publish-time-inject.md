@@ -15,4 +15,6 @@ metadata:
 - publish skill 落地时实现 transform：调 outline API 前 `f"# {title}\n\n{content}"` 拼接，源 = outline `title` 参数
 - 不回写 local
 
-**park 原因：** publish skill 还没建；paper-wiki-profile.md §7 已声明远端发布是 publish skill 职责。复活点：建 publish skill 时把此 transform 实现 + 在 paper-wiki-profile.md §7 加契约。
+**park 原因：** publish skill 还没建。复活点：建 publish skill 时把此 transform 实现 + 在承载论文管线的
+skill 侧加契约（原契约点 paper-wiki-profile.md §7 已随论文工作流 2026-07-19 从
+yzr-llm-wiki-management 移除，改由未来独立的论文阅读 skill 承载）。

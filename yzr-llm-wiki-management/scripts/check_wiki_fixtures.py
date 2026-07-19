@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_wiki_fixtures.py — 0.18.0+ fixtures 一致性检查（升级时专用）
+"""check_wiki_fixtures.py — fixtures 一致性检查（升级时专用）
 
 按 wiki-spec §三 + lint-checklist §五的 fixture 视角，校验一个已存在 wiki 的"约定文件"
 （AGENTS.md / CLAUDE.md / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
@@ -22,10 +22,7 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
   落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 18 条 check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对——0.25.0+ 把 `agents-md-codex-read-hint`
-  重命名 + 改逻辑为 `agents-md-top-read-directive`（agent 无关顶部 Read 指令断言，对齐
-  yzr-multi-agent-context R2）；0.24.0+ 曾替换 0.23.0+ 两条 `agents-md-no-at-imports`
-  → `agents-md-has-at-imports`）；
+- 20 条 check（11 条结构探测 + 9 条骨架字段比对）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
   references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
 - 复用 lint_wiki 的 WIKI_SUBDIRS / MEMORY_SUBDIR / EXTERNAL_SUBDIR 常量名（SSOT
@@ -90,7 +87,7 @@ CHECK_REGISTRY = [
         "id": "memory-index-no-frontmatter",
         "severity": "error",
         "rule_ref": "wiki-spec.md §5 + lint-checklist.md §三.5",
-        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目 0.24.0+ 由 AGENTS.md 顶部 @MEMORY/MEMORY.md @import 加载）",
+        "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目由 AGENTS.md 顶部 @MEMORY/MEMORY.md @import 加载）",
     },
     {
         "id": "memory-entries-indexed",
@@ -287,7 +284,7 @@ def _git_field(target_path: Path, args: List[str]) -> Optional[str]:
 
 
 def check_agents_version(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#1: AGENTS.md §八 spec 行与 --target-spec 一致"""
+    """check#1: AGENTS.md §八 spec 行与 --target-spec 一致"""
     target_spec = info.get("target_spec") or None
     out = {  # type: Dict[str, object]
         "passed": True,
@@ -335,7 +332,7 @@ def check_agents_version(wiki_root: Path, info: Dict[str, str]) -> Dict[str, obj
 
 
 def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#2: .gitignore 含 raw/external/* 排除 + !raw/external/.symlink-anchor.toml 跟踪"""
+    """check#2: .gitignore 含 raw/external/* 排除 + !raw/external/.symlink-anchor.toml 跟踪"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -378,7 +375,7 @@ def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dic
 
 
 def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#3: .symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 仓时三扩展字段"""
+    """check#3: .symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 仓时三扩展字段"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -430,7 +427,7 @@ def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> D
 
 
 def check_symlink_anchor_toml_symlink_matches(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#4: anchor entry ↔ external/ 顶层 symlink 双向匹配"""
+    """check#4: anchor entry ↔ external/ 顶层 symlink 双向匹配"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -472,7 +469,7 @@ def check_symlink_anchor_toml_symlink_matches(wiki_root: Path, info: Dict[str, s
 
 
 def check_symlink_anchor_flat(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#5: external/ 不存在 <source-name>/ 子目录（0.17.0+ 扁平）"""
+    """check#5: external/ 不存在 <source-name>/ 子目录（0.17.0+ 扁平）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -511,7 +508,7 @@ def check_symlink_anchor_flat(wiki_root: Path, info: Dict[str, str]) -> Dict[str
 
 
 def check_index_md_categories(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#6: wiki/index.md 含 5 类别标题（顺序可调）"""
+    """check#6: wiki/index.md 含 5 类别标题（顺序可调）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "warn",
@@ -540,7 +537,7 @@ def check_index_md_categories(wiki_root: Path, info: Dict[str, str]) -> Dict[str
 
 
 def check_memory_index_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#7: MEMORY/MEMORY.md 不带 YAML frontmatter"""
+    """check#7: MEMORY/MEMORY.md 不带 YAML frontmatter"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -561,7 +558,7 @@ def check_memory_index_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> 
 
 
 def check_memory_entries_indexed(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#8: MEMORY/*.md 每条在 MEMORY.md 索引列出"""
+    """check#8: MEMORY/*.md 每条在 MEMORY.md 索引列出"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -601,7 +598,7 @@ def check_memory_entries_indexed(wiki_root: Path, info: Dict[str, str]) -> Dict[
 
 
 def check_log_md_format(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#9: wiki/log.md 每行匹配严格格式（仅 ## 一级 heading 行）"""
+    """check#9: wiki/log.md 每行匹配严格格式（仅 ## 一级 heading 行）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -650,21 +647,21 @@ def _check_no_frontmatter(file_path: Path) -> Dict[str, object]:
 
 
 def check_scripts_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#10: scripts/SCRIPTS.md 不带 YAML frontmatter"""
+    """check#10: scripts/SCRIPTS.md 不带 YAML frontmatter"""
     result = _check_no_frontmatter(wiki_root / "scripts" / "SCRIPTS.md")
     result["file"] = "scripts/SCRIPTS.md"
     return result
 
 
 def check_tags_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """0.18.0 check#11: wiki/tags.md 不带 YAML frontmatter"""
+    """check#11: wiki/tags.md 不带 YAML frontmatter"""
     result = _check_no_frontmatter(wiki_root / "wiki" / "tags.md")
     result["file"] = "wiki/tags.md"
     return result
 
 
 # ============================================================================
-# 0.20.0+ 骨架字段级比对——读 references/canonical/ + references/fixtures/
+# 骨架字段级比对——读 references/canonical/ + references/fixtures/
 # 让 fixtures/canonical 作 SSOT：改 fixtures → check 自动跟随。纯骨架件
 # （.gitignore/tags.md/SCRIPTS.md/MEMORY.md）全字段骨架比对；成长件
 # （index.md/log.md）只比结构必填（frontmatter 键 + H1 + 说明块），不动成长内容。
@@ -878,7 +875,7 @@ SKELETON_SPECS = [
         "severity": "error",
         "wiki_path": "AGENTS.md",
         "rule_ref": "wiki-spec.md §5.1 + §14.3 + lint-checklist.md §二.14",
-        "desc": "AGENTS.md 顶部含 @MEMORY/MEMORY.md + @scripts/SCRIPTS.md 两行 @import（0.24.0+ `@import` 收口必填）",
+        "desc": "AGENTS.md 顶部含 @MEMORY/MEMORY.md + @scripts/SCRIPTS.md 两行 @import（@import 收口必填）",
         "signals": {
             "at_imports_present": [
                 "@MEMORY/MEMORY.md",
@@ -1000,7 +997,7 @@ def run_checks(wiki_root: Path, target_spec: Optional[str]) -> Dict[str, object]
 def _format_human(report: Dict[str, object]) -> str:
     """人读报告（默认输出）。"""
     lines = []  # type: List[str]
-    lines.append("=== Wiki fixtures 一致性检查（0.18.0+）===")
+    lines.append("=== Wiki fixtures 一致性检查 ===")
     lines.append(f"  wiki_root     : {report['wiki_root']}")
     lines.append(f"  target_spec   : {report['target_spec'] or '(未指定)'}")
     s = report["summary"]  # type: ignore
@@ -1035,7 +1032,7 @@ def _format_human(report: Dict[str, object]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="check_wiki_fixtures",
-        description="0.18.0+ 检查已存在 wiki 的 fixtures 一致性（升级检查专用）",
+        description="检查已存在 wiki 的 fixtures 一致性（升级检查专用）",
     )
     parser.add_argument("wiki_root", nargs="?", help="wiki 根目录；默认从 $LLM_WIKI_ROOT 读")
     parser.add_argument(

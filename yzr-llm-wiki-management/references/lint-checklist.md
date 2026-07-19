@@ -8,7 +8,7 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
 
 - [一、调用方式](#一调用方式)
 - [二、Deterministic 检查清单（脚本执行）](#二deterministic-检查清单脚本执行)
-  - [前置：wiki 版本一致性（0.20.0+）](#前置wiki-版本一致性0200)
+  - [前置：wiki 版本一致性](#前置wiki-版本一致性)
   - [1. `raw/` 不可变性](#1-raw-不可变性)
   - [2. frontmatter 完整性](#2-frontmatter-完整性)
   - [3. frontmatter 来源（source / synthesis 页）](#3-frontmatter-来源source--synthesis-页)
@@ -19,11 +19,11 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
   - [8. 文件名规范](#8-文件名规范)
   - [9. 重复标题](#9-重复标题)
   - [10. log.md 条目数（log-rotation）](#10-logmd-条目数log-rotation)
-  - [11. Tag Taxonomy 校验（0.8.0+）](#11-tag-taxonomy-校验080)
+  - [11. Tag Taxonomy 校验](#11-tag-taxonomy-校验)
   - [12. 页面体量](#12-页面体量)
   - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
   - [14. MEMORY.md 索引一致性](#14-memorymd-索引一致性)
-  - [15. related / compared 路径引用完整性（0.22.0+）](#15-related--compared-路径引用完整性0220)
+  - [15. related / compared 路径引用完整性](#15-related--compared-路径引用完整性)
 - [三、半定性检查（agent 执行）](#三半定性检查agent-执行)
   - [17. 矛盾主张](#17-矛盾主张)
   - [18. 缺失交叉引用](#18-缺失交叉引用)
@@ -51,9 +51,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity
 
 退出码：0 = 干净；1 = 有问题（看输出）。
 
-### 子命令 `--migrate-confidence`（0.7.0+，**仅供旧用法兼容**）
+### 子命令 `--migrate-confidence`（仅供旧用法兼容）
 
-老 wiki 中 `confidence: high/medium/low` 字段（0.5.0 引入，0.7.0 退役）一次性迁移到
+老 wiki 中 `confidence: high/medium/low` 字段（已退役）一次性迁移到
 新 `reviewed` + `reviewed_at`：
 
 ```bash
@@ -73,11 +73,11 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --migrate-
 - 不带 `--migrate-confidence` 时：见到 `confidence:` 字段给 `legacy-confidence-field` warn（§二.13.C）
 - 带 `--migrate-confidence` 时：**不**做常规 lint 检查，**只**做迁移（互斥模式）
 
-**与 `--check-version` 的关系**：`--migrate-confidence` 是 0.5.0→0.7.0 单点硬编码迁移；
+**与 `--check-version` 的关系**：`--migrate-confidence` 是单点硬编码迁移；
 新流程一律走 `--check-version --apply`（覆盖其功能 + 范围更广）。保留 `--migrate-confidence`
 仅供旧脚本/CI 调用兼容；详见 SKILL.md §5 Migrate。
 
-### 子命令 `--check-version`（0.7.0+ 推荐）
+### 子命令 `--check-version`
 
 扫当前 wiki 的 spec 版本（解析 `<wiki-root>/AGENTS.md` §八；老 wiki fallback `<wiki-root>/CLAUDE.md` §八）与已知
 legacy 老格式现场：
@@ -95,9 +95,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 默认 **dry-run**——只打印人读报告，不动任何文件
 - 解析 AGENTS.md §八 → 抽 `current_spec`；与 SKILL 仓 `metadata.wiki_spec_version`
   比对（脚本常量 `CURRENT_WIKI_SPEC`）
-- 扫已知 legacy pattern：`confidence-field`（0.5.0 引入，0.7.0 退役）+ `type-memory-value`
-  （0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法；规则仅对
-  wiki 5 类内容页误用 reserved `type: memory` 报错——见下文"类型误用 / reserved
+- 扫已知 legacy pattern：`confidence-field`（已退役字段）+ `type-memory-value`
+  （规则仅对 wiki 5 类内容页误用 reserved `type: memory` 报错；MEMORY/*.md 上
+  `type: memory` / `type: memory-entry` 合法——见下文"类型误用 / reserved
   `type: memory`"段）
 - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，agent 跳过 + 转人工
 - `--apply` 落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]` / `skipped_conflicts[]`
@@ -110,7 +110,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ## 二、Deterministic 检查清单（脚本执行）
 
-### 前置：wiki 版本一致性（0.20.0+）
+### 前置：wiki 版本一致性
 
 - 每次常规 lint（不带 `--check-version`）都查 `<wiki-root>/AGENTS.md` §八「Wiki Spec 版本」
   与 SKILL 仓 `CURRENT_WIKI_SPEC` 是否一致——让用户日常 lint 就能感知版本漂移，不必显式
@@ -130,14 +130,14 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **严重性：error**——任何 raw/ tracked 文件改动都是违反 skill 纪律
 - **前提**：脚本**自动检测** wiki 根目录是否在 git 仓内（`.git/` 子目录存在与否）：
   - `.git/` 不存在 → 跳过 + 输出顶部 `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）`
-    ——0.16.0+ 这是默认状态（CLI 不再自动 git init），不需要警告
+    ——这是默认状态（CLI 不自动 git init），不需要警告
   - `.git/` 存在但 `raw/` 未纳入 git 跟踪（untracked）→ 跳过 + `[NOTES] raw-immutable-skipped: raw/ 未纳入 git 跟踪`
     ——untracked raw 文件**不在** `raw-modified` 检查范围（用户未提交，自然不在 raw-modified 语义下）
   - 真 git 仓 + raw 里有 tracked file 被 modified → 报 `raw-modified` finding
 - 强制跳过：传 `--no-git` 时完全静默跳过（不打 note）——给 CI / 裸仓场景
-- **不要**在裸目录树 wiki 上"强假设 git"——`wiki-spec.md §7` 默认就是裸目录树；
-  0.16.0+ 起 CLI 不再自动 git init，"未启用 git"是默认状态而非异常
-- **untracked raw 文件**——0.16.0+ 起 CLI init 不自动 `git add .`，用户后续 `git add raw/foo.md` 前该文件
+- **不要**在裸目录树 wiki 上"强假设 git"——`wiki-spec.md §7` 默认就是裸目录树，
+  "未启用 git"是默认状态而非异常
+- **untracked raw 文件**——CLI init 不自动 `git add .`，用户后续 `git add raw/foo.md` 前该文件
   是 untracked；untracked 不在 `raw-modified` 范围（raw-modified 只针对 tracked file 被 modified）
 
 ### 2. frontmatter 完整性
@@ -154,10 +154,10 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - `type` 取值合法性：
   - wiki 5 类内容页：`entity` / `concept` / `source` / `comparison` / `synthesis` 之一
   - MEMORY/*.md：以上 5 类均可，或 memory 扩展类型 `memory` / `memory-entry`
-- **类型误用 / reserved `type: memory`（legacy `type-memory-value`，0.19.0+ 收窄）**：
+- **类型误用 / reserved `type: memory`（legacy `type-memory-value`）**：
   - **范围**：仅对 wiki 5 类内容页（entities/concepts/sources/comparisons/syntheses）
     误用 reserved `type: memory` 报错。MEMORY/*.md 上 `type: memory` /
-    `type: memory-entry` 是 0.19.0 spec §5.2 合法值，**不**触发本规则。
+    `type: memory-entry` 是 spec §5.2 合法值，**不**触发本规则。
   - **迁移目标**：wiki 内容页改为对应 5 类之一（entity/concept/source/comparison/
     synthesis）；不要改为 `memory-entry`（那是 MEMORY 桶扩展值）。
 - **finding 名**：`missing-frontmatter`（error，缺必填字段）/ `invalid-type`（error，`type` 取值非法）
@@ -168,7 +168,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - `type: source` 的页面，`sources` 字段必须非空，且每个值是 `raw/` 下的现存路径
 - `type: synthesis` 的页面，`sources` 字段必须非空（可以指 wiki 内其它页）
 - **严重性：error**——断链
-- **`sources-absolute-path`（0.13.0+，仅 source 页）**——`type: source` 的 `sources:` 数组任一元素
+- **`sources-absolute-path`（仅 source 页）**——`type: source` 的 `sources:` 数组任一元素
   以**绝对路径**形式出现即报。检测 3 种形式：
   - Unix 绝对：以 `/` 起始（如 `/Users/foo/articles/llama-3.md`）
   - Windows 盘符：`C:\` / `C:/` 起始（兼容正反斜杠）
@@ -180,14 +180,14 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
     绝对路径会破坏跨机器可移植性（A 机上的 `/Users/foo/...` 在 B 机上无意义），与"raw 与 wiki
     矛盾以 raw 为准"的纪律同级
   - **与 anchor 字段的对比**：`raw/external/.symlink-anchor.toml` 的 `[[entry]].target`
-    字段允许**绝对路径**或 **`~/...` home-relative 形式**（0.14.0+ 推荐后者）——
+    字段允许**绝对路径**或 **`~/...` home-relative 形式**（推荐后者）——
     lint 在判定前 `Path(target).expanduser()` 统一展开，**不**关心 anchor 写哪种形式。
     本检查**不**触及 anchor 文件
-- **`raw/external/<symlink>/...` 例外（0.17+，spec §13.3）**——`sources:` 元素以 `raw/external/`
+- **`raw/external/<symlink>/...` 例外（spec §13.3）**——`sources:` 元素以 `raw/external/`
   起始时**不**走 `sources-out-of-root` 检查（symlink 跟随 `.resolve()` 会落到 wiki 根外，但
   这正是 spec §13 的预期用法）。改为：
   1. 解析 `<symlink>` 段（`Path(s).parts[2]`），段数 < 3 → 报 `sources-malformed`
-  2. 校验 `raw/external/.symlink-anchor.toml`（0.17+ TOML）存在 → 缺则报 `sources-external-anchor-missing`
+  2. 校验 `raw/external/.symlink-anchor.toml` 存在 → 缺则报 `sources-external-anchor-missing`
   3. 校验 symlink 文件本身存在 → 缺则报 `sources-external-symlink-missing`
   4. 校验路径跟随 symlink 后可访问（文件或目录皆可——external repo 本身是 git 仓即
      目录）→ 不可访问报 `sources-missing`（复用原 finding）；用 `sp.exists()` 而非
@@ -243,9 +243,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 归档文件 `log-YYYY.md` 不计入（它们是只读归档，不需要再次 rotate）
 - **严重性：warning**——超过阈值不是错误，但长期不 rotate 会让 `grep "^## ["` 噪声变大
 
-### 11. Tag Taxonomy 校验（0.8.0+）
+### 11. Tag Taxonomy 校验
 
-- 解析 `<wiki-root>/wiki/tags.md`（**0.8.0+ 主流位置**）的裸 bullet 列表，提取允许的 tag 集合；
+- 解析 `<wiki-root>/wiki/tags.md`（**主流位置**）的裸 bullet 列表，提取允许的 tag 集合；
   若不存在则 fallback 解析 SSOT（`<wiki-root>/AGENTS.md`；老 wiki `<wiki-root>/CLAUDE.md`）的 `### Tag Taxonomy` 段（**仅过渡期**，
   老 wiki 跨 spec 迁移用；详见 `wiki-spec.md` §9.1）
 - 文件 / 段必须是**裸 bullet**（每行 `- ...`），不能包在 code block / HTML comment 里——
@@ -253,7 +253,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 格式兼容：`- category：tag1 / tag2 / tag3`（中文 / 英文分隔符都支持；
   多 tag 用 `/` `，` `,` 任一字符分隔）
 - 对每个**内容页**（仅 5 类 wiki 内容页：**不含 MEMORY/*.md**）的 `frontmatter.tags` 元素做包含校验
-- **MEMORY agent 私有（0.19.0+）**：MEMORY 是 agent 私有记忆，私有 tag（`lint` / `external-repo` /
+- **MEMORY agent 私有**：MEMORY 是 agent 私有记忆，私有 tag（`lint` / `external-repo` /
   `symlink` 等）是 LLM 工作上下文分类，**不**应跟 wiki 用户面共享 taxonomy（spec §5 + §9.1）
 - **`wiki/tags.md` 自身不参与此校验**——它是无 frontmatter 的元数据文件，不是 wiki 内容页
 - 找不到任何 tag 源 / 解析出 0 个 tag → 静默跳过（避免新 setup 的
@@ -282,10 +282,10 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 字段语义见 [page-templates.md §一「可选：可信度与认知质量信号」](page-templates.md#可选可信度与认知质量信号)
 - 子检查（字段全部可选；省略 = 不评，不报）：
 
-#### A. 可信度信号 reviewed（0.7.0+）
+#### A. 可信度信号 reviewed
 
 - `pending-review`（**info**）：非 log/index 页**未**含 `reviewed: true`——新常态，仅提示
-  - **MEMORY/*.md agent 私有（0.19.0+）**：MEMORY 是 agent 私有记忆（spec §5 + §5.2），
+  - **MEMORY/*.md agent 私有**：MEMORY 是 agent 私有记忆（spec §5 + §5.2），
     无「人工 review」的语义角色；不进 reviewed 校验
 - `reviewed-stale`（**warn**）：`reviewed: true` 存在但 `updated > reviewed_at`——LLM 修改后漏清戳
 - `invalid-reviewed-value`（**warn**）：`reviewed` 取值非严格 `true`（如 `"true"` 字符串、`yes`、`1`、`false`）
@@ -294,18 +294,18 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - `index-review-badge-drift`（**warn**）：`wiki/index.md` 条目上的 ✓/✗ 标识与被链页 frontmatter
   不一致（缺漏 / 多余 / 日期错）
 
-#### B. 认知质量信号 contested / contradictions（0.5.0+）
+#### B. 认知质量信号 contested / contradictions
 
 - `contested-page`（warn）：`contested: true` 的页——含未解决矛盾，需裁定后移除标记
 - `contradiction-target-missing`（warn）：`contradictions` 指向不存在的页
 - `contradiction-asymmetric`（warn）：A 把 B 列入 `contradictions` 但 B 未反向标注 A
   （字段语义要求**双向标注**）
 
-#### C. 迁移期检测（0.5.0 → 0.7.0 过渡）
+#### C. 迁移期检测
 
 - `legacy-confidence-field`（warn）：出现已退役的 `confidence:` 字段——请运行
   `lint_wiki.py --migrate-confidence`（见 §一 调用方式）
-- **什么时候下线**：0.7.0 发布后建议保留 ≥ 1 个迁移周期（半年），期间未触发可移除
+- **什么时候下线**：建议保留 ≥ 1 个迁移周期（半年），期间未触发可移除
 
 - **为什么是 deterministic 而非半定性**：这里只读作者**已写**的 frontmatter 信号并拎出来；
   判定"某页是否真的经过认真审核 / 某主张到底是否矛盾"是 §三 半定性工作，lint 不替人/agent 决定
@@ -322,14 +322,14 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   列出** → 报 `memory-not-indexed`
 - **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
   （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
-- `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期 / spec <0.6.0 未补索引，不报错）
+- `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期未补索引，不报错）
 - `check_wiki_fixtures.py` 的 `agents-md-has-at-imports`（error）断言 AGENTS.md 顶部 `@MEMORY/MEMORY.md`
-  import 行在位；`agents-md-top-read-directive`（warn）断言顶部强制 Read 指令 blockquote 在位（0.25.0+
-  取代 0.24.0 的 `agents-md-codex-read-hint`）。老 wiki 升级按 wiki-spec §14.8 / §14.9 迁移
+  import 行在位；`agents-md-top-read-directive`（warn）断言顶部强制 Read 指令 blockquote 在位。
+  老 wiki 升级按 wiki-spec §14.8 / §14.9 迁移
 - **严重性：info**——MEMORY 是轻量索引非强制入口（区别于 §二.5 `index.md` 覆盖率是 error），
   漏列不阻断但提示 agent 补索引
 
-### 15. related / compared 路径引用完整性（0.22.0+）
+### 15. related / compared 路径引用完整性
 
 - 校验 wiki 内容页 frontmatter 的 `related`（concept 页使用）与 `compared`
   （comparison 页使用）字段中每条路径对应文件是否存在
@@ -421,8 +421,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ## 五、Semantic-merge 规则
 
-> 0.18.0+ 起的语义合并规则（agent 走 `.migration-plan.json` 时的合并依据）已并入
-> [`references/migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则0180从-referencessemantic-mergemd-并入)——
+> 语义合并规则（agent 走 `.migration-plan.json` 时的合并依据）已并入
+> [`references/migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)——
 > 含 frontmatter 字段合并 / index 条目合并 / anchor TOML 迁移 5 步 / MEMORY 经验合并 /
 > log 严格保留 / 决策树。本节只留指针。
 
@@ -434,7 +434,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 2. **询问用户先修哪些**——不要一次全修（容易回退或引入新问题）
 3. 修完后**重新跑 lint 验证**——不要带着 fix 没验过的状态前进
 4. 若启用 git，重大修复 commit 时建议加 `lint: <summary>` 前缀；裸目录树 wiki 跳过 commit 步骤
-5. **若启用了 0.18.0+ fixtures-check**——按 §五 Decision tree 区分脚本 vs LLM 修；
+5. **若跑 fixtures-check**——按 §五 Decision tree 区分脚本 vs LLM 修；
    `fixtures-fix-*` 系列可通过 Edit 落，`fixtures-fix-anchor-merge/-schema/-symlink-matches`
    三条要走 §5.3 五步迁移（不是单 Edit）
 
@@ -444,7 +444,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **中 wiki（50-200 页）**——每 2 周 1 次
 - **大 wiki（> 200 页）**——每周 1 次；可考虑写 cron
 - **重大 ingest 后**——建议跑一次（可能引入新 entity / 断链）
-- **0.18.0+ 跨 spec 升级后**——首次跑 fixtures-check 验证约定文件已切到新 spec 字节形态
+- **跨 spec 升级后**——首次跑 fixtures-check 验证约定文件已切到新 spec 字节形态
 
 ## 八、lint 的边界
 
@@ -452,9 +452,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **不**评估内容质量（不是 fact-checker）——只看结构和纪律
 - **不**评估 frontmatter 的语义是否合理（只检查字段存在性 + 类型合法）
 - **不**取代 schema（`AGENTS.md`）——schema 是源头，lint 是脚本化检查
-- **0.18.0+ 边界（0.20.0+ 扩为字段级骨架比对）**——`check_wiki_fixtures.py` 扫「约定文件」
+- **fixtures 边界**——`check_wiki_fixtures.py` 扫「约定文件」
   （AGENTS.md / CLAUDE.md / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
   MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）的合规性：
-  **`metadata.fixtures_check_count` 条** check（11 条结构探测 + 9 条 0.20.0+ 骨架字段比对，后者读 `references/canonical/` +
+  **`metadata.fixtures_check_count` 条** check（11 条结构探测 + 9 条骨架字段比对，后者读 `references/canonical/` +
   `references/fixtures/gitignore.txt` 作 SSOT）；语义合并走 §五由 LLM 判断——脚本不替代人。
   常规 lint 另跑 `check_spec_version`（§二前置）报版本漂移 warn

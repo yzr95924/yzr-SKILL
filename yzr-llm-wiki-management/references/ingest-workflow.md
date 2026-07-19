@@ -73,7 +73,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
      - 关键引用——可独立成段的引文 / 数字 / 结论
      - 链接出去的 cross-refs——相关 entity / concept / source 页
    - **认知质量信号（可选）**：fast-moving / 争议 / 单一弱来源的 source 页，建议在 frontmatter
-     标 `contested: true`（仅当**确属矛盾未裁定**时）——0.7.0 起 `confidence` 字段已退役，
+     标 `contested: true`（仅当**确属矛盾未裁定**时）——`confidence` 字段已退役，
      可信度由"是否人工审核过"承载（详见 [page-templates.md §一](page-templates.md#可选可信度与认知质量信号)）
 5. **决策点：是否需要新建 entity / concept 页**
    - 例：raw 资料里反复提到"self-attention"，但 `concepts/self-attention.md` 不存在

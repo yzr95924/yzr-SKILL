@@ -8,7 +8,7 @@
 
 ```gitignore
 raw/external/*                    # symlink 不进 git（跨主机无意义：target 在新机器不存在）
-!raw/external/.symlink-anchor.toml  # anchor 进 git（记录接入意图，0.17.0+ TOML 单文件）
+!raw/external/.symlink-anchor.toml  # anchor 进 git（记录接入意图，TOML 单文件）
 ```
 
 anchor 文件**进 git** 是这一机制的根：
@@ -17,11 +17,11 @@ anchor 文件**进 git** 是这一机制的根：
   （home-relative 仅指同 home 布局的逻辑路径，跟机器绑定的文件系统不是一回事）
 - 但 anchor 的 `remote_url` / `commit` / `branch` 三字段是**跨主机稳定**的——
   任何机器上的 LLM 读 anchor 都可还原"接入瞬间"的精确状态
-- anchor 的 `target` 字段（0.14.0+ 推荐 `~/...` 形式，兼容绝对路径）——同 home
+- anchor 的 `target` 字段（推荐 `~/...` 形式，兼容绝对路径）——同 home
   布局的新机器直接可用；跨 home 布局的机器 LLM 重写。这正是
   `.symlink-anchor.toml` 与 symlink 解耦的价值：**anchor 描述意图、
   symlink 描述当前主机的具体绑定**
-- 0.17.0+ anchor 是单文件 `[[entry]]` 数组——多仓共用一份 anchor，跨主机重建
+- anchor 是单文件 `[[entry]]` 数组——多仓共用一份 anchor，跨主机重建
   也是扫这一个文件
 
 ## 重建触发
@@ -50,7 +50,7 @@ test -f raw/external/.symlink-anchor.toml && echo "anchor 存在"
 
 约定每个 entry 的 symlink 名 `<symlink>`（kebab-case，与 anchor entry 的
 `symlink` 字段对应）的 target 落在新机器的 `~/src/<symlink>/`（可与用户协商改其他路径）。
-本字段会写入 anchor entry 的 `target`（0.14.0+ 推荐 `~/...` 形式，让同 home 布局的同 wiki
+本字段会写入 anchor entry 的 `target`（推荐 `~/...` 形式，让同 home 布局的同 wiki
 仓的其它机器共享）：
 
 ```bash
@@ -67,16 +67,16 @@ cd "$TARGET_ABS"
 git checkout "$commit"  # 切到 anchor 记录的精确 commit
 ```
 
-### Step 4 — 创建 symlink + 更新 anchor（**0.17.0+ 扁平布局**）
+### Step 4 — 创建 symlink + 更新 anchor（**扁平布局**）
 
 ```bash
-# 0.17.0+：symlink 直接放在 raw/external/ 顶层，不要开 <source-name>/ 子目录
+# symlink 直接放在 raw/external/ 顶层，不要开 <source-name>/ 子目录
 mkdir -p raw/external
 ln -s "$TARGET_ABS" "raw/external/${SYMLINK_NAME}"
 ```
 
-最后**用 `~/...` 形式覆盖 anchor entry 的 `target` 字段**（0.14.0+ 推荐；老
-anchor 写绝对路径也兼容）。0.17.0+ anchor 是 TOML，**只改本 entry 的 target**，
+最后**用 `~/...` 形式覆盖 anchor entry 的 `target` 字段**（推荐形式；老
+anchor 写绝对路径也兼容）。anchor 是 TOML 单文件，**只改本 entry 的 target**，
 不要触碰其他 entry + 不改 `remote_url` / `commit` / `branch` 三字段：
 
 ```bash

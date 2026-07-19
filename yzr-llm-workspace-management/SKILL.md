@@ -7,14 +7,13 @@ description: |
   触发场景："总结我所有 wiki 中关于 X 的内容"、"对比 wiki A 和 wiki B 对 Y 的看法"、
   "这个问题该查哪个 wiki"、"扫一下我的 workspace"、"workspace 整体 lint"、
   "记一下：用户偏好按时间线分 wiki"。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——
-  CLI 负责确定性操作（init / add / remove / config / enter / model 注册），本 skill
-  负责需要 LLM 判断的跨 wiki 决策。不适用：单 wiki 的 ingest / query / lint（走
-  yzr-llm-wiki-management）；workspace / wiki 元数据 CRUD（走 workspace CLI 如 llmw）；
-  云端协作 wiki（走 outline-wiki-{search,upload,setup}）。
+  CLI 负责确定性元数据操作，本 skill 负责需要 LLM 判断的跨 wiki 决策。不适用：单 wiki 的
+  ingest / query / lint（走 yzr-llm-wiki-management）；workspace / wiki 元数据 CRUD（走
+  workspace CLI）；云端协作 wiki（走 outline-wiki-{search,upload,setup}）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-18
+  last_modified: 2026-07-19
   workspace_spec_version: 0.6.2
 ---
 
@@ -25,13 +24,11 @@ metadata:
 `yzr-llm-wiki-management` SKILL.md skill。本 skill 站在所有 wiki
 之上，做需要跨 wiki 判断的事情。
 
-本 skill 提供三块交付物：
+本 skill 提供两块交付物：
 
 - **SKILL.md（本文）**——工作流 + 边界的"宪法"
 - **references/workspace-spec.md**——workspace 根 9 类文件的归属 + schema 权威定义
   （CLI 与 skill 都按它落盘 / 维护）
-- **scripts/**——把高频 deterministic 任务固化下来（**不**含 `init`——workspace 的
-  init 由 workspace CLI 负责）
 
 ## 何时使用 / 不使用
 
