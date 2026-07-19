@@ -75,10 +75,13 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
     else:
         lines.append("  [INFO] 无 MEMORY/ 目录——Step 3 跳过")
 
-    # 3. .migration-backup/ 已存在？（可能是上次运行残留）
+    # 3. .migration-backup/ 已存在？（正常跑完会在 Step 5 收尾删除——存在 = 上次中断的残留）
     backup = root / ".migration-backup"
     if backup.exists():
-        lines.append("  [INFO] .migration-backup/ 已存在——可能是上次残留；Step 1 会刷新源文件快照")
+        lines.append(
+            "  [INFO] .migration-backup/ 已存在——上次运行中断的残留（正常跑完会在 Step 5 收尾删除）；"
+            "Step 1 会刷新快照，本轮跑完一并删除"
+        )
 
     return lines, ready
 
