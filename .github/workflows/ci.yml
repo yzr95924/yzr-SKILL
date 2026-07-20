@@ -30,8 +30,10 @@ jobs:
           # 脚本最低支持 3.7（见 pyproject.toml target-version）；ruff 已在 lint
           # 期强制 py37 语法兼容，CI 运行时用 3.11（稳定、setup-python 长期支持）。
           python-version: "3.11"
-      - name: install ruff
-        run: python -m pip install ruff
+      - name: install ruff + pyyaml
+        # pyyaml：quick_validate.py import yaml（唯一非 stdlib 依赖；detector/test 全 stdlib）。
+        # 本地 dry-run 易因系统 Python 预装 pyyaml 漏掉——CI runner 是干净的，必须显式装。
+        run: python -m pip install ruff pyyaml
       - name: ruff check (py37 syntax + style, detector scope)
         run: ruff check yzr-llm-wiki-management/scripts yzr-llm-workspace-management/scripts
       - name: ruff format --check (detector scope)
