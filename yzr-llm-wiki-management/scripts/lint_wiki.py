@@ -112,7 +112,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.27.0"  # 0.27.0 = log.md 滚动窗口（LOG_RETENTION_LIMIT=50，废 rotate 归档；截断由 agent 做，lint 报 log-truncation-recommended）
+CURRENT_WIKI_SPEC = "0.27.1"  # 0.27.1 = spec 职责收缩（toml schema 归 CLI SSOT）+ 探测器升格「可执行真源」+ wiki-metadata-reads-satisfied check（19→20）；0.27.0 log.md 滚动窗口仍生效
 
 
 def _assert_spec_version_sync() -> None:

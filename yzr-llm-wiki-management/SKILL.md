@@ -9,7 +9,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-20
-  wiki_spec_version: 0.27.0
+  wiki_spec_version: 0.27.1
   fixtures_check_count: 20
 ---
 
