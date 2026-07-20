@@ -373,7 +373,7 @@
 >
 > - ✅ `<workspace>/MEMORY/` 写**跨 wiki** 的 LLM 经验（用户对 workspace 组织的偏好 /
 >   跨 wiki 关联 / lint recurring pattern / 跨 wiki 综合经验）
-> - ❌ **不**写单 wiki 观察——单 wiki 的踩坑 / 偏好 / 关联归 `<wiki>/wiki/MEMORY/`
+> - ❌ **不**写单 wiki 观察——单 wiki 的踩坑 / 偏好 / 关联归 `<wiki>/MEMORY/`
 >   （由 `yzr-llm-wiki-management` 维护）
 > - ❌ **不**写跨 wiki 综合答案本身——归 `<workspace>/cross_queries/`
 > - ❌ **不**写一次性观察——直接 chat，不写 MEMORY
@@ -452,7 +452,7 @@
 
 **不写**：
 
-- 单 wiki 的踩坑 → 归 `<wiki>/wiki/MEMORY/`
+- 单 wiki 的踩坑 → 归 `<wiki>/MEMORY/`
 - 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
 - 一次性观察 → 直接 chat，不写 MEMORY
 
@@ -558,9 +558,9 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | `workspace-memory` | `<workspace>/MEMORY/*.md`（非 MEMORY.md） | workspace reserved |
 
 > **与 wiki-spec §9 的关系**：workspace-spec 的 `workspace-memory`（`<workspace>/MEMORY/*.md`
-> 经验条目）与 wiki 内容页 5 类 enum（`<wiki>/wiki/MEMORY/*.md` 可按记忆性质选）location 区分，
+> 经验条目）与 wiki 内容页 5 类 enum（`<wiki>/MEMORY/*.md` 可按记忆性质选）location 区分，
 > 不冲突。两份 `MEMORY.md` 索引（workspace 与 wiki 各一份）均**无 frontmatter**——与 wiki-spec
-> 的 `<wiki>/wiki/MEMORY/MEMORY.md` 无 frontmatter 形态对齐。lint 工具需要识别本
+> 的 `<wiki>/MEMORY/MEMORY.md` 无 frontmatter 形态对齐。lint 工具需要识别本
 > spec 的 `workspace-memory`；若 lint 脚本只跑在 wiki 内，可忽略本节。
 
 ### 类型特化字段

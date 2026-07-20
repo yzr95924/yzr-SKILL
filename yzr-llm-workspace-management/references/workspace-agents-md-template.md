@@ -59,7 +59,7 @@
   不写 INDEX/STATS/LINT/MEMORY/cross_queries
 - **yzr-llm-workspace-management（本 skill）**：管 INDEX/STATS/LINT/MEMORY/cross_queries + 跨 wiki 编排；
   不写 workspace.toml / workspace_models.toml / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
-- **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/wiki/MEMORY/`
+- **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/MEMORY/`
 
 完整不变量与权威定义见 [`workspace-spec.md`](workspace-spec.md)。
 
@@ -118,7 +118,7 @@ SKILL.md §4 lint）：
 ## 五、Memory 纪律
 
 `<workspace>/MEMORY/` 是 LLM agent 的**跨 wiki**私有记忆。**禁止**写单 wiki 观察
-（那些归 `<wiki>/wiki/MEMORY/`）。
+（那些归 `<wiki>/MEMORY/`）。
 
 何时写：
 
@@ -129,7 +129,7 @@ SKILL.md §4 lint）：
 
 何时**不**写：
 
-- 单 wiki 的踩坑 → 归 `<wiki>/wiki/MEMORY/`
+- 单 wiki 的踩坑 → 归 `<wiki>/MEMORY/`
 - 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
 - 一次性观察 → 直接 chat，不写 MEMORY
 

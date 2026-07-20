@@ -101,7 +101,7 @@
 - `index.md` / `log.md` 是 `wiki/` 下的文件（不是子目录）；`MEMORY/MEMORY.md` 在 `<wiki-root>/MEMORY/`
   下（与 `wiki/` 平级），不是 `wiki/` 下的文件
 - `comparisons/` 等 5 个内容页子目录在初始化时为空目录——空目录对纯目录树 wiki 无副作用；
-  仅当用户 `--git` opt-in 时，CLI 在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7）
+  CLI init **无条件**在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7，0.16.0+）
 - **`scripts/` 是 wiki 仓的本机扩展脚本目录**——CLI init 时刻**始终创建**
   （与 `raw/articles/` 同：默认占位），用户 / agent 后续填入项目级 ingest 扩展、
   外部 CLI 胶水脚本、自动化钩子等。`scripts/SCRIPTS.md` 是这个目录的索引，由
@@ -127,9 +127,10 @@
 > **老 wiki 迁移（SSOT 拆分）**：`CLAUDE.md` 仍是 SSOT 形态的老 wiki 由
 > `lint_wiki.py --check-version --apply` 的 `claudemd-to-agents-md-split` action 迁移。
 >
-> **Tag Taxonomy 段已移除**：SSOT 模板不再含 `### Tag Taxonomy` 段——tag 白名单归
-> [`wiki/tags.md`](#91-tag-白名单来源) 维护；CLI init 不再向 AGENTS.md 写入
-> tag 字典。老 wiki 仍含此段时由 `lint_wiki.py --check-version --apply` 自动迁移。
+> **Tag Taxonomy 段归属**：SSOT 模板含 `### Tag Taxonomy` 段——但只承载解析规则与格式
+> 约束（权威定义见 §9.1）；**tag 白名单本体**归 [`wiki/tags.md`](#91-tag-白名单来源)
+> 维护，CLI init 不向 AGENTS.md 写入 tag 字典。老 wiki 的 AGENTS.md（或 CLAUDE.md）
+> 段内仍写死 tag 字典时，由 `lint_wiki.py --check-version --apply` 自动迁移。
 >
 > **scripts 索引**：SSOT 模板含 `### Wiki-local scripts` 段，引用
 > [`scripts/SCRIPTS.md`](#14-scripts本-wiki-仓扩展脚本目录) 索引；CLI init 必须
@@ -163,7 +164,7 @@
 > CLI 不参与 index.md 的后续更新。
 
 - 路径：`<wiki-root>/wiki/index.md`
-- frontmatter（**4 字段必填**）：
+- frontmatter（**6 字段必填**）：
 
 | 字段 | 值 |
 |---|---|
@@ -184,7 +185,7 @@
 > CLI 不参与 log.md 的后续追加。
 
 - 路径：`<wiki-root>/wiki/log.md`
-- frontmatter（**4 字段必填**，同 §3 但 `type=log`、`okf_version` 不出现）：
+- frontmatter（**5 字段必填**，同 §3 但 `type=log`、`okf_version` 不出现）：
 
 | 字段 | 值 |
 |---|---|

@@ -13,7 +13,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-19
+  last_modified: 2026-07-20
   workspace_spec_version: 0.7.0
 ---
 
@@ -162,7 +162,7 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 | `<workspace>/MEMORY/` | CLI init 建骨架（目录 + MEMORY.md）+ 本 skill | CLI init 写 MEMORY.md 索引；skill 写 `*.md` 经验 + 同步索引 |
 | `<wiki>/wiki_metadata.toml` | workspace CLI | 只读 |
 | `<wiki>/wiki/{entities,concepts,sources,...}` | `yzr-llm-wiki-management` | 通过它写 |
-| `<wiki>/wiki/MEMORY/` | `yzr-llm-wiki-management` | 通过它写（单 wiki 私有记忆） |
+| `<wiki>/MEMORY/` | `yzr-llm-wiki-management` | 通过它写（单 wiki 私有记忆） |
 | `<wiki>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读 |
 | `<wiki>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读 |
 | `<wiki>/raw/` | 用户 | 只读 |
@@ -171,7 +171,7 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 本 skill 写 `workspace.toml` 属越权；CLI 写 `INDEX.md` 属越权；skill 写
 `<workspace>/AGENTS.md` / `CLAUDE.md` 属越权（用户宪法；spec 升级迁移例外见 §6 +
 spec §17.2）。**MEMORY 跨边界混淆**：本 skill **禁止**写
-`<wiki>/wiki/MEMORY/`，单 wiki 记忆归 `yzr-llm-wiki-management`；同样禁止把跨 wiki 观察
+`<wiki>/MEMORY/`，单 wiki 记忆归 `yzr-llm-wiki-management`；同样禁止把跨 wiki 观察
 写到单 wiki MEMORY——按 [spec §9 scope 边界](references/workspace-spec.md#9-workspace-memoryskill-维护)。
 
 ### 跨 skill 依赖图（DAG，无环）
@@ -242,7 +242,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
    - 扫 `<wiki>/wiki/{entities,concepts,sources,comparisons,syntheses}/` 拿 page counts
    - 扫 `<wiki>/raw/` 递归拿原始资料数（仅 `find` + 计数，不读内容）
    - 读 `<wiki>/wiki/log.md` 末条拿 last activity
-   - 读 `<wiki>/wiki/MEMORY/` 拿 memory files 数（仅文件名）
+   - 读 `<wiki>/MEMORY/` 拿 memory files 数（仅文件名）
 4. 读 `<workspace>/MEMORY/MEMORY.md` 索引（知晓已有跨 wiki 记忆，供 query 路由 / scan 报告
    引用）；按 wiki name 字母序聚合，写 `<workspace>/INDEX.md`（格式见
    [spec §5](references/workspace-spec.md#5-indexmdskill-维护)）+ `<workspace>/STATS.md`
@@ -340,7 +340,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 
 **不写**（避免越界）：
 
-- 单 wiki 踩坑 → 归 `<wiki>/wiki/MEMORY/`（委托 `yzr-llm-wiki-management`）
+- 单 wiki 踩坑 → 归 `<wiki>/MEMORY/`（委托 `yzr-llm-wiki-management`）
 - 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
 - 一次性观察 → 直接 chat，不写 MEMORY
 
@@ -374,7 +374,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 
 | 场景 | 写哪 |
 | --- | --- |
-| "wiki A 的 ingest 总是失败，因为 raw/ 里有特殊字符" | `<A>/wiki/MEMORY/ingest-special-char-pitfall.md`（单 wiki 经验） |
+| "wiki A 的 ingest 总是失败，因为 raw/ 里有特殊字符" | `<A>/MEMORY/ingest-special-char-pitfall.md`（单 wiki 经验） |
 | "用户偏好把所有 storage 相关放 A wiki，把 LLM 相关放 B wiki" | `<workspace>/MEMORY/user-storage-vs-llm-preference.md`（跨 wiki 偏好） |
 | "跨 wiki 综合答案：对比 A 与 B 的性能优化方法" | `<workspace>/cross_queries/perf-compare-a-b.md`（答案本身，不是 memory） |
 
