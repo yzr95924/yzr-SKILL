@@ -1,0 +1,46 @@
+# my_SKILL CI —— 探测器（「可执行真源」）+ skill 自校验。
+#
+# ┌─ 单向依赖不变量（核心原则，任何改动不得违反）──────────────────────────┐
+# │ 本 workflow 只跑 my_SKILL 自家的脚本，**绝不调用 llmw CLI、不读 CLI 仓**。 │
+# │ 探测器测试是闭环的：用 SKILL 自家模板在 tmp 目录搭 scratch 产物 → 喂给    │
+# │ SKILL 自家 check_*_fixtures.py。整套与 CLI 无关。                         │
+# │ 任何想加 `llmw init` / 读 llm_workspace_cli 一步的改动都违反             │
+# │ 「CLI 单向依赖 SKILL」的核心原则——拒绝合并。                              │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
+# 作用域：只覆盖「可执行真源」探测器面（两 llm-*-management/scripts）+ 跑
+# quick_validate。yzr-skill-creator 自身 ruff 清理是独立议题（有预存 import/
+# format 问题），不在本 CI ruff 作用域内——quick_validate 作为脚本照跑。
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  detector-integrity:
+    name: detector + skill self-check (standalone, zero CLI dependency)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # 脚本最低支持 3.7（见 pyproject.toml target-version）；ruff 已在 lint
+          # 期强制 py37 语法兼容，CI 运行时用 3.11（稳定、setup-python 长期支持）。
+          python-version: "3.11"
+      - name: install ruff
+        run: python -m pip install ruff
+      - name: ruff check (py37 syntax + style, detector scope)
+        run: ruff check yzr-llm-wiki-management/scripts yzr-llm-workspace-management/scripts
+      - name: ruff format --check (detector scope)
+        run: ruff format --check yzr-llm-wiki-management/scripts yzr-llm-workspace-management/scripts
+      - name: quick_validate (both llm skill frontmatter)
+        run: |
+          python yzr-skill-creator/scripts/quick_validate.py yzr-llm-workspace-management
+          python yzr-skill-creator/scripts/quick_validate.py yzr-llm-wiki-management
+      - name: detector end-to-end tests (standalone — SKILL's own check_*_fixtures.py only, no CLI)
+        run: |
+          python yzr-llm-workspace-management/scripts/test_check_workspace_fixtures.py
+          python yzr-llm-wiki-management/scripts/test_check_wiki_fixtures.py
