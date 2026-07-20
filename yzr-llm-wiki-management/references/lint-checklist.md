@@ -86,8 +86,8 @@ legacy 老格式现场：
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version
 # 加 --json 输出机器可读 JSON（agent 程序化消费）
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --json
-# 加 --apply 落盘 .migration-plan.json 供 agent 按 wiki-spec-changelog.md 走 Edit/Write 修复
-python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
+# 加 --apply 输出 migration plan（stdout JSON，不落盘）供 agent 按 wiki-spec-changelog.md 走 Edit/Write 修复
+python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply --json
 ```
 
 行为：
@@ -100,8 +100,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   `type: memory` / `type: memory-entry` 合法——见下文"类型误用 / reserved
   `type: memory`"段）
 - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，agent 跳过 + 转人工
-- `--apply` 落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]` / `skipped_conflicts[]`
-  / `agent_rules[]`；若 plan 已存在拒绝覆盖（防误覆盖）
+- `--apply` 以 stdout JSON 输出 migration plan（不落盘）——含 `actions[]` / `skipped_conflicts[]`
+  / `agent_rules[]`；agent 内存持有，无"plan 已存在"覆盖问题
 - **不**做常规 lint 检查（互斥模式）
 - **不**写 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
@@ -121,7 +121,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   - `wiki-spec-version-ahead`：AGENTS.md 版本**领先** SKILL——升级 SKILL 仓（`lint_wiki.py`）对齐
   - `wiki-spec-version-unparsed`：§八版本行无法解析（缺 AGENTS.md / CLAUDE.md 或表格格式破坏）——跑 `--check-version` 诊断
 - **与 `--check-version` 的区别**：常规 lint 只报 warn 提示（不产 plan、不动 wiki）；
-  `--check-version` 才落 `.migration-plan.json` + 跑 fixtures-check + 产修复 action
+  `--check-version` 才输出 migration plan（stdout JSON）+ 跑 fixtures-check + 产修复 action
 - 版本一致（equal）→ 无 finding
 
 ### 1. `raw/` 不可变性
@@ -422,7 +422,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ## 五、Semantic-merge 规则
 
-> 语义合并规则（agent 走 `.migration-plan.json` 时的合并依据）已并入
+> 语义合并规则（agent 走 migration plan 时的合并依据）已并入
 > [`references/migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)——
 > 含 frontmatter 字段合并 / index 条目合并 / anchor TOML 迁移 5 步 / MEMORY 经验合并 /
 > log 严格保留 / 决策树。本节只留指针。

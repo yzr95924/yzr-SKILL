@@ -20,8 +20,8 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
   2 = 运行错误（路径 / 参数 / 文件 IO）
 
 设计权衡:
-- 该脚本不写文件，也不进 .migration-plan.json（那是 lint_wiki.py --check-version
-  落盘并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
+- 该脚本不写文件，也不产出 migration plan（那是 lint_wiki.py --check-version
+  `--apply` 以 stdout JSON 输出并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
 - 19 条 check（12 条结构探测 + 7 条骨架字段比对）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
   references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。

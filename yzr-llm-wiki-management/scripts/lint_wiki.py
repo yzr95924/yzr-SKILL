@@ -18,8 +18,9 @@ lint_wiki.py — deterministic 健康检查
   已被 `--check-version --apply` 覆盖；保留仅供旧用法兼容。
 --check-version 扫描当前 wiki 的 spec 版本（解析 CLAUDE.md §八 "Wiki Spec 版本"），
   与 SKILL 仓 metadata.wiki_spec_version 比对，列出老格式 legacy 现场。默认仅打印报告
-  （不动任何文件）；加 `--apply` 会落盘 `<wiki-root>/.migration-plan.json` 供 agent 按
-  wiki-spec-changelog.md 规则用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
+  （不动任何文件）；加 `--apply` 把 migration plan 以 JSON 输出到 **stdout**（agent 直接
+  消费，**不落盘**——升级全程 wiki 根无任何中间文件残留）供按 wiki-spec-changelog.md 规则
+  用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
 
 退出码：
 - 0 = 全部指定严重性级别内无 finding / --check-version 报告完成（无论是否需迁移）
@@ -150,9 +151,6 @@ def _assert_spec_version_sync() -> None:
 
 
 _assert_spec_version_sync()
-
-# --check-version 产出的迁移 plan 文件名（落到 <wiki-root>/ 下）。
-MIGRATION_PLAN_FILENAME = ".migration-plan.json"
 
 # 已知 legacy pattern 的"pattern key"——为后续扩展预留，每个 key 是一类迁移动作。
 # rule_ref 指向 wiki-spec-changelog.md 的对应行；agent 修复时按此引用。
@@ -2136,7 +2134,7 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
     - 探测已知 legacy 现场
     - 默认打印人读报告（不写文件）
     - --json 输出机器可读 JSON
-    - --apply 落盘 <wiki-root>/.migration-plan.json（agent 修复路径的依据）
+    - --apply 把 migration plan 以 JSON 输出到 stdout（agent 修复路径的依据；不落盘）
     """
     current_spec = parse_spec_version(wiki_root)
     comparison = _compare_semver(current_spec, CURRENT_WIKI_SPEC)
@@ -2172,17 +2170,6 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
         if apply:
             plan = build_migration_plan(wiki_root, current_spec, legacy, fixtures_check)
             report["migration_plan"] = plan
-            plan_path = wiki_root / MIGRATION_PLAN_FILENAME
-            if plan_path.exists():
-                print(
-                    f"ERROR: {plan_path} 已存在；为防误覆盖请先删除或改名",
-                    file=sys.stderr,
-                )
-                return 2
-            plan_path.write_text(
-                json.dumps(plan, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
@@ -2240,28 +2227,23 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
     # fixtures-check 段（0.18.0+）
     _print_fixtures_check(fixtures_check, indent="")
 
-    # apply 时落盘 plan
+    # apply 时把 migration plan 以 JSON 输出到 stdout（agent 直接消费；不落盘，升级无中间文件残留）
     if apply:
-        plan_path = wiki_root / MIGRATION_PLAN_FILENAME
-        if plan_path.exists():
-            print(f"\nERROR: {plan_path} 已存在；为防误覆盖请先删除或改名", file=sys.stderr)
-            return 2
         plan = build_migration_plan(wiki_root, current_spec, legacy, fixtures_check)
-        plan_path.write_text(
-            json.dumps(plan, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        print(f"\n[PLAN] 落盘 {plan_path}")
+        print("\n[PLAN] migration plan 已生成（stdout JSON 输出，agent 直接消费，不落盘）")
         print(
             f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}, "  # type: ignore
             f"fixtures_actions: {len(plan.get('fixtures_actions', []))}"  # type: ignore
         )
         print(
-            "       agent 现在可按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）"
+            "       agent 按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）"
         )
+        print("--- migration-plan JSON begin ---")
+        print(json.dumps(plan, indent=2, ensure_ascii=False))
+        print("--- migration-plan JSON end ---")
     else:
         print()
-        print("[HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复（默认 dry-run）")
+        print("[HINT] 加 --apply 输出 migration plan（stdout JSON）供 agent 走 Edit/Write 修复（默认 dry-run）")
         print("       加 --json  输出机器可读 JSON")
 
     return 0
@@ -2315,7 +2297,7 @@ def main() -> int:
     parser.add_argument(
         "--check-version",
         action="store_true",
-        help="扫描 wiki 的 spec 版本（CLAUDE.md §八）与已知 legacy 老格式现场；默认 dry-run。加 --apply 落盘 .migration-plan.json，加 --json 输出机器可读 JSON。互斥模式。",
+        help="扫描 wiki 的 spec 版本（CLAUDE.md §八）与已知 legacy 老格式现场；默认 dry-run。加 --apply 输出 migration plan（stdout JSON，不落盘），加 --json 输出机器可读 JSON。互斥模式。",
     )
     parser.add_argument(
         "--json",
@@ -2325,7 +2307,7 @@ def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="与 --check-version 联用：落盘 <wiki-root>/.migration-plan.json 供 agent 修复",
+        help="与 --check-version 联用：把 migration plan 以 JSON 输出到 stdout 供 agent 修复（不落盘）",
     )
     args = parser.parse_args()
 

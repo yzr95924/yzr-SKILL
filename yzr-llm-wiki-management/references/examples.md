@@ -113,14 +113,14 @@
            ...
      [CONFLICTS] 1 处冲突页——agent 不自动覆盖
        - wiki/sources/llama-2.md: 同时含 legacy confidence 字段与 reviewed 字段
-     [HINT] 加 --apply 落盘 .migration-plan.json 供 agent 走 Edit/Write 修复
+     [HINT] 加 --apply 输出 migration plan（stdout JSON）供 agent 走 Edit/Write 修复
 3. agent 把报告转成对话式清单 + 询问用户:
    "应用全部（除 1 处冲突转人工）/ 部分应用 / 仅看清单?"
    用户: "应用全部"
-4. 生成 plan：
-   python3 yzr-llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version --apply
-   → 落盘 ~/wiki/llm-systems/.migration-plan.json
-5. agent 读 plan.actions[] 逐项 Edit/Write 修复:
+4. 生成 plan（stdout 输出，不落盘）：
+   python3 yzr-llm-wiki-management/scripts/lint_wiki.py ~/wiki/llm-systems --check-version --apply --json
+   → report.migration_plan 随 stdout JSON 返回（agent 内存持有，wiki 根无文件）
+5. agent 从 stdout JSON 读 plan.actions[] 逐项 Edit/Write 修复:
    - 12 处 frontmatter-rename（其中 11 处直接改，1 处冲突跳过转人工）
    - 0 处其它（`type-memory-value` 已退役，老 wiki 中 `type: memory` 由 lint `invalid-type` 单独报）
 6. Edit 改 ~/wiki/llm-systems/AGENTS.md §八 "Wiki Spec 版本" 0.5.0 → 0.7.0

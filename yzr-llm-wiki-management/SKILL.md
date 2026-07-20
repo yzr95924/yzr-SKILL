@@ -8,7 +8,7 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-20
+  last_modified: 2026-07-21
   wiki_spec_version: 0.27.1
   fixtures_check_count: 20
 ---
@@ -30,7 +30,7 @@ metadata:
   `metadata.fixtures_check_count`（详见 [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（wiki 仓出生形态 + skill 读取契约）、fixtures（CLI 字节级比对金标准）、migrate-workflow.md §六
-  (语义合并规则，agent 走 .migration-plan.json 时的合并依据)
+  (语义合并规则，agent 走 migration plan 时的合并依据)
 
 ## 何时使用 / 不使用
 
@@ -81,7 +81,7 @@ metadata:
 - **lint** → `log` 中报告：raw/ 是否被改、孤儿页、断裂交叉引用、过期摘要、缺
   frontmatter、log.md 格式
 - **migrate** → 跑 `scripts/lint_wiki.py --check-version` 输出 spec 版本 + legacy 现场
-  报告；`--apply` 落盘 `<wiki-root>/.migration-plan.json` 供 agent 按 `wiki-spec.md`
+  报告；`--apply` 把 migration plan 以 JSON 输出到 stdout（不落盘）供 agent 按 `wiki-spec.md`
   附录 B 走 Edit/Write 修复；详见 §5 Migrate
 
 ## 设计决策
@@ -131,7 +131,7 @@ metadata:
 | **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
 | **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
 | **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
-| **migrate** | 含 §八 的 wiki | legacy + `.migration-plan.json` +<br>agent 修复后的最新 spec 兼容 wiki | spec 演进时不破坏老 wiki 沉淀 |
+| **migrate** | 含 §八 的 wiki | legacy 现场 + stdout migration plan +<br>agent 修复后的最新 spec 兼容 wiki（不落盘中间文件） | spec 演进时不破坏老 wiki 沉淀 |
 
 每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
 不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
@@ -454,8 +454,8 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 **职责切分**（避免与 ingest / lint 混淆）：
 
 - **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 `check_wiki_fixtures.py`
-  扫约定文件）= 探测器，只扫不修，输出报告 / 落盘 `.migration-plan.json`
-- **agent** = 修复者，按 `.migration-plan.json` + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
+  扫约定文件）= 探测器，只扫不修，输出报告 / `--apply` 时 stdout 输出 migration plan
+- **agent** = 修复者，按 stdout 返回的 migration plan + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
   用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 同步 AGENTS.md 到模板（全量重渲染，wiki-spec §10.1）；
   走 plan.fixtures_actions[] 修约定文件；
@@ -467,7 +467,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 **fixtures 一致性检查**——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
 扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
 MEMORY/MEMORY.md / MEMORY/*.md 条目 / SCRIPTS.md / .symlink-anchor.toml），finding 并入
-`.migration-plan.json` 的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。检查项数同
+`migration plan`（stdout JSON 输出）的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。检查项数同
 `metadata.fixtures_check_count`（结构探测 + 骨架字段比对两类，breakdown 见
 [`references/lint-checklist.md`](references/lint-checklist.md)；其中 `agents-md-template-sync`
 对 AGENTS.md 整文做**模板渲染字节比对**——不一致走全量重渲染 + 本地定制搬

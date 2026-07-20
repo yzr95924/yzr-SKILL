@@ -12,7 +12,6 @@
 # 临时文件
 *.tmp
 *.bak
-.migration-plan.json
 
 # 外部代码仓 symlink（详见 §13）
 raw/external/*

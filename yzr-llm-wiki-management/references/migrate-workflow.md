@@ -19,9 +19,10 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 ## 职责切分（**关键**——避免与 ingest / lint 混淆）
 
-- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / 落盘
-  `.migration-plan.json`，**不**改任何 wiki 内容
-- **agent**（本节定义）= 修复者。按 `.migration-plan.json` + [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 用
+- **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / `--apply`
+  时把 migration plan 以 JSON 输出到 stdout，**不**改任何 wiki 内容 / **不**落盘
+- **agent**（本节定义）= 修复者。按 stdout 返回的 migration plan（`--apply --json` 的
+  `report.migration_plan`）+ [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 用
   Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
 - **[`wiki-spec-changelog.md`](wiki-spec-changelog.md)** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
 - **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
@@ -46,15 +47,16 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec-changelog.md 哪行"
    - 冲突页单独标红，**绝不自动覆盖**——等用户裁定
    - 询问用户：应用全部 / 部分应用 / 仅看清单
-4. **生成 plan**（用户同意应用时）：
+4. **生成 plan**（用户同意应用时）—— **不落盘**，stdout 输出：
 
    ```bash
-   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply
+   python3 scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply --json
    ```
 
-   落盘 `<wiki-root>/.migration-plan.json`——含 `actions[]`（每个含 file / type /
-   rule_ref / remove / add_or_modify）+ `skipped_conflicts[]` + `agent_rules[]`。
-   若 plan 已存在 → 拒绝覆盖，提示用户删除或改名。
+   plan 随 **stdout JSON** 返回（`report.migration_plan`），agent 在**内存**里持有——
+   含 `actions[]`（每个含 file / type / rule_ref / remove / add_or_modify）+
+   `skipped_conflicts[]` + `agent_rules[]`。**不落盘**任何中间文件，故无"plan 已存在"
+   覆盖问题；中途暂停续跑直接重跑 `--apply`（确定性再生成同一份 plan）。
 5. **执行修复**（agent 用 Edit/Write）：
    - 按 `actions[]` 顺序逐项修；每个 action 前打印依据 `rule_ref`
    - `frontmatter-rename`：Edit 改 frontmatter（删老字段、加新字段；**不动 `updated`**）
@@ -77,19 +79,19 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 7. **验证**：重跑 `lint_wiki.py --check-version`：
    - 若 `needs_migration == false` 且无残留 legacy → 告知用户完成
    - 若仍有 → 报告残留 pattern + 转人工
-8. **清理临时文件**（验证通过后，保证 wiki 干净）：删 `<wiki-root>/.migration-plan.json`
-   + 升级过程产出的 `*.bak` 备份。两者都是升级中间产物——plan 已执行完毕、anchor 重写
-   备份已无需回滚；残留无意义且 `.gitignore` 已忽略它们（`.migration-plan.json` / `*.bak`）。
+8. **清理临时文件**（验证通过后，保证 wiki 干净）：删升级过程产出的 `*.bak` 备份。
+   `.migration-plan.json` **自 step 4 起不再产生**（改 stdout 输出，agent 内存持有），
+   wiki 根全程无此文件；`*.bak` 唯一产生点是 anchor 重写备份，已无需回滚，残留无意义且
+   `.gitignore` 已忽略。
 
    ```bash
-   rm "$LLM_WIKI_ROOT/.migration-plan.json"
    # `.bak` 唯一产生点是 raw/external/.symlink-anchor.toml 重写备份（深度 3），maxdepth 必须 ≥ 3；
    # find 默认不 follow symlink，不会顺 raw/external/ 下的外部仓 symlink 扫进巨型代码树
    find "$LLM_WIKI_ROOT" -maxdepth 3 -name '*.bak' -delete
    ```
 
-   > **何时不删**：升级中途暂停（plan 未执行完 / 待人工裁定冲突页）时保留 `.migration-plan.json`，
-   > 它是续跑的依据；只有 step 7 验证通过（`needs_migration == false`）才删。
+   > **为何不再提 `.migration-plan.json`**：step 4 起该文件不再落盘，升级全程 wiki 根**无此文件**，
+   > 残留 by construction 不可能（无需 `rm`）。`*.bak` 仍可能由 anchor 重写产生，故保留删除。
 9. **不**追加 log 条目 / **不**触发 ingest / query / lint（保持职责单一）
 
 ## `--json` 联用
@@ -157,8 +159,9 @@ ingest/query 流程维护，迁移不触及。
 
 `gitignore-init-rules-complete` 只查**段注释齐全 + 每段 ≥1 规则**，不绑死具体规则行——
 容忍用户删自己不用的编辑器规则（只用 VSCode 的删 `.idea/`、纯 Linux 的删 `.DS_Store`）。
-但**临时文件段的 `.migration-plan.json` 建议保留**（升级中间产物的中断保险）；即便漏掉，
-升级末尾 step 8 的 `rm` 也会清掉 plan，双重保险。
+临时文件段 `*.tmp` / `*.bak` 建议保留（`*.bak` 是 anchor 重写备份的中断保险，升级末尾
+step 8 会清）；`.migration-plan.json` 已不再产生（migrate 改 stdout 输出 plan，不落盘），
+canonical `fixtures/gitignore.txt` 已移除该行，老 wiki 留着也无害。
 
 ### 权威源指针
 
@@ -183,7 +186,7 @@ ingest/query 流程维护，迁移不触及。
 
 ## 六、语义合并规则
 
-> `scripts/lint_wiki.py --check-version --apply` 落盘的 `.migration-plan.json`（含 `actions[]`
+> `scripts/lint_wiki.py --check-version --apply` 以 stdout JSON 输出的 migration plan（含 `actions[]`
 > 修内容页 frontmatter + `fixtures_actions[]` 修约定文件）走 agent 执行时，**结构性字节合规**
 > 由 `scripts/check_wiki_fixtures.py` 扫并产出 `fixtures-fix-*` action；**跨 entry 的语义合并**
 > （老字段升级、index 重复条目、多 MEMORY 条目归并、0.16.0 → 0.17.0 anchor 多 entry 合并）
@@ -192,8 +195,8 @@ ingest/query 流程维护，迁移不触及。
 ### 6.1 frontmatter 字段合并
 
 - `confidence: <v>` 单独存在 → 删 `confidence`；若 `v == high` 则加 `reviewed: true`
-  + `reviewed_at: <migrate-day YYYY-MM-DD>`。`<migrate-day>` 取 `.migration-plan.json`
-  `generated_at` 字段（plan 落盘当日，由 lint_wiki.py 在 `--apply` 时自动写入）
+  + `reviewed_at: <migrate-day YYYY-MM-DD>`。`<migrate-day>` 取 plan 的
+  `generated_at` 字段（lint_wiki.py 在 `--apply` 时生成，随 stdout JSON 输出）
 - 同时含 `confidence` + `reviewed` → **`legacy-confidence-conflict`**，转人工裁定，
   永远不进 plan（已在 plan["skipped_conflicts"] 里标红）
 - `type: memory` / `type: memory-entry`（MEMORY 扩展类型）→ **保留原样**——
