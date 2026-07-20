@@ -42,11 +42,11 @@
 
 | 路径 | 维护方 | 说明 |
 | --- | --- | --- |
-| `workspace.toml` | workspace CLI | wiki 注册表 + 全局默认；skill **只读** |
+| `workspace.toml` | workspace CLI | wiki 注册表 + 全局默认；skill **只读**（迁移例外见 §六） |
 | `workspace_models.toml` | workspace CLI | 模型注册表（API key 等敏感信息）；skill **不读不写** |
 | `.gitignore` | workspace CLI | 排除 `workspace_models.toml` 等敏感文件 |
-| `AGENTS.md` | **用户**（CLI init 时拷 SSOT 模板） | workspace 纪律 SSOT（工具无关）；skill 只读 |
-| `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供经薄壳自动加载的 agent |
+| `AGENTS.md` | **用户**（CLI init 时拷 SSOT 模板） | workspace 纪律 SSOT（工具无关）；skill 只读（迁移例外见 §六） |
+| `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供经薄壳自动加载的 agent（迁移例外同 §六） |
 | `INDEX.md` / `STATS.md` | yzr-llm-workspace-management skill | workspace 入口文档 + 结构化统计 |
 | `LINT.md` | yzr-llm-workspace-management skill | 最近一次 workspace lint 报告（快照） |
 | `cross_queries/` | yzr-llm-workspace-management skill | 跨 wiki 综合答案归档 |
@@ -58,7 +58,7 @@
 - **workspace CLI**：管 `workspace.toml` / `workspace_models.toml` / `.gitignore` + 每个 wiki 子仓元数据；
   不写 INDEX/STATS/LINT/MEMORY/cross_queries
 - **yzr-llm-workspace-management（本 skill）**：管 INDEX/STATS/LINT/MEMORY/cross_queries + 跨 wiki 编排；
-  不写 workspace.toml / workspace_models.toml / .gitignore / AGENTS.md / CLAUDE.md
+  不写 workspace.toml / workspace_models.toml / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
 - **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/wiki/MEMORY/`
 
 完整不变量与权威定义见 [`workspace-spec.md`](workspace-spec.md)。
@@ -150,8 +150,22 @@ frontmatter 5 必填（`title` / `type` / `created` / `updated` / `tags`，**仅
 否则下次会话读不到。详见
 `workspace-spec.md` §9。
 
-## 六、变更历史
+## 六、当前配置
 
-| 日期 | 变更 |
+> 本表 4 个变量（Workspace 名 / 创建日期 / Workspace Spec 版本 / CLI 版本）是仅有的
+> per-workspace 内容——spec 升级重渲染时**保留旧值**（`Workspace Spec 版本` 用迁移目标版本）。
+> 本文件特有纪律 / 偏好一律沉淀到 `MEMORY/`（由顶部 `@MEMORY/MEMORY.md` 加载，会话常驻），
+> 不写进本文件——否则升级重渲染时丢失。
+>
+> **迁移例外**：spec 升级时，agent 经用户确认可全量重渲染本文件 + 薄壳 `CLAUDE.md`、
+> 补 `.gitignore` 骨架、bump `workspace.toml` 的 `templates_version` 单字段
+> （流程见 workspace-spec §17 / SKILL.md §6 Migrate）；本地定制先逐条与用户裁定
+> 搬 `MEMORY/` 或丢弃。
+
+| 字段 | 值 |
 | --- | --- |
-| {{SETUP_DATE}} | workspace CLI 初始化生成（llmw v{{CLI_VERSION}} / workspace-spec v{{WORKSPACE_SPEC_VERSION}}） |
+| Workspace 名 | {{WORKSPACE_DISPLAY_NAME}} |
+| 创建日期 | {{SETUP_DATE}} |
+| Workspace 根 | <由 LLMW_WORKSPACE 环境变量或 init 时确定> |
+| Workspace Spec 版本 | {{WORKSPACE_SPEC_VERSION}} |
+| CLI 版本 | {{CLI_VERSION}} |

@@ -14,7 +14,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-19
-  workspace_spec_version: 0.6.2
+  workspace_spec_version: 0.7.0
 ---
 
 # LLM Workspace Management
@@ -24,11 +24,14 @@ metadata:
 `yzr-llm-wiki-management` SKILL.md skill。本 skill 站在所有 wiki
 之上，做需要跨 wiki 判断的事情。
 
-本 skill 提供两块交付物：
+本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 边界的"宪法"
 - **references/workspace-spec.md**——workspace 根 9 类文件的归属 + schema 权威定义
   （CLI 与 skill 都按它落盘 / 维护）
+- **scripts/**——`check_workspace_fixtures.py`（migrate 探测器：6 条 fixtures 一致性
+  检查，输出修复动作；standalone，Python 3.7+；端到端测试
+  `test_check_workspace_fixtures.py`）
 
 ## 何时使用 / 不使用
 
@@ -41,6 +44,7 @@ metadata:
 - 用户在对话中说"workspace 整体 lint" / "workspace 健康检查"
 - 用户在对话中说"wiki A 的某 entity 在 wiki B 也存在，加跨 wiki 链接"
 - 用户指向 `<workspace>/INDEX.md` 或 `<workspace>/STATS.md` 说"这个该更新了"
+- 用户在对话中说"升级 workspace / 迁移到最新 spec / 检查 workspace 版本 / 老格式"——走 §6 Migrate
 - 用户首次提到"我有多个 wiki / workspace / 跨 wiki 视角"
 
 ### 不使用
@@ -60,7 +64,7 @@ metadata:
 | 信息 | 来源 | 备注 |
 | --- | --- | --- |
 | Workspace 路径 | `$LLMW_WORKSPACE` 环境变量，或默认 `~/yzr_llm_wiki_workspace`，或交互时问 | workspace CLI 通常在 `enter` 时设好本变量 |
-| 操作类型 | 用户自然语言 | `scan` / `query` / `link` / `lint` |
+| 操作类型 | 用户自然语言 | `scan` / `query` / `link` / `lint` / `migrate` |
 | Query 范围（仅 query） | 用户自然语言或显式指定 wiki 名 | 不指定走全局 INDEX 路由 |
 
 ### 操作产物
@@ -73,6 +77,8 @@ metadata:
   `yzr-llm-wiki-management` 的 ingest 流程，不直接写 wiki 文件）
 - **lint** → 写 `<workspace>/LINT.md`（最近一次报告，每次 lint 覆盖；格式见
   [spec §8](references/workspace-spec.md#8-lintmdskill-维护可选)）+ 对话中总结
+- **migrate** → 跑 `scripts/check_workspace_fixtures.py` 输出 drift 报告（每条 finding
+  带修复动作）；agent 按报告修复后的最新 spec 兼容 workspace；详见 §6 Migrate
 
 ## 执行原则 / 边界
 
@@ -97,7 +103,8 @@ metadata:
 │   - 写 INDEX/STATS/LINT/cross_queries + MEMORY/*.md（同步索引）  │
 │   - 写 <wiki>/wiki/** （通过 yzr-llm-wiki-management 委托）           │
 │   - 不写 workspace.toml / workspace_models.toml / .gitignore      │
-│   - 不写 <workspace>/AGENTS.md / CLAUDE.md（用户 schema）        │
+│   - 不写 <workspace>/AGENTS.md / CLAUDE.md（用户 schema）          │
+│     （spec 升级迁移例外见 §6 + spec §17.2）                        │
 │   - 不写 <wiki>/raw/                                              │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -143,11 +150,11 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 
 | 文件 / 目录 | 维护方 | 本 skill 的态度 |
 | --- | --- | --- |
-| `<workspace>/workspace.toml` | workspace CLI | 只读 |
+| `<workspace>/workspace.toml` | workspace CLI | 只读（迁移例外见 §6） |
 | `<workspace>/workspace_models.toml` | workspace CLI | 只读（甚至不读；不感知 model 配置） |
-| `<workspace>/.gitignore` | workspace CLI | 只读 |
-| `<workspace>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读（schema 宪法；改前先与用户确认）；**作用域 = 跨 wiki**，wiki 子目录内不加载（见"加载作用域边界"小节） |
-| `<workspace>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读；**作用域 = 跨 wiki**，wiki 子目录内不加载（同上） |
+| `<workspace>/.gitignore` | workspace CLI | 只读（迁移例外见 §6） |
+| `<workspace>/AGENTS.md`（SSOT） | 用户（CLI init 时拷 SSOT 模板） | 只读（schema 宪法；改前先与用户确认；迁移例外见 §6）；**作用域 = 跨 wiki**，wiki 子目录内不加载（见"加载作用域边界"小节） |
+| `<workspace>/CLAUDE.md`（薄壳） | 用户（CLI init 时拷薄壳模板） | 只读（迁移例外见 §6）；**作用域 = 跨 wiki**，wiki 子目录内不加载（同上） |
 | `<workspace>/INDEX.md` | 本 skill | 写 |
 | `<workspace>/STATS.md` | 本 skill | 写 |
 | `<workspace>/cross_queries/` | 本 skill | 写 |
@@ -162,7 +169,8 @@ synthesis / cross-wiki compare / cross-wiki link suggestion / workspace lint。
 
 完整归属表见 [spec §1](references/workspace-spec.md#1-目录结构)。**违反归属 = bug**：
 本 skill 写 `workspace.toml` 属越权；CLI 写 `INDEX.md` 属越权；skill 写
-`<workspace>/AGENTS.md` / `CLAUDE.md` 属越权（用户宪法）。**MEMORY 跨边界混淆**：本 skill **禁止**写
+`<workspace>/AGENTS.md` / `CLAUDE.md` 属越权（用户宪法；spec 升级迁移例外见 §6 +
+spec §17.2）。**MEMORY 跨边界混淆**：本 skill **禁止**写
 `<wiki>/wiki/MEMORY/`，单 wiki 记忆归 `yzr-llm-wiki-management`；同样禁止把跨 wiki 观察
 写到单 wiki MEMORY——按 [spec §9 scope 边界](references/workspace-spec.md#9-workspace-memoryskill-维护)。
 
@@ -223,8 +231,11 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 
 **流程**：
 
-1. 读 `<workspace>/workspace.toml` 拿 `[wikis]` 注册表
-2. 对每个 wiki：
+1. **版本比对**（spec §14）：读 `<workspace>/workspace.toml` 的 `templates_version`，
+   workspace_spec 分量与本 skill `metadata.workspace_spec_version` 不一致 → **警告用户**
+   "workspace spec 落后（X → Y），建议先走 §6 Migrate"（不阻断；用户确认继续才往下扫）
+2. 读 `<workspace>/workspace.toml` 拿 `[wikis]` 注册表
+3. 对每个 wiki：
    - 读 `<wiki>/wiki_metadata.toml`（CLI 维护）
    - 读 `<wiki>/AGENTS.md` §0（拿主题名）+ §一（拿边界）
    - 读 `<wiki>/wiki/index.md`（已有内容 + 段落骨架）
@@ -232,12 +243,12 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
    - 扫 `<wiki>/raw/` 递归拿原始资料数（仅 `find` + 计数，不读内容）
    - 读 `<wiki>/wiki/log.md` 末条拿 last activity
    - 读 `<wiki>/wiki/MEMORY/` 拿 memory files 数（仅文件名）
-3. 读 `<workspace>/MEMORY/MEMORY.md` 索引（知晓已有跨 wiki 记忆，供 query 路由 / scan 报告
+4. 读 `<workspace>/MEMORY/MEMORY.md` 索引（知晓已有跨 wiki 记忆，供 query 路由 / scan 报告
    引用）；按 wiki name 字母序聚合，写 `<workspace>/INDEX.md`（格式见
    [spec §5](references/workspace-spec.md#5-indexmdskill-维护)）+ `<workspace>/STATS.md`
    （格式见 [spec §6](references/workspace-spec.md#6-statsmdskill-维护)）
-4. 原子写（POSIX `tmp + fsync + rename`）
-5. 对话中报告："已刷新 INDEX.md / STATS.md，X 个 wiki，Y 个 page，Z 个原始资料"
+5. 原子写（POSIX `tmp + fsync + rename`）
+6. 对话中报告："已刷新 INDEX.md / STATS.md，X 个 wiki，Y 个 page，Z 个原始资料"
 
 **何时不做 scan**：用户只想做 query → 先用现有 INDEX.md；INDEX.md 缺失或过期超过 N 天
 再提示先 scan。
@@ -366,6 +377,64 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 | "wiki A 的 ingest 总是失败，因为 raw/ 里有特殊字符" | `<A>/wiki/MEMORY/ingest-special-char-pitfall.md`（单 wiki 经验） |
 | "用户偏好把所有 storage 相关放 A wiki，把 LLM 相关放 B wiki" | `<workspace>/MEMORY/user-storage-vs-llm-preference.md`（跨 wiki 偏好） |
 | "跨 wiki 综合答案：对比 A 与 B 的性能优化方法" | `<workspace>/cross_queries/perf-compare-a-b.md`（答案本身，不是 memory） |
+
+### 6. Migrate（升级 workspace spec）
+
+**触发**："升级 workspace / 迁移 / 检查 workspace 版本 / 老格式 / spec 升级"；或 §1 scan
+版本比对发现 `templates_version` 落后。
+
+**职责切分**（避免与 scan / lint 混淆）：
+
+- **脚本**（`scripts/check_workspace_fixtures.py`）= 探测器。只扫不修，输出 drift 报告
+  （每条 finding 带 `fix` 动作）；**不写任何文件、不落 plan 文件**——修复面恒定
+  ≤ 4 个结构文件，报告即清单；检测幂等，中断重跑即可，**零中间产物**
+- **agent**（本节定义）= 修复者。按报告 `fix` 动作用 Edit/Write 修，所有权开口严格
+  遵守 [spec §17.2](references/workspace-spec.md#172-迁移例外所有权开口) 迁移例外 4 条
+- **[`workspace-spec-changelog.md`](references/workspace-spec-changelog.md)** = SSOT
+  （迁移依据每行写在那边）
+- **不**写 INDEX.md / STATS.md / LINT.md——迁移不是 scan / lint 事件
+
+**流程**：
+
+1. **跑探测**：
+
+   ```bash
+   python3 scripts/check_workspace_fixtures.py "$LLMW_WORKSPACE"
+   ```
+
+   6 条 check（清单见 [spec §17.3](references/workspace-spec.md#173-检测与修复流程)）；
+   `--json` 供程序化消费；退出码 0 全过 / 1 有 error / 2 运行错误
+2. **dry-run 报告**（默认必走）：按 finding 分组列"哪些文件需改、依据 changelog 哪行"；
+   询问用户：应用全部 / 部分应用 / 仅看清单
+3. **执行修复**（用户确认后，按 `fix.type` 逐项落）：
+   - `workspace-fix-agents-md-resync`——提取 §六 4 变量（0.7.0- 老格式 fallback H1 +
+     老 §六 散文行）→ 渲染 [`workspace-agents-md-template.md`](references/workspace-agents-md-template.md)
+     （`{{WORKSPACE_SPEC_VERSION}}` 用目标版本）→ diff 旧文件，**多出的本地定制逐条与
+     用户裁定**（搬 `MEMORY/`：一行事实写 MEMORY.md 索引短条目；含 why 建
+     `MEMORY/<slug>.md` 完整条目 + 索引行——或丢弃）→ Write 覆盖（**不**做局部 Edit）
+   - `workspace-fix-agents-version`——单 Edit 把 §六 `Workspace Spec 版本` 行改为目标
+     版本（若 resync 同报，走 resync 一并覆盖，**不**做本步）
+   - `workspace-fix-claude-md-resync` / `workspace-fix-claude-md-create`——按
+     [`workspace-claude-md-template.md`](references/workspace-claude-md-template.md) 渲染
+     Write（唯一变量 `{{WORKSPACE_DISPLAY_NAME}}`）
+   - `workspace-fix-gitignore-skeleton`——单 Edit 补缺失段 / llmw 托管块规则（**不动**
+     用户自定义规则）
+   - `workspace-fix-memory-index-init` / `workspace-fix-memory-index-skeleton`——按
+     [`canonical/memory-index.md`](references/canonical/memory-index.md) 逐字创建，或单
+     Edit 补骨架（**不动** `## 索引` 下成长条目）
+   - `workspace-fix-templates-version`——**收尾** Edit `workspace.toml` 的
+     `templates_version`：workspace_spec 分量 bump 到目标版本（单字段，其余不动）
+4. **验证**：重跑脚本——0 error 收尾；仍有 finding 报告残留 + 转人工
+5. **不**触发各 wiki 的 migrate——报告里 `wiki_spec` 分量落后时**提示**用户逐个 wiki
+   走 `yzr-llm-wiki-management` §5 Migrate（跨 skill 委托，不代跑）
+
+**边界**：
+
+- **不**改 `workspace_models.toml` / 各 `<wiki>/` 内任何文件
+- **不**在迁移过程中跑 scan / query / link / lint（保持职责单一）
+- **`templates_version` 的 wiki_spec 分量只展示不比对**——各 wiki 版本归
+  `yzr-llm-wiki-management` 管，本 skill 不读兄弟 skill 的版本
+- **`current > skill`**（workspace 比 SKILL 新）：**不**阻断，告警用户升级 SKILL 仓；**不**改 workspace
 
 ## 参考样例
 

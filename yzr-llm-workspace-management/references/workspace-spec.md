@@ -36,6 +36,7 @@
 - [§14 版本钉死](#14-版本钉死)
 - [§15 命名约束](#15-命名约束)
 - [§16 不在本 spec 范围内](#16-不在本-spec-范围内)
+- [§17 升级迁移（skill 维护）](#17-升级迁移skill-维护)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
 - [附录 B：版本历史](#附录-b版本历史)
 
@@ -61,10 +62,10 @@
 | 文件 / 目录 | init 时刻（CLI） | 后续维护方 | 说明 |
 | --- | --- | --- | --- |
 | `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
-| `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + 全局默认；skill **不写** |
+| `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + 全局默认；skill **不写**（迁移例外见 §17.2） |
 | `workspace_models.toml` | CLI 写 | **CLI**（`model add / remove / set-default`） | 模型注册表（API key 等敏感信息）；skill **不写** |
-| `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读** | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
-| `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读** | 仅供经薄壳自动加载的 agent |
+| `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读**（迁移例外见 §17.2） | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
+| `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读**（迁移例外见 §17.2） | 仅供经薄壳自动加载的 agent |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
 | `STATS.md` | CLI **不写**（留空） | **skill**（scan 时一并刷新） | workspace 结构化统计 |
 | `cross_queries/` | CLI **不写**（留空目录） | **skill**（跨 wiki 综合答案归档） | 类比 wiki 内的 `syntheses/` |
@@ -82,7 +83,8 @@
 > `cross_queries/` 四份 workspace 级文件 + `MEMORY/*.md` 经验条目（并同步追加 `MEMORY.md`
 > 索引一行；`MEMORY.md` 骨架由 CLI init 写）+ 各 `<wiki-name>/wiki/**`（通过
 > `yzr-llm-wiki-management`）。**skill 绝不写 `workspace.toml` / `workspace_models.toml` /
-> `.gitignore` / `AGENTS.md` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后两份是用户的宪法。skill 也不写
+> `.gitignore` / `AGENTS.md` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后两份是用户的宪法
+> （**迁移例外**：spec 升级时按 §17.2 放开 4 处单点写入）。skill 也不写
 > `<wiki-name>/raw/`（用户所有）。
 
 ## §2 workspace.toml
@@ -156,6 +158,7 @@
 > （SSOT）+ [`workspace-claude-md-template.md`](workspace-claude-md-template.md)（薄壳）拷两份模板生成。
 > 后续修改由 **用户** 完成（AGENTS.md 是 workspace 的 schema，是用户的"宪法"）。
 > LLM agent **不得编辑** AGENTS.md / CLAUDE.md；如需变更 schema，**先与用户确认**。
+> **唯一例外**：spec 升级迁移时（§17），agent 经用户确认可全量重渲染两份文件。
 
 ### AGENTS.md（SSOT）
 
@@ -167,6 +170,8 @@
   - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD`
   - `{{WORKSPACE_SPEC_VERSION}}` → CLI 当前兼容的 workspace spec 版本号（如 `0.4.0`）
   - `{{CLI_VERSION}}` → CLI 自身版本号
+- 4 个占位符全在 H1 + 模板 §六「当前配置」表（0.7.0+ 机读版本钉死，对齐 wiki-spec §八）；
+  升级时的模板渲染字节比对见 §17.1
 - 模板顶部说明块的"本文件 ... 按 workspace-spec.md §4 拷贝生成"反向引用，CLI **不得修改**
 - **不带 frontmatter**——AGENTS.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/AGENTS.md` 一致
 
@@ -576,10 +581,15 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 
 CLI 在生成 `<workspace>/workspace.toml` 时把 `templates_version` 字段写为
 `workspace_spec = <WORKSPACE_SPEC_VERSION>; wiki_spec = <WIKI_SPEC_VERSION>`（或类似编码）；
-CLI 在生成 `<workspace>/AGENTS.md` 时把上述占位符按本表替换（薄壳 CLAUDE.md 仅替换 `{{WORKSPACE_DISPLAY_NAME}}`）。
+CLI 在生成 `<workspace>/AGENTS.md` 时把上述占位符按本表替换（薄壳 CLAUDE.md 仅替换
+`{{WORKSPACE_DISPLAY_NAME}}`；`{{WIKI_SPEC_VERSION}}` **不进** AGENTS.md / CLAUDE.md 模板，
+仅用于 workspace.toml `templates_version`）。
 
-skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 顶部声明的
-当前版本——不一致时**警告用户**（不阻断；旧 spec 的产物仍可读）。
+"当前 spec 版本"的 SSOT 是 [`yzr-llm-workspace-management`](../SKILL.md) SKILL.md
+`metadata.workspace_spec_version`（本 spec 不重复钉号，避免双源漂移）。skill 在每次
+`scan` 前比对 `workspace.toml.templates_version` 的 workspace_spec 分量与该版本——不一致时
+**警告用户**走 §6 Migrate（不阻断；旧 spec 的产物仍可读）。完整检测走
+`scripts/check_workspace_fixtures.py`（§17.3）。
 
 ## §15 命名约束
 
@@ -605,6 +615,58 @@ skill 在每次 `scan` 前比对 `workspace.toml.templates_version` 与本 spec 
 - **Obsidian / 编辑器偏好**——skill 假设通用 Markdown
 - **INGEST / 单 wiki query / 单 wiki lint**——走 `yzr-llm-wiki-management` skill，
   本 spec 不重复
+
+## §17 升级迁移（skill 维护）
+
+> **维护方**：`yzr-llm-workspace-management` skill 的 migrate 工作流（SKILL.md §6）+
+> `scripts/check_workspace_fixtures.py`（探测器）。CLI 不参与升级（§12 拒绝覆盖已存在文件）。
+
+spec 演进时，已存在 workspace 的约定文件（AGENTS.md / CLAUDE.md / .gitignore /
+MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧格式——避免一刀切
+破坏用户定制。本节定义检测 + 修复机制，让升级后 workspace 与最新模板保持**字节级**一致。
+
+### §17.1 AGENTS.md / CLAUDE.md 模板同步
+
+`AGENTS.md` 的 per-workspace 变量只有 4 个——Workspace 名 / 创建日期 / Workspace Spec
+版本 / CLI 版本（全在 H1 + §六「当前配置」表）；正文 §一~§五 是纪律文本，跨 workspace
+逐字相同。因此一致性校验**不**做"存在性断言"，做**模板渲染字节比对**：
+
+- `scripts/check_workspace_fixtures.py` 的 `agents-md-template-sync`（error）：从 §六 表
+  提取 4 变量（0.7.0- 老格式 fallback H1 + 老 §六 散文行），渲染
+  `references/workspace-agents-md-template.md` 后与 workspace 实际 AGENTS.md 字节比对——
+  任何不一致（旧版本残留 / 本地改动）都报错。`claude-md-template-sync` 同理（薄壳仅
+  `{{WORKSPACE_DISPLAY_NAME}}` 一个变量；缺失文件报 `workspace-fix-claude-md-create`）。
+- 修复 = **全量重渲染**（fix `workspace-fix-agents-md-resync` /
+  `workspace-fix-claude-md-resync`）：§六 变量保留旧值（`{{WORKSPACE_SPEC_VERSION}}` 用
+  迁移目标版本），其余以模板渲染稿为准——**不**做局部 Edit。旧文件中多出的本地定制
+  行/段由 agent 逐条列给用户裁定：搬 `MEMORY/`（一行事实写 MEMORY.md 索引短条目；
+  含 why 建 `MEMORY/<slug>.md` 完整条目 + 索引行）或丢弃。
+- **纪律推论**：本 workspace 特有纪律 / 偏好一律沉淀到 `MEMORY/`（由 AGENTS.md 顶部
+  `@MEMORY/MEMORY.md` `@import` 加载，会话常驻），不写进 AGENTS.md——否则下次升级
+  重渲染时丢失。
+- 与 `agents-version-is-current` 正交：版本行新旧由后者管；本 check 渲染时用
+  workspace 自钉版本替换 `{{WORKSPACE_SPEC_VERSION}}`，只比"正文与模板同步"。
+
+### §17.2 迁移例外（所有权开口）
+
+§1 / §4 的"skill 只读 / 不写"纪律在 migrate 工作流内有 4 条例外（前提都是**用户确认**
+后在同一会话内执行）：
+
+| 例外 | 范围 |
+| --- | --- |
+| agent 可 Write 覆盖 `AGENTS.md` | 仅 §17.1 全量重渲染；本地定制已逐条裁定 |
+| agent 可 Write 覆盖 / 创建 `CLAUDE.md` | 仅按薄壳模板渲染 |
+| agent 可 Edit `.gitignore` | 仅补 §10 骨架段 / llmw 托管块规则；不动用户自定义规则 |
+| agent 可 Edit `workspace.toml` 的 `templates_version` 单字段 | migrate 收尾 bump 到目标版本；其余字段不动 |
+
+### §17.3 检测与修复流程
+
+探测器 `scripts/check_workspace_fixtures.py`（6 条 check：
+`agents-version-is-current` / `agents-md-template-sync` / `claude-md-template-sync` /
+`gitignore-skeleton` / `memory-index-skeleton` / `workspace-toml-templates-version-sync`（warn，
+不阻断）；退出码 0 全过 / 1 有 error / 2 运行错误；`--json` 机器可读）。修复由 agent 按
+报告 `fix` 动作走 SKILL.md §6——**不落 plan 文件**（修复面恒定 ≤ 4 个结构文件，报告即
+清单；检测幂等，中断重跑即可），零中间产物。
 
 ---
 
