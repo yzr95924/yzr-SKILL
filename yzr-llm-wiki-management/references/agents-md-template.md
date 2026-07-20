@@ -10,7 +10,7 @@
 > **全量重渲染**（wiki-spec §10.1），本地修改一律不保留。
 >
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`、`@scripts/SCRIPTS.md`），
-> 都用 Read 工具按需读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，
+> 都用 Read 工具**必须**读取（不是"按需"）——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，
 > 否则漏上下文。
 
 @MEMORY/MEMORY.md
