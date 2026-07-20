@@ -83,7 +83,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
    ```bash
    rm "$LLM_WIKI_ROOT/.migration-plan.json"
-   find "$LLM_WIKI_ROOT" -maxdepth 2 -name '*.bak' -delete
+   # `.bak` 唯一产生点是 raw/external/.symlink-anchor.toml 重写备份（深度 3），maxdepth 必须 ≥ 3；
+   # find 默认不 follow symlink，不会顺 raw/external/ 下的外部仓 symlink 扫进巨型代码树
+   find "$LLM_WIKI_ROOT" -maxdepth 3 -name '*.bak' -delete
    ```
 
    > **何时不删**：升级中途暂停（plan 未执行完 / 待人工裁定冲突页）时保留 `.migration-plan.json`，
