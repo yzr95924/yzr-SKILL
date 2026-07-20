@@ -9,7 +9,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   last_modified: 2026-07-20
-  wiki_spec_version: 0.26.0
+  wiki_spec_version: 0.27.0
   fixtures_check_count: 19
 ---
 
@@ -262,7 +262,7 @@ metadata:
 
 - 在 wiki 页面里手写"先写一段话再贴图"等散文式总结（散弹式散落口径冲突的根源）
 - 把同一个概念分散在多个 entities/ 文件里（必须先 search 是否已有同名页）
-- 不写 log 条目就改 wiki（无法审计 + 无法 ingest_diff 识别新文件）
+- 不写 log 条目就改 wiki（失去操作语义记录 + 无法 ingest_diff 识别新文件）
 - 跨 wiki 互引但不更新对端 index（两套 wiki 同步是用户的责任）
 - 用 Obsidian-only 语法（`[[wikilink]]`、`![[embed]]`）——本 skill 假设通用 Markdown
 - 把 yzr-llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py）
@@ -291,7 +291,7 @@ metadata:
 | "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 唯一例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
 | "`reviewed: true` 是一周前人标的，我没改多少内容，留着就行" | `reviewed: true` 是"这一刻内容背书"快照，**任何** LLM 对正文的修改都让它失效（包括 typos / 字段补全）——留戳 = 假装审过 | 任何 Edit/Write 后**必须**删 `reviewed` + `reviewed_at` 两字段，回到默认未审核态 |
 | "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 失去 commit 锚点 + 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
-| "这个 wiki 没 git，不写 log 也行" | log.md 是**审计 + 时间线 + ingest_diff 识别新文件**的输入，不是 git 历史替代品——git 缺位时 log 更重要 | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
+| "这个 wiki 没 git，不写 log 也行" | log.md 记的是**操作语义**（ingest/query/lint）+ 近期活动速览（orient ritual 读它避免重复工作）——这是 git diff 不直接体现的；完整文件历史才靠 git | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
 
 > **占位声明**：上表 6 条是基于本 skill §反模式 / §边界 段"反推"出的 LLM 嫌疑借口，**未**经过
 > 实跑 baseline transcript 验证。Red Flags 同样如此。下次 Iron Law 跑出真实借口后，**只替换 /

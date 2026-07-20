@@ -112,7 +112,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.26.0"  # 0.26.0 = AGENTS.md 模板渲染比对（agents-md-template-sync）取代两条存在性检查；升级 = 全量重渲染 + 定制搬 MEMORY
+CURRENT_WIKI_SPEC = "0.27.0"  # 0.27.0 = log.md 滚动窗口（LOG_RETENTION_LIMIT=50，废 rotate 归档；截断由 agent 做，lint 报 log-truncation-recommended）
 
 
 def _assert_spec_version_sync() -> None:
@@ -799,8 +799,8 @@ def check_log_format(wiki_root: Path) -> List[str]:
     return findings
 
 
-# log.md 条目数阈值——超过则建议 rotate 到 log-YYYY.md（详见 wiki-spec §4.1）
-LOG_ROTATION_THRESHOLD = 500
+# log.md 滚动窗口上限——超过则建议截断保最近 N 条（详见 wiki-spec §4.1 Log retention）
+LOG_RETENTION_LIMIT = 50
 
 # source 页 stale 摘要阈值（days）——`updated` 距今超过此值报 stale-summary（详见 lint-checklist §二.7）
 STALE_SUMMARY_DAYS = 90
@@ -810,13 +810,12 @@ STALE_SUMMARY_DAYS = 90
 # 同步删除 check_inlined_memory_index_size() 与 inlined-memory-index-bloating warn。
 
 
-def check_log_rotation(wiki_root: Path) -> List[str]:
-    """10. log.md 条目数阈值——超过 LOG_ROTATION_THRESHOLD 建议 rotate
+def check_log_truncation(wiki_root: Path) -> List[str]:
+    """10. log.md 滚动窗口——条目数超过 LOG_RETENTION_LIMIT 建议截断
 
-    仅检查 wiki/log.md 当前文件；归档文件 log-YYYY.md 不计入（它们是只读归档，
-    不需要再次 rotate）。判定依据：按 LOG_LINE_RE 正则匹配行数。
-
-    不自动 rotate——lint 只报告；rotate 由 agent 或用户按 wiki-spec §4.1 流程手动执行。
+    log.md 只保最近 N 条操作（完整历史靠 git：`git log -p -- wiki/log.md`）。
+    判定依据：按 LOG_LINE_RE 正则匹配行数。lint 只报告；截断由 agent 用 Edit/Write
+    删最老条目保最近 N 条（脚本不修改 wiki 内容——见本文件顶部职责声明）。
     log-missing 已被 check_log_format 报告，这里跳过重复报错。
     """
     findings = []  # type: List[str]
@@ -831,10 +830,11 @@ def check_log_rotation(wiki_root: Path) -> List[str]:
             body_start = m.end()
     body = text[body_start:]
     entry_count = sum(1 for line in body.splitlines() if LOG_LINE_RE.match(line))
-    if entry_count > LOG_ROTATION_THRESHOLD:
+    if entry_count > LOG_RETENTION_LIMIT:
         findings.append(
-            f"log-rotation-recommended: wiki/log.md 含 {entry_count} 条目，超过 {LOG_ROTATION_THRESHOLD} 阈值；"
-            f"按 wiki-spec §4.1 rotate 到 log-YYYY.md（当前 log.md 仍正常追加，rotate 是建议而非必须）"
+            f"log-truncation-recommended: wiki/log.md 含 {entry_count} 条目，超过 {LOG_RETENTION_LIMIT} "
+            f"滚动窗口上限；按 wiki-spec §4.1 截断保最近 {LOG_RETENTION_LIMIT} 条"
+            f"（完整历史查 git log -p -- wiki/log.md）"
         )
     return findings
 
@@ -1460,7 +1460,7 @@ def severity_of(finding: str) -> str:
     if finding.startswith(("external-anchor-orphan", "external-target-drift", "external-git-anchor-stale")):
         return "warn"
     if finding.startswith(
-        ("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-rotation-recommended")
+        ("stale-summary", "log-format", "filename-not-kebab", "duplicate-title", "log-truncation-recommended")
     ):
         return "warn"
     if finding.startswith(
@@ -2367,7 +2367,7 @@ def main() -> int:
     all_findings.extend(check_link_integrity(wiki_root))
     all_findings.extend(check_index_coverage(wiki_root))
     all_findings.extend(check_log_format(wiki_root))
-    all_findings.extend(check_log_rotation(wiki_root))
+    all_findings.extend(check_log_truncation(wiki_root))
     all_findings.extend(check_stale_summaries(wiki_root))
     all_findings.extend(check_filename_kebab(wiki_root))
     all_findings.extend(check_duplicate_titles(wiki_root))

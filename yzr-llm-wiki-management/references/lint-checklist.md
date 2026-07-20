@@ -18,7 +18,7 @@ base is not the reading or the thinking — it's the bookkeeping." Lint 把 book
   - [7. 过期摘要](#7-过期摘要)
   - [8. 文件名规范](#8-文件名规范)
   - [9. 重复标题](#9-重复标题)
-  - [10. log.md 条目数（log-rotation）](#10-logmd-条目数log-rotation)
+  - [10. log.md 条目数（log-truncation）](#10-logmd-条目数log-truncation)
   - [11. Tag Taxonomy 校验](#11-tag-taxonomy-校验)
   - [12. 页面体量](#12-页面体量)
   - [13. 可信度与认知质量信号（reviewed / contested / contradictions）](#13-可信度与认知质量信号reviewed--contested--contradictions)
@@ -235,13 +235,13 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 同一 `title` 出现在多个 wiki 页 → 报告
 - **严重性：warning**——可能是合并候选
 
-### 10. log.md 条目数（log-rotation）
+### 10. log.md 条目数（log-truncation）
 
-- `wiki/log.md` 当前文件条目数 > 阈值（默认 `LOG_ROTATION_THRESHOLD`）→ 报告 `log-rotation-recommended`
-- 阈值由 `scripts/lint_wiki.py` 顶部 `LOG_ROTATION_THRESHOLD` 常量控制
-- **不**自动 rotate——lint 只建议；rotate 流程见 [wiki-spec §4.1](wiki-spec.md#41-log-rotation防-logmd-无限增长)
-- 归档文件 `log-YYYY.md` 不计入（它们是只读归档，不需要再次 rotate）
-- **严重性：warning**——超过阈值不是错误，但长期不 rotate 会让 `grep "^## ["` 噪声变大
+- `wiki/log.md` 条目数 > 滚动窗口上限（默认 `LOG_RETENTION_LIMIT` = 50）→ 报告 `log-truncation-recommended`
+- 上限由 `scripts/lint_wiki.py` 顶部 `LOG_RETENTION_LIMIT` 常量控制
+- **不**自动截断——lint 只建议；agent 用 Edit 删最旧条目保最近 50 条（详见 [wiki-spec §4.1](wiki-spec.md#41-log-retention滚动窗口)）
+- 完整历史靠 git（`git log -p -- wiki/log.md`）；存量 `log-YYYY.md`（若有）为只读遗留，不计入
+- **严重性：warning**——超过上限不是错误，但长期不截断会让 `grep "^## ["` 噪声变大
 
 ### 11. Tag Taxonomy 校验
 

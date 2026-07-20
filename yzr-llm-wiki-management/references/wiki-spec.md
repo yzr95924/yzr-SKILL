@@ -23,7 +23,7 @@
 >
 | `<wiki-root>/CLAUDE.md`（薄壳） | CLI 按 §2 拷贝薄壳模板（`@AGENTS.md`） | 用户（仅供经薄壳自动加载的 agent） |
 > | `wiki/index.md` | CLI 按 §3 写入初始骨架 | **LLM agent**（ingest / 重写 / 归档时同步） |
-> | `wiki/log.md` | CLI 按 §4 写入首条 setup 条目 | **LLM agent**（只 append，不删改） |
+> | `wiki/log.md` | CLI 按 §4 写入首条 setup 条目 | **LLM agent**（追加 + 维护滚动窗口，见 §4.1） |
 > | `MEMORY/` | CLI 按 §5 创建空目录 + 写 MEMORY.md（索引） | **LLM agent**（append 经验条目 + 同步 MEMORY.md 索引） |
 > | `scripts/` | CLI 按 §14 创建空目录 + 写 SCRIPTS.md（索引） | **用户 + LLM agent**（添加 / 修改脚本与同步 SCRIPTS.md 段是原子动作） |
 >
@@ -181,7 +181,7 @@
 ## §4 wiki/log.md
 
 > **维护方**：CLI 在 init 时刻写入首条 setup 条目；
-> 后续所有 ingest / query / lint 条目由 **LLM agent** 追加，**只 append**。
+> 后续所有 ingest / query / lint 条目由 **LLM agent** 追加 + 维护滚动窗口（见 §4.1）。
 > CLI 不参与 log.md 的后续追加。
 
 - 路径：`<wiki-root>/wiki/log.md`
@@ -210,26 +210,25 @@
 - 后续条目由 LLM 在 ingest / query / lint 时按相同格式追加，CLI 不必写
 - **字面量见 fixtures**：`references/fixtures/log.md.txt`
 
-### §4.1 Log rotation（防 log.md 无限增长）
+### §4.1 Log retention（滚动窗口）
 
-> **维护方**：**LLM agent** 在 lint / 主动观察时触发；**CLI 不参与**（一次性行为，
-> 无 CLI 命令语义）。本节不是"必须自动 rotate"的硬规则，是"鼓励按需 rotate"的指引。
+> **维护方**：**LLM agent** 在每次写 log 后 + lint 兜底；**CLI 不参与**。log.md 不是
+> 完整审计日志——它是**近期活动速览**；完整操作历史靠 git（`git log -p -- wiki/log.md`）。
+> 本 skill 假设 wiki 纳入 git 仓（典型为 workspace 级 git）。
 
-- **触发条件**：`log.md` 条目数 ≥ `LOG_ROTATION_THRESHOLD`（按正则 `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含
-  frontmatter 与空白行）——此时 log 越长越难读，索引 / grep 也开始吃力
-- **rotate 流程**（agent 手动）：
-  1. 重命名 `wiki/log.md` → `wiki/log-YYYY.md`（YYYY = 当前年，如 `log-2026.md`）
-  2. 新建 `wiki/log.md`，frontmatter 与 §4 一致；`updated` 改为今天；`created` 保留
-     首次创建日不变（frontmatter 历史不被擦除）
-  3. 新 `log.md` 写首条：`## [<today>] setup | Log rotation: archive → log-YYYY.md (<N> entries)`
-     ——op 用 `setup`（结构事件），不动正则；title 把来源归档说清
-  4. 启用 git 时走 `git mv` 重命名 + commit；未启用 git 用普通 `mv`，跳过 commit
-- **保留规则**：
-  - `log-YYYY.md` 一旦生成不被改写（只读归档）
-  - 跨年归档可叠加（log-2025.md、log-2026.md、…）
-  - 多次同年内 rotate 不重命名已归档的 `log-YYYY.md`——直接覆盖当次 `log.md`
-- **lint 行为**：`lint_wiki.py` 当前**未**实现 log-rotation 自动检测；agent 在 lint
-  报告末尾补一条手动建议（"log.md 已 N 条目，建议 rotate"），或后续扩展 lint 实现
+- **滚动窗口**：`log.md` 只保**最近 `LOG_RETENTION_LIMIT`（默认 50）条**操作条目。按正则
+  `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含 frontmatter 与空白行
+- **截断时机**（两层）：
+  1. **写入时**——agent 在 ingest / query / lint 写完新条目后，若条目数 > 上限，用 Edit
+     删最旧的若干条保最近 N 条（脚本不修改 wiki 内容，截断由 agent 用 Edit/Write 做）
+  2. **lint 兜底**——`check_log_truncation()` 在条目数 > 上限时报 `log-truncation-recommended`
+     （warning），agent 看到后截断
+- **删条目规则**：删 frontmatter 之后、最旧的若干 `## [date] op | title` 行；**保留 frontmatter
+  全部字段不变**（`created` 永远是首次创建日，不因截断改；`updated` 正常更新）
+- **历史回溯**：被删的老条目在 git history 里——`git log -p -- wiki/log.md` 可查任意历史版本。
+  未启用 git 的 wiki 老条目会丢失（本 skill 推荐将 wiki 纳入 git 仓）
+- **不再 rotate**：旧版 `log-YYYY.md` 归档 rotate 机制已废（0.27.0）——滚动窗口 + git history
+  取代之；存量 `log-YYYY.md` 视为只读遗留，lint 不查、agent 不动
 
 ## §5 MEMORY/
 

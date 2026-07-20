@@ -451,7 +451,7 @@ updated: YYYY-MM-DD
 **lint 检查**：
 
 - 每行匹配正则
-- 不允许删除 / 修改历史条目
+- 滚动窗口：条目数 > `LOG_RETENTION_LIMIT`（50）时报 `log-truncation-recommended`；agent 截断保最近 N 条（frontmatter 不动）
 
 ## 三、模板使用规则
 

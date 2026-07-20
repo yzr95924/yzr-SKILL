@@ -110,6 +110,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 - title 用 source 页的 `title` 字段，不要重写
 - 一行结束，不要续行
 - 一次 ingest 多个文件 → **写多条 log 条目**，每条对应一个 source 页
+- 写完后查条目数——> 50（`LOG_RETENTION_LIMIT`）则按 [wiki-spec §4.1](wiki-spec.md#41-log-retention滚动窗口) 截断保最近 50（frontmatter 不动）
 
 ### Step 7：建议 commit（启用 git 时）
 

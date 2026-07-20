@@ -90,7 +90,7 @@
   - 任何 wiki 页面**必须**在 `wiki/index.md` 中有对应条目
   - 任何 wiki 页面**必须**有 ≥ 1 条 inbound 链接（index 或其它页）
 
-### `log.md` —— 仅追加操作时间线
+### `log.md` —— 近期活动速览（滚动窗口）
 
 > **本段 SSOT 反指**：log.md 条目格式 / lint 校验的权威定义在 `page-templates.md` §7
 > 「`log.md`/log」与 `lint-checklist.md` §二.10；本文件是 wiki 仓自带模板（workspace CLI init 时
@@ -104,7 +104,8 @@
     `setup` 由 workspace CLI 在初始化时按 `wiki-spec.md` §4 写入首条；
     权威正则见 `page-templates.md` §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
-  - **不删不改**——只 append
+  - 滚动窗口——条目数 > 50（`LOG_RETENTION_LIMIT`）时删最旧的保最近 50 条（frontmatter
+    不动）；完整操作历史靠 git（`git log -p -- wiki/log.md`）
 
 ### `index.md` —— wiki 单一入口
 
@@ -301,7 +302,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 | `index.md` 总条目 > 200 | 新建 `wiki/_meta/topic-map.md` 按主题聚合页面（index 仍按 type 列，topic-map 按主题导航） |
 
 > 这是"建页阈值"在入口侧的对偶——建页克制控制"有多少页"，扩容规则控制"index 还好不好翻"。
-> lint 目前**不**自动检测 index 条目数（与 log-rotation 同理：报告而非强制）；agent 在
+> lint 目前**不**自动检测 index 条目数（与 log-truncation 同理：报告而非强制）；agent 在
 > lint 半定性环节（§三）观察 index 体积，超阈值时建议用户拆段 / 建 topic-map。
 
 ## 三、写入纪律
