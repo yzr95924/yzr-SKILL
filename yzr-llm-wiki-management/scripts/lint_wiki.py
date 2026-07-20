@@ -2235,9 +2235,7 @@ def cmd_check_version(wiki_root: Path, apply: bool, json_mode: bool) -> int:
             f"       actions: {len(plan['actions'])}, skipped_conflicts: {len(plan['skipped_conflicts'])}, "  # type: ignore
             f"fixtures_actions: {len(plan.get('fixtures_actions', []))}"  # type: ignore
         )
-        print(
-            "       agent 按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）"
-        )
+        print("       agent 按 plan.actions[] + plan.fixtures_actions[] 走 Edit/Write 修复（规则见 plan.rule_doc）")
         print("--- migration-plan JSON begin ---")
         print(json.dumps(plan, indent=2, ensure_ascii=False))
         print("--- migration-plan JSON end ---")
