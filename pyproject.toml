@@ -10,7 +10,7 @@
 [tool.ruff]
 target-version = "py37"
 line-length = 120
-src = ["yzr-skill-creator", "gemini-paper-summary"]
+src = ["yzr-skill-creator"]
 extend-exclude = [
   ".agents",
   ".claude",
