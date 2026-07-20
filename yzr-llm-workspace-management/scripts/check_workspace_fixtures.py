@@ -500,6 +500,10 @@ def check_workspace_toml_reads_satisfied(ws_root: Path, info: Dict[str, str]) ->
     校验顶层 templates_version + 每个 [wikis.<name>] 的 path / created_at（SKILL scan
     遍历 + INDEX 排序用）。workspace.toml 不存在 → skip（复用 templates-version-sync
     的 skip 语义，不重复报）。minimal TOML 风格：只认 key = 行 + [section] 头，不引入 tomli。
+
+    读取契约 co-location：本 check 校验的字段 = SKILL scan/migrate 实际读取的字段。若 SKILL
+    将来新读 workspace.toml 某字段，必须同步加到这里 + workspace-spec §2「skill 读取的字段」
+    表——两处（本 check / spec §2）一致，gate 才有效（清单漂移 = check 不报警 = gate 失效）。
     """
     out = {"passed": True, "severity": "error", "file": "workspace.toml"}  # type: Dict[str, object]
     text = _read_text(ws_root / "workspace.toml")

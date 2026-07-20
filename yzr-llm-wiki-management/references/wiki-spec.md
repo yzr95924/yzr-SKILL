@@ -5,7 +5,7 @@
 >
 > **依赖方向（单向）**：`workspace CLI → SKILL`（CLI 运行时读 SKILL 的 fixtures / 模板落盘骨架）。
 > SKILL **不反向依赖** CLI 实现——`wiki_metadata.toml` 的**字段全集 schema 归 CLI 代码 SSOT**
->（`llmw/wiki/store.py`）。本 spec 只描述 SKILL 读取所需的字段子集。
+>（见 CLI 仓）。本 spec 只描述 SKILL 读取所需的字段子集。
 >
 > **结构合规的可执行真源**是 [`scripts/check_wiki_fixtures.py`](../scripts/check_wiki_fixtures.py)——
 > 本 spec 是它的人类可读说明；两者不一致时**以探测器为准**（spec 滞后不构成 CLI 违规；
@@ -122,7 +122,7 @@
 
 - 路径：`<wiki-root>/wiki_metadata.toml`
 - 格式：TOML
-- **完整字段 schema 由 CLI 代码（`llmw/wiki/store.py`）SSOT**——本 spec 不做权威定义。
+- **完整字段 schema 由 CLI 代码 SSOT**（见 CLI 仓）——本 spec 不做权威定义。
   CLI 可自由演进字段（`schema_version` / `updated_at` / `model` 等），spec 不跟进。
 
 > **authority**：下表是 **SKILL 的读取契约**，authority 在 SKILL（读方决定读什么）；
