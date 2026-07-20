@@ -821,7 +821,7 @@ raw/external/
   `@scripts/SCRIPTS.md` ——自动展开 `@import` 的 agent 透明加载 `SCRIPTS.md` 全文；
   不展开 `@import` 的 agent 由 AGENTS.md 顶部强制 Read 指令兜底（同 §5.1）。所有 agent 都见
   scripts 索引——AGENTS.md 不持有副本，**无**双写漂移 / L1 膨胀风险
-- **形态**：单段 `## 索引`（既是 AGENTS.md `@import` 加载源、又是 LLM agent 按需 Read 的入口），
+- **形态**：单段 `## 索引`（既是 AGENTS.md `@import` 加载源、又是 LLM agent Read 的入口），
   每脚本一段：`` - `<name>` — <一句话用途> `` one-liner 起头 + `### <name> — <label>` 子节
   含 4 要素（使用场景 / 调用约定 / 作用 / 可选前置依赖）——`@import` 加载后 agent 全文
   Read 即可，**不**需要在 AGENTS.md 单独投影 one-liner

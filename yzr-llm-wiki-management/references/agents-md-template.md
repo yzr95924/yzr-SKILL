@@ -161,8 +161,8 @@
   `yzr-llm-wiki-management/scripts/`）
 - 索引文件：`scripts/SCRIPTS.md`（无 frontmatter，与 `MEMORY/MEMORY.md` 同形态）。
   由本文件顶部 `@scripts/SCRIPTS.md` `@import` 加载全文（详见顶部「L2 索引 `@import` 收口」段）。
-  完整契约（每脚本一段：使用场景 / 调用约定 / 作用 / 前置依赖）由 `@import` 自动可见，
-  agent 按需 `Read scripts/SCRIPTS.md` 取分节
+  完整契约（每脚本一段：使用场景 / 调用约定 / 作用 / 前置依赖）由 `@import` 自动可见；
+  不自动展开 `@import` 的 agent 必须手动 `Read scripts/SCRIPTS.md` 取分节
 - 纪律：
   - **添加 / 修改 / 删除脚本文件**只改 `SCRIPTS.md` 一处即可——`@import` 引用同步指向全文，
     **不**需要在 AGENTS.md 单独同步索引
