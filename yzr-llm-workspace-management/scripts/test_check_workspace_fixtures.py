@@ -339,10 +339,68 @@ class WorkspaceTomlVersionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             build_workspace(tmp, workspace_toml='schema_version = 1\ncreated_at = "2026-07-01T00:00:00"\n\n[wikis]\n')
             code, report = run_check(tmp)
-        self.assertEqual(code, 0)
+        # check#6（warn）对缺 templates_version 报 unknown 不阻断；但 workspace-toml-reads-satisfied
+        # （error）也查 templates_version 缺失 → 整体 exit 1
+        self.assertEqual(code, 1)
         c = check_by_id(report, "workspace-toml-templates-version-sync")
         self.assertIs(c["passed"], False)
         self.assertEqual(c["comparison"], "unknown")
+
+
+class WorkspaceTomlReadsSatisfiedTest(unittest.TestCase):
+    def test_clean_no_wiki_passes(self):
+        """无 wiki（空 [wikis] table）→ 只校验 templates_version，reads-satisfied pass。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp)
+            _, report = run_check(tmp)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], True)
+
+    def test_wiki_with_path_and_created_at_passes(self):
+        toml = _clean_workspace_toml() + '\n[wikis.alpha]\npath = "alpha"\ncreated_at = "2026-07-01T00:00:00"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp, workspace_toml=toml)
+            code, report = run_check(tmp)
+        self.assertEqual(code, 0)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], True, c)
+
+    def test_wiki_missing_path_fails(self):
+        toml = _clean_workspace_toml() + '\n[wikis.alpha]\ncreated_at = "2026-07-01T00:00:00"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp, workspace_toml=toml)
+            code, report = run_check(tmp)
+        self.assertEqual(code, 1)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], False)
+        self.assertIn("[wikis.alpha].path", c["actual"])
+
+    def test_wiki_missing_created_at_fails(self):
+        toml = _clean_workspace_toml() + '\n[wikis.alpha]\npath = "alpha"\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp, workspace_toml=toml)
+            code, report = run_check(tmp)
+        self.assertEqual(code, 1)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], False)
+        self.assertIn("[wikis.alpha].created_at", c["actual"])
+
+    def test_missing_templates_version_fails(self):
+        toml = 'schema_version = 1\ncreated_at = "2026-07-01T00:00:00"\n\n[wikis]\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp, workspace_toml=toml)
+            code, report = run_check(tmp)
+        self.assertEqual(code, 1)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], False)
+        self.assertIn("templates_version", c["actual"])
+
+    def test_missing_workspace_toml_skips(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp, workspace_toml=False)
+            _, report = run_check(tmp)
+        c = check_by_id(report, "workspace-toml-reads-satisfied")
+        self.assertIs(c["passed"], None)
 
 
 class CliBehaviorTest(unittest.TestCase):
@@ -378,6 +436,7 @@ class CliBehaviorTest(unittest.TestCase):
             "gitignore-skeleton",
             "memory-index-skeleton",
             "workspace-toml-templates-version-sync",
+            "workspace-toml-reads-satisfied",
         }
         self.assertEqual({c["id"] for c in report["checks"]}, expected_ids)
         for c in report["checks"]:

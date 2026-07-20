@@ -27,10 +27,11 @@ metadata:
 本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 边界的"宪法"
-- **references/workspace-spec.md**——workspace 根 9 类文件的归属 + schema 权威定义
-  （CLI 与 skill 都按它落盘 / 维护）
-- **scripts/**——`check_workspace_fixtures.py`（migrate 探测器：6 条 fixtures 一致性
-  检查，输出修复动作；standalone，Python 3.7+；端到端测试
+- **references/workspace-spec.md**——workspace 根 9 类文件的**归属 + skill 读取契约 + 安全约束**
+  （toml 完整 schema 由 CLI 代码 SSOT，spec 不做权威定义）
+- **scripts/**——`check_workspace_fixtures.py`（**CLI 产物合规的可执行真源**：7 条
+  fixtures 一致性检查，输出修复动作；spec 文档是它的说明，不一致时以探测器为准。
+  亦作 migrate 探测器使用。standalone，Python 3.7+；端到端测试
   `test_check_workspace_fixtures.py`）
 
 ## 何时使用 / 不使用
@@ -402,7 +403,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
    python3 scripts/check_workspace_fixtures.py "$LLMW_WORKSPACE"
    ```
 
-   6 条 check（清单见 [spec §17.3](references/workspace-spec.md#173-检测与修复流程)）；
+   7 条 check（清单见 [spec §17.3](references/workspace-spec.md#173-检测与修复流程)）；
    `--json` 供程序化消费；退出码 0 全过 / 1 有 error / 2 运行错误
 2. **dry-run 报告**（默认必走）：按 finding 分组列"哪些文件需改、依据 changelog 哪行"；
    询问用户：应用全部 / 部分应用 / 仅看清单
@@ -482,7 +483,7 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 ## 参考文件
 
 - **必读**：[`references/workspace-spec.md`](references/workspace-spec.md)——workspace 根
-  9 类文件的归属 + schema 权威定义（含 §4 AGENTS.md / CLAUDE.md + §9 MEMORY/）
+  9 类文件的归属 + skill 读取契约（含 §4 AGENTS.md / CLAUDE.md + §9 MEMORY/）
 - **必读**：[`references/workspace-agents-md-template.md`](references/workspace-agents-md-template.md)——
   `<workspace>/AGENTS.md`（SSOT）的 canonical 模板字节金标准（CLI init 时按此拷）；薄壳 `<workspace>/CLAUDE.md`
   见 [`workspace-claude-md-template.md`](references/workspace-claude-md-template.md)

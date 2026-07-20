@@ -10,7 +10,7 @@ metadata:
   category: knowledge-base
   last_modified: 2026-07-20
   wiki_spec_version: 0.27.0
-  fixtures_check_count: 19
+  fixtures_check_count: 20
 ---
 
 # LLM Wiki Management
@@ -24,12 +24,12 @@ metadata:
 
 - **SKILL.md（本文）**——工作流 + 纪律的"宪法"
 - **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + **check_wiki_fixtures.py**
-  （fixtures 一致性检查；`lint_wiki.py --check-version` 自动调一次）。把高频
-  deterministic 任务固化下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI
-  负责）。当前检查项数见 `metadata.fixtures_check_count`（详见
-  [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
+  （**CLI 产物合规的可执行真源**：fixtures 一致性检查，spec 文档是它的说明，不一致时以
+  探测器为准；`lint_wiki.py --check-version` 自动调一次）。把高频 deterministic 任务固化
+  下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI 负责）。当前检查项数见
+  `metadata.fixtures_check_count`（详见 [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
-  wiki-spec.md（CLI 实现契约）、fixtures（CLI 字节级比对金标准）、migrate-workflow.md §六
+  wiki-spec.md（wiki 仓出生形态 + skill 读取契约）、fixtures（CLI 字节级比对金标准）、migrate-workflow.md §六
   (语义合并规则，agent 走 .migration-plan.json 时的合并依据)
 
 ## 何时使用 / 不使用

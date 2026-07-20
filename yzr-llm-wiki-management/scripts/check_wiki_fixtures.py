@@ -124,6 +124,12 @@ CHECK_REGISTRY = [
         "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.8",
         "desc": "wiki/tags.md 不带 YAML frontmatter",
     },
+    {
+        "id": "wiki-metadata-reads-satisfied",
+        "severity": "error",
+        "rule_ref": "wiki-spec.md §1.1 wiki_metadata.toml（SKILL 读取契约）",
+        "desc": "wiki_metadata.toml 含 SKILL scan 读取的 6 字段：name / topic / display_name / description / tags / created_at",
+    },
 ]
 
 # -- 解析用正则 --
@@ -740,6 +746,32 @@ def check_tags_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[
     return result
 
 
+WIKI_METADATA_REQUIRED_FIELDS = ("name", "topic", "display_name", "description", "tags", "created_at")
+WIKI_METADATA_KEY_RE = re.compile(r"^[ \t]*([a-z_]+)[ \t]*=", re.MULTILINE)
+
+
+def check_wiki_metadata_reads_satisfied(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+    """check#13: wiki_metadata.toml 含 SKILL scan 读取的 6 字段（读取契约自洽）。
+
+    CLI `wiki add` 必落盘 wiki_metadata.toml；缺失即产物不完整 → fail（不 skip）。
+    复用 minimal TOML key=value 风格解析，不引入 tomli。
+    """
+    out = {"passed": True, "severity": "error", "file": "wiki_metadata.toml"}  # type: Dict[str, object]
+    text = _read_text(wiki_root / "wiki_metadata.toml")
+    if text is None:
+        out["passed"] = False  # type: ignore
+        out["expected"] = "wiki_metadata.toml 存在（CLI wiki add 必落盘）含 6 读取字段"
+        out["actual"] = "wiki_metadata.toml 不存在"
+        return out
+    found = {m.group(1) for m in WIKI_METADATA_KEY_RE.finditer(text)}
+    missing = [f for f in WIKI_METADATA_REQUIRED_FIELDS if f not in found]
+    if missing:
+        out["passed"] = False  # type: ignore
+        out["expected"] = "wiki_metadata.toml 含 6 读取字段：" + " / ".join(WIKI_METADATA_REQUIRED_FIELDS)
+        out["actual"] = "缺：" + " / ".join(missing)
+    return out
+
+
 # ============================================================================
 # 骨架字段级比对——读 references/canonical/ + references/fixtures/
 # 让 fixtures/canonical 作 SSOT：改 fixtures → check 自动跟随。纯骨架件
@@ -974,6 +1006,7 @@ CHECK_FUNCTIONS = [
     ("log-md-format-strict", check_log_md_format),
     ("scripts-md-no-frontmatter", check_scripts_md_no_frontmatter),
     ("tags-md-no-frontmatter", check_tags_md_no_frontmatter),
+    ("wiki-metadata-reads-satisfied", check_wiki_metadata_reads_satisfied),
 ] + [(s["id"], _make_skeleton_check(s)) for s in SKELETON_SPECS]
 
 

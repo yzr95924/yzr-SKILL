@@ -89,6 +89,12 @@ CHECK_REGISTRY = [
         "rule_ref": "workspace-spec.md §14",
         "desc": "workspace.toml templates_version 的 workspace_spec 分量与 target 一致（不阻断；wiki_spec 分量只展示不比对）",
     },
+    {
+        "id": "workspace-toml-reads-satisfied",
+        "severity": "error",
+        "rule_ref": "workspace-spec.md §2（SKILL 读取契约）",
+        "desc": "workspace.toml 含 SKILL scan/migrate 读取的字段：templates_version + 每个 [wikis.<name>] 的 path / created_at",
+    },
 ]
 
 
@@ -483,6 +489,42 @@ def check_workspace_toml_templates_version(ws_root: Path, info: Dict[str, str]) 
     return out
 
 
+TEMPLATES_VERSION_KEY_RE = re.compile(r"^[ \t]*templates_version[ \t]*=", re.MULTILINE)
+WIKIS_SECTION_RE = re.compile(r"^\[wikis\.([^\]]+)\]\s*$", re.MULTILINE)
+NEXT_SECTION_RE = re.compile(r"^\[", re.MULTILINE)
+
+
+def check_workspace_toml_reads_satisfied(ws_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+    """check#7: workspace.toml 含 SKILL scan/migrate 读取的字段（读取契约自洽）。
+
+    校验顶层 templates_version + 每个 [wikis.<name>] 的 path / created_at（SKILL scan
+    遍历 + INDEX 排序用）。workspace.toml 不存在 → skip（复用 templates-version-sync
+    的 skip 语义，不重复报）。minimal TOML 风格：只认 key = 行 + [section] 头，不引入 tomli。
+    """
+    out = {"passed": True, "severity": "error", "file": "workspace.toml"}  # type: Dict[str, object]
+    text = _read_text(ws_root / "workspace.toml")
+    if text is None:
+        out["passed"] = None
+        out["skipped"] = "workspace.toml 不存在（CLI 未 init？）"
+        return out
+    missing = []  # type: List[str]
+    if not TEMPLATES_VERSION_KEY_RE.search(text):
+        missing.append("templates_version（顶层）")
+    for sm in WIKIS_SECTION_RE.finditer(text):
+        wiki_name = sm.group(1)
+        body_start = sm.end()
+        nxt = NEXT_SECTION_RE.search(text, body_start)
+        body = text[body_start : nxt.start()] if nxt else text[body_start:]
+        for field in ("path", "created_at"):
+            if not re.search(rf"^[ \t]*{field}[ \t]*=", body, re.MULTILINE):
+                missing.append(f"[wikis.{wiki_name}].{field}")
+    if missing:
+        out["passed"] = False  # type: ignore
+        out["expected"] = "workspace.toml 含 SKILL 读取字段：templates_version + 每个 [wikis].path/created_at"
+        out["actual"] = "缺：" + "；".join(missing)
+    return out
+
+
 # (check_id, 函数) 映射——顺序同 CHECK_REGISTRY
 CHECK_FUNCS = [
     ("agents-version-is-current", check_agents_version_is_current),
@@ -491,6 +533,7 @@ CHECK_FUNCS = [
     ("gitignore-skeleton", check_gitignore_skeleton),
     ("memory-index-skeleton", check_memory_index_skeleton),
     ("workspace-toml-templates-version-sync", check_workspace_toml_templates_version),
+    ("workspace-toml-reads-satisfied", check_workspace_toml_reads_satisfied),
 ]
 
 
