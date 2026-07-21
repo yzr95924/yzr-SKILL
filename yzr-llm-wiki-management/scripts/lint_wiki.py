@@ -1382,12 +1382,15 @@ def check_related_links(wiki_root: Path) -> List[str]:
     """15. related / compared 路径引用完整性（0.22.0+）
 
     校验 wiki 内容页 frontmatter 的 `related`（concept 页）与 `compared`
-    （comparison 页）字段——按 wiki 根相对路径解析，文件不存在则报
-    `related-broken-link` warn。
+    （comparison 页）字段——按 spec §9「路径格式约定」解析为**内容根 `wiki/`
+    相对**（`concepts/X.md` → `<wiki>/wiki/concepts/X.md`），文件不存在则报
+    `related-broken-link` warn。注意基准陷阱：`wiki_root` 是最外层 `<wiki>/`
+    （其下才是 `wiki/` 内容根），故解析须补 `wiki/` 段——与 source 页 `sources`
+    字段走最外层 `raw/` 基准（见 check_frontmatter）刻意区分。
 
-    路径格式约定（spec §9 类型特化字段）：**wiki 根相对路径**（如
-    `concepts/transformer.md`），不带前导 `./`、不带 `../` 跨目录——与正文
-    Markdown 链接（约定用文件相对路径）形成清晰的两层约定。
+    路径格式约定（spec §9 类型特化字段）：**内容根 `wiki/` 相对路径**（如
+    `concepts/transformer.md`），不带前导 `./`、不带 `../` 跨目录、也不带
+    `wiki/` 前缀——与正文 Markdown 链接（约定用文件相对路径）形成清晰的两层约定。
 
     为什么是 warn 而非 error：frontmatter 路径字段是机器消费（lint / cross-page
     综合），不是人直接阅读内容；与正文 `broken-link`（error）严重性区分开，
@@ -1421,13 +1424,15 @@ def check_related_links(wiki_root: Path) -> List[str]:
                 # 防御：若元素是外部 URL（语义上不该出现但防御性兜底）→ 跳过
                 if is_external_url(item):
                     continue
-                # wiki 根相对解析：直接拼到 wiki_root；不 .resolve() 避免跟随
-                # 实际不存在的目录或文件时静默吞错（is_file() 已能准确判定）
-                target = wiki_root / item
+                # spec §9：related / compared 是内容根 wiki/ 相对（concepts/X.md），
+                # 不是最外层根相对——wiki_root 是 <wiki>/，真实内容页在 <wiki>/wiki/<sub>/，
+                # 故补 wiki/ 段。不 .resolve() 避免跟随实际不存在的目录/文件时静默吞错
+                # （is_file() 已能准确判定）
+                target = wiki_root / "wiki" / item
                 if not target.is_file():
                     findings.append(
                         f"related-broken-link: {rel} {field_name}[{idx}]='{item}' "
-                        f"按 wiki 根相对解析为 {item}，但文件不存在"
+                        f"按内容根 wiki/ 相对解析为 wiki/{item}，但文件不存在"
                     )
     return findings
 

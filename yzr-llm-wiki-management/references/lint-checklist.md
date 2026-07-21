@@ -335,14 +335,15 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - 校验 wiki 内容页 frontmatter 的 `related`（concept 页使用）与 `compared`
   （comparison 页使用）字段中每条路径对应文件是否存在
 - **路径格式约定**（[wiki-spec §9 类型特化字段](wiki-spec.md#类型特化字段llm-写内容页时使用)）：
-  **wiki 根相对路径**（如 `concepts/transformer.md`），不带前导 `./`、不带 `../` 跨目录
+  **内容根 `wiki/` 相对路径**（如 `concepts/transformer.md`），不带前导 `./`、不带 `../`、
+  也不带 `wiki/` 前缀
 - 与正文 markdown 链接（约定用文件相对路径）的两层约定：
-  - **frontmatter 路径字段**（`related` / `compared` / `sources` 等）——机器消费为主
-    （lint / cross-page 综合），统一 wiki 根相对
+  - **指 wiki 内页的 frontmatter 字段**（`related` / `compared` / synthesis `sources`）
+    ——机器消费为主（lint / cross-page 综合），统一内容根 `wiki/` 相对
   - **正文 markdown 链接**（`[text](path)`）——人读为主，in-context 局部引用，
     保持文件相对
-- 校验逻辑：每条元素以 `<wiki-root>/<item>` 直接解析（不 `.resolve()`，避免跟随
-  不存在的目录时静默吞错）；`is_file()` 判定
+- 校验逻辑：每条元素以 `<wiki>/wiki/<item>` 解析（spec 的内容根 `wiki/` 相对，补 `wiki/`
+  段；不 `.resolve()`，避免跟随不存在的目录时静默吞错）；`is_file()` 判定
 - **finding 名**：`related-broken-link`（warn）
 - **严重性：warning**——frontmatter 路径字段是机器消费而非人直接阅读内容，与正文
   `broken-link`（error）严重性区分；不阻断但提示用户修正
@@ -415,7 +416,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 [INFO] missing-entity: 'rotary-position-embedding' appears in 4 source pages but has no entity page
 [INFO] memory-not-indexed: MEMORY/ocr-tips.md 未在 MEMORY.md 索引中列出
 [INFO] pending-review: wiki/concepts/flash-attention.md 未审核 — 待人工复审后置 reviewed: true
-[WARN] related-broken-link: wiki/concepts/self-attention.md related[1]='concepts/multi-head-attention.md' 按 wiki 根相对解析为 concepts/multi-head-attention.md，但文件不存在
+[WARN] related-broken-link: wiki/concepts/self-attention.md related[0]='concepts/nonexistent.md' 按内容根 wiki/ 相对解析为 wiki/concepts/nonexistent.md，但文件不存在
 ```
 
 每条带：**严重性** + **类别** + **文件:行** + **描述**。
