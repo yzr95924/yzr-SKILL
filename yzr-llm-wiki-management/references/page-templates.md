@@ -37,8 +37,8 @@ title: <string, 必填>
 description: <一句话摘要, 推荐>  # 推荐（OKF v0.1 推荐字段）；index.md 条目摘要从它来，避免漂移
 type: <entity|concept|source|comparison|synthesis, 必填>  # 5 类内容页；index/log 是 reserved（见 §6 / §7）
 tags: [<string array>, 必填但可空数组>]
-created: <YYYY-MM-DD, 必填>
-updated: <YYYY-MM-DD, 必填>
+created: <YYYY-MM-DD HH:MM, 必填>  # lint 仍接受 YYYY-MM-DD 老格式
+updated: <YYYY-MM-DD HH:MM, 必填>  # lint 仍接受 YYYY-MM-DD 老格式
 # —— 以下为可选「可信度与认知质量信号」（见下方同名段）——
 reviewed: <true, 可选>            # 仅在为 true 时写：人工已审核该页
 reviewed_at: <YYYY-MM-DD, 可选>   # 审核日期；与 reviewed: true 成对出现
@@ -61,7 +61,9 @@ contradictions: [<wiki 页路径数组>, 可选]  # 与本页主张冲突的页�
   用户可随时打开 `wiki/tags.md` **直接删除**误判的 bullet，下次 lint 把残留引用以
   `tag-not-in-taxonomy`（info）报回来再裁定。详 lint 语义见
   [`lint-checklist.md`](lint-checklist.md#11-tag-taxonomy-校验)
-- `created` / `updated`——**严格** `YYYY-MM-DD` 格式（lint 解析用）
+- `created` / `updated`——**严格** `YYYY-MM-DD HH:MM` 格式（lint 解析用；
+  老 wikis 的 `YYYY-MM-DD` 仍接受，宽容解析不报错——按精度尝试三种格式：date-only /
+  HH:MM / HH:MM:SS）
 - 类型特定字段（`sources` / `compared` / `threads`）见各模板
 - `reviewed` / `reviewed_at` / `contested` / `contradictions`——**可选**可信度与认知质量信号，见下
 
@@ -124,7 +126,7 @@ LLM 修改都会让戳失效。纪律：
 ## 二、各类型模板
 
 > **本节约定**：每类模板只列**路径 + 必填 frontmatter + 极简正文骨架**（节名 + 一句
-> "..."占位）。**完整正文示例**（"Llama 3" / "Self-Attention" / "Transformer vs Mamba" 等
+> "..."占位）。**完整正文示例**（"Source 页 100+ 行填充实例" / "Concept 页正文骨架填充"等）
 > 100+ 行的填充示例见 SKILL.md §参考样例段样例二（source 摘要实例）——按需 Read，避免本文件膨胀。
 
 ### 1. `entity`（实体页）
@@ -137,8 +139,8 @@ title: <必填>
 description: <推荐>
 type: entity
 tags: [<必填但可空>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 aliases: [<可选>, <可选>]  # 别名数组，方便搜索（不受 §8 kebab-case 文件名规则约束）
 ---
 ```
@@ -176,8 +178,8 @@ title: <必填>
 description: <推荐>
 type: concept
 tags: [<必填但可空>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 related: [<concepts/x.md>, <concepts/y.md>]  # 相关概念路径数组，wiki 根相对
 ---
 ```
@@ -224,13 +226,13 @@ title: <必填>
 description: <推荐>
 type: source
 tags: [<必填但可空>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 sources:  # 必填——指向 raw/ 现存路径
   - raw/articles/<slug>.md
 authors: [<name1>, <name2>]  # 可选
 published: YYYY-MM-DD          # 可选
-url: <https://...>             # 可选（论文/网页原始链接）
+url: <https://...>             # 可选（源材料原始链接）
 venue: <会议名 / 期刊>          # 可选
 ---
 ```
@@ -277,8 +279,8 @@ title: <必填>
 description: <推荐>
 type: comparison
 tags: [<必填但可空>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 compared:  # 必填——被对比对象路径数组，wiki 根相对
   - concepts/<a>.md
   - concepts/<b>.md
@@ -322,8 +324,8 @@ title: <必填>
 description: <推荐>
 type: synthesis
 tags: [<必填但可空>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 threads:  # 必填——线索标题数组（synthesis 区分多线索的"主线"）
   - <thread-1-title>
   - <thread-2-title>
@@ -384,8 +386,8 @@ title: "<Topic> Index"
 type: index
 okf_version: "0.1"
 tags: [index]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 ---
 ```
 
@@ -434,18 +436,19 @@ updated: YYYY-MM-DD
 title: "<Topic> Log"
 type: log
 tags: [log]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 ---
 ```
 
-正文（**每行匹配** `^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$`，lint 校验）：
+正文（**每行匹配** `^## \[\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?\] (ingest|query|lint|setup) \| .+$`，lint 校验；
+新 ingest/query/lint/setup 行推荐带 HH:MM，老 wikis 仍接受 date-only）：
 
 ```markdown
-## [2026-06-24] setup | Initial scaffold by yzr-llm-wiki-management
-## [2026-06-24] ingest | <source page title>
-## [2026-06-24] query | <answer summary>
-## [2026-06-24] lint | First health check
+## [2026-06-24 14:30] setup | Initial scaffold by yzr-llm-wiki-management
+## [2026-06-24 14:35] ingest | <source page title>
+## [2026-06-24 15:10] query | <answer summary>
+## [2026-06-24 16:00] lint | First health check
 ```
 
 **lint 检查**：
@@ -460,6 +463,6 @@ updated: YYYY-MM-DD
 3. **重写时**——若 `type` / `sources` 等关键字段需要变，**先和用户确认**
 4. **归档 query 答案**——根据答案性质选 `comparison`（对比）或 `synthesis`（综合）
 5. **完整正文示例**——本文件只留 frontmatter SSOT + 极简骨架（节名 + `...` 占位）；
-   真实 wiki 里 5 类模板的 100+ 行填充实例（"Llama 3" / "Self-Attention" / "Transformer vs
-   Mamba" / "Long-Context 演进" / "index.md 列表"）见 SKILL.md §参考样例段样例二 + 样例三
+   真实 wiki 里 5 类模板的 100+ 行填充实例（"Source 页正文骨架填充" / "Concept 演进综合"
+   / "index.md 列表"）见 SKILL.md §参考样例段样例二 + 样例三
    的 source 摘要与综合 markdown 实例——按需 Read，无需把详细实例塞进本文件

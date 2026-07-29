@@ -24,9 +24,9 @@ Query 是 wiki 的"消费侧"——把多份资料综合成答案，**好答案�
 
 **先读 `wiki/index.md`**——按关键词 / 类别扫：
 
-- 用户问"Transformer" → 看 `concepts/` 类别
-- 用户问"论文 X 和 Y 哪个更好" → 看 `sources/` 找两篇
-- 用户问"self-attention 的演进" → 看 `concepts/self-attention.md` 是否有 inbound
+- 用户问"<Concept A>" → 看 `concepts/` 类别
+- 用户问"<Entity X> 和 <Entity Y> 哪个更好" → 看 `sources/` 找两篇
+- 用户问"<Concept A> 的演进" → 看 `concepts/<slug>.md` 是否有 inbound
   links
 
 **启发式搜索**（不要做全量 grep）：
@@ -110,7 +110,7 @@ Query 是 wiki 的"消费侧"——把多份资料综合成答案，**好答案�
   `[^n]` 逐段溯源**（写法见 [page-templates.md §二.5](page-templates.md#5-synthesis综合页)），
   让每个论点都能不重读 raw 就回溯到具体 source——这是 synthesis 区别于 source 摘要的关键
 - 同步 `index.md`（加 comparison / synthesis 类别条目）
-- 追加 `log.md`：`## [YYYY-MM-DD] query | <title>`（写完若 > 50 条按 §4.1 截断保最近 50）
+- 追加 `log.md`：`## [YYYY-MM-DD HH:MM] query | <title>`（lint 仍接受老 `YYYY-MM-DD`；写完若 > 50 条按 §4.1 截断保最近 50）
 
 ### Step 6：若启用 git，建议 commit（同 ingest）；裸目录树 wiki 跳过此步
 

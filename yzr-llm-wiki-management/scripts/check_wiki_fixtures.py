@@ -22,7 +22,7 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不产出 migration plan（那是 lint_wiki.py --check-version
   `--apply` 以 stdout JSON 输出并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 19 条 check（12 条结构探测 + 7 条骨架字段比对）；
+- 20 条 check（13 条结构探测 + 7 条骨架字段比对）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
   references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
 - AGENTS.md 走**模板渲染比对**（0.26.0+ `agents-md-template-sync`）：从 wiki §八 提取
@@ -110,7 +110,7 @@ CHECK_REGISTRY = [
         "id": "log-md-format-strict",
         "severity": "error",
         "rule_ref": "wiki-spec.md §4 + lint-checklist.md §三.6",
-        "desc": "wiki/log.md 每行匹配 `^## [YYYY-MM-DD] (ingest|query|lint|setup) | .+$`",
+        "desc": "wiki/log.md 每行匹配 `^## [YYYY-MM-DD HH:MM] (ingest|query|lint|setup) | .+$`（HH:MM 可选；老 wikis date-only 仍合法，宽容解析）",
     },
     {
         "id": "scripts-md-no-frontmatter",
@@ -134,7 +134,10 @@ CHECK_REGISTRY = [
 
 # -- 解析用正则 --
 SEMVER_RE = re.compile(r"\d+\.\d+\.\d+")
-LOG_LINE_RE = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$")
+LOG_LINE_RE = re.compile(
+    r"^## \[\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?\] "
+    r"(ingest|query|lint|setup) \| .+$"
+)
 AGENTS_VERSION_ROW_RE = re.compile(r"^\s*\|\s*Wiki Spec 版本\s*\|\s*([^|]+?)\s*\|")
 AGENTS_TOPIC_ROW_RE = re.compile(r"^\s*\|\s*主题\s*\|\s*([^|]+?)\s*\|")
 AGENTS_SETUP_DATE_ROW_RE = re.compile(r"^\s*\|\s*创建日期\s*\|\s*([^|]+?)\s*\|")
@@ -706,7 +709,7 @@ def check_log_md_format(wiki_root: Path, info: Dict[str, str]) -> Dict[str, obje
     if bad_lines:
         out["passed"] = False  # type: ignore
         out["actual"] = f"不合规行: {bad_lines[:5]}{'... (前 5 行)' if len(bad_lines) > 5 else ''}"
-        out["expected"] = "每行匹配 `^## [YYYY-MM-DD] (ingest|query|lint|setup) | .+$`"
+        out["expected"] = "每行匹配 `^## [YYYY-MM-DD HH:MM] (ingest|query|lint|setup) | .+$`"
         return out
     return out
 
@@ -980,7 +983,7 @@ def _make_skeleton_check(spec: Dict[str, object]) -> Callable[[Path, Dict[str, s
     return _check
 
 
-# 骨架 check 并入 CHECK_REGISTRY（runtime 顺序 = 输出顺序，排在原 11 条之后）
+# 骨架 check 并入 CHECK_REGISTRY（runtime 顺序 = 输出顺序，排在原 13 条之后）
 CHECK_REGISTRY.extend(
     {
         "id": s["id"],

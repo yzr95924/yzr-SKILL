@@ -170,7 +170,7 @@
 - 内容来源：本仓 `references/agents-md-template.md`（**权威 canonical 模板**）
 - CLI 实现时必须**逐字拷贝**该模板，仅做以下替换：
   - `{{TOPIC_NAME}}` → 用户传入的主题名（人类可读字符串，如 `"LLM Systems"`、`"Distributed Systems"`）
-  - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD`
+  - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD HH:MM`（lint 仍接受老 wikis 的 `YYYY-MM-DD`，详见 §9 字段说明）
   - `{{WIKI_SPEC_VERSION}}` → CLI 实现兼容的 wiki spec 版本号（语义化版本，如 `0.11.0`）
   - `{{CLI_VERSION}}` → CLI 自身版本号
 - 模板顶部说明块的"本文件 ... 按 wiki-spec.md §2 拷贝生成"反向引用，CLI **不得修改**
@@ -198,8 +198,8 @@
 | `type` | `index`（无引号） |
 | `okf_version` | `"0.1"`（OKF 规范版本） |
 | `tags` | `[index]` |
-| `created` | `YYYY-MM-DD`（= today） |
-| `updated` | `YYYY-MM-DD`（= today） |
+| `created` | `YYYY-MM-DD HH:MM`（= today） |
+| `updated` | `YYYY-MM-DD HH:MM`（= today） |
 
 - 正文骨架：5 个空类别段（按字母序），各带一句"暂无内容"占位
 - **字面量见 fixtures**：`references/fixtures/index.md.txt`
@@ -218,8 +218,8 @@
 | `title` | `"<TOPIC_NAME> Log"`（带双引号） |
 | `type` | `log` |
 | `tags` | `[log]` |
-| `created` | `YYYY-MM-DD`（= today） |
-| `updated` | `YYYY-MM-DD`（= today） |
+| `created` | `YYYY-MM-DD HH:MM`（= today） |
+| `updated` | `YYYY-MM-DD HH:MM`（= today） |
 
 - 首条 log 条目（**CLI init 时刻写**）：
 
@@ -227,11 +227,15 @@
   ## [<SETUP_DATE>] setup | Initial scaffold by yzr-llm-wiki-management
   ```
 
+  例：setup 时间为 `2026-07-27 14:30` 时，log 条目为 `## [2026-07-27 14:30] setup | ...`
+
 - **log 条目格式权威正则**（CLI 自检用，未来 lint 也用同一份）：
 
   ```regex
-  ^## \[\d{4}-\d{2}-\d{2}\] (ingest|query|lint|setup) \| .+$
+  ^## \[\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?\] (ingest|query|lint|setup) \| .+$
   ```
+
+  > `HH:MM`（`HH:MM:SS` 也合法）可选；老 wikis 仅 `YYYY-MM-DD` 仍合法——lint 宽容解析两套，不强制迁移。
 
 - 后续条目由 LLM 在 ingest / query / lint 时按相同格式追加，CLI 不必写
 - **字面量见 fixtures**：`references/fixtures/log.md.txt`
@@ -406,8 +410,8 @@ CLI **不**生成 `wiki/{entities,concepts,sources,comparisons,syntheses}/` 下�
 | `title` | string | 人类可读标题，不含扩展名 |
 | `type` | enum | 见下方 `type` 取值 |
 | `tags` | array | 可空数组 |
-| `created` | date | `YYYY-MM-DD`，lint 解析用 |
-| `updated` | date | `YYYY-MM-DD`，lint 解析用 |
+| `created` | date | `YYYY-MM-DD HH:MM`；lint 宽容解析 `YYYY-MM-DD` 老格式 |
+| `updated` | date | `YYYY-MM-DD HH:MM`；lint 宽容解析 `YYYY-MM-DD` 老格式 |
 
 ### `type` 取值（5 类内容页 + 2 类 reserved）
 
@@ -903,7 +907,7 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 
 CLI 在生成完成后，可执行以下验证：
 
-1. **字节级对比(渲染后)**:CLI 用锚点 mapping (`TOPIC_NAME="Test"`, `SETUP_DATE="2026-06-28"`) 渲染,
+1. **字节级对比(渲染后)**:CLI 用锚点 mapping (`TOPIC_NAME="Test"`, `SETUP_DATE="2026-06-28 14:30"`) 渲染,
    产物与本仓 `references/canonical/` 下对应文件**逐字一致**。
    canonical/ 目录由本仓在每次 fixture 变更时手工生成(SKILL 仓 owner 操作)。
 2. **正则自检**：生成的 `wiki/log.md` 首条条目匹配 §4 正则

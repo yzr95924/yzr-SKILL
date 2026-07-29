@@ -44,7 +44,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 如果未摄取文件 < 5 → 一次性处理；5~20 → 建议分批但可接受；> 20 → 强烈建议
 分批 + 询问用户"是否先处理这 5 个"。
 
-**分批策略**：按主题聚类（同一论文 / 同一作者 / 同一时间段优先），不要按文件
+**分批策略**：按主题聚类（同一议题 / 同一作者 / 同一时间段优先），不要按文件
 名随机排序。
 
 ### Step 3：写 source 页
@@ -106,7 +106,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 
 ### Step 6：追加 `log.md`
 
-- 格式严格：`## [YYYY-MM-DD] ingest | <short title>`
+- 格式严格：`## [YYYY-MM-DD HH:MM] ingest | <short title>`（lint 仍接受老 `YYYY-MM-DD`）
 - title 用 source 页的 `title` 字段，不要重写
 - 一行结束，不要续行
 - 一次 ingest 多个文件 → **写多条 log 条目**，每条对应一个 source 页
@@ -137,18 +137,18 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 
 ```yaml
 ---
-title: "Attention Is All You Need"
-description: "提出 Transformer——完全基于 attention、抛弃 RNN/CNN 的序列建模。"
+title: "<Source Page Title>"
+description: "<一句话摘要：本文讨论什么、给出什么关键结论>"
 type: source
-tags: [transformer, attention, paper-2017]
-created: 2026-06-24
-updated: 2026-06-24
+tags: [<topic-1>, <topic-2>]
+created: 2026-06-24 14:30
+updated: 2026-06-24 14:30
 sources:
-  - raw/articles/attention-is-all-you-need.md
-authors: [Vaswani, Shazeer, Parmar, et al.]
-published: 2017-06-12
-venue: NeurIPS 2017
-url: https://arxiv.org/abs/1706.03762
+  - raw/articles/<slug>.md
+authors: [<name1>, <name2>]
+published: <YYYY-MM-DD>
+venue: <会议/期刊名>
+url: <原始链接>
 ---
 ```
 
@@ -157,8 +157,8 @@ url: https://arxiv.org/abs/1706.03762
 > 本节从 SKILL.md §1 Ingest「批处理摄取」下沉而来——主 SKILL.md 留 pointer，
 > 详细 5 步 + 为什么批处理 + log 标题前缀约定在本节。
 
-当 `ingest_diff.py` 返回 ≥ 3 个待摄取文件，或用户明确说"把这堆一起 ingest / 把这批论文
-过稿"，走批处理路径而非逐份处理。批处理的关键是**一次聚合、一次写入、一次索引**——
+当 `ingest_diff.py` 返回 ≥ 3 个待摄取文件，或用户明确说"把这堆一起 ingest / 整批过稿"，
+走批处理路径而非逐份处理。批处理的关键是**一次聚合、一次写入、一次索引**——
 避免 N 次重复 search / N 次 index 更新 / N 条 log。
 
 ### 5 步流程
@@ -172,7 +172,7 @@ url: https://arxiv.org/abs/1706.03762
    - source 页（按主题聚类而非 raw 文件名顺序——主题相近的先写，便于交叉引用）
    - entity / concept 页（先建新的，再更新已有的——追加"参考来源"段，不重写）
    - `wiki/index.md`（所有改动落定后**一次**更新；不要每写一页更一次 index）
-   - `wiki/log.md`（**写一条** `## [YYYY-MM-DD] ingest | Bulk: <主题概览> (<N> sources)`，
+   - `wiki/log.md`（**写一条** `## [YYYY-MM-DD HH:MM] ingest | Bulk: <主题概览> (<N> sources)`，
      标题里把本批主题说清；不再逐文件分别追加 ingest 条目——避免 log 被一次 ingest 撑爆）
 5. **报告**——告诉用户哪些是新建页、哪些是更新页、哪些 entity / concept 因聚合而合并
 
