@@ -38,10 +38,13 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-# 复用 ingest_diff 的轻量 frontmatter 解析
+# 复用 ingest_diff 的轻量 frontmatter 解析 + log_format 的日期解析 helper
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ingest_diff import parse_frontmatter_simple  # noqa: E402
-from log_format import LOG_LINE_RE  # noqa: E402
+from log_format import (
+    LOG_LINE_RE,  # noqa: E402
+    parse_date_or_datetime,  # noqa: E402
+)
 
 # 0.18.0+ fixtures 一致性检查脚本——`--check-version` 自动调一次；
 # 其 JSON 输出并入 report["fixtures_check"] + plan["fixtures_actions"]。
@@ -113,7 +116,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.27.1"  # 0.27.1 = spec 职责收缩（toml schema 归 CLI SSOT）+ 探测器升格「可执行真源」+ wiki-metadata-reads-satisfied check（19→20）；0.27.0 log.md 滚动窗口仍生效
+CURRENT_WIKI_SPEC = "0.28.0"  # 0.28.0 = frontmatter created/updated + log 条目加 HH:MM（backward-compat 解析）；0.27.1 探测器升格「可执行真源」仍生效
 
 
 def _assert_spec_version_sync() -> None:
@@ -848,11 +851,8 @@ def check_stale_summaries(wiki_root: Path, threshold_days: int = STALE_SUMMARY_D
         text = p.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter_simple(text)
         updated = fm.get("updated")
-        if not isinstance(updated, str):
-            continue
-        try:
-            upd_date = date.fromisoformat(updated)
-        except ValueError:
+        upd_date = parse_date_or_datetime(updated)
+        if upd_date is None:
             continue
         age = (today - upd_date).days
         if age > threshold_days:
@@ -1750,7 +1750,7 @@ def detect_legacy_patterns(wiki_root: Path) -> Dict[str, object]:
         "claudemd-tag-section": [{"file": "CLAUDE.md", "conflict": False}],
       },
       "conflicts": [
-        {"file": "wiki/sources/llama-2.md", "reason": "同时含 confidence + reviewed 字段"}
+        {"file": "wiki/sources/<legacy-page>.md", "reason": "同时含 confidence + reviewed 字段"}
       ],
     }
     """
@@ -2059,7 +2059,7 @@ def build_migration_plan(
                         **base,
                         "type": "fixtures-fix-log-format",
                         "to_action": (
-                            f"Edit {fpath} 不合规行：每行匹配 `^## [YYYY-MM-DD] (ingest|query|lint|setup) | .+$`；"
+                            f"Edit {fpath} 不合规行：每行匹配 `^## [YYYY-MM-DD HH:MM] (ingest|query|lint|setup) | .+$`（HH:MM 可选；老 wikis date-only 仍合法，宽容解析）；"
                             "迁移期不变更 history（仅当行确属违规，才 Edit 修复格式；保留日期 + 类型 + 简介）"
                         ),
                     }

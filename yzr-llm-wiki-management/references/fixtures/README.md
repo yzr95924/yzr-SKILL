@@ -26,7 +26,7 @@ cmp -s $TMP/.gitignore             <fixture>/gitignore.txt    # .gitignore 纯�
 任何一个不一致 → CLI 实现有 bug,应 fail 退出。
 
 > **术语**：fixtures 是**模板**(带 `{{TOPIC_NAME}}` / `{{SETUP_DATE}}` 占位符),
-> canonical 是**渲染后字面量**(用锚点 mapping `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28"}`
+> canonical 是**渲染后字面量**(用锚点 mapping `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28 14:30"}`
 > 把 fixtures 跑一遍的产物,作为 SKILL 仓字节金标准)。CLI 升级 / fixture 变更时,SKILL 仓 owner
 > 重新生成 canonical/。
 
@@ -63,7 +63,7 @@ fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
   （三者形态一致——无 frontmatter、纯 Markdown；`tags.md.txt` 与 `memory-index.txt` 一样属于
   wiki 根级文件，不带 wiki 名占位）
 
-CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD>}` 做替换，
+CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD HH:MM>}` 做替换，
 **不**做替换的占位符会在落盘后被 lint 立即报错(spec §11)。
 
 ## AGENTS.md / CLAUDE.md 占位符（不在 fixture 范围）
@@ -83,7 +83,7 @@ CLI 必须替换的占位符：
 | 占位符 | 替换为 | 出现在 |
 |---|---|---|
 | `{{TOPIC_NAME}}` | 用户传入的主题名 | AGENTS.md + CLAUDE.md（薄壳） |
-| `{{SETUP_DATE}}` | 当天日期 `YYYY-MM-DD` | AGENTS.md |
+| `{{SETUP_DATE}}` | 当天日期 `YYYY-MM-DD HH:MM` | AGENTS.md |
 | `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本 | AGENTS.md §八（薄壳不持版本） |
 | `{{CLI_VERSION}}` | CLI 自身版本号 | AGENTS.md |
 
@@ -95,7 +95,7 @@ CLI 替换后做内容级验证（不能用 fixture 字节比对）：
 ## 字节级一致性证据(渲染后)
 
 fixtures 是**模板**;CLI 渲染后产物与 `references/canonical/` 下的字面量文件**字节级一致**。
-canonical/ 下的字面量文件是把 mapping 喂 `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28"}` 后
+canonical/ 下的字面量文件是把 mapping 喂 `{TOPIC_NAME: "Test", SETUP_DATE: "2026-06-28 14:30"}` 后
 渲染产物的副本,作为 SKILL 仓字节金标准。
 
 CLI 升级 / fixture 变更时,跑附录 A 自检:用锚点 mapping render → cmp canonical → 不一致 = CLI / fixture 有 bug。

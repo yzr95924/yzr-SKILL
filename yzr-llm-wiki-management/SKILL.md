@@ -8,8 +8,8 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-21
-  wiki_spec_version: 0.27.1
+  last_modified: 2026-07-29
+  wiki_spec_version: 0.28.0
   fixtures_check_count: 20
 ---
 

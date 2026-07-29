@@ -40,7 +40,7 @@
 #### `raw/external/` —— 外部代码仓接入（symlink）
 
 - 路径：`<wiki-root>/raw/external/`
-- 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、papers-with-code 项目等）
+- 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、TensorFlow、NumPy 等）
   作语料纳入 wiki；**不**内嵌拷贝（占空间 + 失去 commit 锚点），走 symlink +
   锚定元数据
 - **扁平布局**——symlink + anchor 直接在 `raw/external/` 顶层，不要开
@@ -100,7 +100,8 @@
 - 路径：`<wiki-root>/wiki/log.md`
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
-  - 格式严格：`## [YYYY-MM-DD] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
+  - 格式严格：`## [YYYY-MM-DD HH:MM] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
+    lint 仍接受老 `YYYY-MM-DD`）
     `setup` 由 workspace CLI 在初始化时按 `wiki-spec.md` §4 写入首条；
     权威正则见 `page-templates.md` §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
@@ -202,8 +203,8 @@ title: <页面标题>
 description: <一句话摘要>  # 推荐；index.md 摘要来源（OKF §4.1）
 type: <entity|concept|source|comparison|synthesis>
 tags: [<标签>]
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: YYYY-MM-DD HH:MM
+updated: YYYY-MM-DD HH:MM
 sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / concept 可选
 ---
 ```
@@ -284,7 +285,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 
 1. **先看日期**——更新的来源一般覆盖旧的；但若旧来源更权威（如官方技术报告 vs 博客），
    保留两者并进入第 2 步
-2. **判定是否真矛盾**——版本差异（Llama 3.0 vs 3.1 的 context window）、上下文差异
+2. **判定是否真矛盾**——版本差异（同一对象 v1 vs v2 的某个属性）、上下文差异
    （不同评测条件）不算矛盾，加注明即可；确属矛盾进入第 3 步
 3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
    不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指

@@ -170,7 +170,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **严重性：error**——断链
 - **`sources-absolute-path`（仅 source 页）**——`type: source` 的 `sources:` 数组任一元素
   以**绝对路径**形式出现即报。检测 3 种形式：
-  - Unix 绝对：以 `/` 起始（如 `/Users/foo/articles/llama-3.md`）
+  - Unix 绝对：以 `/` 起始（如 `/Users/foo/articles/<slug>.md`）
   - Windows 盘符：`C:\` / `C:/` 起始（兼容正反斜杠）
   - Windows UNC：`\\server\share` 起始
   - 跨平台正则自写——不走 `Path.is_absolute()`（它在 Linux / Windows 上对同一字符串
@@ -360,8 +360,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 - 同一概念 / 实体在 ≥ 2 个页里被以**矛盾方式**描述（**内容层**矛盾，区别于 §二 13 的
   frontmatter `contested` 信号——后者是作者已标注、本项是 agent 主动发现未标注的）
-- 例：`concepts/context-window.md` 说 "Llama 3 支持 200K tokens"，
-  `sources/llama-2.md` 说 "128K tokens"（可能是不同版本，但未注明）
+- 例：`concepts/<attribute>.md` 说 "<value A>"，`sources/<other>.md` 说 "<value B>"
+  （可能是不同版本，但未注明）
 - 检查方法：grep 概念关键词 + 读周围上下文；发现后建议双方补 `contested: true` +
   `contradictions` 互指（让 §二 13 后续能持续追踪）
 - **严重性：warning**——可能需要更深入调研
@@ -401,9 +401,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 [ERROR] orphan-page: wiki/concepts/qux.md is not listed in wiki/index.md
 [WARN] stale-summary: wiki/sources/quux.md type=source updated=2024-01-01 (>90 days)
 [WARN] log-format: wiki/log.md line 23: '## [bad] ingest | foo' doesn't match expected format
-[WARN] reviewed-stale: wiki/concepts/transformer.md reviewed=true reviewed_at=2026-06-15 但 updated=2026-07-01 — LLM 修改后未清 reviewed，建议重新审核
-[WARN] index-review-badge-drift: wiki/index.md 条目 'Transformer' 标识为 ✓ reviewed 2026-06-15 但被链页 reviewed=true reviewed_at=2026-06-30 — 日期错
-[WARN] legacy-confidence-field: wiki/sources/llama-2.md 含已退役 confidence 字段——请运行 --migrate-confidence
+[WARN] reviewed-stale: wiki/concepts/<concept>.md reviewed=true reviewed_at=2026-06-15 但 updated=2026-07-01 — LLM 修改后未清 reviewed，建议重新审核
+[WARN] index-review-badge-drift: wiki/index.md 条目 '<Entity>' 标识为 ✓ reviewed 2026-06-15 但被链页 reviewed=true reviewed_at=2026-06-30 — 日期错
+[WARN] legacy-confidence-field: wiki/sources/<legacy-page>.md 含已退役 confidence 字段——请运行 --migrate-confidence
 [ERROR] sources-absolute-path: wiki/sources/linux-kernel.md sources 含绝对路径 '/home/user/src/linux/net/ipv4/tcp.c'；必须用相对 wiki 根的路径（如 raw/articles/... 或 raw/external/<symlink>/...），与 lint-checklist §二.3 一致
 [ERROR] external-anchor-missing: raw/external/ 下有 symlink ['linux-kernel', 'ray'] 但缺 '.symlink-anchor.toml'（spec §13 必填）
 [ERROR] external-anchor-corrupt: raw/external/.symlink-anchor.toml 解析失败或 0 个有效 entry
@@ -457,6 +457,6 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **fixtures 边界**——`check_wiki_fixtures.py` 扫「约定文件」
   （AGENTS.md / CLAUDE.md / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
   MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）的合规性：
-  **`metadata.fixtures_check_count` 条** check（11 条结构探测 + 9 条骨架字段比对，后者读 `references/canonical/` +
+  **`metadata.fixtures_check_count` 条** check（13 条结构探测 + 7 条骨架字段比对，后者读 `references/canonical/` +
   `references/fixtures/gitignore.txt` 作 SSOT）；语义合并走 §五由 LLM 判断——脚本不替代人。
   常规 lint 另跑 `check_spec_version`（§二前置）报版本漂移 warn

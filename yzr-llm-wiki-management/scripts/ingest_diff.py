@@ -37,9 +37,9 @@ from datetime import date
 from pathlib import Path
 from typing import Dict, List, Set
 
-# log 行格式正则 SSOT 来自 log_format 模块（与 references/page-templates.md §7 同步）
+# log 行格式正则 + created/updated 时间解析 SSOT 来自 log_format 模块
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from log_format import LOG_INGEST_RE  # noqa: E402
+from log_format import LOG_INGEST_RE, parse_date_or_datetime  # noqa: E402
 
 # 简易 YAML frontmatter 解析（不依赖 pyyaml，避免 setup 阶段的依赖膨胀）
 # 支持最常见的 key: value 形式（含数组、字符串）
@@ -178,15 +178,13 @@ def collect_ingested_sources_map(wiki_root: Path) -> Dict[str, List[Path]]:
 def raw_newer_than_source(raw_path: Path, source_page: Path) -> bool:
     """raw 文件的 mtime 日期是否晚于 source 页 frontmatter.updated。
     若 updated 缺失 / 格式错 / mtime 不可读，视为"无法判定"，返回 False
-    （保守起见不报 stale，避免误报）。"""
+    （保守起见不报 stale，避免误报）。updated 接受 `YYYY-MM-DD` 与 `YYYY-MM-DD HH:MM`
+    两种格式（见 log_format.parse_date_or_datetime）。"""
     text = source_page.read_text(encoding="utf-8", errors="replace")
     fm = parse_frontmatter_simple(text)
     updated = fm.get("updated")
-    if not isinstance(updated, str):
-        return False
-    try:
-        upd_date = date.fromisoformat(updated)
-    except ValueError:
+    upd_date = parse_date_or_datetime(updated)
+    if upd_date is None:
         return False
     try:
         raw_date = date.fromtimestamp(raw_path.stat().st_mtime)
