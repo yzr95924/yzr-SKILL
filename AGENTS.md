@@ -111,7 +111,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ## 高层结构
 
-入库文件（24 个）：
+入库文件（25 个）：
 
 ```text
 .
@@ -134,6 +134,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # Collection + 移动 / 删除
 ├── yzr-code-refactoring-review/ # 现有代码可重构点巡检（Fowler 60+ catalog +
 │                                # 4 语言插件；产出审查报告，不主动改文件）
+├── yzr-sys-design-doc/          # 正式系统设计文档写作：full/lite 两档路由（需求层/方案层/
+│                                # 落地层三层 14 节 + DFX），full 档配套独立实施任务书
+│                                # （执行期活文档，进度/问题/设计变更循环）
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …

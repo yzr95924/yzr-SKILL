@@ -10,11 +10,15 @@
 workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个迭代内每个测试用例
 单独成目录（`eval-0/`、`eval-1/` 等）。目录边做边建，不要一次建完。
 
-子运行目录按 baseline 类型分流：
+子运行目录按 baseline 类型分流，**每个配置下还要有一层 `run-N/`**（多次重复运行的
+编号，单轮就 `run-1/`）——`aggregate_benchmark.py` 只认 `eval-*/<config>/run-N/grading.json`
+这一层，缺了 `run-N/` 会聚合出全 0 的空 benchmark：
 
-- **创建新 skill**：`without_skill/outputs/`——完全不带 skill 的 baseline
-- **改进现有 skill**：`old_skill/outputs/`——用快照（`cp -r <skill-path> <workspace>/skill-snapshot/`）
+- **创建新 skill**：`without_skill/run-1/outputs/`——完全不带 skill 的 baseline
+- **改进现有 skill**：`old_skill/run-1/outputs/`——用快照（`cp -r <skill-path> <workspace>/skill-snapshot/`）
   后的旧版
+
+`grading.json` / `timing.json` 同样落在 `run-N/` 下（与 `outputs/` 同级）。
 
 > **不要**混用 `/skill-test` 或其它评估框架：它们有各自的目录约定，会让本 skill 的
 > `iteration-N/eval-N/{with_skill|baseline}` benchmark 数据无法跨迭代对比。
