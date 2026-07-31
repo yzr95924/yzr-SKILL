@@ -69,6 +69,7 @@ WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
 MEMORY_SUBDIR = "MEMORY"
 EXTERNAL_SUBDIR = "external"
 ANCHOR_FILENAME = ".symlink-anchor.toml"  # 0.17.0+: TOML 替代旧 .symlink-anchor.json
+DISCUSSIONS_SUBDIR = "discussions"  # raw/ 下用户 + LLM 协作草稿层（spec §15）；与 external/ 并列的 raw/ 写权限例外
 MD_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
 EXTERNAL_URL_RE = re.compile(r"^(https?:|mailto:|//)")
 SOURCE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -116,7 +117,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.28.0"  # 0.28.0 = frontmatter created/updated + log 条目加 HH:MM（backward-compat 解析）；0.27.1 探测器升格「可执行真源」仍生效
+CURRENT_WIKI_SPEC = "0.29.0"  # 0.29.0 = raw/discussions/ 协作草稿层（spec §15）+ raw/external/ target 角色切分（§13.3）；0.28.0 HH:MM backward-compat 解析仍生效
 
 
 def _assert_spec_version_sync() -> None:
@@ -225,6 +226,23 @@ def is_git_repo(path: Path) -> bool:
         cur = parent
 
 
+def _git_porcelain_paths(line: str) -> List[str]:
+    """从 `git status --porcelain` v1 一行提取全部 path（相对 cwd）。
+
+    普通行返回 1 个 path；rename/copy 行（`XY <old> -> <new>`，git 实测 old 在 `->` 前、
+    new 在后）返回 [old, new] 两个。格式：前 2 字符 = XY 状态，第 3 字符 = 空格；
+    含特殊字符的 path 被 C 风格双引号包裹。
+    """
+    if len(line) < 4:
+        return []
+    rest = line[3:]
+    if " -> " in rest:
+        paths = rest.split(" -> ", 1)
+    else:
+        paths = [rest]
+    return [p.strip().strip('"') for p in paths]
+
+
 def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
     """1. raw/ 是否被改（仅在 wiki 是 git 仓时跑；否则跳过）
 
@@ -258,6 +276,14 @@ def check_raw_immutable(wiki_root: Path, use_git: bool) -> List[str]:
         # 这种情况没有"未提交改动"概念（git 一无所知），跳过
         return ([], "raw-immutable-skipped: raw/ 未纳入 git 跟踪，跳过 raw/ 不可变性检查")
     lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
+    # raw/discussions/ 是用户 + LLM 协作的草稿层（spec §15），双方可写——
+    # 其未提交改动不属于"raw 被违规改"，从 raw-modified 信号中排除（与 §13 raw/external/
+    # 并列为本 skill 的两处 raw/ 写权限例外）。external/ 的 symlink 本身被 .gitignore
+    # 排除（spec §13.4），不会出现在 git status 里，故此处只需过滤 discussions/。
+    discussions_prefix = "raw/" + DISCUSSIONS_SUBDIR + "/"
+    # rename 两侧都可能涉及 discussions/（§15.3 archive mv 跨边界：discussions/ → articles/），
+    # 任一路径命中即排除，避免合法归档误报 raw-modified
+    lines = [ln for ln in lines if not any(p.startswith(discussions_prefix) for p in _git_porcelain_paths(ln))]
     if not lines:
         return ([], "")
     findings = [f"raw-modified: raw/ 有 {len(lines)} 处未提交改动：{lines[0]}{' ...' if len(lines) > 1 else ''}"]
@@ -626,6 +652,20 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
                                     f"sources-absolute-path: {rel} sources 含绝对路径 '{s}'；"
                                     f"必须用相对 wiki 根的路径（如 raw/articles/... 或 "
                                     f"raw/external/<source-name>/...），与 lint-checklist §二.3 一致"
+                                )
+                                continue
+                            # raw/discussions/ 禁止作 source（spec §15）——
+                            # discussions/ 是用户 + LLM 双方可写的协作草稿层，不是"用户掌控的
+                            # 真相源"；放开口子 = provenance 后门（LLM 自产内容被当 raw 真相
+                            # ingest 回 wiki）。要引用其内容先 mv 到 raw/articles 等正式子树走标准
+                            # ingest（spec §15.3）。命中后 continue 跳过后续 external / missing——
+                            # 同一根因不重复报错。
+                            if s.startswith("raw/" + DISCUSSIONS_SUBDIR + "/"):
+                                findings.append(
+                                    f"source-in-discussions: {rel} sources='{s}' 指向 "
+                                    f"raw/{DISCUSSIONS_SUBDIR}/——discussions/ 是协作草稿层"
+                                    f"（spec §15），不可作 source 真相源；先 mv 到 raw/articles "
+                                    f"等正式子树再 ingest"
                                 )
                                 continue
                             # 0.17+ raw/external/<symlink>/... 例外（spec §13.3）：
@@ -1447,6 +1487,7 @@ def severity_of(finding: str) -> str:
             "sources-missing",
             "sources-out-of-root",
             "sources-absolute-path",
+            "source-in-discussions",
             "broken-link",
             "orphan-page",
             "index-missing",

@@ -139,6 +139,11 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   "未启用 git"是默认状态而非异常
 - **untracked raw 文件**——CLI init 不自动 `git add .`，用户后续 `git add raw/foo.md` 前该文件
   是 untracked；untracked 不在 `raw-modified` 范围（raw-modified 只针对 tracked file 被 modified）
+- **`raw/discussions/` 排除**（spec §15）——discussions/ 是用户 + LLM 双方可写的
+  协作草稿层，其未提交改动属预期（不是"raw 被违规改"）；`check_raw_immutable()` 用
+  `_git_porcelain_path()` 从 `git status --porcelain raw/` 输出里过滤掉 `raw/discussions/`
+  路径后再计数。`raw/external/` 的 symlink 本身被 §13.4 `.gitignore` 排除、不会进 git status，
+  故本过滤只针对 discussions/
 
 ### 2. frontmatter 完整性
 
@@ -194,6 +199,14 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
      `sp.is_file()`（spec §13.3 LLM 责任澄清：external source 可指向整仓）
   全部合法才放过。**不要**回退本例外——任何 lint 仓 merge / 升级时若发现此例外被回退，
   立刻把它补回去；下游所有用 `raw/external/` 的 wiki 都退化到 12 error 误报
+- **`source-in-discussions`（仅 source 页，spec §15）**——`type: source` 的
+  `sources:` 数组任一元素以 `raw/discussions/` 起始即报。命中后 `continue` 跳过后续
+  external / missing 分支——同一根因不重复报错。
+  - **为什么是 error**：`raw/discussions/` 是用户 + LLM 双方可写的协作草稿层，**不是**
+    "用户掌控的真相源"；放开口子 = provenance 后门（LLM 自产内容被当 raw 真相 ingest 回 wiki）。
+    与 `sources-absolute-path` 同级（都守"raw 路径是永久引用 + 真相源"纪律）
+  - **修法**：要引用草稿内容先走 spec §15.3 归档路径——消化式（结论写 wiki 页，原稿不进
+    `sources:`）或转正式（`mv raw/discussions/<x>.md raw/articles/<x>.md` 后再 ingest）
 - **不在本检查范围**：`type: synthesis` 的 `sources:`（指向 wiki 内其它页如 `concepts/...`，
   字段语义不同——见 §一 SSOT）；如有需要后续单独加 finding
 
