@@ -24,7 +24,9 @@
 - 路径：`<wiki-root>/raw/{articles,assets,...}/`（子目录可自由扩展，见下文 `external/`）
 - 性质：用户策划的原始资料（论文、剪藏、PDF、图片、播客转写、手写笔记等）
 - 纪律：
-  - **LLM 在任何情况下不写 / 删除 / 移动 raw/ 下文件**——只读
+  - **LLM 不写 / 删除 / 移动 raw/ 下文件**——只读；**两处写权限例外**：`raw/external/`
+    （symlink + anchor，见下文）+ `raw/discussions/`（协作草稿，见下文）。**这两处例外
+    不得外推到 raw/ 其他子树**（papers / articles / clippings 等仍只读）
   - **用户可随时新增 / 更新 raw/**（重新剪藏、重存 PDF 都算）；这是用户的权限，
     不是违反纪律
   - raw 文件一旦被更新（同路径新内容），**由 ingest 重新消化**：更新对应 source
@@ -72,13 +74,51 @@
   - anchor 有 entry 但 symlink 不存在 = lint 报 `external-symlink-missing`（error）
   - target 路径被改 / 删除后，anchor 仍记旧值——lint 立刻报 `external-target-dead`
   - LLM agent **可写** symlink + anchor（首次接入 + 漂移刷新）——这是 `raw/`
-    总纪律的**唯一例外**；LLM 主导接入流程见 SKILL.md §1 批处理摄取子节
-  - LLM **不**修改 target 本身（外部仓是用户所有）；**不**编辑 `raw/external/`
-    之外的 `raw/` 子树（articles / papers / assets / clippings 等仍"LLM 只读"）
+    总纪律的**写权限例外之一**；LLM 主导接入流程见 SKILL.md §1 批处理摄取子节
+  - **target 仓内文件按角色分**（spec §13.3）：**wiki 维护操作**（ingest / query / lint /
+    migrate）中 target 只读（librarian 角色，不在仓内跑 `git pull` 之类）；**用户明确要求
+    的开发协作**（修 bug / 重构 / 仓内 git 操作）**不**属 wiki 操作、**不**受 raw/ 只读约束
+    ——target 在 wiki 仓外、有其自身 git、由用户全权处置。代码改动后的 wiki 同步走**既有通道**
+    （lint 报 `external-git-anchor-stale` → 用户确认 → 刷新 anchor + 受影响 source 页重 ingest）。
+    **禁止**以"开发协作"为借口在 wiki 维护操作中顺手改 target
+  - LLM **不**编辑 `raw/external/` 之外的 `raw/` 子树（articles / papers / assets /
+    clippings 等仍"LLM 只读"；`discussions/` 是另一处写权限例外——见下节）
 - `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `.symlink-anchor.toml`——
   跨机器 clone 时通过 anchor 立即知道"这本来指着哪"；anchor 的
   `remote_url` + `commit` + `branch` 三字段让新主机 LLM 可重建（详见 spec §13.5
   - `references/external-repo-rebuild.md`）
+
+#### `raw/discussions/` —— 协作草稿层（用户 + LLM 双方可写）
+
+> **本段 SSOT 反指**：discussions/ 子树契约 / 脚本豁免 / 归档路径 / 滑坡防线的权威定义在
+> `wiki-spec.md` §15；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
+> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时
+> 同步改本段。
+
+- 路径：`<wiki-root>/raw/discussions/`（**按需创建**，CLI 不预建——与 `raw/external/` 同型）
+- 用途：用户 + LLM 协作的临时草稿——讨论稿、设计草稿、待整理笔记。**不是**"用户掌控的
+  真相源"，不参与复利结构
+- 纪律（spec §15）：
+  - **用户 + LLM 双方可写**——创建 / 编辑 / 删除都行；这是 `raw/` 总纪律的**第二处写权限
+    例外**（第一处是 `raw/external/` 的 symlink + anchor）
+  - **不**要求 frontmatter（草稿不是内容页）
+  - **不**进 `wiki/index.md`；写 discussions/ **不**追加 `log.md` 条目（非 wiki 操作，
+    显式豁免"每次写入必更 log"）
+  - **`ingest_diff.py` 跳过** discussions/ 子树——草稿不会被当 untracked 素材列出
+    （避免 LLM 把自己写的草稿当 raw 真相 ingest 回 wiki = provenance 后门）
+  - **`raw-modified` lint 排除** discussions/——草稿的未提交 git 改动**不**触发"raw 被违规改"
+  - **`sources:` 不得指向** `raw/discussions/`——`type: source` 页引用草稿会被 lint 报
+    `source-in-discussions`（error）；要引用先走归档路径转正式
+  - git 默认跟踪（与 raw/ 其余子树一致）
+- **归档路径**（草稿 → wiki 真相，两条都需用户确认——spec §15.3）：
+  - **消化式**：LLM 把结论写进 `wiki/` 对应页（走标准 ingest 纪律：log / index / 清
+    `reviewed` 戳），原稿留删自便，不进 `sources:`
+  - **转正式**：用户确认后 LLM `mv raw/discussions/<x>.md raw/articles/<x>.md`（或合适
+    子树），此后回归只读真相源、走标准 ingest；这是 raw/ 只读的**第二处 mv 例外**
+    （迁入正式子树后 LLM 不可再改）
+- **滑坡防线**（spec §15.4）：discussions/ 的可写性**不得**外推到 raw/ 其他子树（papers /
+  articles / clippings 等仍只读）；§13.3 target 开发协作切分**不得**外推为"raw/ 也能改"；
+  不得用 discussions/ 规避 ingest 纪律（绕归档路径漏 log / index / reviewed 戳）
 
 ### `wiki/` —— LLM 拥有的复利资产
 

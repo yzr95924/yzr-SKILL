@@ -8,8 +8,8 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-29
-  wiki_spec_version: 0.28.0
+  last_modified: 2026-07-31
+  wiki_spec_version: 0.29.0
   fixtures_check_count: 20
 ---
 
@@ -92,16 +92,19 @@ metadata:
 四层各自承担一个责任，互相制衡：
 
 1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。**唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM **可**创建 symlink +
-   写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
+   对 LLM 只读。**两处写权限例外**：① `raw/external/` 顶层（**扁平布局**）下 LLM **可**创建
+   symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
    [wiki-spec §13.3](references/wiki-spec.md#133-责任切分用户--llm-共有)
-   - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；其余 `raw/` 子树
+   - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；② `raw/discussions/`
+   用户 + LLM **双方可写**的协作草稿层（临时讨论 / 设计草稿 / 待整理笔记）——详见
+   [wiki-spec §15](references/wiki-spec.md#15-rawdiscussions协作草稿层可选)。其余 `raw/` 子树
    （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
    **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
    raw 为准 4 条）见 `<wiki-root>/AGENTS.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
    模板见 [`references/agents-md-template.md`](references/agents-md-template.md)）。
    `raw/` 下子目录自由组织——CLI 默认建 `articles/` + `assets/`，但 `podcasts/` /
-   `clippings/` / `papers/` / `external/` 等自定义子目录同样可用；`ingest_diff.py` 递归扫整棵 `raw/`。
+   `clippings/` / `papers/` / `external/` / `discussions/` 等自定义子目录同样可用；
+   `ingest_diff.py` 递归扫整棵 `raw/`（跳过 `assets/` + `discussions/`）。
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
    wiki 内容，只读 + 提问题。每次摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
 3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
@@ -183,8 +186,15 @@ metadata:
 1. **raw/ 由用户掌控，LLM 只读**（schema 见 `<wiki-root>/AGENTS.md` §一）——LLM 从不写/删/移 `raw/` 下文件；
    用户可随时新增/更新 raw/（重新剪藏、重存 PDF 都算），改动由 ingest 重新消化（更新对应 source 页正文 +
    `updated`，`ingest_diff.py --check-stale` 按 mtime vs source `updated` 标记待重新摄取项）
-   **唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可主导创建 symlink +
-   写 anchor 的 `[[entry]]` 块（详 §1 批处理摄取外部代码仓子节 + wiki-spec §13.3）
+   **两处写权限例外**：
+   - `raw/external/` 顶层（**扁平布局**）下 LLM 可主导创建 symlink + 写 anchor 的
+     `[[entry]]` 块（详 §1 批处理摄取外部代码仓子节 + wiki-spec §13.3）。`raw/external/`
+     接入的 **target 仓内文件**按角色分：wiki 维护操作（ingest / query / lint / migrate）
+     中只读；**用户明确要求的开发协作**（修 bug / 重构）不属 wiki 操作、不受 raw/ 只读约束
+     （target 在仓外、由用户全权处置）——详 wiki-spec §13.3
+   - `raw/discussions/` 用户 + LLM **双方可写**的协作草稿层（不要求 frontmatter / 不进
+     index / 不写 log；`ingest_diff` 跳过、`raw-modified` lint 排除、`sources:` 不得指向它）；
+     草稿消化进 wiki 两条路（消化式 / 转正式 `mv`）都需用户确认——详 wiki-spec §15
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
 4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
@@ -244,8 +254,11 @@ metadata:
 ### 边界
 
 - **不**编辑 `raw/` 下任何文件——LLM 只读；用户可改，改后由 ingest 重新消化
-  **唯一例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可创建 symlink +
-  写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新；spec §13.3）
+  **两处写权限例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可创建 symlink +
+  写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新；spec §13.3；target 仓内
+  文件的角色切分见 §13.3——开发协作放行、wiki 维护操作仍只读）；`raw/discussions/` 用户 + LLM
+  双方可写草稿层（spec §15）。**这两处例外不得外推到 raw/ 其他子树**（papers / articles /
+  clippings 等仍只读）——滑坡防线见 wiki-spec §15.4
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
@@ -275,6 +288,13 @@ metadata:
   `external-anchor-orphan`
 - 在 `raw/external/` 下开 `<source-name>/` 子目录（已废弃）——扁平布局，
   所有 symlink 直接 in `external/`；老 wiki 残留会被 lint 报 `external-source-name-invalid`
+- 把 `raw/discussions/` 或 `raw/external/` target 的可写性**外推**到 raw/ 其他子树——
+  "discussions/ 能改，papers/ 我也能改" / "target 能改，raw/ 也能改" 是典型滑坡
+  （discussions/ + external/ 是**仅有的**两处例外，其余 raw/ 子树 LLM 只读；防线见 wiki-spec §15.4）
+- 让 `type: source` 页的 `sources:` 指向 `raw/discussions/`——草稿不是真相源，
+  lint 报 `source-in-discussions`（error）；要引用先走 wiki-spec §15.3 转正式
+- 用 `raw/discussions/` 规避 ingest 纪律——把草稿内容塞进 wiki 页却不走 log / index /
+  清 `reviewed` 戳，即绕开 §15.3 provenance 约束
 
 ### 反合理化三件套（纪律型 skill 必带）
 
@@ -288,7 +308,7 @@ metadata:
 | --- | --- | --- |
 | "用户没明说要我做这一步" | 本 skill 的纪律点（log / lint / reviewed 戳 / 等）触发条件是**事**而非**人**——写了 wiki 页就是触发 lint，写了 source 就是清 reviewed 戳——用户没说 = 沉默 ≠ 豁免 | 先按 §执行原则走完纪律，再决定是否省略；省略要写明理由进 log 条目 |
 | "这次是单页 ingest，跳过 entity/concept 同步更快" | 知识孤岛 = wiki 复利亏空——单页也一样要 cross-link；"更快"是把当前 case 凌驾于复利结构之上 | 哪怕只挂 1 个 entity 页也要同步；交叉引用是 wiki 的 ROI 核心 |
-| "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 唯一例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
+| "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
 | "`reviewed: true` 是一周前人标的，我没改多少内容，留着就行" | `reviewed: true` 是"这一刻内容背书"快照，**任何** LLM 对正文的修改都让它失效（包括 typos / 字段补全）——留戳 = 假装审过 | 任何 Edit/Write 后**必须**删 `reviewed` + `reviewed_at` 两字段，回到默认未审核态 |
 | "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 失去 commit 锚点 + 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
 | "这个 wiki 没 git，不写 log 也行" | log.md 记的是**操作语义**（ingest/query/lint）+ 近期活动速览（orient ritual 读它避免重复工作）——这是 git diff 不直接体现的；完整文件历史才靠 git | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
@@ -380,7 +400,9 @@ index 更新 / N 条 log。5 步流程 + 为什么批处理 + log 标题前缀 `
 
 **外部代码仓作为语料**——若用户说"把 X 仓库纳入 wiki"：**不**内嵌拷仓，走
 [`wiki-spec §13`](references/wiki-spec.md#13-rawexternal外部代码仓接入可选) 的 symlink 路径
-（`raw/` 总纪律的**唯一例外**——LLM 主导）。5 步接入（确认 symlink/target → LLM 验证 → 读
+（`raw/` 总纪律的**写权限例外之一**——LLM 主导接入；另一处例外是 `raw/discussions/`
+协作草稿，见 [wiki-spec §15](references/wiki-spec.md#15-rawdiscussions协作草稿层可选)）。
+5 步接入（确认 symlink/target → LLM 验证 → 读
 git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描）+ 漂移刷新 + 跨主机
 重建见 [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)。
 

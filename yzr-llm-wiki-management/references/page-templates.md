@@ -228,7 +228,7 @@ type: source
 tags: [<必填但可空>]
 created: YYYY-MM-DD HH:MM
 updated: YYYY-MM-DD HH:MM
-sources:  # 必填——指向 raw/ 现存路径
+sources:  # 必填——指向 raw/ 现存路径（不得指向 raw/discussions/——草稿非真相源，spec §15）
   - raw/articles/<slug>.md
 authors: [<name1>, <name2>]  # 可选
 published: YYYY-MM-DD          # 可选

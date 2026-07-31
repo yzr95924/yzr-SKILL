@@ -100,23 +100,29 @@ def parse_frontmatter_simple(text: str) -> Dict:
 # ingest 单元：raw/ 下被视为"可摄取素材"的扩展名白名单。
 # 文本素材（md / txt / markdown）走 raw/{articles,clippings,papers,...}/
 # 等任意子目录，rglob 递归扫；raw/assets/ 整棵子树跳过（用户放图片 / 二进制附件的地方，
-# LLM 不该管它们是否"已摄取"——它们本身就是 raw 终态，不应被 source 页引用）。
+# LLM 不该管它们是否"已摄取"——它们本身就是 raw 终态，不应被 source 页引用）；
+# raw/discussions/ 整棵子树跳过（用户 + LLM 协作草稿层，spec §15——不是待摄取的
+# 用户真相源，LLM 可写，不应被 ingest_diff 当 untracked 素材列出）。
 INGEST_GLOBS = ("*.md", "*.markdown", "*.txt")
 
 
 def collect_raw_files(raw_root: Path) -> List[Path]:
-    """递归收集 raw/ 下可摄取的文本素材（排除 assets/ 子树与隐藏 / 系统文件）。
+    """递归收集 raw/ 下可摄取的文本素材（排除 assets/ + discussions/ 子树与隐藏 / 系统文件）。
 
     为什么不收 raw/assets/：assets/ 是用户放图片 / 附件 / 二进制 PDF 的地方，
     引用关系走 raw/{articles,...} 下的 .md（md 内用相对路径链图）。把 png
     报为 untracked 会污染 ingest_diff 的信号。
+    为什么不收 raw/discussions/：discussions/ 是用户 + LLM 双方可写的
+    协作草稿层（spec §15），不是"用户掌控的真相源"——把它当 untracked 素材列出会
+    诱导 LLM 把自己写的草稿当 raw 真相 ingest 回 wiki（provenance 后门）。草稿要转
+    正式先由用户确认 mv 到 raw/articles 等子树（spec §15.3），mv 后才会被本函数扫到。
     """
     if not raw_root.is_dir():
         return []
     files = []  # type: List[Path]
     seen = set()  # type: Set[str]
-    # assets/ 子树直接跳过（不去 glob 它）
-    skip_dirs = {raw_root / "assets"}
+    # assets/ + discussions/ 子树直接跳过（不去 glob 它们）
+    skip_dirs = {raw_root / "assets", raw_root / "discussions"}
     for pattern in INGEST_GLOBS:
         for p in raw_root.rglob(pattern):
             if not p.is_file():
