@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title|e }}</title>
+<style>
+{{ styles }}
+{{ pygments_css }}
+</style>
+{% if has_math %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+{% endif %}
+</head>
+<body>
+<button class="theme-toggle" type="button" onclick="toggleTheme()" title="切换明暗主题" aria-label="切换明暗主题">🌓</button>
+{% if has_toc %}
+<div class="layout">
+  <aside class="sidebar">
+    {{ toc }}
+  </aside>
+  <main class="content">
+    {{ content }}
+  </main>
+</div>
+{% else %}
+<main class="content">
+  {{ content }}
+</main>
+{% endif %}
+
+{% if has_math %}
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+renderMathInElement(document.body, {
+  delimiters: [
+    {left: "$$", right: "$$", display: true},
+    {left: "$", right: "$", display: false},
+    {left: "\\(", right: "\\)", display: false},
+    {left: "\\[", right: "\\]", display: true}
+  ]
+});
+</script>
+{% endif %}
+{% if has_mermaid %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad: true, theme: "dark"});</script>
+{% endif %}
+
+<script>
+function toggleTheme() {
+  var h = document.documentElement;
+  h.dataset.theme = h.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem("md2html-theme", h.dataset.theme); } catch (e) {}
+}
+(function () {
+  try {
+    var s = localStorage.getItem("md2html-theme");
+    if (s) { document.documentElement.dataset.theme = s; }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
