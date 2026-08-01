@@ -1,0 +1,177 @@
+/* yzr-md-to-html 默认主题：GitHub-dark 风格 + 明暗切换（CSS 变量）。
+   被 scripts/md_to_html.py 读取后内联进产物 <style>，故可保持自包含。 */
+
+:root {
+  --bg: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-sidebar: #0d1117;
+  --text: #c9d1d9;
+  --text-heading: #f0f6fc;
+  --text-muted: #8b949e;
+  --border: #30363d;
+  --link: #58a6ff;
+  --code-bg: #1f2428;
+  --blockquote: #8b949e;
+  --blockquote-border: #30363d;
+  --table-header-bg: #161b22;
+  --toggle-fg: #c9d1d9;
+}
+
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-sidebar: #f6f8fa;
+  --text: #24292f;
+  --text-heading: #1f2328;
+  --text-muted: #57606a;
+  --border: #d0d7de;
+  --link: #0969da;
+  --code-bg: #eff1f3;
+  --blockquote: #57606a;
+  --blockquote-border: #d0d7de;
+  --table-header-bg: #f6f8fa;
+  --toggle-fg: #24292f;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans CJK SC", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 双栏布局：左侧栏目录 + 右侧正文 */
+.layout { display: flex; align-items: flex-start; }
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: 280px;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 28px 16px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  flex-shrink: 0;
+}
+.sidebar ul { list-style: none; padding-left: 14px; margin: 0; }
+.sidebar > ul { padding-left: 0; }
+.sidebar a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  display: block;
+  padding: 3px 0;
+  border-radius: 4px;
+}
+.sidebar a:hover { color: var(--link); }
+
+.content {
+  flex: 1;
+  min-width: 0;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 44px 32px 140px;
+}
+
+/* 排版 */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-heading);
+  line-height: 1.3;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+}
+h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+h4 { font-size: 1.05em; }
+/* toc permalink ¶ */
+.headerlink { color: var(--text-muted); text-decoration: none; margin-left: 0.3em; opacity: 0.5; }
+.headerlink:hover { opacity: 1; color: var(--link); }
+
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+p { margin: 0.8em 0; }
+ul, ol { padding-left: 1.6em; }
+li { margin: 0.3em 0; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+
+/* 代码 */
+code, kbd, samp {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: var(--code-bg);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 0.9em;
+}
+pre {
+  background: var(--code-bg);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  margin: 1em 0;
+}
+pre code { background: none; padding: 0; font-size: 0.875em; }
+.highlight { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--border); }
+.highlight pre { border: none; margin: 0; }
+
+/* 其它元素 */
+blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  color: var(--blockquote);
+  border-left: 4px solid var(--blockquote-border);
+  background: var(--bg-secondary);
+  border-radius: 0 6px 6px 0;
+}
+table { border-collapse: collapse; margin: 1em 0; width: 100%; display: block; overflow-x: auto; }
+th, td { border: 1px solid var(--border); padding: 6px 13px; text-align: left; }
+th { background: var(--table-header-bg); color: var(--text-heading); font-weight: 600; }
+img { max-width: 100%; height: auto; }
+input[type="checkbox"] { margin-right: 0.4em; }
+
+/* Mermaid 容器 */
+.mermaid {
+  text-align: center;
+  margin: 1.5em 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* 明暗切换按钮 */
+.theme-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 100;
+  background: var(--bg-secondary);
+  color: var(--toggle-fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.theme-toggle:hover { border-color: var(--link); }
+
+/* 窄屏：隐藏侧边栏，单栏阅读 */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .content { padding: 28px 16px 80px; }
+}

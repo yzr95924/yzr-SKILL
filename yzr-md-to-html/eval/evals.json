@@ -1,0 +1,23 @@
+{
+  "skill_name": "yzr-md-to-html",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我把项目根目录的 README.md 转成一个好看的 HTML，我想发给同事看",
+      "expected_output": "调用 scripts/md_to_html.py README.md，生成同名 README.html（深色主题 + 侧边栏目录 + 代码高亮），不自创 HTML",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我这份设计文档 docs/architecture.md 里有 KaTeX 数学公式和 mermaid 流程图，导出成能直接打开看的 HTML",
+      "expected_output": "调用脚本转换，产物自动按需挂 KaTeX + Mermaid CDN，并提醒首次打开需联网加载",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "把 notes/ 这个目录下的笔记全部转成 html",
+      "expected_output": "识别为目录输入，批量转换，每个 .md 生成同名 .html，汇报转换数量",
+      "files": []
+    }
+  ]
+}
