@@ -1,4 +1,4 @@
-# 改写规则 R1–R5
+# 改写规则 R1–R6
 
 > 本文件是「迁移时怎么改写每段内容」的 SSOT。Step 2 / 3 改写、Step 4 生成薄壳时读它。
 > SKILL.md 只给摘要 + 指针，不重抄。
@@ -54,14 +54,11 @@
 路径 2 诊断时若发现"AGENTS.md 把记忆索引 inline 进正文"这种老形态，按 R2 改造为 `@MEMORY/MEMORY.md`
 一行；切勿两套并存（内联 + `@import` 同时存在会让 L1 词数翻倍，且不知道哪家真源赢）。
 
-### 写统一（可选）：记忆写入规约
+### 写统一（默认，见 R6）
 
-R2 上面解决的是**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一——要求 agent 把新记忆写到
-`MEMORY/` 而非各自私有 memory——是**可选**的：它依赖 agent 把 AGENTS.md 当执行指令，而各 agent 对"执行
-AGENTS.md 写入指令"的程度不一，故不强求。启用的项目在 AGENTS.md「仓库规约」段保留**记忆写入规约模板**
-（见 `layering.md` 骨架「仓库规约」可选块）——核心是"持久化的'为什么'写 `MEMORY/`、不写私有 memory"
-+ 两种条目形式（完整带 frontmatter 三件套 / 短 memory 索引行）。项目方自定是否启用；不启用也不影响
-读侧统一（@import 收口照常生效）。
+R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一——agent 把新记忆写到 `MEMORY/` 而非
+私有 memory——已由「可选」升为**默认**，连同「MEMORY 仓 repo-local + 不存在则在 repo 下建」一起收口到
+**R6**（禁私有 memory 理由 + 最小 `MEMORY.md` 模板 + 写入规约均在那里）。本节不再单挂，避免与 R6 双写漂移。
 
 ## R3 — 行宽不变
 
@@ -131,6 +128,39 @@ This file provides guidance to Claude Code when working with code in this reposi
 - `@AGENTS.md` 存在
 - 顶部有「薄壳声明」（指向 AGENTS.md 为单一真源、提醒勿编辑共用部分）——结构性指针，不计入"正文"
 - 除「薄壳声明」、`@AGENTS.md` 和 HTML 注释标记外，不应有大段正文——有就说明该内容本该在 AGENTS.md（R1 去品牌后归 L1）或 MEMORY（R4），不该留在薄壳
+
+## R6 — MEMORY 仓 repo-local + 存在性
+
+**原则：跨会话记忆真源是 repo 根 `MEMORY/`，不写 agent 私有 memory。** 私有 memory（如 `~/.claude/...`、
+`~/.config/...` 等会话级路径）有三个硬伤：不随仓迁移（换机器 / clone 即丢）、不进 git（无法 review /
+回滚）、多 agent 各写各的会分裂成 N 份。故 L2 记忆仓必须落在 repo 里，跟着代码走。
+
+**存在性：迁前无 `MEMORY/` → 在 repo 下新建，不跳过、不省略记忆段。** 经本 skill 迁移的 repo 一律
+拥有 repo-local L2 记忆仓。新建时只建最小索引 `MEMORY/MEMORY.md`（模板见下），不预造
+`<slug>.md`（按需再建）。
+
+最小 `MEMORY/MEMORY.md` 模板（迁前无 MEMORY/ 时 LLM 建）：
+
+```markdown
+# MEMORY/
+
+跨会话"为什么 + 边界规则"的纯索引（L2 SSOT）；新条目追加到本文件末尾即可。
+记忆跟 repo 走——只活这一份，不写 agent 私有 memory（如 `~/.claude/...`）。
+```
+
+**写位置（写统一，默认）：AGENTS.md「仓库规约」段默认含「记忆写入规约」。** 持久化的"为什么 / 边界规则"
+写 `MEMORY/`（`MEMORY.md` 索引 + `MEMORY/<slug>.md` 正文），**禁写** agent 私有 memory。两种条目形式
+（完整带 frontmatter 三件套 `name` / `description` / `metadata.type` / 短 memory 索引行）的模板见
+[`layering.md`](layering.md) 骨架「仓库规约」段——本规则只管"写哪 / 不写哪"，条目格式细节不重抄。
+
+> 写统一在本 skill 内是**默认**：用户明确要「记忆跟 repo 走」。各 agent 对"执行 AGENTS.md 写入
+> 指令"的程度仍不一——本规则保证**指令在场且明确**（生成的 AGENTS.md 必含写入规约 + 禁私有
+> memory），至于单个 agent 是否照办是其执行层问题，不在本 skill 上下文。
+
+**自检**：
+
+- `test -f MEMORY/MEMORY.md` 应存在（迁前无 MEMORY/ 的项目迁后必有）。
+- AGENTS.md「仓库规约」段含「不写私有 memory」/「写 `MEMORY/`」类措辞。
 
 ## 路径 2 规范化诊断清单（Step 1 路径 2 用）
 
