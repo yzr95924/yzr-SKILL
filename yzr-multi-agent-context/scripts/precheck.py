@@ -55,7 +55,7 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
         lines.append("           请先用 agent 的 /init 生成初始 CLAUDE.md / AGENTS.md，再来归约。")
         return lines, False
 
-    # 2. MEMORY/（可选；不存在则 Step 3 跳过）
+    # 2. MEMORY/（不存在则 Step 3 在 repo 下新建——R6）
     memory = root / "MEMORY"
     if memory.is_dir():
         n = sum(1 for _ in memory.glob("*.md"))
@@ -73,7 +73,8 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
                 else:
                     lines.append("  [提示] AGENTS.md 缺记忆段——Step 2 会追加 @MEMORY/MEMORY.md + 顶部强制 Read 指令")
     else:
-        lines.append("  [INFO] 无 MEMORY/ 目录——Step 3 跳过")
+        lines.append("  [INFO] 无 MEMORY/ 目录——Step 3 将在 repo 下新建 MEMORY/MEMORY.md 最小索引（R6）")
+        lines.append("         记忆跟 repo 走：跨会话记忆写 MEMORY/，不写 agent 私有 memory（如 ~/.claude/...）")
 
     # 3. .migration-backup/ 已存在？（正常跑完会在 Step 5 收尾删除——存在 = 上次中断的残留）
     backup = root / ".migration-backup"
