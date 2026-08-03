@@ -1,9 +1,9 @@
 ---
 name: yzr-md-to-html
-description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，附右上角明暗切换），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题；可选 `--deploy` 经 rsync+SSH 把产物推到 server web 目录并给出访问 URL（命名 target 配置，推送即公开发布、需先确认）。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki-upload）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "把这个 md 转成 html 推到我 server 上发个链接"。
+description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，附右上角明暗切换），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki-upload）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传分享"。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-01
+  modify time: 2026-08-04
   category: document-conversion
 ---
 
@@ -41,9 +41,6 @@ metadata:
 | `--style` | ✗ | 自定义 CSS 路径，覆盖默认深色主题 |
 | `--no-toc` | ✗ | 关闭侧边栏目录 |
 | `--lang` | ✗ | `<html lang>`，默认 `zh-CN` |
-| `--deploy <target>` | ✗ | 转换后 rsync+SSH 推送到配置里的命名 target，打印访问 URL（发布即公开，推送前确认） |
-| `--deploy-config <path>` | ✗ | 部署配置 JSON 路径（默认 `./.md2html-deploy.json` → `~/.config/md2html/deploy.json`） |
-| `-y` / `--yes` | ✗ | 跳过推送前确认（agent / 脚本用；推送即公开发布） |
 
 输出：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联；KaTeX / Mermaid 按需走 CDN）。
 
@@ -74,38 +71,13 @@ metadata:
    代码高亮与基础排版仍正常——Pygments 是离线的）
 ```
 
-## 部署到 server（--deploy）
+## 上传产物（agent-html-drop MCP）
 
-转换后可经 **rsync over SSH** 把产物推到 server 的 web 目录，直接拼出可访问 URL。server 信息
-（host / path / base_url）写在 JSON 配置里，按命名 target 复用。
+转换得到的 `.html` 是**本地自包含文件**，双击即可在浏览器打开，本身不需要上传。
 
-**配置文件**（默认 `./.md2html-deploy.json`，其次 `~/.config/md2html/deploy.json`；完整样例见
-`assets/deploy-config.example.json`）：
-
-```json
-{
-  "targets": {
-    "prod": {
-      "host": "user@example.com",
-      "path": "/var/www/notes",
-      "base_url": "https://notes.example.com"
-    }
-  }
-}
-```
-
-每个 target 必填 `host` / `path` / `base_url`；可选 `port`（SSH 端口，默认 22）、
-`rsync_flags`（额外 rsync 参数，如 `--delete` 做整站同步）。
-
-**安全模型**（重要）：
-
-- 只走 **SSH key 认证**——靠本机 ssh agent / `~/.ssh/config`，skill **不碰私钥或密码**；连不上
-  让用户查自己的 SSH 配置，不要把密码塞进配置或命令行
-- **发布即公开**：推送会把内容公开到 `base_url`。**agent 推送前必须先向用户确认 target 与将生效
-  的 URL**，确认后再带 `-y` 执行；交互命令行会问 y/n，非交互环境（agent / 管道）不传 `-y` 直接拒绝
-- 默认**不删远端文件**（无 `--delete`）；目录批量部署只排除 `.md` 源，其余（含图片 / 资源）一并发布
-
-**依赖**：本机装 `rsync`（macOS 自带；Debian/Ubuntu `apt install rsync`）+ SSH 可达 target host。
+若用户想把产物上传 / 分享出去，**仅当 agent 已配置 `agent-html-drop` MCP 服务时**才考虑上传——
+直接调用该 MCP 提供的上传工具把 `.html` 推上去即可。当前**不提供**其他上传方式（不经 rsync 推
+server、不写部署配置）；`agent-html-drop` 未配置时，把本地 `.html` 路径交给用户自行处理。
 
 ## 参考样例
 
@@ -130,18 +102,8 @@ python3 yzr-md-to-html/scripts/md_to_html.py notes/
 # → notes/ 下每个 .md 就地生成同名 .html
 ```
 
-### 样例四：转换并推送到 server
-
-```bash
-python3 yzr-md-to-html/scripts/md_to_html.py draft.md --deploy prod -y
-# → 生成 draft.html → rsync 推到 prod target → 打印 https://notes.example.com/draft.html
-# -y 跳过确认；agent 推送前须先向用户确认 target 与 URL
-```
-
 ## 前置条件
 
 - Python ≥ 3.7
 - Python 依赖清单的**单一来源**：`scripts/md_to_html.py` 的 `DEPENDENCIES` 常量
 - 直接跑脚本即可；缺包时脚本报错并列出 `pip install` 命令（不抛裸 ImportError 栈）
-- （仅 `--deploy` 用）本机 `rsync` + SSH 可达 target host（认证走你自己的 ssh key，skill 不碰密钥）
-- （仅 `--deploy` 用）一份 `.md2html-deploy.json` 配置（样例见 `assets/deploy-config.example.json`）
