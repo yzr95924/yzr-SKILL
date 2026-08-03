@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ lang }}" data-theme="dark">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +13,6 @@
 {% endif %}
 </head>
 <body>
-<button class="theme-toggle" type="button" onclick="toggleTheme()" title="切换明暗主题" aria-label="切换明暗主题">🌓</button>
 {% if has_toc %}
 <div class="layout">
   <aside class="sidebar">
@@ -48,18 +47,5 @@ renderMathInElement(document.body, {
 <script>mermaid.initialize({startOnLoad: true, theme: "dark"});</script>
 {% endif %}
 
-<script>
-function toggleTheme() {
-  var h = document.documentElement;
-  h.dataset.theme = h.dataset.theme === "dark" ? "light" : "dark";
-  try { localStorage.setItem("md2html-theme", h.dataset.theme); } catch (e) {}
-}
-(function () {
-  try {
-    var s = localStorage.getItem("md2html-theme");
-    if (s) { document.documentElement.dataset.theme = s; }
-  } catch (e) {}
-})();
-</script>
 </body>
 </html>
