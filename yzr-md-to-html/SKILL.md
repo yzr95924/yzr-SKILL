@@ -1,6 +1,6 @@
 ---
 name: yzr-md-to-html
-description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，附右上角明暗切换），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki-upload）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传分享"。
+description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki-upload）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传分享"。
 metadata:
   author: Zuoru YANG
   modify time: 2026-08-04
@@ -8,7 +8,7 @@ metadata:
 ---
 
 把一份本地 Markdown 转成**自包含、双击即可在浏览器浏览**的 HTML 文件。默认套一套
-**深色阅读主题**（GitHub-dark 风格，附明暗切换按钮），自带侧边栏目录 TOC、离线代码
+**深色阅读主题**（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC、离线代码
 语法高亮（Pygments），并**按需**自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件
 里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。
 
@@ -55,7 +55,7 @@ metadata:
    agent 不要现场拼 HTML 或现写 markdown 库调用——保证产物一致、主题统一、扩展行为可预期
 2. **按需挂 CDN**：脚本检测到 `$` 才挂 KaTeX、检测到 mermaid 代码块才挂 mermaid.js；
    不要无脑给所有文档挂全套 CDN（普通 README 不该背公式 / 图表的网络请求与加载耗时）
-3. **深色主题默认**：默认 GitHub-dark，附右上角明暗切换按钮（`localStorage` 记忆偏好）；
+3. **深色主题默认**：默认 GitHub-dark 纯深色；
    要彻底换风格走 `--template` / `--style`
 4. **一次一份或一次一目录**：不做跨文档合并；多份想合成一个 HTML 请先拼成一个 `.md`
 
