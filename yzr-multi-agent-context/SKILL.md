@@ -36,8 +36,12 @@ agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
 必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成”MEMORY.md + AGENTS.md”双源。而自动展开
 `@import` 的 agent 本就把索引读入，不展开的由顶部指令补回——不值得为不展开的少数内联。
 
+**记忆跟 repo 走**（R6）：跨会话记忆的真源是 repo 根 `MEMORY/`，不是 agent 私有 memory（如
+`~/.claude/...`）——私有路径不随仓迁移 / 不进 git / 多 agent 各写分裂。故迁前无 `MEMORY/` 时在 repo 下
+新建最小 `MEMORY/MEMORY.md` 索引（R6），不跳过、不省略记忆段。
+
 完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见 [`references/layering.md`](references/layering.md)
-——Step 1 给段落分类时读它；改写规则 R1–R5 + 路径 2 诊断清单见
+——Step 1 给段落分类时读它；改写规则 R1–R6 + 路径 2 诊断清单见
 [`references/rewrite-rules.md`](references/rewrite-rules.md)——Step 2 / 3 / 4 对照执行。
 
 兼容性矩阵（按加载行为分类，不逐家点名——是否自动展开 `@import` 已由顶部强制 Read 指令通吃）：
@@ -90,7 +94,7 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 | 输入 | 必需 | 说明 |
 | --- | --- | --- |
 | 项目根目录 | 是 | 默认 cwd；两条路径之一：含 `CLAUDE.md` / 含 `AGENTS.md`（都没有→先用 `/init`） |
-| `MEMORY/` | 否 | 存在则一并去品牌化（Step 3）+ 在 AGENTS.md 加 `@MEMORY/MEMORY.md`；不存在跳过 |
+| `MEMORY/` | 否 | 存在则一并去品牌化（Step 3）+ 在 AGENTS.md 加 `@MEMORY/MEMORY.md`；不存在则在 repo 下新建（R6） |
 | 源文件快照 | 自动 | Step 1 快照源（CLAUDE.md / AGENTS.md）到 `.migration-backup/`（**临时目录**），供 Step 5 覆盖率比对，验证通过即删 |
 
 ### 输出
@@ -102,7 +106,7 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 ├── CLAUDE.md                 薄壳（@AGENTS.md + <!-- Claude Code 专属 --> 逃生舱）——让 Claude Code 也
 │                             加载同一份 AGENTS.md（含递归 @MEMORY/MEMORY.md 展开）；有现有 CLAUDE.md
 │                             则改写，纯 AGENTS.md 项目则新建最小薄壳
-└── MEMORY/                   改：MEMORY.md 索引保留为 L2 真源 + 各 slug 正文按 R1 去品牌
+└── MEMORY/                   新/改：存在则 MEMORY.md + 各 slug 正文按 R1 去品牌；不存在则建最小 MEMORY.md（R6）
 ```
 
 `.migration-backup/` **不在交付物里**——它只是 Step 1–5 期间的临时快照目录，Step 5 验证通过即删
@@ -126,7 +130,7 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 > 使用边界（不碰权限 / MCP / `scripts` / `references`、不删 `CLAUDE.md`、不生成 agent
 > 专属 rule 文件）已在「何时使用 / 不使用」给出，此处不重抄。
 
-### 改写规则 R1–R5（摘要）
+### 改写规则 R1–R6（摘要）
 
 - **R1 工具无关化**：去品牌、不改事实。完整替换表（`Claude Code` → `AI coding agent`、`claude -p` →
   `agent CLI` 等，含”何时保留工具名”判定）见 [`references/rewrite-rules.md`](references/rewrite-rules.md)——
@@ -134,15 +138,19 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
   段内不再单挂指引。**不**内联索引行——理由见上方「设计与原理」L2 记忆层段（Step 2 引用同一 R2 模板）。
-- **记忆写统一（可选，附属于 R2）**：R2 解决**读**统一；**写**统一（agent 把新记忆写 `MEMORY/` 而非
-  私有 memory）可选——依赖 agent 执行 AGENTS.md 指令，各 agent 程度不一，不强求。启用的项目在「仓库
-  规约」段保留写入规约模板（`layering.md` 骨架）；详见 `references/rewrite-rules.md` R2「写统一」。
+- **记忆写统一（默认，见 R6）**：R2 解决**读**统一；**写**统一（agent 把新记忆写 `MEMORY/` 而非私有
+  memory）是默认，连同 repo-local + 存在性一起收口到 R6（禁私有 memory + 最小 `MEMORY.md` 模板 +
+  写入规约）。详见 `references/rewrite-rules.md` R6。
 - **R3 行宽不变**：保持原文行宽约束（如 `.markdownlint.jsonc` MD013）——完整约束见
   [`references/rewrite-rules.md`](references/rewrite-rules.md) R3。
 - **R4 MEMORY 改写**：MEMORY 正文按 R1 去品牌，目录结构 / 文件数不变（仅改措辞，不合并 / 拆分 /
   删除条目）——完整约束见 [`references/rewrite-rules.md`](references/rewrite-rules.md) R4。
 - **R5 逃生舱**：无法泛化的工具专属内容（如脚本硬编码 `claude -p` 子进程），在 AGENTS.md 写泛化版、
   在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱。
+- **R6 MEMORY 仓 repo-local + 存在性**：跨会话记忆真源 = repo 根 `MEMORY/`，禁写 agent 私有 memory
+  （`~/.claude/...`）。迁前无 `MEMORY/` → 在 repo 下建 `MEMORY/MEMORY.md` 最小索引（不跳过、不省略
+  记忆段）；「仓库规约」段默认含写入规约。完整约束 + 模板见
+  [`references/rewrite-rules.md`](references/rewrite-rules.md) R6。
 
 ### 运行约束
 
@@ -180,21 +188,24 @@ python3 scripts/precheck.py <project-root>
    - **路径 1**：CLAUDE.md 段落去品牌改写入骨架。
    - **路径 2**：在现有 AGENTS.md 基础上规范化（改记忆段为 `@MEMORY/MEMORY.md`、去品牌残留、
      合并 CLAUDE.md 内容去重），冲突口径让用户裁定。
-2. 有 `MEMORY/` 时加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`**——段内不再
-   挂段内指引（不展开 `@import` 的 agent 由顶部强制 Read 指令兜底）。完整段落模板见
+2. 加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`**——段内不再挂段内指引（不展开
+   `@import` 的 agent 由顶部强制 Read 指令兜底）。**无 `MEMORY/` 时先在 repo 下建 `MEMORY/MEMORY.md`
+   最小索引（R6）再放本段**——不再因「无 MEMORY/」省略。完整段落模板见
    [`references/rewrite-rules.md`](references/rewrite-rules.md) R2。
 3. 应用 R1（去品牌）+ R3（行宽）。
 4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`references/layering.md`](references/layering.md)）；
    超出把详细内容下沉到 L2（`MEMORY/`）。
 5. 自检：
    - `grep -iE “claude code|\.claude/” AGENTS.md` 应无命中（去品牌通过）
-   - 有 `MEMORY/` 时 `grep -nE '^@MEMORY/MEMORY\.md$' AGENTS.md` 应有 1 行命中（R2 引用）
+   - `grep -nE '^@MEMORY/MEMORY\.md$' AGENTS.md` 应有 1 行命中（R2 引用；MEMORY/ 现为默认存在，见 R6）
    - 顶部应有强制 Read 指令 blockquote（H1 后、首个 `##` 前；含 `@` + Read 特征——所有 AGENTS.md 必备）
 
-### Step 3：改写 MEMORY（LLM，如存在）
+### Step 3：MEMORY（LLM）——存在则去品牌，不存在则建仓
 
-应用 R4：MEMORY 正文按 R1 去品牌，目录结构 / 文件数量不变。
-自检：`grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤缩写）。
+- **存在**：应用 R4——MEMORY 正文按 R1 去品牌，目录结构 / 文件数量不变。自检
+  `grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤缩写）。
+- **不存在**：应用 R6——在 repo 下新建 `MEMORY/MEMORY.md` 最小索引（模板见
+  [`references/rewrite-rules.md`](references/rewrite-rules.md) R6）。新文件无品牌可去，只建仓。
 
 ### Step 4：生成 CLAUDE.md 薄壳
 

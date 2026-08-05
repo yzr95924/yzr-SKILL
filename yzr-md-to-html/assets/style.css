@@ -1,4 +1,4 @@
-/* yzr-md-to-html 默认主题：GitHub-dark 风格 + 明暗切换（CSS 变量）。
+/* yzr-md-to-html 默认主题：GitHub-dark 风格纯深色（CSS 变量）。
    被 scripts/md_to_html.py 读取后内联进产物 <style>，故可保持自包含。 */
 
 :root {
@@ -14,23 +14,6 @@
   --blockquote: #8b949e;
   --blockquote-border: #30363d;
   --table-header-bg: #161b22;
-  --toggle-fg: #c9d1d9;
-}
-
-[data-theme="light"] {
-  --bg: #ffffff;
-  --bg-secondary: #f6f8fa;
-  --bg-sidebar: #f6f8fa;
-  --text: #24292f;
-  --text-heading: #1f2328;
-  --text-muted: #57606a;
-  --border: #d0d7de;
-  --link: #0969da;
-  --code-bg: #eff1f3;
-  --blockquote: #57606a;
-  --blockquote-border: #d0d7de;
-  --table-header-bg: #f6f8fa;
-  --toggle-fg: #24292f;
 }
 
 * { box-sizing: border-box; }
@@ -148,27 +131,6 @@ input[type="checkbox"] { margin-right: 0.4em; }
   border-radius: 8px;
   padding: 16px;
 }
-
-/* 明暗切换按钮 */
-.theme-toggle {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 100;
-  background: var(--bg-secondary);
-  color: var(--toggle-fg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 38px;
-  height: 38px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.theme-toggle:hover { border-color: var(--link); }
 
 /* 窄屏：隐藏侧边栏，单栏阅读 */
 @media (max-width: 900px) {
