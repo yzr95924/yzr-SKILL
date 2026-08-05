@@ -142,13 +142,16 @@ def check_memory_sync(root: Path) -> List[str]:
     4. AGENTS.md 不再含旧内联形态（一堆 `- [标题](MEMORY/<slug>.md) — …`）——内联 + @import
        两套并存让 L1 词数翻倍，诊断时按旧内联残留处理。
 
-    无 MEMORY/ 或无 AGENTS.md 时返回空（不适用）。返回的报告行前缀沿用旧 [OK]/[不同步]，便于 caller
-    grep。
+    无 AGENTS.md 时返回空（不适用）；有 AGENTS.md 但无 MEMORY/ 时发一条 [提示]（R6 要求 repo-local
+    记忆仓）即返回。返回的报告行前缀沿用 [OK] / [不同步] / [提示]，便于 caller grep。
     """
     lines: List[str] = []
     memory = root / "MEMORY"
     agents = root / "AGENTS.md"
-    if not memory.is_dir() or not agents.exists():
+    if not agents.exists():
+        return lines
+    if not memory.is_dir():
+        lines.append("  [提示] 无 MEMORY/ 目录——R6 要求 repo-local 记忆仓：迁时应建 MEMORY/MEMORY.md（见 SKILL.md R6）")
         return lines
 
     memory_index = memory / "MEMORY.md"

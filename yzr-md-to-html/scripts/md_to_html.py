@@ -11,13 +11,10 @@ Python >= 3.7。依赖：markdown / pymdown-extensions / pygments / jinja2。
 
 import argparse
 import importlib.util
-import json
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 # 资源目录相对脚本定位：scripts/ 的上一级 yzr-md-to-html/assets/
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
@@ -158,109 +155,6 @@ def convert_dir(src_dir: Path, out_dir: Path, template: Path, style: Path, lang:
     return count
 
 
-# --- 部署（--deploy）-----------------------------------------------------------
-# 配置发现顺序：项目本地 → 用户全局；样例见 assets/deploy-config.example.json
-CONFIG_CWD_NAME = ".md2html-deploy.json"
-CONFIG_HOME_PATH = Path.home() / ".config" / "md2html" / "deploy.json"
-RSYNC_BIN = "rsync"
-DEPLOY_REQUIRED_FIELDS = ("host", "path", "base_url")
-
-
-def _find_deploy_config(explicit: Optional[str]) -> Path:
-    """解析部署配置路径：--deploy-config > ./.md2html-deploy.json > ~/.config/md2html/deploy.json。"""
-    if explicit:
-        p = Path(explicit)
-        if not p.exists():
-            sys.exit(f"部署配置不存在: {p}")
-        return p
-    cwd_cfg = Path.cwd() / CONFIG_CWD_NAME
-    if cwd_cfg.exists():
-        return cwd_cfg
-    if CONFIG_HOME_PATH.exists():
-        return CONFIG_HOME_PATH
-    sys.exit(
-        "未找到部署配置。请在项目根写一份 .md2html-deploy.json（样例见 "
-        "assets/deploy-config.example.json），或用 --deploy-config 指定路径。"
-    )
-
-
-def _load_target(config_path: Path, target_name: str) -> dict:
-    """从配置里取命名 target 并校验必填字段（host/path/base_url）。"""
-    try:
-        cfg = json.loads(config_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as e:
-        sys.exit(f"部署配置 JSON 解析失败 ({config_path}): {e}")
-    targets = cfg.get("targets", {})
-    if target_name not in targets:
-        avail = ", ".join(targets) or "(无)"
-        sys.exit(f"配置里没有 target '{target_name}'。可用: {avail}")
-    target = targets[target_name]
-    missing = [k for k in DEPLOY_REQUIRED_FIELDS if k not in target]
-    if missing:
-        sys.exit(f"target '{target_name}' 缺字段: {', '.join(missing)}（需 host/path/base_url）")
-    return target
-
-
-def _build_rsync_cmd(local: Path, target: dict, remote: str, is_dir: bool) -> List[str]:
-    """构造 rsync over SSH 命令（list 形式，避免 shell 注入）。"""
-    port = target.get("port", 22)
-    ssh = f"ssh -p {port}" if port != 22 else "ssh"
-    extra = target.get("rsync_flags", "").split() if target.get("rsync_flags") else []
-    cmd = [RSYNC_BIN, "-avz", "-e", ssh] + extra
-    if is_dir:
-        # 目录批量：排除 .md 源，其余（含 .html / 图片 / 资源）一并发布
-        cmd += ["--exclude=*.md", str(local).rstrip("/") + "/", remote]
-    else:
-        cmd += [str(local), remote]
-    return cmd
-
-
-def _ensure_rsync() -> None:
-    if shutil.which(RSYNC_BIN) is None:
-        sys.exit(f"未找到 {RSYNC_BIN}。请先安装（Debian/Ubuntu: apt install rsync；macOS 自带）。")
-
-
-def deploy(
-    local: Path,
-    target_name: str,
-    config_path: Optional[str],
-    yes: bool,
-    is_dir: bool,
-) -> None:
-    """转换后把产物 rsync 到 server web 目录，打印访问 URL。
-
-    安全模型：只走 SSH key 认证（靠本机 ssh agent / ~/.ssh/config，不碰私钥或密码）；
-    发布即公开，推送前必须确认——交互 tty 问 y/n，非交互（agent / 管道）须传 -y。
-    """
-    _ensure_rsync()
-    cfg_path = _find_deploy_config(config_path)
-    target = _load_target(cfg_path, target_name)
-
-    base_url = target["base_url"].rstrip("/")
-    url = base_url + "/" if is_dir else base_url + "/" + local.name
-    remote = f"{target['host']}:{target['path'].rstrip('/')}/"
-
-    print("ℹ 将发布（公开可访问）:")
-    print(f"   本地 : {local}")
-    print(f"   远端 : {remote}")
-    print(f"   URL  : {url}")
-    if not yes:
-        if not sys.stdin.isatty():
-            sys.exit("非交互环境（agent / 管道）需传 -y 才能推送；agent 推送前应已向用户确认 target 与 URL")
-        ans = input("确认推送? [y/N] ").strip().lower()
-        if ans not in ("y", "yes"):
-            sys.exit("已取消")
-
-    cmd = _build_rsync_cmd(local, target, remote, is_dir)
-    print("推送中…")
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.stdout.strip():
-        print(res.stdout.rstrip())
-    if res.returncode != 0:
-        sys.exit(f"rsync 失败 (exit {res.returncode}):\n{res.stderr.strip()}")
-    print("✓ 已发布，访问: " + url)
-
-
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description="把 Markdown 转成自包含、深色主题的可浏览 HTML。")
     parser.add_argument("input", help="Markdown 文件，或目录（批量转该目录下所有 *.md）")
@@ -270,24 +164,6 @@ def main(argv=None) -> None:
     parser.add_argument("--style", default=str(DEFAULT_STYLE), help="自定义 CSS 路径")
     parser.add_argument("--no-toc", action="store_true", help="关闭侧边栏目录")
     parser.add_argument("--lang", default="zh-CN", help="<html lang>，默认 zh-CN")
-    parser.add_argument(
-        "--deploy",
-        default=None,
-        metavar="TARGET",
-        help="转换后经 rsync+SSH 推送到配置里的命名 target，并打印访问 URL",
-    )
-    parser.add_argument(
-        "--deploy-config",
-        default=None,
-        metavar="PATH",
-        help="部署配置 JSON 路径（默认 ./.md2html-deploy.json → ~/.config/md2html/deploy.json）",
-    )
-    parser.add_argument(
-        "-y",
-        "--yes",
-        action="store_true",
-        help="跳过推送前确认（agent / 脚本用；推送即公开发布）",
-    )
     args = parser.parse_args(argv)
 
     ensure_deps()
@@ -307,8 +183,6 @@ def main(argv=None) -> None:
         out_dir = Path(args.output) if args.output else src
         n = convert_dir(src, out_dir, template, style, args.lang)
         print(f"已批量转换 {n} 个文件 → {out_dir}/")
-        deploy_target = out_dir
-        deploy_is_dir = True
     else:
         out = Path(args.output) if args.output else src.with_suffix(".html")
         convert_file(src, out, args.title, template, style, not args.no_toc, args.lang)
@@ -316,11 +190,6 @@ def main(argv=None) -> None:
         source_text = src.read_text(encoding="utf-8")
         if "$" in source_text or "mermaid" in source_text:
             print("（含公式 / Mermaid，首次打开需联网加载 CDN）")
-        deploy_target = out
-        deploy_is_dir = False
-
-    if args.deploy:
-        deploy(deploy_target, args.deploy, args.deploy_config, args.yes, deploy_is_dir)
 
 
 if __name__ == "__main__":
