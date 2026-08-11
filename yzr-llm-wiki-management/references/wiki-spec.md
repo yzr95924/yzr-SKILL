@@ -7,6 +7,12 @@
 > SKILL **不反向依赖** CLI 实现——`wiki_metadata.toml` 的**字段全集 schema 归 CLI 代码 SSOT**
 >（见 CLI 仓）。本 spec 只描述 SKILL 读取所需的字段子集。
 >
+> **spec 只承载设计不变量**：CLI 的具体实现形式——命令名、占位符语法 / 渲染机制、版本戳编码格式、
+> `.gitignore` 栅栏标记、CLI 源码路径等——一律**不进 spec**（实现方法多样，spec 钉死只会反向限制
+> CLI 开发）。这些细节的唯一权威是 [`check_wiki_fixtures.py`](../scripts/check_wiki_fixtures.py)
+> （可执行契约）+ [`references/fixtures/`](fixtures/)（字节金标准）+ CLI 代码；本 spec 提及时只描述
+> 设计意图 + 指向探测器，不复制字节。
+>
 > **结构合规的可执行真源**是 [`scripts/check_wiki_fixtures.py`](../scripts/check_wiki_fixtures.py)——
 > 本 spec 是它的人类可读说明；两者不一致时**以探测器为准**（spec 滞后不构成 CLI 违规；
 > 探测器 pass 即合规）。
@@ -103,14 +109,15 @@
   允许使用的 tag 集合；裸 bullet 列表，**无 frontmatter**（与 MEMORY.md 同——元数据不是
   wiki 内容页）；不在 `wiki/index.md` 强制列出；CLI init 时刻按 `references/fixtures/`
   生成空白模板，LLM 与用户共同确认主题分类后填充。详见 §9「§9.1 tag 白名单来源」
-- `raw/articles/` 与 `raw/assets/` 是默认占位；用户在 wiki 仓内可自由新增其他子目录
-  （如 `podcasts/` / `papers/` / `clippings/` / `external/`（语义见 §13）/ `discussions/`
-  （语义见 §15）），CLI 不必预创建。其中 `external/` 与 `discussions/` 是 raw/ 总纪律
-  （LLM 只读）的**两处写权限例外**——其余 raw/ 子树 LLM 仍只读
+- `raw/` 下子树分两类：**通用分类占位**（`articles/` / `assets/` 等，用户自由组织原始资料，
+  无强制语义）与**有专门语义的子树**——`external/`（§13，外部仓 symlink 接入）、
+  `discussions/`（§15，协作草稿层）。后两者是 raw/ 总纪律（LLM 只读）的**两处写权限例外**，
+  其余 raw/ 子树 LLM 仍只读。**fresh init 预建哪些 raw/ 子目录是实现的自由**（见 §7），
+  不影响语义正确性
 - `index.md` / `log.md` 是 `wiki/` 下的文件（不是子目录）；`MEMORY/MEMORY.md` 在 `<wiki-root>/MEMORY/`
   下（与 `wiki/` 平级），不是 `wiki/` 下的文件
 - `comparisons/` 等 5 个内容页子目录在初始化时为空目录——空目录对纯目录树 wiki 无副作用；
-  CLI init **无条件**在每个空子目录放 `.gitkeep` 让其能被 `git add`（见 §7，0.16.0+）
+  让空目录可被 git 跟踪的占位策略（`.gitkeep` / 别的方式）由实现自定（见 §7）
 - **`scripts/` 是 wiki 仓的本机扩展脚本目录**——CLI init 时刻**始终创建**
   （与 `raw/articles/` 同：默认占位），用户 / agent 后续填入项目级 ingest 扩展、
   外部 CLI 胶水脚本、自动化钩子等。`scripts/SCRIPTS.md` 是这个目录的索引，由
@@ -120,13 +127,13 @@
 
 ## §1.1 wiki_metadata.toml（CLI 维护）
 
-> **维护方**：workspace CLI 在 `wiki add` 时创建 + 后续 `wiki config` / `wiki rename` 维护。
+> **维护方**：workspace CLI 在 wiki 注册时创建 + 后续 wiki 元数据 CRUD 命令维护。
 > skill **只读**（workspace skill `scan` 时读取，见 workspace-spec §5）。
 
 - 路径：`<wiki-root>/wiki_metadata.toml`
 - 格式：TOML
 - **完整字段 schema 由 CLI 代码 SSOT**（见 CLI 仓）——本 spec 不做权威定义。
-  CLI 可自由演进字段（`schema_version` / `updated_at` / `model` 等），spec 不跟进。
+  CLI 可自由演进运行时字段（簿记 / session 启动等），spec 不跟进。
 
 > **authority**：下表是 **SKILL 的读取契约**，authority 在 SKILL（读方决定读什么）；
 > toml 字段全集 authority 在 CLI。「SKILL 读的字段 CLI 是否仍提供」由
@@ -134,8 +141,8 @@
 
 - **skill 读取的字段**（workspace skill `scan` 生成 INDEX / STATS 用）：
   `name` / `topic` / `display_name` / `description` / `tags` / `created_at`
-- **skill 不读**（CLI 内部用）：`model`（CLI `wiki enter` 选 session backend）/ `schema_version` / `updated_at`（CLI 簿记）
-- **CLI 写入场景**：`wiki add` / `wiki config` / `wiki rename`
+- **skill 不读**（CLI 内部字段）：session 启动 / 簿记等运行时数据——具体字段名与用途归 CLI，spec 不跟进
+- **CLI 写入场景**：wiki 元数据 CRUD——具体命令名归 CLI
 - **skill 写入场景**：**无**——只读
 
 ## §2 AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
@@ -171,18 +178,18 @@
 
 - 路径：`<wiki-root>/AGENTS.md`
 - 内容来源：本仓 `references/agents-md-template.md`（**权威 canonical 模板**）
-- CLI 实现时必须**逐字拷贝**该模板，仅做以下替换：
-  - `{{TOPIC_NAME}}` → 用户传入的主题名（人类可读字符串，如 `"LLM Systems"`、`"Distributed Systems"`）
-  - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD HH:MM`（lint 仍接受老 wikis 的 `YYYY-MM-DD`，详见 §9 字段说明）
-  - `{{WIKI_SPEC_VERSION}}` → CLI 实现兼容的 wiki spec 版本号（语义化版本，如 `0.11.0`）
-  - `{{CLI_VERSION}}` → CLI 自身版本号
+- CLI 按 canonical 模板生成，差异**仅限 4 个 per-wiki 值**（模板替换机制——占位符语法 / 渲染引擎——归 CLI，spec 不规定）：
+  - 主题名（用户传入的人类可读字符串，如 `"LLM Systems"`、`"Distributed Systems"`）
+  - 创建日期（当天，`YYYY-MM-DD HH:MM`；lint 仍接受老 wikis 的 `YYYY-MM-DD`，详见 §9 字段说明）
+  - wiki spec 版本号（CLI 当前兼容版本）
+  - CLI 自身版本号
 - 模板顶部说明块的"本文件 ... 按 wiki-spec.md §2 拷贝生成"反向引用，CLI **不得修改**
 
 ### CLAUDE.md（薄壳）
 
 - 路径：`<wiki-root>/CLAUDE.md`
 - 内容来源：本仓 `references/claude-md-template.md`（薄壳模板，`@AGENTS.md` + 声明，≤ 30 行）
-- CLI 实现时**逐字拷贝**该模板，仅替换 `{{TOPIC_NAME}}`（占主题名；不持 spec 版本——版本在 AGENTS.md §八）
+- CLI 按薄壳模板生成，差异仅限主题名一个值（不持 spec 版本——版本在 AGENTS.md §八）
 - 不含纪律正文；AGENTS.md 顶部 `@MEMORY/MEMORY.md` / `@scripts/SCRIPTS.md` `@import`
   由 AGENTS.md 自身携带，薄壳内**不**再额外挂 import；仅 `@AGENTS.md` 一行
 
@@ -249,18 +256,18 @@
 > 完整审计日志——它是**近期活动速览**；完整操作历史靠 git（`git log -p -- wiki/log.md`）。
 > 本 skill 假设 wiki 纳入 git 仓（典型为 workspace 级 git）。
 
-- **滚动窗口**：`log.md` 只保**最近 `LOG_RETENTION_LIMIT`（默认 50）条**操作条目。按正则
+- **滚动窗口**：`log.md` 只保**最近 50 条**操作条目（滚动窗口阈值，lint 兜底见下）。按正则
   `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含 frontmatter 与空白行
 - **截断时机**（两层）：
   1. **写入时**——agent 在 ingest / query / lint 写完新条目后，若条目数 > 上限，用 Edit
      删最旧的若干条保最近 N 条（脚本不修改 wiki 内容，截断由 agent 用 Edit/Write 做）
-  2. **lint 兜底**——`check_log_truncation()` 在条目数 > 上限时报 `log-truncation-recommended`
+  2. **lint 兜底**——lint 在条目数超过上限时报 `log-truncation-recommended`
      （warning），agent 看到后截断
 - **删条目规则**：删 frontmatter 之后、最旧的若干 `## [date] op | title` 行；**保留 frontmatter
   全部字段不变**（`created` 永远是首次创建日，不因截断改；`updated` 正常更新）
 - **历史回溯**：被删的老条目在 git history 里——`git log -p -- wiki/log.md` 可查任意历史版本。
   未启用 git 的 wiki 老条目会丢失（本 skill 推荐将 wiki 纳入 git 仓）
-- **不再 rotate**：旧版 `log-YYYY.md` 归档 rotate 机制已废（0.27.0）——滚动窗口 + git history
+- **不再 rotate**：旧版 `log-YYYY.md` 归档 rotate 机制已废——滚动窗口 + git history
   取代之；存量 `log-YYYY.md` 视为只读遗留，lint 不查、agent 不动
 
 ## §5 MEMORY/
@@ -353,34 +360,27 @@ SSOT 在 [`references/fixtures/gitignore.txt`](fixtures/gitignore.txt)——CLI 
 
 ## §7 Git 初始化（opt-in，默认跳过）
 
-> **立场**：wiki **不依赖 git 即可工作**——默认落盘为**纯目录树**。git 仅在用户显式 opt-in
-> （`--git`）时启用，用于版本控制 / history / diff。即便不启用 git，后续所有 ingest / query /
-> lint 仍正常运行（lint 的 raw/ 不可变性检查在无 git 时自动跳过——没有 git 就没有"未提交改动"概念）。
+> **立场**：wiki **不依赖 git 即可工作**——默认落盘为**纯目录树**。git 是用户显式 opt-in 的事，
+> 用于版本控制 / history / diff。即便不启用 git，后续所有 ingest / query / lint 仍正常运行
+> （lint 的 raw/ 不可变性检查在无 git 时自动跳过——没有 git 就没有"未提交改动"概念）。
 
-- **默认（无 `--git`）**：CLI **完全不碰 git**——不 init、不 add、不 commit。wiki 作为纯目录树落盘。
-- **opt-in（`--git`）**：CLI **同样不碰 git**——CLI init 仅落盘文件结构 + 打印用户侧 hint。
-  **所有 git 操作由用户自行触发**（红线——CLI/agent 流程不主动操作 git）。
+- **无论用户是否打算 opt-in git**：CLI **完全不碰 git**——不 init、不 add、不 commit、不提供任何 git
+  操作入口。wiki 作为纯目录树落盘；即使用户想启用 git，CLI init 也只落盘文件结构 + 提示用户自行操作
+  git（红线——CLI/agent 流程不主动操作 git；是否提供 opt-in 开关、开关叫什么，归 CLI，spec 不钉）。
 - **CLI 必须做的工作（init 时刻）**：
-  1. 落盘目录结构（`raw/{articles,assets}/` + 5 个 wiki 内容子目录 + `MEMORY/` + `scripts/` 等）——见 §1
+  1. 落盘 wiki 骨架目录结构——至少含 `raw/{articles,assets}/`、5 个 wiki 内容子目录、`MEMORY/`、
+     `scripts/`（见 §1）。`raw/` 下是否额外预建有专门语义的子树（如 `discussions/`）由实现自定，
+     非语义要求
   2. 拷贝 SSOT 模板到 `<wiki-root>/AGENTS.md` / `CLAUDE.md` / `wiki/index.md` /
      `wiki/log.md` / `MEMORY/MEMORY.md` / `scripts/SCRIPTS.md` / `.gitignore`
-  3. 在以下空目录放 `.gitkeep` 占位文件（让用户后续 `git add .` 时能跟踪到目录）：
-     - **5 个 wiki 内容页子目录**（`comparisons/` `concepts/` `entities/` `sources/` `syntheses/`）——见 §1
-     - **raw/articles/** 与 **raw/assets/**（CLI 默认建的 raw 子目录；见 §1）——**必须放**；
-       不放会导致 raw/ 0 tracked，`raw-modified` lint 永远 0 命中
-     - **不**为用户后续自建的 raw 子目录（如 `podcasts/` `clippings/` `papers/` 等）放 .gitkeep——
-       避免 CLI 预设用户没要求的目录；用户自己加（spec §6 不排除 raw/，git 能正常跟踪）
+  3. **空目录占位策略由实现自定**（`.gitkeep` / 别的方式均可），但有一个正确性约束：
+     git 跟踪的 wiki 里 `raw/` **至少要有 tracked 内容**，否则 `raw-modified` lint 永远 0 命中
+     （检测不到 raw 被违规改）。`raw/articles/`、`raw/assets/` 等占位子目录的存在即可满足此约束；
+     预建哪些子目录、是否为其放占位文件，都是实现自由，非语义要求
 
-- **CLI 必须打印的 hint**（让用户知道后续 git 操作该怎么做）：
-
-  ```text
-  [INFO] wiki 已落盘为纯目录树（<wiki-root>）。
-  [INFO] 若需 git 版本控制，请手动执行：
-         cd <wiki-root>
-         git init && git symbolic-ref HEAD refs/heads/main
-         git add . && git commit -m "Initial wiki scaffold"
-  [INFO] .gitkeep 占位文件已放入空目录；后续 raw/ 真实文件由你 `git add` 后纳入跟踪。
-  ```
+- **CLI 应提示用户如何自行 opt-in git**：init 后告知用户 wiki 已落盘为纯目录树、如需版本控制由用户
+  手动 `git init` + 首次 commit、空目录占位策略（见下）。**具体提示文案与建议命令归 CLI**（红线不变——
+  CLI 自身不执行这些 git 操作）；空目录占位策略也由实现自定（`.gitkeep` / 别的方式均可）
 
 - **不得**对已存在的 git 仓误调 `git init`（反向边界——CLI 本就不主动 git init，正常流程无触发机会）。
 
@@ -399,7 +399,7 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 ## §9 Frontmatter 字段全集（CLI 引用，非生成内容页）
 
 CLI **不**生成 `wiki/{entities,concepts,sources,comparisons,syntheses}/` 下的内容页（由 LLM 在 ingest 时写）。
-但 spec 必须明确字段全集，CLI 在做合规性自检（如 `init --verify`）时引用：
+但 spec 必须明确字段全集，CLI 在做合规性自检（如对初始化产物做校验）时引用：
 
 > **为什么是这 5 个**：5 字段是 OKF §9「字段齐全性」与 lint 校验一致性的最小交集——
 > `title`（人/grep 找页）、`type`（决定子目录 + lint 校验路径）、`created` / `updated`（stale / orphan 判定）、
@@ -519,7 +519,7 @@ compared:
 | `contested` | 任意内容页 | 否 | 仅 `true` 时写；本页含未解决的矛盾主张，需复审 |
 | `contradictions` | 任意内容页 | 否 | wiki 页路径数组；与本页主张冲突的页面（双向标注） |
 
-**生命周期规则**（LLM 必读，CLI 不强制但 CLI `--verify` 可加 `reviewed-stale` 检查）：
+**生命周期规则**（LLM 必读，CLI 不强制但 CLI 合规自检可加 `reviewed-stale` 检查）：
 
 - LLM 创建新页不写 `reviewed` / `reviewed_at`
 - 人标记已审核 → 写 `reviewed: true` + `reviewed_at: <今天>`
@@ -530,20 +530,18 @@ compared:
 [`page-templates.md`](page-templates.md)（LLM 写作视角，非 CLI 视角）。
 
 **字段退役记录**：`confidence` 字段已退役，由 `reviewed` + `reviewed_at`
-替代。CLI `--verify` 见到 `confidence:` 字段给 `legacy-confidence-field` warn
-（迁移脚本由 SKILL 仓 `lint_wiki.py --migrate-confidence` 提供）。
+替代。CLI 合规自检见到 `confidence:` 字段应给 `legacy-confidence-field` warn
+（迁移由 SKILL 仓 `lint_wiki.py` 提供）。
 
 ## §10 版本钉死
 
-CLI 在生成 `<wiki-root>/AGENTS.md` 时，必须替换 SSOT 模板 §八 的版本占位符（薄壳 CLAUDE.md 不持版本）：
+**设计不变量**：AGENTS.md 必须记录本 wiki 创建时对齐的 wiki spec 版本 + CLI 版本（薄壳 CLAUDE.md 不持版本），
+使 skill `migrate` 能探测版本漂移。具体承载形式（AGENTS.md §八 表）+ 模板替换机制（占位符语法 /
+渲染引擎）+ 版本号来源（CLI 内部机制）都归 CLI，spec 不规定。「CLI 记录的 spec 版本是否与 SKILL
+当前版本对齐」由 `check_wiki_fixtures.py` 校验（读取契约的可执行 gate）。
 
-| 占位符 | 替换为 | 来源 |
-|---|---|---|
-| `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本（如 `0.1.0`） | CLI 实现时 bundled copy spec 时硬编码，或运行时 fetch SKILL 仓 `metadata.wiki_spec_version` |
-| `{{CLI_VERSION}}` | CLI 自身版本号 | CLI 仓 `__version__` 或 `pyproject.toml` / `package.json` 的 version 字段 |
-
-spec 版本号约定在 SKILL 仓 `SKILL.md` 的 `metadata.wiki_spec_version` 字段声明（如 `0.1.0`）。
-CLI 仓与 spec 版本对齐是 CLI 仓的责任；spec 变更时 SKILL 仓升 `wiki_spec_version`，
+spec 版本号的 SSOT 是 SKILL 仓 `SKILL.md` 的 `metadata.wiki_spec_version` 字段（本 spec 不重复钉号，
+避免双源漂移）。CLI 仓与 spec 版本对齐是 CLI 仓的责任；spec 变更时 SKILL 仓升 `wiki_spec_version`，
 CLI 仓跟随升级。
 
 **LLM 在每次操作前比对** AGENTS.md §八（老 wiki 无 AGENTS.md 时 fallback CLAUDE.md §八）的 "Wiki Spec 版本" 与 SKILL.md
@@ -560,14 +558,14 @@ CLI 仓跟随升级。
   wiki 自钉 spec 版本，渲染 `references/agents-md-template.md` 后与 wiki 实际 AGENTS.md
   字节比对——任何不一致（旧版本残留 / 本地改动）都报错。
 - 修复 = **全量重渲染**（plan action `fixtures-fix-agents-md-resync`）：§八 变量保留旧值
-  （`{{WIKI_SPEC_VERSION}}` 用迁移目标版本），其余以模板渲染稿为准——**不**做局部 Edit。
+  （wiki spec 版本用迁移目标版本），其余以模板渲染稿为准——**不**做局部 Edit。
   旧文件中多出的本地定制行/段由 agent 逐条列给用户裁定：搬 `MEMORY/`（一行事实写
   MEMORY.md 索引短条目；含 why 的建 `MEMORY/<slug>.md` 完整条目 + 索引行）或丢弃。
 - **纪律推论**：本 wiki 特有纪律 / 偏好一律沉淀到 `MEMORY/`（由 AGENTS.md 顶部
   `@MEMORY/MEMORY.md` `@import` 加载，会话常驻），不写进 AGENTS.md——否则下次升级
   重渲染时丢失。
 - 与 `agents-version-is-current` 正交：版本行新旧由后者管；本 check 渲染时用 wiki
-  自钉版本替换 `{{WIKI_SPEC_VERSION}}`，只比"正文与模板同步"。
+  自钉的 spec 版本替换版本变量，只比"正文与模板同步"。
 
 ## §11 命名约束（影响 CLI 生成的产物）
 
@@ -695,8 +693,7 @@ symlink 表达即可。
 > **为什么选 TOML 而不是 JSON**：① 支持 `# ...` 注释——LLM / 用户
 > 手写时易读、易解释每段含义；② `[[entry]]` array-of-tables 是表达「多 entry」的
 > 原生 TOML 语法，比 JSON array + 每个 entry 重复字段名更紧凑；③ 与项目既有
-> `workspace.toml` / `wiki_metadata.toml` 风格一致；④ Python 3.11+ `tomllib` 解析，
-> 零运行时依赖。
+> `workspace.toml` / `wiki_metadata.toml` 风格一致；④ 标准库即可解析，零运行时依赖。
 
 ### §13.3 责任切分（用户 + LLM 共有）
 
@@ -858,7 +855,7 @@ SCRIPTS.md 内的"分节契约"采用 `### <name> — <label>` 子节(在 `## �
 | 要素 | 例子 | 用途 |
 | --- | --- | --- |
 | **使用场景** | "用户给出 N 个 PDF 想一次摄取; 或 `ingest_diff.py` 返回 ≥ 3 个 untracked" | agent 触发条件(口吻匹配"何时该调") |
-| **调用约定** | `python3 scripts/<name>.py "$LLM_WIKI_ROOT" [args]` | 一行可粘贴,假设 `$LLM_WIKI_ROOT` 在调用环境 |
+| **调用约定** | `python3 scripts/<name>.py "<wiki-root>" [args]` | 一行可粘贴;wiki-root 的传递方式（环境变量 / 位置参数 / cwd）按 SKILL/CLI 既有约定，spec 不钉 |
 | **作用** | "本脚本做一次聚合 ingest:per-N 调一次 ingest,完成后用 `--bulk-rebuild-index` 一次性更新" | 解释做什么、产出什么、副作用范围 |
 | **前置依赖**(可选) | "需 `pip install pypdf`;需环境变量 `PAPERS_DIR`" | 显式声明非标依赖,避免 agent 误跑 |
 
@@ -868,11 +865,11 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 
 ### §14.5 纪律(硬化约束)
 
-- **git**:默认跟踪(显式 opt-in `--git` 时 commit;不 opt-in 时跟 wiki 同走纯目录树);
+- **git**:默认跟踪(用户 opt-in git 时随 wiki 仓一起 commit;不 opt-in 时跟 wiki 同走纯目录树);
   §6 `.gitignore` 模板**不**额外排 `scripts/` ——不写例外规则
 - **frontmatter**:**不**写——scripts/ 是代码,非 wiki 内容页(`scripts/*.py` 走 PEP 723
   inline metadata 或 shebang,不由本 spec 规定)
-- **lint**:scripts/ **不**参与 `lint_wiki.py` 扫描(`find_md_files` 自然不递归
+- **lint**:scripts/ **不**参与 `lint_wiki.py` 扫描（扫描自然不递归
   `scripts/`,且 §9 5 必填只对 `wiki/{entities,concepts,sources,comparisons,syntheses}/*.md`
   与 `<wiki-root>/MEMORY/*.md` 走）——脚本的代码质量由用户 / agent 自行负责,
   不在 SKILL 范围内
@@ -897,8 +894,8 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 
 ## §15 raw/discussions/——协作草稿层（可选）
 
-> **维护方**：**用户 + LLM 共有**。CLI 不创建也不管理；按需创建（与 §13 `raw/external/`
-> 同型先例——opt-in 子树，fresh init 不预建）。
+> **维护方**：**用户 + LLM 共有**。CLI 不管理其内容（草稿由双方按需填充）；目录何时创建
+> 是实现的自由（见 §7），本节只定义它存在时的语义。
 >
 > raw/ 总纪律是"LLM 只读，用户掌控"（§四层架构第 1 层）。本节定义该纪律的**第二处**
 > 写权限例外（第一处是 §13 `raw/external/` 的 symlink + anchor）：一个用户 + LLM
@@ -908,7 +905,7 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 
 | 维度 | 规则 |
 | --- | --- |
-| 路径 | `<wiki-root>/raw/discussions/`（**按需创建**，CLI 不预建） |
+| 路径 | `<wiki-root>/raw/discussions/`（存在时适用本节语义；fresh init 是否预建由实现定——见 §7） |
 | 谁可写 | 用户 + LLM **双方**可创建 / 编辑 / 删除——raw/ 内除 §13.3 外唯一 LLM 可写子树 |
 | 性质 | 协作草稿——不是"用户掌控的真相源"，不要求 frontmatter，不参与复利结构 |
 | index / log | **不**进 `wiki/index.md`；写 discussions/ **不**追加 log（非 wiki 操作，显式豁免"每次写入必更 log"） |
@@ -922,10 +919,10 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 
 discussions/ 的可写性靠三道脚本契约兜底，**不**靠自觉：
 
-1. **`ingest_diff.py`**——`collect_raw_files()` 的 `skip_dirs` 含 `raw/discussions/`
+1. **`ingest_diff.py`**——扫描 `raw/` 时跳过 `raw/discussions/`
    （与 `assets/` 同机制）：草稿**不**被当 untracked 素材列出，避免诱导 LLM 把自己写的
    草稿当 raw 真相 ingest 回 wiki（provenance 后门）
-2. **`lint_wiki.py` raw-modified**——`check_raw_immutable()` 从 `git status` 改动里
+2. **`lint_wiki.py` raw-modified**——raw 不可变性检查从 `git status` 改动里
    **排除** `raw/discussions/` 路径：草稿的未提交改动**不**触发"raw 被违规改"告警
    （`raw/external/` 的 symlink 本身被 §13.4 `.gitignore` 排除，不会进 git status，
    故本排除只针对 discussions/）
@@ -964,12 +961,12 @@ discussions/ 是 raw/ 总纪律的第二处例外——纪律型 skill 最怕"�
 
 CLI 在生成完成后，可执行以下验证：
 
-1. **字节级对比(渲染后)**:CLI 用锚点 mapping (`TOPIC_NAME="Test"`, `SETUP_DATE="2026-06-28 14:30"`) 渲染,
+1. **字节级对比(渲染后)**:CLI 用一组固定测试值（主题名 / 创建日期等 per-wiki 变量取测试常量）渲染,
    产物与本仓 `references/canonical/` 下对应文件**逐字一致**。
    canonical/ 目录由本仓在每次 fixture 变更时手工生成(SKILL 仓 owner 操作)。
 2. **正则自检**：生成的 `wiki/log.md` 首条条目匹配 §4 正则
 3. **frontmatter 解析**：生成的 `wiki/index.md` / `wiki/log.md` 能被
-   `scripts/ingest_diff.py` 的 `parse_frontmatter_simple()` 正确解析（MEMORY.md 无 frontmatter，不在此列）
+   SKILL 的 frontmatter 解析器正确解析（MEMORY.md 无 frontmatter，不在此列）
 4. **结构自检**：5 个内容页子目录 + `MEMORY/` 全部存在；MEMORY 目录含 MEMORY.md
 5. **lint 跑通**：生成的 wiki 仓跑 `scripts/lint_wiki.py` 应返回 exit code 0
 
