@@ -6,9 +6,15 @@
 > **依赖方向（单向）**：`workspace CLI → SKILL`（CLI 运行时读 SKILL 的 fixtures / 模板落盘骨架）。
 > SKILL **不反向依赖** CLI 实现——toml（`workspace.toml` / `workspace_models.toml` /
 > `wiki_metadata.toml`）的**字段全集 schema 归 CLI 代码 SSOT**（CLI 是这些文件的唯一写方；
-> 字段随 CLI 演进出/入，如 `enter_cli` / `enter_byobu` / `default_model` 等 config 字段）。
+> 字段随 CLI 演进出/入，如簿记 / 模型路由 / session 启动等 config 字段）。
 > 历史上本 spec 曾把 toml 字段表当"schema 权威定义"，但那等于 SKILL 反向定义 CLI 的运行时数据，
 > 注定漂移。本次修订起收缩职责：spec 只管"骨架 + 归属 + skill 读取契约 + 安全"，CLI 字段全集退回 CLI。
+>
+> **spec 只承载设计不变量**：CLI 的具体实现形式——命令名、占位符语法 / 渲染机制、版本戳编码格式、
+> `.gitignore` 栅栏标记、环境变量名、CLI 源码路径等——一律**不进 spec**（实现方法多样，spec 钉死
+> 只会反向限制 CLI 开发）。这些细节的唯一权威是 [`check_workspace_fixtures.py`](../scripts/check_workspace_fixtures.py)
+> （可执行契约）+ [`references/fixtures/`](fixtures/)（字节金标准）+ CLI 代码；本 spec 提及时只描述
+> 设计意图 + 指向探测器，不复制字节。
 >
 > **结构合规的可执行真源**是 [`scripts/check_workspace_fixtures.py`](../scripts/check_workspace_fixtures.py)——
 > 本 spec 是它的人类可读说明；两者不一致时**以探测器为准**（spec 滞后不构成 CLI 违规；
@@ -68,8 +74,8 @@
 | 文件 / 目录 | init 时刻（CLI） | 后续维护方 | 说明 |
 | --- | --- | --- | --- |
 | `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
-| `workspace.toml` | CLI 写 | **CLI**（`wiki add / remove / config` 等命令） | wiki 注册表 + CLI 运行时 config（模型路由 / session 等，见 §2）；skill **不写**（迁移例外见 §17.2） |
-| `workspace_models.toml` | CLI 写 | **CLI**（`model add / remove / set-default`） | 模型注册表（API key 等敏感信息）；skill **不写** |
+| `workspace.toml` | CLI 写 | **CLI**（wiki 注册表 CRUD） | wiki 注册表 + CLI 运行时 config（模型路由 / session 等，见 §2）；skill **不写**（迁移例外见 §17.2） |
+| `workspace_models.toml` | CLI 写 | **CLI**（模型注册表 CRUD） | 模型注册表（API key 等敏感信息）；skill **不写** |
 | `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读**（迁移例外见 §17.2） | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
 | `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读**（迁移例外见 §17.2） | 仅供经薄壳自动加载的 agent |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
@@ -95,15 +101,14 @@
 
 ## §2 workspace.toml
 
-> **维护方**：CLI 在 init 时刻创建 + 后续 `wiki add / remove / config / model set-default` 等命令维护。
+> **维护方**：CLI 在 init 时刻创建 + 后续 wiki 注册表 / 模型配置等元数据 CRUD 命令维护。
 > skill **只读**——若需要修改元数据，告诉用户跑 CLI 命令，**人类执行**。
 
 - 路径：`<workspace-root>/workspace.toml`
 - 格式：TOML
-- **完整字段 schema 由 CLI 代码 SSOT**（见 CLI 仓——本 spec 不钉具体文件路径，CLI 重构不致此指针悬空）。本 spec 不做权威定义。
-  CLI 可自由演进字段：簿记类（`schema_version` / `created_at`）、模型路由类（`default_model`）、
-  session 启动类（`enter_cli` / `enter_byobu`，均为可选 config，默认不落盘）等。这些是 CLI 的运行时
-  数据，SKILL 不读，spec 不跟进——列了只会反向耦合且必滞后。本节只列 **skill 实际读取** 的字段子集。
+- **完整字段 schema 由 CLI 代码 SSOT**（CLI 是唯一写方；具体文件路径 / 符号名归 CLI，spec 不钉，CLI 重构不致此指针悬空）。
+  CLI 可自由演进运行时字段（簿记类、模型路由类、session 启动类等）——这些是 CLI 的运行时数据，SKILL 不读，
+  spec 不跟进（列了字段名只会反向耦合且必滞后）。本节只列 **skill 实际读取** 的字段子集。
 
 > **authority**：下表是 **SKILL 的读取契约**——读方（SKILL）决定读什么，authority 在 SKILL；
 > toml 字段全集 authority 在 CLI（见上 SSOT 声明）。「SKILL 读的字段 CLI 是否仍提供」由
@@ -117,24 +122,24 @@
 | `[wikis.<name>].path` | skill `scan` 遍历 wiki 子目录（见 §5 INDEX 生成流程） |
 | `[wikis.<name>].created_at` | INDEX 内 wiki 排序 |
 
-- **skill 不读**（CLI 内部用，不在本 spec 范围）：`schema_version` / `created_at`（CLI 簿记）、
-  `default_model`（CLI `resolve_for_wiki` 模型路由）、`enter_cli` / `enter_byobu`（CLI `wiki enter` 选 session backend）
-- **CLI 写入场景**：`init` / `wiki add` / `wiki remove` / `wiki config` / `config set/unset`
+- **skill 不读**（CLI 内部字段，不在本 spec 范围）：簿记类 / 模型路由类 / session 启动类等运行时数据——
+  具体字段名与用途归 CLI，spec 不跟进
+- **CLI 写入场景**：workspace 元数据 CRUD（注册表维护 / 配置增改）——具体命令名归 CLI
 - **skill 写入场景**：**无**——只读（迁移例外见 §17.2）
 
 ## §3 workspace_models.toml
 
-> **维护方**：CLI 在 init 时刻创建空骨架 + 后续 `model add / remove / set-default / unset-default`
+> **维护方**：CLI 在 init 时刻创建空骨架 + 后续模型注册表 CRUD 命令
 > 维护。skill **不读不写**——skill 做 cross-wiki Q&A 不需要感知具体 model 配置。
 
 - 路径：`<workspace-root>/workspace_models.toml`
 - 格式：TOML
 - **必须 gitignored**（详见 §10）——含 API key 等敏感信息
-- 落盘后 `chmod 600`（POSIX 系统；NFS 等不支持 chmod 的 FS best-effort 跳过）
-- **完整字段 schema 由 CLI 代码 SSOT**（见 CLI 仓）——本 spec 不列字段表。
+- 落盘后以文件系统权限保护（POSIX 上如 `chmod 600`；不支持权限位的 FS 走 best-effort）——具体机制归 CLI
+- **完整字段 schema 由 CLI 代码 SSOT**——本 spec 不列字段表。
   skill 既不读也不写本文件，字段表列了只会反向耦合且必滞后；本节只约束**敏感性与权限**。
 
-- **CLI 写入场景**：`init` / `model add` / `model remove` / `model set-default` / `model unset-default`
+- **CLI 写入场景**：模型注册表 CRUD——具体命令名归 CLI
 - **skill 写入场景**：**无**——完全无关（不读不写）
 
 ## §4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
@@ -153,14 +158,14 @@
 
 - 路径：`<workspace-root>/AGENTS.md`
 - 内容来源：本仓 `references/workspace-agents-md-template.md`（**权威 canonical 模板**）
-- CLI 实现时必须**逐字拷贝**该模板，仅做以下替换：
-  - `{{WORKSPACE_DISPLAY_NAME}}` → workspace display name（默认取 `workspace.toml.created_at` 那天
-    或人类指定字符串，如 `"LLM Wiki Workspace"`）
-  - `{{SETUP_DATE}}` → 当天日期 `YYYY-MM-DD`
-  - `{{WORKSPACE_SPEC_VERSION}}` → CLI 当前兼容的 workspace spec 版本号（如 `0.4.0`）
-  - `{{CLI_VERSION}}` → CLI 自身版本号
-- 4 个占位符全在 H1 + 模板 §六「当前配置」表（0.7.0+ 机读版本钉死，对齐 wiki-spec §八）；
-  升级时的模板渲染字节比对见 §17.1
+- CLI 按 canonical 模板生成，差异**仅限 4 个 per-workspace 值**（模板替换机制——占位符语法 / 渲染引擎——
+  归 CLI，spec 不规定）：
+  - workspace display name（默认取创建日期或人类指定字符串，如 `"LLM Wiki Workspace"`）
+  - 创建日期（当天）
+  - workspace spec 版本号（CLI 当前兼容版本）
+  - CLI 自身版本号
+- 这 4 个值是 AGENTS.md 的**机读变量**——承载位置（H1 + 「当前配置」表，随模板定）是探测器的读取契约，
+  用于 §17.1 模板渲染字节比对；具体渲染方式不限
 - 模板顶部说明块的"本文件 ... 按 workspace-spec.md §4 拷贝生成"反向引用，CLI **不得修改**
 - **不带 frontmatter**——AGENTS.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/AGENTS.md` 一致
 
@@ -168,12 +173,12 @@
 
 - 路径：`<workspace-root>/CLAUDE.md`
 - 内容来源：本仓 `references/workspace-claude-md-template.md`（薄壳模板，`@AGENTS.md` + 声明，≤ 30 行）
-- CLI 实现时**逐字拷贝**该模板，仅替换 `{{WORKSPACE_DISPLAY_NAME}}`（薄壳不持 spec 版本——版本在 AGENTS.md §六）
+- CLI 按薄壳模板生成，差异仅限 workspace display name 一个值（薄壳不持 spec 版本——版本在 AGENTS.md 「当前配置」表）
 - 不含纪律正文、不含 `@MEMORY` import（那条在 AGENTS.md 内）；仅 `@AGENTS.md` 一行
 
 ### 共同约束
 
-- **CLI 写入场景**：`init`（重 init 时若 `AGENTS.md` / `CLAUDE.md` 已存在，§12 拒绝覆盖）
+- **CLI 写入场景**：workspace 初始化（对已存在 workspace 重新初始化时，§12 拒绝覆盖）
 - **skill 写入场景**：**无**——只读
 
 ## §5 INDEX.md（skill 维护）
@@ -391,7 +396,8 @@
   lint / scan 把它当索引跳过 frontmatter / type 校验
 - **加载机制（agent 中立）**：agent 在 workspace 根目录工作时——经薄壳 `CLAUDE.md` → `@AGENTS.md`
   递归展开自动加载 SSOT，`@MEMORY/MEMORY.md` 随之展开 → 索引常驻；原生读 `AGENTS.md` 的其他 agent
-  直读 SSOT；agent 在别处工作（skill 经 `$LLMW_WORKSPACE` 读 AGENTS.md）时，`@` 不自动展开，
+  直读 SSOT；agent 在别处工作（skill 经 workspace 路径定位并读 AGENTS.md；具体定位途径——环境变量 /
+  默认路径 / 显式传参——归 CLI session 设置，spec 不钉）时，`@` 不自动展开，
   由 AGENTS.md 顶部强制 Read 指令 + SKILL §0 启动检查显式 Read MEMORY.md 补齐
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §5，**不**重复以免
   口径分裂）+ `## 索引` 段。索引行两种格式共存：
@@ -457,15 +463,14 @@ skill 在 `lint` / `query` / `link` / `scan` 触发时**不创建** MEMORY 结�
 ## §10 .gitignore
 
 `.gitignore` **总是生成**——git 仓由用户外部创建（§11），无 git 时无害，便于后续补 git。
-完整字节 SSOT 在 **CLI 代码**（一组常量，见 CLI 仓——本 spec 不钉具体符号名，CLI
-重构成另一组常量也不致此指针悬空）——CLI 按常量逐字落盘，`check_workspace_fixtures.py` 的
-`gitignore-skeleton` check 做段结构比对。本节只列**最小必含规则**（探测器硬要求；
-CLI 可在此之上加自有扩展，如 `.llmw-trash/` / `**/opencode.json`，扩展不进 spec）：
+完整字节 SSOT 在 **CLI 代码**——CLI 落盘后由 `check_workspace_fixtures.py` 的
+`gitignore-skeleton` check 做段结构比对（探测器 + fixtures 为权威）。本节只规定**设计不变量**，
+`.gitignore` 必须排除**承载密钥 / 凭据的文件**——
 
-- **llmw 托管块**（`# >>> llmw (managed by llmw) >>>` 标记段），必含：
-  - `workspace_models.toml`（敏感：含 API key）
-  - `**/.claude/settings*.json`、`**/.qoder/settings*.json`（IDE 项目级 settings，可能含 token）
-- **OS / 编辑器**、**Obsidian 配置**、**临时文件** 三段，各 ≥1 规则（段内具体规则用户可调）
+- **敏感文件类**（强约束）：模型注册表（含 API key）+ 各 IDE / agent 的项目级 settings（可能含 token）。
+  具体忽略哪些文件、用什么栅栏标记（托管块 / 段注释 / 其它）由 CLI 决定，spec 不钉——探测器硬要求的
+  最小清单见 `gitignore-skeleton` check；CLI 可在此之上加自有扩展，扩展不进 spec
+- **OS / 编辑器**、**Obsidian 配置**、**临时文件** 三类噪音段，各 ≥1 规则（段内具体规则用户可调）
 
 **必须不忽略**：`workspace.toml`、`AGENTS.md`、`CLAUDE.md`、`INDEX.md`、`STATS.md`、
 `cross_queries/`、`LINT.md`、`MEMORY/`、`<wiki-name>/`（wiki 仓内容由 wiki-spec §6 各自的
@@ -475,11 +480,11 @@ CLI 可在此之上加自有扩展，如 `.llmw-trash/` / `**/opencode.json`，�
 
 > **立场**：workspace **不依赖 git 即可工作**——默认落盘为**纯目录树**。workspace 的 git 仓
 > **由用户在外部自行 `git init` / `clone` 创建**，CLI **不碰 git**——不 `git init`、不 `add`、
-> 不 `commit`、也不接 `--git`；版本控制是用户在自己机器上决定的事。`workspace_models.toml`
+> 不 `commit`、也不提供任何 git 操作入口；版本控制是用户在自己机器上决定的事。`workspace_models.toml`
 > 在无 git 时靠文件系统权限保护，用户启用 git 后靠 `.gitignore`（§10）排除。
 
 - **init 允许落在用户已建好的空 git 仓上**：若目标目录已是 git 空仓（仅含 `.git` 与/或
-  `.gitignore`），CLI 的 `init` 照常在其上继续——CLI 不调 `git init`，只是不把"已有 .git"
+  `.gitignore`），CLI 的初始化操作照常在其上继续——CLI 不调 `git init`，只是不把"已有 .git"
   当成拒绝条件（`git init` 本身幂等，CLI 落盘不破坏用户已建的仓）。
 - **`.gitignore` 无条件生成**（详见 §10）：与用户是否启用 git 无关——CLI 总是写 `.gitignore`，
   便于用户后续随时 `git init` 时敏感文件已被排除。
@@ -493,8 +498,8 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | `workspace.toml` 已存在且非 CLI 自己写的 | `"workspace.toml 已存在；拒绝覆盖"` |
 | `AGENTS.md` 已存在 | `"AGENTS.md 已存在；拒绝覆盖（schema 是用户所有）"` |
 | `CLAUDE.md`（薄壳）已存在 | `"CLAUDE.md 已存在；拒绝覆盖（schema 是用户所有，若需更新请手动编辑）"` |
-| 试图 `wiki add` 到已存在的子目录 | `"<wiki-name>/ 已存在；拒绝覆盖"` |
-| 试图 `wiki add` 时 `wiki-name` 与现存 wiki 重复 | `"wiki <name> 已注册；拒绝重复"` |
+| 试图注册新 wiki 到已存在的子目录 | `"<wiki-name>/ 已存在；拒绝覆盖"` |
+| 试图注册新 wiki 时 `wiki-name` 与现存 wiki 重复 | `"wiki <name> 已注册；拒绝重复"` |
 
 **绝不允许覆盖**：workspace CLI 的 idempotency 原则——已存在 + 内容合法 = 跳过；已存在 + 内容非法 = 报错；用户想重新初始化必须先手动备份 + 删除。
 
@@ -544,17 +549,16 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 
 ## §14 版本钉死
 
-| 占位符 | 替换为 | 来源 |
-| --- | --- | --- |
-| `{{WORKSPACE_SPEC_VERSION}}` | CLI 当前兼容的 workspace spec 版本（如 `0.2.0`） | CLI 仓硬编码 |
-| `{{WIKI_SPEC_VERSION}}` | CLI 当前兼容的 wiki spec 版本 | CLI 仓硬编码（与 yzr-llm-wiki-management SKILL.md metadata.wiki_spec_version 对齐） |
-| `{{CLI_VERSION}}` | CLI 自身版本号 | CLI 仓 `__version__` 或 `pyproject.toml` / `package.json` |
+**设计不变量**：workspace 必须记录它被创建时对齐的 spec 版本，使 skill `migrate` 能探测版本漂移。
+具体承载形式——
 
-CLI 在生成 `<workspace>/workspace.toml` 时把 `templates_version` 字段写为
-`workspace_spec = <WORKSPACE_SPEC_VERSION>; wiki_spec = <WIKI_SPEC_VERSION>`（或类似编码）；
-CLI 在生成 `<workspace>/AGENTS.md` 时把上述占位符按本表替换（薄壳 CLAUDE.md 仅替换
-`{{WORKSPACE_DISPLAY_NAME}}`；`{{WIKI_SPEC_VERSION}}` **不进** AGENTS.md / CLAUDE.md 模板，
-仅用于 workspace.toml `templates_version`）。
+- `workspace.toml` 的 `templates_version` 字段编码 workspace_spec + wiki_spec 双分量（可被
+  `check_workspace_fixtures.py` 解析即可；具体编码串格式归 CLI，spec 不钉）
+- AGENTS.md 的「当前配置」表记录 workspace_spec 版本 + CLI 版本（薄壳 CLAUDE.md 不持 spec 版本）
+
+版本号的**来源**（CLI 内部机制）与**模板替换机制**（占位符语法 / 渲染引擎）都归 CLI，spec 不规定。
+「CLI 记录的 spec 版本是否与 SKILL 当前版本对齐」
+由 `check_workspace_fixtures.py` 的相关 check 校验（读取契约的可执行 gate）。
 
 "当前 spec 版本"的 SSOT 是 [`yzr-llm-workspace-management`](../SKILL.md) SKILL.md
 `metadata.workspace_spec_version`（本 spec 不重复钉号，避免双源漂移）。skill 在每次
@@ -569,9 +573,11 @@ CLI 在生成 `<workspace>/AGENTS.md` 时把上述占位符按本表替换（薄
 | Wiki name | `[a-z0-9][a-z0-9_-]*`，1–64 字符；推荐纯 kebab-case | `[wikis.<name>]` key + `<wiki-name>/` 子目录名 |
 | cross_query slug | kebab-case `^[a-z0-9][a-z0-9-]*$` | `cross_queries/<slug>.md` |
 | MEMORY 文件名 | kebab-case `^[a-z0-9][a-z0-9-]*$` | `<workspace>/MEMORY/*.md`（MEMORY.md 例外） |
-| `model_id` | `[a-z0-9_-]{1,64}` | `workspace_models.toml` |
 | frontmatter 字段名 | 严格小写 + 下划线 | 所有 workspace 级 markdown |
 | frontmatter `type` 值 | 严格小写 + 连字符（`workspace-index` / `workspace-memory` 等） | 所有 workspace 级 markdown |
+
+> `model_id` 等 `workspace_models.toml` 内部标识符的命名规则归 CLI（该文件 skill 不读不写，
+> 见 §3），不在本 spec 范围。
 
 ## §16 不在本 spec 范围内
 
@@ -601,16 +607,16 @@ MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧
 ### §17.1 AGENTS.md / CLAUDE.md 模板同步
 
 `AGENTS.md` 的 per-workspace 变量只有 4 个——Workspace 名 / 创建日期 / Workspace Spec
-版本 / CLI 版本（全在 H1 + §六「当前配置」表）；正文 §一~§五 是纪律文本，跨 workspace
+版本 / CLI 版本（全在固定承载位置：H1 + 「当前配置」表）；正文 §一~§五 是纪律文本，跨 workspace
 逐字相同。因此一致性校验**不**做"存在性断言"，做**模板渲染字节比对**：
 
-- `scripts/check_workspace_fixtures.py` 的 `agents-md-template-sync`（error）：从 §六 表
-  提取 4 变量（0.7.0- 老格式 fallback H1 + 老 §六 散文行），渲染
+- `scripts/check_workspace_fixtures.py` 的 `agents-md-template-sync`（error）：从「当前配置」表
+  提取 4 变量（老格式 fallback H1 + 老散文行），渲染
   `references/workspace-agents-md-template.md` 后与 workspace 实际 AGENTS.md 字节比对——
   任何不一致（旧版本残留 / 本地改动）都报错。`claude-md-template-sync` 同理（薄壳仅
-  `{{WORKSPACE_DISPLAY_NAME}}` 一个变量；缺失文件报 `workspace-fix-claude-md-create`）。
+  workspace display name 一个变量；缺失文件报 `workspace-fix-claude-md-create`）。
 - 修复 = **全量重渲染**（fix `workspace-fix-agents-md-resync` /
-  `workspace-fix-claude-md-resync`）：§六 变量保留旧值（`{{WORKSPACE_SPEC_VERSION}}` 用
+  `workspace-fix-claude-md-resync`）：4 变量保留旧值（workspace spec 版本用
   迁移目标版本），其余以模板渲染稿为准——**不**做局部 Edit。旧文件中多出的本地定制
   行/段由 agent 逐条列给用户裁定：搬 `MEMORY/`（一行事实写 MEMORY.md 索引短条目；
   含 why 建 `MEMORY/<slug>.md` 完整条目 + 索引行）或丢弃。
@@ -618,7 +624,7 @@ MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧
   `@MEMORY/MEMORY.md` `@import` 加载，会话常驻），不写进 AGENTS.md——否则下次升级
   重渲染时丢失。
 - 与 `agents-version-is-current` 正交：版本行新旧由后者管；本 check 渲染时用
-  workspace 自钉版本替换 `{{WORKSPACE_SPEC_VERSION}}`，只比"正文与模板同步"。
+  workspace 自钉的 spec 版本替换版本变量，只比"正文与模板同步"。
 
 ### §17.2 迁移例外（所有权开口）
 
@@ -629,7 +635,7 @@ MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧
 | --- | --- |
 | agent 可 Write 覆盖 `AGENTS.md` | 仅 §17.1 全量重渲染；本地定制已逐条裁定 |
 | agent 可 Write 覆盖 / 创建 `CLAUDE.md` | 仅按薄壳模板渲染 |
-| agent 可 Edit `.gitignore` | 仅补 §10 骨架段 / llmw 托管块规则；不动用户自定义规则 |
+| agent 可 Edit `.gitignore` | 仅补 §10 敏感文件忽略段；不动用户自定义规则 |
 | agent 可 Edit `workspace.toml` 的 `templates_version` 单字段 | migrate 收尾 bump 到目标版本；其余字段不动 |
 
 ### §17.3 检测与修复流程
@@ -655,12 +661,10 @@ CLI 在生成完成后，可执行以下验证：
    契约字段（`templates_version` / `[wikis].path/created_at`，由 `workspace-toml-reads-satisfied` check 校验）
 2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项（含 `MEMORY/MEMORY.md`）；`<wiki-name>/` 子目录按
    wiki-spec §1 目录结构 落盘
-3. **拒绝性自检**：尝试对已存在 workspace 跑 `init`，应非零退出；尝试 `wiki add`
-   到已存在目录，应非零退出；尝试 `init` 时 `AGENTS.md` / `CLAUDE.md` 已存在，应非零退出（§12）
-4. **gitignored 自检**：`workspace_models.toml` 在 `.gitignore` 中；
-   `**/.claude/settings*.json` 与 `**/.qoder/settings*.json` 在 `.gitignore` 中（`**/` 单行覆盖
-   workspace 根 + 任意深度子目录；`settings*.json` 通配 `settings.json` / `settings.local.json` /
-   `settings.<env>.json` 等所有 settings 变体）
+3. **拒绝性自检**：对已存在 workspace 重新初始化、向已存在目录注册 wiki、`AGENTS.md` / `CLAUDE.md`
+   已存在时初始化——都应非零退出（§12）
+4. **gitignored 自检**：敏感文件（模型注册表 + 各 IDE/agent 项目级 settings）被 `.gitignore` 排除；
+   具体清单与栅栏标记以 `gitignore-skeleton` check 为准（见 §10）
 5. **不变量自检**：init 完成后 `<workspace>/INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/`
    **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§8 约定建）；但 `<workspace>/MEMORY/`
    **存在**且含 `MEMORY.md` 索引、无 `*.md` 经验条目（CLI init 按 §9 建骨架）
