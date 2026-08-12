@@ -7,8 +7,6 @@
 > SKILL **不反向依赖** CLI 实现——toml（`workspace.toml` / `wiki_metadata.toml` +
 > CLI 内部配置 toml）的**字段全集 schema 归 CLI 代码 SSOT**（CLI 是这些文件的唯一写方；
 > 字段随 CLI 演进出/入，如簿记 / 模型路由 / session 启动等 config 字段）。
-> 历史上本 spec 曾把 toml 字段表当"schema 权威定义"，但那等于 SKILL 反向定义 CLI 的运行时数据，
-> 注定漂移。本次修订起收缩职责：spec 只管"骨架 + 归属 + skill 读取契约 + 安全"，CLI 字段全集退回 CLI。
 >
 > **spec 只承载设计不变量**：CLI 的具体实现形式——命令名、占位符语法 / 渲染机制、版本戳编码格式、
 > `.gitignore` 栅栏标记、环境变量名、CLI 源码路径等——一律**不进 spec**（实现方法多样，spec 钉死
@@ -618,7 +616,7 @@ MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧
 逐字相同。因此一致性校验**不**做"存在性断言"，做**模板渲染字节比对**：
 
 - `scripts/check_workspace_fixtures.py` 的 `agents-md-template-sync`（error）：从「当前配置」表
-  提取 4 变量（老格式 fallback H1 + 老散文行），渲染
+  提取 4 变量（无该表时 fallback H1 + 散文行），渲染
   `references/workspace-agents-md-template.md` 后与 workspace 实际 AGENTS.md 字节比对——
   任何不一致（旧版本残留 / 本地改动）都报错。`claude-md-template-sync` 同理（薄壳仅
   workspace display name 一个变量；缺失文件报 `workspace-fix-claude-md-create`）。

@@ -47,7 +47,7 @@
 
 ## 样例三：query 一个跨实体问题
 
-**用户指令**："wiki 里 <Concept A> 和 <Concept B> 的对比是什么样的？"
+**用户指令**："wiki 里 `<Concept A>` 和 `<Concept B>` 的对比是什么样的？"
 
 **执行**：
 

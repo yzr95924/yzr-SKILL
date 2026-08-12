@@ -28,8 +28,8 @@
 
 > **适用范围**：本节模板适用于 wiki 5 类内容页（entities / concepts / sources /
 > comparisons / syntheses）。**MEMORY/*.md 的 frontmatter 规则不同**——仅 `title`
-> 必填，其余 5 字段全 optional；详见 [`wiki-spec.md` §5.2](wiki-spec.md#52-memorymd非-memorymd)
-> + [`lint-checklist.md` §二.2](lint-checklist.md#2-frontmatter-完整性) 末尾。
+> 必填，其余 5 字段全 optional；详见 [`wiki-spec.md` §5.2](wiki-spec.md#52-memorymd非-memorymd) +
+> [`lint-checklist.md` §二.2](lint-checklist.md#2-frontmatter-完整性) 末尾。
 
 ```yaml
 ---
@@ -37,8 +37,8 @@ title: <string, 必填>
 description: <一句话摘要, 推荐>  # 推荐（OKF v0.1 推荐字段）；index.md 条目摘要从它来，避免漂移
 type: <entity|concept|source|comparison|synthesis, 必填>  # 5 类内容页；index/log 是 reserved（见 §6 / §7）
 tags: [<string array>, 必填但可空数组>]
-created: <YYYY-MM-DD HH:MM, 必填>  # lint 仍接受 YYYY-MM-DD 老格式
-updated: <YYYY-MM-DD HH:MM, 必填>  # lint 仍接受 YYYY-MM-DD 老格式
+created: <YYYY-MM-DD HH:MM, 必填>  # lint 也接受 YYYY-MM-DD
+updated: <YYYY-MM-DD HH:MM, 必填>  # lint 也接受 YYYY-MM-DD
 # —— 以下为可选「可信度与认知质量信号」（见下方同名段）——
 reviewed: <true, 可选>            # 仅在为 true 时写：人工已审核该页
 reviewed_at: <YYYY-MM-DD, 可选>   # 审核日期；与 reviewed: true 成对出现
@@ -62,7 +62,7 @@ contradictions: [<wiki 页路径数组>, 可选]  # 与本页主张冲突的页�
   `tag-not-in-taxonomy`（info）报回来再裁定。详 lint 语义见
   [`lint-checklist.md`](lint-checklist.md#11-tag-taxonomy-校验)
 - `created` / `updated`——**严格** `YYYY-MM-DD HH:MM` 格式（lint 解析用；
-  老 wikis 的 `YYYY-MM-DD` 仍接受，宽容解析不报错——按精度尝试三种格式：date-only /
+  `YYYY-MM-DD` 也接受，按精度宽容解析三种格式：date-only /
   HH:MM / HH:MM:SS）
 - 类型特定字段（`sources` / `compared` / `threads`）见各模板
 - `reviewed` / `reviewed_at` / `contested` / `contradictions`——**可选**可信度与认知质量信号，见下
@@ -442,7 +442,7 @@ updated: YYYY-MM-DD HH:MM
 ```
 
 正文（**每行匹配** `^## \[\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?\] (ingest|query|lint|setup) \| .+$`，lint 校验；
-新 ingest/query/lint/setup 行推荐带 HH:MM，老 wikis 仍接受 date-only）：
+ingest/query/lint/setup 行推荐带 HH:MM；date-only 也合法）：
 
 ```markdown
 ## [2026-06-24 14:30] setup | Initial scaffold by yzr-llm-wiki-management

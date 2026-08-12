@@ -106,7 +106,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 
 ### Step 6：追加 `log.md`
 
-- 格式严格：`## [YYYY-MM-DD HH:MM] ingest | <short title>`（lint 仍接受老 `YYYY-MM-DD`）
+- 格式严格：`## [YYYY-MM-DD HH:MM] ingest | <short title>`（lint 也接受 `YYYY-MM-DD`）
 - title 用 source 页的 `title` 字段，不要重写
 - 一行结束，不要续行
 - 一次 ingest 多个文件 → **写多条 log 条目**，每条对应一个 source 页

@@ -65,9 +65,8 @@
   - **git 仓扩展字段**（当 entry.target 在 git 仓内时强制——见 spec §13.5）：
     `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报
     `external-git-anchor-incomplete`；漂移时 lint 报 `external-git-anchor-stale`
-  - **扁平布局**：所有外部仓的 symlink 直接在 `external/` 顶层；老 wiki
-    的 `<source-name>/` 子目录会被 lint 报 `external-source-name-invalid`（按
-    spec §13.6 迁移）
+  - **扁平布局**：所有外部仓的 symlink 直接在 `external/` 顶层，不开 `<source-name>/`
+    子目录；后者会被 lint 报 `external-source-name-invalid`（迁移见 spec §13.6）
   - 没有 anchor 文件 = lint 报 `external-anchor-missing`（error）
   - anchor 解析失败 / 0 个有效 entry = lint 报 `external-anchor-corrupt`（error）
   - symlink 存在但 anchor 无 entry = lint 报 `external-anchor-orphan`（warn）
@@ -141,7 +140,7 @@
 - 纪律：
   - 每次 ingest / query / lint 后**必须**追加一条
   - 格式严格：`## [YYYY-MM-DD HH:MM] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
-    lint 仍接受老 `YYYY-MM-DD`）
+    lint 也接受 `YYYY-MM-DD`）
     `setup` 由 workspace CLI 在初始化时按 `wiki-spec.md` §4 写入首条；
     权威正则见 `page-templates.md` §7）
   - 标题简洁、不超过一行；URL / 详细摘要写在对应页面里
@@ -169,8 +168,8 @@
 
 - **条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` 同步）：
   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
-    建 `MEMORY/<slug>.md`（frontmatter **仅 `title` 必填** + 其余字段 optional + 正文）
-    + 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
+    建 `MEMORY/<slug>.md`（frontmatter **仅 `title` 必填** + 其余字段 optional + 正文） +
+    索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
   - **短条目**——纯 reminder / 单一偏好 / 无需 why + how → 索引行直接 `- 一句话事实`，
     不单独建 `.md` 文件
   - 两种格式可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底"有 .md 但未索引"
@@ -182,8 +181,8 @@
   - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——由本文件 `@MEMORY/MEMORY.md` `@import`
     加载（详见顶部「L2 索引 `@import` 收口」段）。写每条时**只改 `MEMORY/MEMORY.md`**
     这一份，`@import` 引用自动同步指向全文。条目正文按需 `Read MEMORY/<slug>.md`
-  - **不**引入 AGENTS.md 内联条数护栏（`INLINED_INDEX_MAX` 已删）——索引走 `@import` 不占 L1
-    词数；MEMORY 沉淀只改 `MEMORY.md`、AGENTS.md 同步单行引用，**无**双写漂移
+  - 索引走 `@import` 不占 L1 词数——MEMORY 沉淀只改 `MEMORY.md`、AGENTS.md 同步单行引用，
+    **无**双写漂移（无需条数护栏）
   - **不**强制在 `wiki/index.md` 列出（不在 wiki 单一入口约束范围内）
   - **不**要求 inbound 链接
   - 目录结构与契约详见 `wiki-spec.md` §5
@@ -330,8 +329,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
    不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指
 4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（§二 13）；与用户一起裁定后，
-   移除 `contested`（**不再保留 `confidence` 字段**——已退役；如该页此前已审核，
-   按"生命周期规则"判断是否需要重新审）
+   移除 `contested`（如该页已审核，按"生命周期规则"判断是否需重新审）
 
 ### Index 扩容（防 index.md 翻不到底）
 

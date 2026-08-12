@@ -57,6 +57,7 @@ cmp -s $TMP/.gitignore             <fixture>/gitignore.txt    # .gitignore 纯�
 ## fixture 取值约定
 
 fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
+
 - 主题名占位符：`{{TOPIC_NAME}}`
 - 日期占位符：`{{SETUP_DATE}}`
 - `.gitignore` / `wiki/tags.md` / `scripts.md.txt` 无占位符,直接落盘

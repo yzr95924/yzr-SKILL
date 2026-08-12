@@ -373,7 +373,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 - 同一概念 / 实体在 ≥ 2 个页里被以**矛盾方式**描述（**内容层**矛盾，区别于 §二 13 的
   frontmatter `contested` 信号——后者是作者已标注、本项是 agent 主动发现未标注的）
-- 例：`concepts/<attribute>.md` 说 "<value A>"，`sources/<other>.md` 说 "<value B>"
+- 例：`concepts/<attribute>.md` 说 "`<value A>`"，`sources/<other>.md` 说 "`<value B>`"
   （可能是不同版本，但未注明）
 - 检查方法：grep 概念关键词 + 读周围上下文；发现后建议双方补 `contested: true` +
   `contradictions` 互指（让 §二 13 后续能持续追踪）
