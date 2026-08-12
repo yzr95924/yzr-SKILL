@@ -38,13 +38,13 @@
 
 ## 一、本 workspace 的边界
 
-### workspace 根的 9 类文件 / 目录
+### workspace 根文件 / 目录的归属
 
 | 路径 | 维护方 | 说明 |
 | --- | --- | --- |
-| `workspace.toml` | workspace CLI | wiki 注册表 + 全局默认；skill **只读**（迁移例外见 §六） |
-| `workspace_models.toml` | workspace CLI | 模型注册表（API key 等敏感信息）；skill **不读不写** |
-| `.gitignore` | workspace CLI | 排除 `workspace_models.toml` 等敏感文件 |
+| `workspace.toml` | workspace CLI | wiki 注册表 + 结构数据；skill **只读**（迁移例外见 §六） |
+| `<CLI 内部配置 *.toml>` | workspace CLI | 模型注册表（含 API key）/ 主机本地运行时等；skill **不读不写**；文件名 / 拆分归 CLI 自由 |
+| `.gitignore` | workspace CLI | 排除承载密钥 / 凭据的 CLI 配置等敏感文件（清单见探测器 `gitignore-skeleton`） |
 | `AGENTS.md` | **用户**（CLI init 时拷 SSOT 模板） | workspace 纪律 SSOT（工具无关）；skill 只读（迁移例外见 §六） |
 | `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供经薄壳自动加载的 agent（迁移例外同 §六） |
 | `INDEX.md` / `STATS.md` | yzr-llm-workspace-management skill | workspace 入口文档 + 结构化统计 |
@@ -55,10 +55,10 @@
 
 ### 三层职责切分（与各 wiki 的 AGENTS.md 区分）
 
-- **workspace CLI**：管 `workspace.toml` / `workspace_models.toml` / `.gitignore` + 每个 wiki 子仓元数据；
+- **workspace CLI**：管 `workspace.toml` + CLI 内部配置（模型注册表等 `*.toml`）/ `.gitignore` + 每个 wiki 子仓元数据；
   不写 INDEX/STATS/LINT/MEMORY/cross_queries
 - **yzr-llm-workspace-management（本 skill）**：管 INDEX/STATS/LINT/MEMORY/cross_queries + 跨 wiki 编排；
-  不写 workspace.toml / workspace_models.toml / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
+  不写 workspace.toml / CLI 内部配置 / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
 - **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/MEMORY/`
 
 完整不变量与权威定义见 [`workspace-spec.md`](workspace-spec.md)。
