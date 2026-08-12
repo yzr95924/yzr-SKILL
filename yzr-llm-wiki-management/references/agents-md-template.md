@@ -95,7 +95,7 @@
 > 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时
 > 同步改本段。
 
-- 路径：`<wiki-root>/raw/discussions/`（**按需创建**，CLI 不预建——与 `raw/external/` 同型）
+- 路径：`<wiki-root>/raw/discussions/`（协作草稿层；存在时适用本节纪律，详见 spec §15）
 - 用途：用户 + LLM 协作的临时草稿——讨论稿、设计草稿、待整理笔记。**不是**"用户掌控的
   真相源"，不参与复利结构
 - 纪律（spec §15）：

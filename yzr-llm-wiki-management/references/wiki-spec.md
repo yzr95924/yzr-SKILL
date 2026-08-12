@@ -372,7 +372,7 @@ SSOT 在 [`references/fixtures/gitignore.txt`](fixtures/gitignore.txt)——CLI 
      `scripts/`（见 §1）。`raw/` 下是否额外预建有专门语义的子树（如 `discussions/`）由实现自定，
      非语义要求
   2. 拷贝 SSOT 模板到 `<wiki-root>/AGENTS.md` / `CLAUDE.md` / `wiki/index.md` /
-     `wiki/log.md` / `MEMORY/MEMORY.md` / `scripts/SCRIPTS.md` / `.gitignore`
+     `wiki/log.md` / `wiki/tags.md` / `MEMORY/MEMORY.md` / `scripts/SCRIPTS.md` / `.gitignore`
   3. **空目录占位策略由实现自定**（`.gitkeep` / 别的方式均可），但有一个正确性约束：
      git 跟踪的 wiki 里 `raw/` **至少要有 tracked 内容**，否则 `raw-modified` lint 永远 0 命中
      （检测不到 raw 被违规改）。`raw/articles/`、`raw/assets/` 等占位子目录的存在即可满足此约束；
