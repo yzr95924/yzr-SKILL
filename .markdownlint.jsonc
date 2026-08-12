@@ -15,5 +15,11 @@
   // `name:` 承载（见 gemini-paper-summary/SKILL.md §执行原则 #9）。README / MEMORY
   // 这类非 SKILL 文档保留 H1 不受影响。2026-06-29 audit 把 gemini-paper-summary 拉回
   // 主流时触发 MD041，于是显式禁掉。
-  "MD041": false
+  "MD041": false,
+
+  // MD060 关闭 table-column-style 检查：
+  // 仓库表格统一用标准 GFM 风格（数据行 `| cell |` 带空格 + 分隔行 `|---|` 紧凑），
+  // MD060 默认要求所有竖线空格一致，对每个表格的紧凑分隔行都误报（仓库内 84 处）。
+  // 标准渲染不受竖线空格影响，仓库不强制对齐——与 MD013/MD041 同属按仓库风格放宽。
+  "MD060": false
 }

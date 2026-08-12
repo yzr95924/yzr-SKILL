@@ -194,8 +194,8 @@ canonical `fixtures/gitignore.txt` 已移除该行，老 wiki 留着也无害。
 
 ### 6.1 frontmatter 字段合并
 
-- `confidence: <v>` 单独存在 → 删 `confidence`；若 `v == high` 则加 `reviewed: true`
-  + `reviewed_at: <migrate-day YYYY-MM-DD>`。`<migrate-day>` 取 plan 的
+- `confidence: <v>` 单独存在 → 删 `confidence`；若 `v == high` 则加 `reviewed: true` +
+  `reviewed_at: <migrate-day YYYY-MM-DD>`。`<migrate-day>` 取 plan 的
   `generated_at` 字段（lint_wiki.py 在 `--apply` 时生成，随 stdout JSON 输出）
 - 同时含 `confidence` + `reviewed` → **`legacy-confidence-conflict`**，转人工裁定，
   永远不进 plan（已在 plan["skipped_conflicts"] 里标红）
@@ -232,8 +232,8 @@ anchor 从「每仓一份 `<source-name>/.symlink-anchor.json`（JSON object）�
    - 检查 `raw/external/<name>` 是否被占用（symlink 或目录）；占用 → 标 `✗ conflict` 转
      人工决定改名 / 合并 / 跳过
    - 不冲突 → `mv <source-name>/<name> <name>`（移 symlink 到 `external/` 顶层）
-4. 构造 `[[entry]]` 块（含 `symlink` + `target` + `captured_at` + `kind='external-repo'`
-   + git 仓时 `remote_url`/`commit`/`branch` 三扩展字段），追加写到
+4. 构造 `[[entry]]` 块（含 `symlink` + `target` + `captured_at` + `kind='external-repo'` +
+   git 仓时 `remote_url`/`commit`/`branch` 三扩展字段），追加写到
    `raw/external/.symlink-anchor.toml` 末尾（按 symlink 名字典序排版，便于 git diff）
 5. `rm -rf raw/external/<source-name>/` 删整个子目录
 

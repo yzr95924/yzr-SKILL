@@ -114,7 +114,7 @@ metadata:
    agent 自动展开拿到 MEMORY 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
    顶部 L2 索引段 + HTML 注释 Read 指引）。改 MEMORY 只改 `MEMORY.md` 这一处、
    `@import` 引用同步指向全文，无副本漂移。
-   为什么搬到 `<wiki-root>/MEMORY/`：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
+   为什么 MEMORY 位于 `<wiki-root>/`（与 `wiki/` 平级）：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
    MEMORY 自然留作私有层不外传。详细规则见 spec §5。
 4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
    集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
@@ -134,7 +134,7 @@ metadata:
 | **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
 | **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
 | **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
-| **migrate** | 含 §八 的 wiki | legacy 现场 + stdout migration plan +<br>agent 修复后的最新 spec 兼容 wiki（不落盘中间文件） | spec 演进时不破坏老 wiki 沉淀 |
+| **migrate** | 含 §八 的 wiki | legacy 现场 + stdout migration plan + agent 修复后的最新 spec 兼容 wiki（不落盘中间文件） | spec 演进时不破坏老 wiki 沉淀 |
 
 每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
 不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
@@ -166,7 +166,7 @@ metadata:
 >
 > 1. `Read <$LLM_WIKI_ROOT>/AGENTS.md`——拿到本 wiki 的主题名、边界配置、
 >    Page Thresholds（纪律 SSOT 是 `AGENTS.md`；`CLAUDE.md` 是 `@AGENTS.md` 薄壳，不持纪律）。
->    AGENTS.md 不再含 tag 白名单（迁出到 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
+>    AGENTS.md 不含 tag 白名单（在 `wiki/tags.md`——见本节 §核心原则 §11）。AGENTS.md
 >    顶部一行 `@MEMORY/MEMORY.md` + 一行 `@scripts/SCRIPTS.md` `@import`——自动展开 `@import`
 >    的 agent 透明拿到 MEMORY / scripts 全文，不展开的由 AGENTS.md 顶部强制 Read 指令兜底
 >    （详见 [`references/agents-md-template.md`](references/agents-md-template.md) 顶部）。**别处由 skill
@@ -286,8 +286,8 @@ metadata:
   不是机器状态（详见 [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)）
 - 绕过 anchor 直接 `ln -s`——没有对应 `[[entry]]` 的 symlink = lint 报
   `external-anchor-orphan`
-- 在 `raw/external/` 下开 `<source-name>/` 子目录（已废弃）——扁平布局，
-  所有 symlink 直接 in `external/`；老 wiki 残留会被 lint 报 `external-source-name-invalid`
+- 在 `raw/external/` 下开 `<source-name>/` 子目录——扁平布局，
+  所有 symlink 直接 in `external/`；违规子目录会被 lint 报 `external-source-name-invalid`
 - 把 `raw/discussions/` 或 `raw/external/` target 的可写性**外推**到 raw/ 其他子树——
   "discussions/ 能改，papers/ 我也能改" / "target 能改，raw/ 也能改" 是典型滑坡
   （discussions/ + external/ 是**仅有的**两处例外，其余 raw/ 子树 LLM 只读；防线见 wiki-spec §15.4）

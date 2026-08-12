@@ -408,8 +408,8 @@ log / ingest 写入归属（wiki 内 ingest 写 `<wiki>/wiki/` 与 `<wiki>/wiki/
 2. **dry-run 报告**（默认必走）：按 finding 分组列"哪些文件需改、依据 changelog 哪行"；
    询问用户：应用全部 / 部分应用 / 仅看清单
 3. **执行修复**（用户确认后，按 `fix.type` 逐项落）：
-   - `workspace-fix-agents-md-resync`——提取 §六 4 变量（0.7.0- 老格式 fallback H1 +
-     老 §六 散文行）→ 渲染 [`workspace-agents-md-template.md`](references/workspace-agents-md-template.md)
+   - `workspace-fix-agents-md-resync`——提取 §六 4 变量（无「当前配置」表时 fallback H1 +
+     §六 散文行）→ 渲染 [`workspace-agents-md-template.md`](references/workspace-agents-md-template.md)
      （`{{WORKSPACE_SPEC_VERSION}}` 用目标版本）→ diff 旧文件，**多出的本地定制逐条与
      用户裁定**（搬 `MEMORY/`：一行事实写 MEMORY.md 索引短条目；含 why 建
      `MEMORY/<slug>.md` 完整条目 + 索引行——或丢弃）→ Write 覆盖（**不**做局部 Edit）

@@ -61,7 +61,7 @@
 - [§14 scripts/——本 wiki 仓扩展脚本目录](#14-scripts本-wiki-仓扩展脚本目录)
 - [§15 raw/discussions/——协作草稿层](#15-rawdiscussions协作草稿层可选)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
-- [附录 B：版本历史](wiki-spec-changelog.md)  *(changelog 已拆出独立文件)*
+- [附录 B：版本历史](wiki-spec-changelog.md)
 
 ## §1 目录结构
 
@@ -102,8 +102,8 @@
   其中 `MEMORY.md` 是索引（**单一真源**），由 `<wiki-root>/AGENTS.md` 顶部
   `@MEMORY/MEMORY.md` `@import` 自动加载全文——自动展开 `@import` 的 agent 透明拿到索引；
   不展开 `@import` 的 agent 由 AGENTS.md 顶部强制 Read 指令兜底。AGENTS.md 只挂单行引用、
-  不持有副本，**无**双写漂移 / L1 膨胀风险（详见 §5.1 加载机制段）。**为什么移到
-  `<wiki-root>/MEMORY/`**：对应 §四层架构第 3 层（独立于 wiki/ 内容，物理位置跟逻辑分层对齐）；
+  不持有副本，**无**双写漂移 / L1 膨胀风险（详见 §5.1 加载机制段）。**为什么 MEMORY 位于
+  `<wiki-root>/`（与 `wiki/` 平级）**：对应 §四层架构第 3 层（独立于 wiki/ 内容，物理位置跟逻辑分层对齐）；
   未来 publish 时 MEMORY 自然留作私有层不外传
 - **`wiki/tags.md` 是 wiki 仓的"tag 白名单"**——LLM agent 拥有，存放本 wiki
   允许使用的 tag 集合；裸 bullet 列表，**无 frontmatter**（与 MEMORY.md 同——元数据不是
@@ -160,19 +160,14 @@
 > **MEMORY / scripts 是单一真源**，AGENTS.md 单行 `@import` 引用同步指向全文——**不**在 AGENTS.md
 > 持有副本，**无**双写漂移 / L1 膨胀风险。详见 §5.1 + §14.3 加载机制段。
 >
-> **老 wiki 迁移（SSOT 拆分）**：`CLAUDE.md` 仍是 SSOT 形态的老 wiki 由
-> `lint_wiki.py --check-version --apply` 的 `claudemd-to-agents-md-split` action 迁移。
->
 > **Tag Taxonomy 段归属**：SSOT 模板含 `### Tag Taxonomy` 段——但只承载解析规则与格式
 > 约束（权威定义见 §9.1）；**tag 白名单本体**归 [`wiki/tags.md`](#91-tag-白名单来源)
-> 维护，CLI init 不向 AGENTS.md 写入 tag 字典。老 wiki 的 AGENTS.md（或 CLAUDE.md）
-> 段内仍写死 tag 字典时，由 `lint_wiki.py --check-version --apply` 自动迁移。
+> 维护，CLI init 不向 AGENTS.md 写入 tag 字典。
 >
 > **scripts 索引**：SSOT 模板含 `### Wiki-local scripts` 段，引用
 > [`scripts/SCRIPTS.md`](#14-scripts本-wiki-仓扩展脚本目录) 索引；CLI init 必须
-> 同时在 AGENTS.md 顶部插入 `@scripts/SCRIPTS.md` import 行。
-> 老 wiki 迁移仅由 workspace CLI 处理（`lint_wiki.py --check-version --apply` 不为此
-> 出 legacy pattern——`scripts/` 是 opt-in 扩展，不存在不算违规）。
+> 同时在 AGENTS.md 顶部插入 `@scripts/SCRIPTS.md` import 行（`scripts/` 是 opt-in
+> 扩展，不存在不算违规）。
 
 ### AGENTS.md（SSOT）
 
@@ -180,7 +175,7 @@
 - 内容来源：本仓 `references/agents-md-template.md`（**权威 canonical 模板**）
 - CLI 按 canonical 模板生成，差异**仅限 4 个 per-wiki 值**（模板替换机制——占位符语法 / 渲染引擎——归 CLI，spec 不规定）：
   - 主题名（用户传入的人类可读字符串，如 `"LLM Systems"`、`"Distributed Systems"`）
-  - 创建日期（当天，`YYYY-MM-DD HH:MM`；lint 仍接受老 wikis 的 `YYYY-MM-DD`，详见 §9 字段说明）
+  - 创建日期（当天，`YYYY-MM-DD HH:MM`；lint 也接受 `YYYY-MM-DD`，详见 §9 字段说明）
   - wiki spec 版本号（CLI 当前兼容版本）
   - CLI 自身版本号
 - 模板顶部说明块的"本文件 ... 按 wiki-spec.md §2 拷贝生成"反向引用，CLI **不得修改**
@@ -245,7 +240,7 @@
   ^## \[\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?\] (ingest|query|lint|setup) \| .+$
   ```
 
-  > `HH:MM`（`HH:MM:SS` 也合法）可选；老 wikis 仅 `YYYY-MM-DD` 仍合法——lint 宽容解析两套，不强制迁移。
+  > `HH:MM`（`HH:MM:SS` 也合法）可选；`YYYY-MM-DD`（date-only）也合法——lint 按精度宽容解析三种格式。
 
 - 后续条目由 LLM 在 ingest / query / lint 时按相同格式追加，CLI 不必写
 - **字面量见 fixtures**：`references/fixtures/log.md.txt`
@@ -267,8 +262,6 @@
   全部字段不变**（`created` 永远是首次创建日，不因截断改；`updated` 正常更新）
 - **历史回溯**：被删的老条目在 git history 里——`git log -p -- wiki/log.md` 可查任意历史版本。
   未启用 git 的 wiki 老条目会丢失（本 skill 推荐将 wiki 纳入 git 仓）
-- **不再 rotate**：旧版 `log-YYYY.md` 归档 rotate 机制已废——滚动窗口 + git history
-  取代之；存量 `log-YYYY.md` 视为只读遗留，lint 不查、agent 不动
 
 ## §5 MEMORY/
 
@@ -314,8 +307,8 @@
   透明加载 `MEMORY.md` 全文（SSOT）；不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read
   指令**兜底（直接 `Read MEMORY/MEMORY.md`）。所有 agent 都见 L2 索引——AGENTS.md 不持有副本，
   **无**双写漂移 / L1 膨胀风险
-- **不**引入内联条数护栏——索引只活在 `MEMORY/MEMORY.md` 单一真源，AGENTS.md 单行引用不占 L1
-  词数预算；MEMORY 沉淀自由增长、AGENTS.md 不受影响
+- MEMORY 沉淀自由增长——索引活在 `MEMORY/MEMORY.md` 单一真源，AGENTS.md 单行 `@import` 引用不占 L1
+  词数预算，无需条数护栏
 - **字面量见 fixtures**：`references/fixtures/memory-index.txt`（与 `references/canonical/memory-index.md`
   一致——MEMORY.md 无占位符，fixtures 与 canonical 内容相同）
 
@@ -331,9 +324,9 @@
     多半不成立（见 spec §5「agent 私有」定位 + §5.2「与 wiki 内容页的区别」）
   - 若 frontmatter 含 `type`，取值需合法：5 类内容页枚举（`entity` / `concept` / `source` /
     `comparison` / `synthesis`），或 memory 扩展类型（`memory` / `memory-entry`，见下）
-- `type` 取值新增 2 类 memory 扩展（与 spec §9 的「5 类内容页 + 2 类 reserved」并列）：
+- `type` 取值另有 2 类 memory 扩展（与 spec §9 的「5 类内容页 + 2 类 reserved」并列）：
   - `memory`——MEMORY/*.md 自用语义，区别于 wiki 5 类内容页
-  - `memory-entry`——`memory` 同义别名（兼容老 MEMORY 写法）
+  - `memory-entry`——`memory` 同义别名
 - lint 校验（实现见 SKILL 仓 `scripts/lint_wiki.py`）：
   - **仅 `title` 必填**；其余 5 字段全 optional
   - `type` 若取则必须合法（含 `memory` / `memory-entry`）
@@ -413,8 +406,8 @@ CLI **不**生成 `wiki/{entities,concepts,sources,comparisons,syntheses}/` 下�
 | `title` | string | 人类可读标题，不含扩展名 |
 | `type` | enum | 见下方 `type` 取值 |
 | `tags` | array | 可空数组 |
-| `created` | date | `YYYY-MM-DD HH:MM`；lint 宽容解析 `YYYY-MM-DD` 老格式 |
-| `updated` | date | `YYYY-MM-DD HH:MM`；lint 宽容解析 `YYYY-MM-DD` 老格式 |
+| `created` | date | `YYYY-MM-DD HH:MM`；lint 也接受 `YYYY-MM-DD` |
+| `updated` | date | `YYYY-MM-DD HH:MM`；lint 也接受 `YYYY-MM-DD` |
 
 ### `type` 取值（5 类内容页 + 2 类 reserved）
 
@@ -438,19 +431,17 @@ CLI **不**生成 `wiki/{entities,concepts,sources,comparisons,syntheses}/` 下�
 - **主流位置**：`<wiki-root>/wiki/tags.md`——LLM agent 拥有，**裸 bullet 列表，
   无 frontmatter**；CLI init 时刻按 `references/fixtures/` 生成空白模板，agent 在
   ingest / query 过程中自动追加新 tag
-- **过渡 fallback（仅用于跨 spec 迁移期）**：`<wiki-root>/AGENTS.md` 的 `### Tag Taxonomy`
-  段（老 wiki 可能在 `CLAUDE.md`）——运行 `lint_wiki.py --check-version --apply` 自动
-  迁移到 `wiki/tags.md` 并删除 SSOT 中的对应段
+- **fallback**（`wiki/tags.md` 缺失时）：`<wiki-root>/AGENTS.md` 的 `### Tag Taxonomy`
+  段——`lint_wiki.py --check-version --apply` 可把 tag 字典迁到 `wiki/tags.md`
 - 解析规则、bullet 格式约束、`tag-not-in-taxonomy` lint 行为权威定义在
   [`agents-md-template.md`](agents-md-template.md)「Tag Taxonomy」段；
   SKILL 仓 `scripts/lint_wiki.py` 是实现 SSOT
 
-**为什么从 CLAUDE.md 拆出来**：
+**为什么 tag 白名单独立成 `wiki/tags.md`**：
 
-1. 纪律 SSOT（`AGENTS.md`；老 wiki 为 `CLAUDE.md`）是用户写的 schema "宪法"，LLM 不应编辑（见 `wiki-spec.md` §2）；tag 白名单
+1. 纪律 SSOT（`AGENTS.md`）是用户写的 schema "宪法"，LLM 不应编辑（见 `wiki-spec.md` §2）；tag 白名单
    是内容元数据，LLM 拥有 + 随 ingest 自动扩更合理
-2. tag 字典漂移不应触发 schema 漂移告警；拆出来后 spec bump 不会因为 tag bullet 增减
-   而误判老 wiki 与新 SKILL spec 不兼容
+2. tag 字典漂移不应触发 schema 漂移告警；独立文件后 tag bullet 增减不误判 spec 版本漂移
 3. 与 `MEMORY/MEMORY.md`（无 frontmatter、agent 私有记忆）形态对齐——元数据不归类到
    wiki 内容页
 
@@ -529,10 +520,6 @@ compared:
 完整 frontmatter 写法约束与 YAML 子集要求，**不在本 spec 范围内**——见 SKILL 仓的
 [`page-templates.md`](page-templates.md)（LLM 写作视角，非 CLI 视角）。
 
-**字段退役记录**：`confidence` 字段已退役，由 `reviewed` + `reviewed_at`
-替代。CLI 合规自检见到 `confidence:` 字段应给 `legacy-confidence-field` warn
-（迁移由 SKILL 仓 `lint_wiki.py` 提供）。
-
 ## §10 版本钉死
 
 **设计不变量**：AGENTS.md 必须记录本 wiki 创建时对齐的 wiki spec 版本 + CLI 版本（薄壳 CLAUDE.md 不持版本），
@@ -544,7 +531,7 @@ spec 版本号的 SSOT 是 SKILL 仓 `SKILL.md` 的 `metadata.wiki_spec_version`
 避免双源漂移）。CLI 仓与 spec 版本对齐是 CLI 仓的责任；spec 变更时 SKILL 仓升 `wiki_spec_version`，
 CLI 仓跟随升级。
 
-**LLM 在每次操作前比对** AGENTS.md §八（老 wiki 无 AGENTS.md 时 fallback CLAUDE.md §八）的 "Wiki Spec 版本" 与 SKILL.md
+**LLM 在每次操作前比对** AGENTS.md §八（无 AGENTS.md 时 fallback CLAUDE.md §八）的 "Wiki Spec 版本" 与 SKILL.md
 `metadata.wiki_spec_version`；不一致时**警告用户**（不阻断——CLI 可能支持多个 spec 版本）。
 
 ### §10.1 AGENTS.md 模板同步
@@ -598,9 +585,6 @@ CLI 生成的产物必须满足以上规则；否则后续 lint 会立即报错�
 
 > **维护方**：**用户**。CLI 不创建也不管理；用户通过 LLM agent 协助或自行用
 > `ln -s` + 手写/追加 `.symlink-anchor.toml` 接入。
->
-> 老 wiki 的「每仓 `<source-name>/` 子目录 + `.symlink-anchor.json`」形态已废弃——
-> 迁移见 §13.6。
 
 外部代码仓（如 Linux kernel、Ray 源码）作为原始语料纳入 wiki 时，**不**做仓库内嵌
 拷贝（避免占用空间 + 失去 commit 锚点），而是走 **symlink + 锚定元数据**：
@@ -623,7 +607,7 @@ CLI 生成的产物必须满足以上规则；否则后续 lint 会立即报错�
   下同名的 symlink 文件；该 symlink 缺失 → lint 报 `external-symlink-missing`；
   反之 anchor 中没记录该 symlink → lint 报 `external-anchor-orphan`
 - 同一 target 的多个 subpath：直接创建多个 symlink（每个 symlink 一行 entry），
-  不需要再用 `subpath` 字段间接表达（`subpath` 已废弃）
+  无需 `subpath` 字段间接表达
 
 ### §13.2 `.symlink-anchor.toml` Schema（必填 + git 仓扩展字段）
 
@@ -668,7 +652,7 @@ notes = "个人 TIL 仓库，按需重 ingest"
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `symlink` | kebab-case string | 是 | 对应 `raw/external/` 下同名的 symlink 文件名 |
-| `target` | string（绝对路径 **或** `~/...` home-relative 形式） | 是 | 推荐 `~/src/<name>` 形式以跨主机可移植；**也接受** `readlink -f <symlink>` 输出的绝对路径（兼容老 anchor）。lint 在判定前统一 `Path(target).expanduser()` 展开——绝对路径展开后不变，`~/...` 展开为 `$HOME/...` |
+| `target` | string（绝对路径 **或** `~/...` home-relative 形式） | 是 | 推荐 `~/src/<name>` 形式以跨主机可移植；**也接受** `readlink -f <symlink>` 输出的绝对路径。lint 在判定前统一 `Path(target).expanduser()` 展开——绝对路径展开后不变，`~/...` 展开为 `$HOME/...` |
 | `captured_at` | date `YYYY-MM-DD` | 是 | 用户接入当天；用于提示"target 路径多久前定锚" |
 | `kind` | enum | 是 | 当前仅支持 `"external-repo"`；预留给以后扩展（`"snapshot"` 等） |
 
@@ -681,8 +665,7 @@ notes = "个人 TIL 仓库，按需重 ingest"
 | `branch` | string | git 仓时必填 | `git -C <target> rev-parse --abbrev-ref HEAD` 输出；辅助识别漂移 |
 
 **可选字段**（任何场景都不强制）：`tag`（如果 `commit` 是某个 tag 而非分支头）、
-`notes`（自由文本，记录接入原因）。**`subpath` 已废弃**——直接创建多
-symlink 表达即可。
+`notes`（自由文本，记录接入原因）。
 
 > **为什么 target 字段允许 `~/...` 而不是硬要求绝对路径**：`target` 字段
 > 进 git，但**不**必须是机器相关绝对路径——推荐写 `~/src/<name>` 形式
@@ -770,13 +753,12 @@ raw/external/*
 > 重建协议详见 [`references/external-repo-rebuild.md`](external-repo-rebuild.md)——
 > git 三字段是跨机器 clone 后还原"接入瞬间 commit"的唯一信息源，缺一即不可重建。
 
-### §13.6 从 0.16.0 迁移到 0.17.0（破坏性变更）
+### §13.6 anchor 结构迁移（手工）
 
-老 wiki 的「每仓 `<source-name>/.symlink-anchor.json`」形态（0.16.0-）已废弃——扁平 + TOML
-是现行形态（§13.1）。`lint_wiki.py --check-version --apply` **不**自动迁移此结构差异
-（结构差异太大，自动迁移易出错）；迁移步骤（老 anchor → 扁平 TOML 的 5 步）见
-[`migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)（§6.3），
-版本演进背景见 [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 0.17.0 条目。
+`raw/external/` 采用扁平 + 单 TOML anchor 形态（§13.1）。非扁平布局 / JSON anchor 等
+结构差异由 `lint_wiki.py --check-version --apply` **手工**迁移（差异大、自动迁移易出错）；
+步骤见 [`migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)（§6.3），
+演进背景见 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)。
 
 ---
 

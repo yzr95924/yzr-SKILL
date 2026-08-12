@@ -87,6 +87,7 @@ npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答
 
 `markdownlint <file>` 从 skill 子目录跑时，markdownlint-cli 不向上查找仓库根 `.markdownlint.jsonc`，
 退回默认 line_length 80 → 正常行被误报 MD013。从仓库根跑，或 `-c .markdownlint.jsonc` 显式指定 config。
-另：MD060（compact 表格竖线 `|---|` 无空格）是仓库全局既存噪音（`.markdownlint.jsonc` 用
-`default:true` 未配 MD060），每个表格都触发、非新引入——判回归只看有无 **新错误类别**
-（如新出现 MD013/MD041），MD060 计数变化不算回归。
+另：MD060（compact 表格竖线 `|---|` 无空格）已在 `.markdownlint.jsonc` 显式 `false` 关闭（仓库用标准
+GFM 表格，紧凑分隔行每表都触发属误报）；`canonical/` + `fixtures/*.txt`（字节金标准，改了破坏 detector）
++ `*-spec-changelog.md`（超长叙事 cell，`|`/`<placeholder>` 假阳性）在 `.markdownlintignore` 排除。
+判回归只看有无 **新错误类别**（如新出现 MD013/MD041），不计 lint 计数绝对值。
