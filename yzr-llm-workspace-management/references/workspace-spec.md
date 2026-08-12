@@ -4,8 +4,8 @@
 > **skill 读取契约**（scan / Q&A / migrate 实际读取的字段）+ 安全约束。
 >
 > **依赖方向（单向）**：`workspace CLI → SKILL`（CLI 运行时读 SKILL 的 fixtures / 模板落盘骨架）。
-> SKILL **不反向依赖** CLI 实现——toml（`workspace.toml` / `workspace_models.toml` /
-> `wiki_metadata.toml`）的**字段全集 schema 归 CLI 代码 SSOT**（CLI 是这些文件的唯一写方；
+> SKILL **不反向依赖** CLI 实现——toml（`workspace.toml` / `wiki_metadata.toml` +
+> CLI 内部配置 toml）的**字段全集 schema 归 CLI 代码 SSOT**（CLI 是这些文件的唯一写方；
 > 字段随 CLI 演进出/入，如簿记 / 模型路由 / session 启动等 config 字段）。
 > 历史上本 spec 曾把 toml 字段表当"schema 权威定义"，但那等于 SKILL 反向定义 CLI 的运行时数据，
 > 注定漂移。本次修订起收缩职责：spec 只管"骨架 + 归属 + skill 读取契约 + 安全"，CLI 字段全集退回 CLI。
@@ -34,7 +34,7 @@
 
 - [§1 目录结构](#1-目录结构)
 - [§2 workspace.toml](#2-workspacetoml)
-- [§3 workspace_models.toml](#3-workspace_modelstoml)
+- [§3 CLI 内部配置](#3-cli-内部配置)
 - [§4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）](#4-workspace-agentsmdssot-claudemd薄壳)
 - [§5 INDEX.md（skill 维护）](#5-indexmdskill-维护)
 - [§6 STATS.md（skill 维护）](#6-statsmdskill-维护)
@@ -57,9 +57,7 @@
 ```text
 <workspace-root>/
 ├── .gitignore                      # CLI init 时写（§10）
-├── workspace.toml                  # CLI init 时写（§2）
-├── workspace_models.toml           # CLI init 时写（§3，gitignored）
-├── workspace_local.toml            # CLI 维护（主机相关运行时，gitignored）
+├── workspace.toml                  # CLI init 时写（§2）；skill 读取契约字段
 ├── AGENTS.md                       # CLI init 时按 §4 拷 SSOT 模板；用户所有（工具无关纪律）
 ├── CLAUDE.md                       # CLI init 时按 §4 拷薄壳模板（@AGENTS.md）；供经薄壳加载的 agent
 ├── INDEX.md                        # skill scan 时建 + 维护（§5）
@@ -70,14 +68,18 @@
 └── <wiki-name>/                    # 每个 wiki 一个子目录，遵循 wiki-spec §1 目录结构
 ```
 
-**workspace 根的 9 类文件 / 目录各自归属**：
+> **CLI 内部配置（open class，不在上树）**：根目录另有若干 CLI 维护的 `*.toml`（当前实现含
+> 模型注册表、主机本地运行时配置等；含密 gitignored；skill **不读不写**）——**文件名 / 格式 / 拆分
+> 归 CLI 实现自由，spec 不逐一钉名**（CLI 改名 / 增减 / 合并不构成 spec 违规；含密清单由探测器
+> `gitignore-skeleton` check 校验，见 §3、§10）。`workspace.toml` 是例外：skill 读取契约字段（§2）。
+
+**workspace 根文件 / 目录的归属**：
 
 | 文件 / 目录 | init 时刻（CLI） | 后续维护方 | 说明 |
 | --- | --- | --- | --- |
-| `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
-| `workspace.toml` | CLI 写 | **CLI**（wiki 注册表 CRUD） | wiki 注册表 + 结构数据（schema_version / created_at / templates_version）；运行时配置见 workspace_local.toml；skill **不写**（迁移例外见 §17.2） |
-| `workspace_models.toml` | CLI 写 | **CLI**（模型注册表 CRUD） | 模型注册表（API key 等敏感信息）；skill **不写** |
-| `workspace_local.toml` | CLI 写 | **CLI**（config 命令维护） | 主机相关运行时（session 启动字段如 enter_cli / enter_byobu）；跨主机共用同一 git 仓会互相覆盖，故拆出本地化 + gitignored；字段全集归 CLI SSOT；skill **不写** |
+| `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除承载密钥 / 凭据的 CLI 配置等敏感文件（清单见探测器 `gitignore-skeleton`，§10） |
+| `workspace.toml` | CLI 写 | **CLI**（wiki 注册表 CRUD） | wiki 注册表 + 结构数据（schema_version / created_at / templates_version）；运行时配置（session 等）归 CLI 内部，skill 不读；skill **不写**（迁移例外见 §17.2） |
+| `<CLI 内部配置 *.toml>` | CLI 写 | **CLI** | 模型注册表（含 API key）/ 主机本地运行时等；skill **不读不写**；含密文件必须 gitignore + 权限保护（清单 / 机制见探测器 `gitignore-skeleton` + §3）；**文件名 / 拆分 / schema 归 CLI SSOT，spec 不逐一钉名** |
 | `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读**（迁移例外见 §17.2） | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
 | `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读**（迁移例外见 §17.2） | 仅供经薄壳自动加载的 agent |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
@@ -87,17 +89,20 @@
 | `MEMORY/` | CLI 写（init 建空目录 + 写 MEMORY.md 索引） | **skill**（写 `*.md` 经验 + 同步 MEMORY.md 索引） | 跨 wiki agent 私有记忆 |
 | `<wiki-name>/` | CLI 写（按 wiki-spec §1 目录结构） | **CLI** 写元数据 + **skill**（或 `yzr-llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
-> **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_local.toml`、`workspace_models.toml`、
-> `AGENTS.md`（SSOT 模板拷贝）+ `CLAUDE.md`（薄壳模板拷贝）、`.gitignore` 六份根级文件 + `MEMORY/`（init 建空目录 + 写
-> `MEMORY.md` 索引占位，见 §9）+ `<wiki-name>/` 子树（按 wiki-spec）。
-> **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` + `MEMORY/*.md` 经验条目**——
-> 这些是 workspace skill 的领地。
+> **契约边界（不变量）**：spec 只对 **skill 有直接依赖**的根文件钉死名字——
+> skill **读** `workspace.toml`（读取契约字段见 §2）+ `AGENTS.md` / `CLAUDE.md`（用户宪法，skill 只读）；
+> skill **写** `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` 四份 workspace 级文件 +
+> `MEMORY/*.md` 经验条目（同步追加 `MEMORY.md` 索引一行，骨架由 CLI init 写，见 §9）+
+> 各 `<wiki-name>/wiki/**`（通过 `yzr-llm-wiki-management`）。**CLI 绝不写** 这些 skill 领地文件。
 >
-> **skill 的写入范围限制（不变量）**：skill 只写 `INDEX.md` / `STATS.md` / `LINT.md` /
-> `cross_queries/` 四份 workspace 级文件 + `MEMORY/*.md` 经验条目（并同步追加 `MEMORY.md`
-> 索引一行；`MEMORY.md` 骨架由 CLI init 写）+ 各 `<wiki-name>/wiki/**`（通过
-> `yzr-llm-wiki-management`）。**skill 绝不写 `workspace.toml` / `workspace_models.toml` /
-> `.gitignore` / `AGENTS.md` / `CLAUDE.md`**——前 3 份是 CLI 的领地，最后两份是用户的宪法
+> **CLI 内部配置（open class，不钉名）**：除上述契约文件外，CLI 另维护若干根级配置（当前实现含
+> 模型注册表、主机本地运行时配置等 `*.toml`）——skill **不读不写**。这些文件的**名字 / 格式 / 拆分
+> 是 CLI 的实现自由，spec 不逐一钉名**：CLI 改名 / 增减 / 合并均不构成 spec 违规。含密配置（承载
+> 密钥 / 凭据，如 API key）必须 gitignore + 文件权限保护，**具体清单与机制由探测器**
+> `check_workspace_fixtures.py` **`gitignore-skeleton` check 校验，非 spec 枚举**（见 §3、§10）。
+>
+> **skill 绝不写**：CLI 的根配置（`workspace.toml` + 上述 open class）+ `.gitignore`（§10）+
+> 用户宪法（`AGENTS.md` / `CLAUDE.md`）——前两类是 CLI 的领地，最后是用户的宪法
 > （**迁移例外**：spec 升级时按 §17.2 放开 4 处单点写入）。skill 也不写
 > `<wiki-name>/raw/`（用户所有）。
 
@@ -129,19 +134,19 @@
 - **CLI 写入场景**：workspace 元数据 CRUD（注册表维护 / 配置增改）——具体命令名归 CLI
 - **skill 写入场景**：**无**——只读（迁移例外见 §17.2）
 
-## §3 workspace_models.toml
+## §3 CLI 内部配置
 
-> **维护方**：CLI 在 init 时刻创建空骨架 + 后续模型注册表 CRUD 命令
-> 维护。skill **不读不写**——skill 做 cross-wiki Q&A 不需要感知具体 model 配置。
+> **范围**：CLI 维护的根级内部配置（**skill 不读不写**）——当前实现含模型注册表
+> （`workspace_models.toml`，承载 API key 等敏感信息）+ 主机本地运行时配置等。这些文件的
+> **名字 / 格式 / 拆分是 CLI 的实现自由，spec 不逐一钉名**；本节只约束**含密配置的敏感性
+> 与权限**（CLI 改名 / 增减 / 合并不构成本节违规，含密新文件自动适用下述约束）。
 
-- 路径：`<workspace-root>/workspace_models.toml`
-- 格式：TOML
-- **必须 gitignored**（详见 §10）——含 API key 等敏感信息
+- **必须 gitignored**（详见 §10）——承载密钥 / 凭据的 CLI 配置一律排除
 - 落盘后以文件系统权限保护（POSIX 上如 `chmod 600`；不支持权限位的 FS 走 best-effort）——具体机制归 CLI
-- **完整字段 schema 由 CLI 代码 SSOT**——本 spec 不列字段表。
-  skill 既不读也不写本文件，字段表列了只会反向耦合且必滞后；本节只约束**敏感性与权限**。
+- **完整字段 schema 由 CLI 代码 SSOT**——本 spec 不列字段表。skill 既不读也不写这些文件，
+  字段表列了只会反向耦合且必滞后；含密文件具体清单由探测器 `gitignore-skeleton` check 校验，非 spec 枚举
 
-- **CLI 写入场景**：模型注册表 CRUD——具体命令名归 CLI
+- **CLI 写入场景**：模型注册表 / 运行时配置 CRUD——具体命令名归 CLI
 - **skill 写入场景**：**无**——完全无关（不读不写）
 
 ## §4 workspace AGENTS.md（SSOT）+ CLAUDE.md（薄壳）
@@ -482,7 +487,7 @@ skill 在 `lint` / `query` / `link` / `scan` 触发时**不创建** MEMORY 结�
 
 > **立场**：workspace **不依赖 git 即可工作**——默认落盘为**纯目录树**。workspace 的 git 仓
 > **由用户在外部自行 `git init` / `clone` 创建**，CLI **不碰 git**——不 `git init`、不 `add`、
-> 不 `commit`、也不提供任何 git 操作入口；版本控制是用户在自己机器上决定的事。`workspace_models.toml`
+> 不 `commit`、也不提供任何 git 操作入口；版本控制是用户在自己机器上决定的事。CLI 含密配置
 > 在无 git 时靠文件系统权限保护，用户启用 git 后靠 `.gitignore`（§10）排除。
 
 - **init 允许落在用户已建好的空 git 仓上**：若目标目录已是 git 空仓（仅含 `.git` 与/或
@@ -578,14 +583,14 @@ CLI 在以下情况必须拒绝并退出（**非零退出码**）：
 | frontmatter 字段名 | 严格小写 + 下划线 | 所有 workspace 级 markdown |
 | frontmatter `type` 值 | 严格小写 + 连字符（`workspace-index` / `workspace-memory` 等） | 所有 workspace 级 markdown |
 
-> `model_id` 等 `workspace_models.toml` 内部标识符的命名规则归 CLI（该文件 skill 不读不写，
-> 见 §3），不在本 spec 范围。
+> `model_id` 等 CLI 内部标识符（模型注册表等，见 §3）的命名规则归 CLI（skill 不读不写），
+> 不在本 spec 范围。
 
 ## §16 不在本 spec 范围内
 
 以下事项不由本 spec 定义（toml 字段 schema 归 CLI；运行时规则归 skill）：
 
-- **toml 字段全集 schema**（`workspace.toml` / `workspace_models.toml` / `wiki_metadata.toml` 的字段定义）——
+- **toml 字段全集 schema**（`workspace.toml` / `wiki_metadata.toml` + CLI 内部配置 toml 的字段定义）——
   归 CLI 代码 SSOT，本 spec 只描述 skill 读取契约（见 §2 / §3）
 - **cross-wiki Q&A 的工作流**——4 种模式（route / synthesis / compare / local）的
   算法与判定规则属 [`yzr-llm-workspace-management`](../SKILL.md) skill 范畴
@@ -658,7 +663,7 @@ CLI 在生成完成后，可执行以下验证：
 1. **字节级对比**：`AGENTS.md` 与 §4 SSOT 模板字面一致 + `CLAUDE.md` 与薄壳模板字面一致（占位符
    替换后）；`MEMORY/MEMORY.md` 与 `references/canonical/memory-index.md` 字节一致（无占位符，直接
    `cmp`，流程同 wiki fixtures）；`.gitignore` 段结构由 `gitignore-skeleton` check 比对（完整字节 SSOT
-   在 CLI 代码，见 §10）。**`workspace.toml` / `workspace_models.toml` 的字段 schema
+   在 CLI 代码，见 §10）。**`workspace.toml` + CLI 内部配置 toml 的字段 schema
    不由本 spec 比对**——归 CLI SSOT（见 §2 / §3），CLI 是唯一写方、字段演进自保；SKILL 只 gate 读取
    契约字段（`templates_version` / `[wikis].path/created_at`，由 `workspace-toml-reads-satisfied` check 校验）
 2. **结构性自检**：`<workspace>/` 含 §1 列出的所有顶层项（含 `MEMORY/MEMORY.md`）；`<wiki-name>/` 子目录按
