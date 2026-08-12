@@ -59,6 +59,7 @@
 ├── .gitignore                      # CLI init 时写（§10）
 ├── workspace.toml                  # CLI init 时写（§2）
 ├── workspace_models.toml           # CLI init 时写（§3，gitignored）
+├── workspace_local.toml            # CLI 维护（主机相关运行时，gitignored）
 ├── AGENTS.md                       # CLI init 时按 §4 拷 SSOT 模板；用户所有（工具无关纪律）
 ├── CLAUDE.md                       # CLI init 时按 §4 拷薄壳模板（@AGENTS.md）；供经薄壳加载的 agent
 ├── INDEX.md                        # skill scan 时建 + 维护（§5）
@@ -74,8 +75,9 @@
 | 文件 / 目录 | init 时刻（CLI） | 后续维护方 | 说明 |
 | --- | --- | --- | --- |
 | `.gitignore` | CLI 写 | CLI（重 init 时覆盖；普通命令不碰） | 排除 `workspace_models.toml` 等敏感文件 |
-| `workspace.toml` | CLI 写 | **CLI**（wiki 注册表 CRUD） | wiki 注册表 + CLI 运行时 config（模型路由 / session 等，见 §2）；skill **不写**（迁移例外见 §17.2） |
+| `workspace.toml` | CLI 写 | **CLI**（wiki 注册表 CRUD） | wiki 注册表 + 结构数据（schema_version / created_at / templates_version）；运行时配置见 workspace_local.toml；skill **不写**（迁移例外见 §17.2） |
 | `workspace_models.toml` | CLI 写 | **CLI**（模型注册表 CRUD） | 模型注册表（API key 等敏感信息）；skill **不写** |
+| `workspace_local.toml` | CLI 写 | **CLI**（config 命令维护） | 主机相关运行时（session 启动字段如 enter_cli / enter_byobu）；跨主机共用同一 git 仓会互相覆盖，故拆出本地化 + gitignored；字段全集归 CLI SSOT；skill **不写** |
 | `AGENTS.md` | CLI 按 §4 拷 SSOT 模板 | **用户**（schema 是用户的宪法，工具无关 SSOT）；skill **只读**（迁移例外见 §17.2） | workspace 的"宪法"——三层职责切分 + 跨 wiki 约定 |
 | `CLAUDE.md`（薄壳） | CLI 按 §4 拷薄壳模板（`@AGENTS.md`） | **用户**；skill **只读**（迁移例外见 §17.2） | 仅供经薄壳自动加载的 agent |
 | `INDEX.md` | CLI **不写**（留空） | **skill**（scan / refresh-index） | workspace 全局入口文档 |
@@ -85,8 +87,8 @@
 | `MEMORY/` | CLI 写（init 建空目录 + 写 MEMORY.md 索引） | **skill**（写 `*.md` 经验 + 同步 MEMORY.md 索引） | 跨 wiki agent 私有记忆 |
 | `<wiki-name>/` | CLI 写（按 wiki-spec §1 目录结构） | **CLI** 写元数据 + **skill**（或 `yzr-llm-wiki-management`）写内容 | 每个 wiki 是独立子仓 |
 
-> **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_models.toml`、
-> `AGENTS.md`（SSOT 模板拷贝）+ `CLAUDE.md`（薄壳模板拷贝）、`.gitignore` 五份根级文件 + `MEMORY/`（init 建空目录 + 写
+> **CLI 的写入范围限制（不变量）**：CLI 只写 `workspace.toml`、`workspace_local.toml`、`workspace_models.toml`、
+> `AGENTS.md`（SSOT 模板拷贝）+ `CLAUDE.md`（薄壳模板拷贝）、`.gitignore` 六份根级文件 + `MEMORY/`（init 建空目录 + 写
 > `MEMORY.md` 索引占位，见 §9）+ `<wiki-name>/` 子树（按 wiki-spec）。
 > **CLI 绝不写 `INDEX.md` / `STATS.md` / `LINT.md` / `cross_queries/` + `MEMORY/*.md` 经验条目**——
 > 这些是 workspace skill 的领地。
