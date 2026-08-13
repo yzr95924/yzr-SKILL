@@ -368,7 +368,7 @@ def check_agents_md_template_sync(wiki_root: Path, info: Dict[str, str]) -> Dict
     """check#12: AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（0.26.0+）。
 
     per-wiki 变量只有 4 个（主题 / 创建日期 / CLI 版本 / Wiki Spec 版本，全在 H1 + §八），
-    正文 §一~§七 跨 wiki 逐字相同——故用"提取变量 → 渲染模板 → 字节比对"一次覆盖
+    正文 §一~§七 + §九 跨 wiki 逐字相同——故用"提取变量 → 渲染模板 → 字节比对"一次覆盖
     旧版本残留 + 本地改动全部漂移，取代 0.25.0- 的两条存在性检查（has-at-imports /
     top-read-directive）。{{WIKI_SPEC_VERSION}} 用 wiki 自钉版本替换，与 check#1
     （版本行对齐 target）保持正交——本 check 只管"正文与模板同步"，不管版本新旧。

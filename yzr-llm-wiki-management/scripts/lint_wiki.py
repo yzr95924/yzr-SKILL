@@ -117,7 +117,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.29.0"  # 0.29.0 = raw/discussions/ 协作草稿层（spec §15）+ raw/external/ target 角色切分（§13.3）；0.28.0 HH:MM backward-compat 解析仍生效
+CURRENT_WIKI_SPEC = "0.30.0"  # 0.30.0 = 交互语言风格纪律（SKILL.md 核心原则 §13 + agents-md-template §九）；0.29.0 raw/discussions/ 协作草稿层（spec §15）+ raw/external/ target 角色切分（§13.3）仍生效
 
 
 def _assert_spec_version_sync() -> None:
