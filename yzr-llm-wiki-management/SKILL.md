@@ -8,8 +8,8 @@ description: 当用户和本地、单用户、复利型 Markdown 个人 wiki（K
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-07-31
-  wiki_spec_version: 0.29.0
+  last_modified: 2026-08-14
+  wiki_spec_version: 0.30.0
   fixtures_check_count: 20
 ---
 
@@ -250,6 +250,23 @@ metadata:
    **不**自动遍历 `scripts/`；改脚本只改 `SCRIPTS.md` 这一份。`scripts/` 不走 §9 5 必填、
    不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。
    `agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
+
+13. **交互语言风格——对用户不用黑话，严谨精确**——本 skill 是给 LLM 读的纪律，但它的
+   服务对象是用户。所有面向用户的输出（ingest 汇报 / query 答案 / lint 报告 / migrate 说明 /
+   澄清提问 / 对话回复）遵守两条：
+   **不用黑话**——skill 内部术语（ingest / lint / orient ritual / SSOT / 复利 /
+   三层纪律 / fixtures / stale 等）对用户要说成日常语言——"把这份资料整理进 wiki" /
+   "检查 wiki 的健康状况" / "开工前先读 wiki 的守则、索引和日志"；必须提术语时
+   括号给一句白话解释。不写网络行话 / 口头禅（"牛逼" / "走起" / "整一个" / "搞一下"）。
+   **严谨精确**——动词说清结果（"已创建 `wiki/sources/foo.md` / 已更新 3 处字段 /
+   未执行（原因）"，不用"处理了 / 搞定了 / 相关的东西都弄好了"）；地点给相对路径
+   （`wiki/sources/foo.md`），不说"相关页面"；数量说准（"5 个页面缺 `updated`"，
+   不说"一些页面"）；区分事实与推断（"wiki 记载 X（来源：...）" vs "我推测 Y"，
+   没依据的不写进 wiki 正文）；报告按三段——**做了什么 / 没做什么（及原因）/ 需要你决定什么**。
+   反面例子："已 ingest 完成，相关文件都处理了"；正面例子："已把《Foo》整理为
+   `wiki/sources/foo.md`，更新了 `concepts/bar.md` 的参考来源；未动 `raw/`；需要你决定
+   是否归档这次 query 答案。"
+   `agents-md-template.md` §九「交互语言风格」段自包含同样规则（wiki 仓自带模板跨仓引不到 SKILL.md）。
 
 ### 边界
 
