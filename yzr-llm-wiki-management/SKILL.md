@@ -17,7 +17,7 @@ metadata:
 
 按 Karpathy [LLM Wiki 设计哲学](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 维护一个**本地**、**复利累积**的知识库：用户只管读 + 提供资料 + 提问题，LLM 负责摘要、
-交叉引用、归档、簿记这些"无聊的部分"。和 `yzr-outline-wiki-upload` 等云端 skill 的关键区别是
+交叉引用、归档、簿记这些"无聊的部分"。和 `yzr-outline-wiki` 等云端 skill 的关键区别是
 **本地文件 + 三层纪律**——vs 云端 MCP 单层文档。
 
 本 skill 提供三块交付物：
@@ -51,7 +51,7 @@ metadata:
 ### 不使用
 
 - **云端协作 wiki**（Notion / Confluence / Outline Wiki / GitHub Wiki）——走
-  `yzr-outline-wiki-upload`（写 / 编辑）/ `yzr-outline-wiki-search`（搜 / 读）
+  `yzr-outline-wiki`（搜 / 读 / 写 / 编辑）
 - **一次性文档生成**（不是累积型）——直接用普通文件写入流程
 - **没有 raw/ 资料 + 没有累积需求**——skill 的价值在"复利"，一次性整理用不上
 - **需强结构化数据库**（带 schema / SQL / 全文检索后端）——wiki 规模 ≤ 数百页时
@@ -143,7 +143,7 @@ metadata:
 
 ### 为什么不用云端
 
-`yzr-outline-wiki-upload` / `yzr-outline-wiki-search` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
+`yzr-outline-wiki` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
 权限管理。本 skill 走**本地文件**（git 为可选 opt-in），原因：
 
 - **隐私**——研究 / 读书 / 个人思考不需要上云
@@ -519,5 +519,5 @@ MEMORY/，详见 wiki-spec §10.1）。**简要流程** + 详细步骤 + 字段�
 
 ## 与其他 skill 的边界
 
-`yzr-outline-wiki-upload` / `yzr-outline-wiki-search` 走云端 Outline——团队协作、外部分享。
+`yzr-outline-wiki` 走云端 Outline——团队协作、外部分享。
 `design-doc-edit` 走单篇 Markdown 写作。

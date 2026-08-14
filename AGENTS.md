@@ -111,7 +111,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ## 高层结构
 
-入库文件（25 个）：
+入库文件（22 个）：
 
 ```text
 .
@@ -128,12 +128,13 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 ├── yzr-llm-wiki-management/     # 本地单 wiki 维护（yzr-llm-workspace-management 的内层）
 ├── yzr-llm-workspace-management/# 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
 │                                # Q&A / lint）
-├── yzr-outline-wiki-setup/      # Outline Wiki MCP 接入 + 重启验证（一次性配置）
-├── yzr-outline-wiki-search/     # Outline Wiki 搜 / 读文档（核心 2 个能力）
-├── yzr-outline-wiki-upload/     # Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 +
-│                                # Collection + 移动 / 删除
+├── yzr-outline-wiki/           # Outline Wiki 搜 / 读 / 写 / 编辑（MCP 操作；含 references/
+│                               # doc_style + style_checklist；MCP 接入见其 §接入 小节）
 ├── yzr-code-refactoring-review/ # 现有代码可重构点巡检（Fowler 60+ catalog +
 │                                # 4 语言插件；产出审查报告，不主动改文件）
+├── yzr-polish-writing/          # AI 生成文本润色改写（去 AI 腔 / 降冗余 / 风格 / 语气；
+│                                # 规则库 references/{style,redundancy,tone,ai-tells}.md，
+│                                # 直接产出改写版）
 ├── yzr-sys-design-doc/          # 正式系统设计文档写作：full/lite 两档路由（需求层/方案层/
 │                                # 落地层三层 14 节 + DFX），full 档配套独立实施任务书
 │                                # （执行期活文档，进度/问题/设计变更循环）
@@ -184,19 +185,18 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ### 跨 skill 协作约定
 
-- `yzr-outline-wiki-*` 三个 skill（`yzr-outline-wiki-setup` / `yzr-outline-wiki-search` /
-  `yzr-outline-wiki-upload`）共同维护 Outline Wiki MCP 接入与使用——`setup` 一次性写 agent
-  MCP 配置文件 + 重启验证；`search` 只读 search / read；`upload` 写 / 编辑 + 图片附件 3
-  步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。三者均以 MCP 为主、
-  不直连 REST，有两个例外：`upload` 在大文档整篇重写时走 REST 绕开 `update_document`
-  的换行吞字 bug；`search` 读文档正文走 REST `POST /api/documents.info`，绕开部分 agent
-  截断 MCP 多 content block 的缺陷（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持多
-  block 后撤销）。破坏性操作（移动 / 删除 / 归档）由 `yzr-outline-wiki-upload` 承担，必须先
+- `yzr-outline-wiki` 是唯一维护 Outline Wiki MCP 使用的 skill——搜 / 读 / 写 / 编辑 +
+  图片附件 3 步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。MCP
+  接入与鉴权在 agent 配置文件中维护（见其 §接入 小节），本 skill 不做配置操作。以 MCP
+  为主、不直连 REST，有两个例外：写侧在大文档整篇重写时走 REST 绕开
+  `update_document` 的换行吞字 bug；读侧在客户端截断 MCP 多 content block 时走 REST
+  `POST /api/documents.info` 拿正文（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持
+  多 block 后撤销）。破坏性操作（移动 / 删除 / 归档）必须先
   在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
-- `yzr-gemini-pdf-summary` ↔ `yzr-outline-wiki-upload` 构成本地论文管线，单向流动：
+- `yzr-gemini-pdf-summary` ↔ `yzr-outline-wiki` 构成本地论文管线，单向流动：
   - `yzr-gemini-pdf-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
     （`--extract-figures` 模式产物）
-  - `yzr-outline-wiki-upload` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
+  - `yzr-outline-wiki` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
     `create_attachment` → `curl` → Markdown 引用 `attachments.redirect?id=...`
   - 两个 skill **不互调**：上游只输出本地文件，下游只消费本地文件
   - 禁止任何一方写"调用对方 API / 编排对方 step"

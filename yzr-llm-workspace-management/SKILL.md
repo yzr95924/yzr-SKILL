@@ -9,7 +9,7 @@ description: |
   "记一下：用户偏好按时间线分 wiki"。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——
   CLI 负责确定性元数据操作，本 skill 负责需要 LLM 判断的跨 wiki 决策。不适用：单 wiki 的
   ingest / query / lint（走 yzr-llm-wiki-management）；workspace / wiki 元数据 CRUD（走
-  workspace CLI）；云端协作 wiki（走 outline-wiki-{search,upload,setup}）。
+  workspace CLI）；云端协作 wiki（走 yzr-outline-wiki）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
@@ -54,7 +54,7 @@ metadata:
 - **workspace / wiki 元数据 CRUD**（init / add / remove / config / enter / model
   add / remove / set-default）——走 workspace CLI（如 `llmw`）
 - **云端协作 wiki**（Notion / Confluence / Outline Wiki / GitHub Wiki）——走
-  `yzr-outline-wiki-upload`（写 / 编辑）/ `yzr-outline-wiki-search`（搜 / 读）
+  `yzr-outline-wiki`（搜 / 读 / 写 / 编辑）
 - **一次性文档生成**——直接用普通文件写入流程
 - **单 wiki 内的 cross-page Q&A**——走 `yzr-llm-wiki-management` 的 query 工作流
 

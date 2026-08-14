@@ -358,7 +358,7 @@ server 暴露的工具集，不同 self-hosted 部署可能略有差异。
 ## OKF agent 可读基线（上传格式控制）
 
 > **目的**：推到 Outline 的文档要能被 agent 稳定**读回理解**——
-> `yzr-outline-wiki-search` 读回 markdown body、外部 OKF 消费端解析、未来检索
+> `yzr-outline-wiki` 读回 markdown body、外部 OKF 消费端解析、未来检索
 > 分块，都依赖一个可机读的元数据头 + 可预测的正文结构。OKF =
 > [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 > （"markdown + frontmatter、人 / agent 都能读"）。权威实现见

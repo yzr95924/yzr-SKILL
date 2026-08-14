@@ -89,7 +89,7 @@ LLM 用 catalog 60+ 场景卡补设计层问题;与工具结果去重;每条映�
 
 ## 与相邻 skill 的关系
 
-- **不调用** `yzr-outline-wiki-*`(报告默认输出到当前对话;若用户明确要入 wiki,转交 `yzr-outline-wiki-upload`)
+- **不调用** `yzr-outline-wiki`(报告默认输出到当前对话;若用户明确要入 wiki,转交 `yzr-outline-wiki`)
 - **不调用** `yzr-skill-creator`(本 skill 自身就是产物)
 - **不调用** `gemini-paper-summary`(与论文无关)
 

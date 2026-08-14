@@ -55,9 +55,9 @@ python3 scripts/install-dev-deps.py
 - **代码评审 / 重构**：
   - `yzr-code-refactoring-review` —— 现有代码可重构点巡检（Fowler 60+ 重构 catalog + 4 语言插件；产出按严重度排序的审查报告，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：
-  - `yzr-outline-wiki-setup` —— Outline Wiki MCP 接入（一次性配置 + 重启验证）
-  - `yzr-outline-wiki-search` —— Outline Wiki 搜 / 读文档
-  - `yzr-outline-wiki-upload` —— Outline Wiki 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
+  - `yzr-outline-wiki` —— Outline Wiki 搜 / 读 / 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
+- **写作 / 润色**：
+  - `yzr-polish-writing` —— AI 生成文本润色改写（去 AI 腔 / 降冗余 / 风格 / 语气；规则库在 references/，直接产出改写版）
 - **元 skill**（项目上下文 / skill 本体工程）：
   - `yzr-multi-agent-context` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
@@ -76,7 +76,7 @@ python3 scripts/install-dev-deps.py
 
 ### 依赖的 MCP
 
-- `outline`（Outline Wiki MCP）—— `yzr-outline-wiki-*` 三件套必需，按 `yzr-outline-wiki-setup` 接入
+- `outline`（Outline Wiki MCP）—— `yzr-outline-wiki` 必需（接入见其 SKILL.md §接入 小节）
 - `Gemini Docs`（Gemini API 文档 MCP）—— 查 Gemini API 文档时按需
 
 ### 依赖的 Skills
