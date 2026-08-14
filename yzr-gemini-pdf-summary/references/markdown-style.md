@@ -4,7 +4,7 @@
 > 保留一段索引 + 1-2 行关键 must，完整规则在本文件查。**SSOT 在仓库 `.markdownlint.jsonc`**
 > （MD013 行宽、MD041 first-line-heading 关闭），脚本与本文件**不重写**这些数字配置。
 >
-> 规则来源：仓库内通用基线（与 yzr-outline-wiki-upload / yzr-llm-wiki-management 等共享），不是
+> 规则来源：仓库内通用基线（与 yzr-outline-wiki / yzr-llm-wiki-management 等共享），不是
 > 本 skill 独有。本 skill 的特殊之处只在"全文级转写产物本身就是 markdown 产物"——所以下面
 > 规则同时约束**生成产物**和**skill 自身的 md 文件**。
 

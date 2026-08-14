@@ -268,7 +268,7 @@ def collect_explicit_anchor_ids(text: str) -> set:
 def is_external(target: str) -> bool:
     """True for absolute URLs / known custom protocols we should not try
     to resolve as file paths. Includes ``mention:`` (Outline's @mention
-    protocol, see yzr-outline-wiki-upload/references/doc_style.md) —
+    protocol, see yzr-outline-wiki/references/doc_style.md) —
     every occurrence is illustrative prose, not a real file ref."""
     scheme_match = re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target)
     if not scheme_match:

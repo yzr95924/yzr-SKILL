@@ -1501,7 +1501,7 @@ def parse_args(argv=None):  # type: (Optional[list]) -> argparse.Namespace
         action="store_true",
         help=(
             "[向后兼容] quick 模式默认就带图，无需显式传 --extract-figures；"
-            "传了等价默认行为。保留此 flag 仅为不破坏既有调用（如 yzr-outline-wiki-upload）。"
+            "传了等价默认行为。保留此 flag 仅为不破坏既有调用（如 yzr-outline-wiki）。"
         ),
     )
     parser.add_argument(

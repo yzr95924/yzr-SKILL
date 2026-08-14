@@ -1,6 +1,6 @@
 ---
 name: yzr-md-to-html
-description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki-upload）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传分享"。
+description: 用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。不适用场景：上传到 Outline Wiki（走 yzr-outline-wiki）、PDF 转 Markdown（走 yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。常见触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传分享"。
 metadata:
   author: Zuoru YANG
   modify time: 2026-08-04
@@ -25,7 +25,7 @@ metadata:
 
 ### 不使用
 
-- **上传到 Outline Wiki** → 走 `yzr-outline-wiki-upload`（产物形态是 wiki 文档，不是本地 HTML）
+- **上传到 Outline Wiki** → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
 - **PDF → Markdown** → 走 `yzr-gemini-pdf-summary`
 - **HTML → Markdown**（反向）→ 本 skill 不做
 - 想要实时预览 / 在线编辑器 → 本 skill 是一次性导出，不是编辑器
