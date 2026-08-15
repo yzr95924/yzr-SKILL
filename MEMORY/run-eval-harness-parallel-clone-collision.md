@@ -69,7 +69,7 @@ iter 2+ 56%+。结构性缺陷确认是 recall 压低的主因。
 ## 影响
 
 - 对所有**已安装**的 skill（yzr-skill-creator / yzr-multi-agent-context / yzr-gemini-pdf-summary /
-  yzr-outline-wiki-* / yzr-llm-* / yzr-code-refactoring-review / 任何第三方装在 `~/.claude/skills/`
+  yzr-outline-wiki-* / yzr-llm-* / yzr-coding-review / 任何第三方装在 `~/.claude/skills/`
   的 skill）跑描述优化，harness 都会产生噪声。
 - 对**未安装**的 skill 跑描述优化（如新写的 skill 还没分发），并行克隆冲突仍然存在（10 个
   相同描述的克隆），只是没有"真 skill 偷调用"那一层——recall 会比 0% 好但仍偏低。
@@ -87,7 +87,7 @@ iter 2+ 56%+。结构性缺陷确认是 recall 压低的主因。
 
 **结论**：此环境（`glm-5.2[1m]` + `claude -p` + `ProcessPoolExecutor(10)`）下 `run_loop.py`
 从未被成功使用过。其他 skill 的描述为什么"看着 OK"——是因为它们**根本没经过描述优化**，
-所以 harness 缺陷从未暴露。`trigger_eval.json` 文件存在（`yzr-code-refactoring-review/eval/trigger_eval.json`）
+所以 harness 缺陷从未暴露。`trigger_eval.json` 文件存在（`yzr-coding-review/eval/trigger_eval.json`）
 但没有被 run_loop 消费过的证据（无 iteration 工作区、无 best_description commit、无 history.json）。
 
 **含义**：下次有人说"别的 skill 跑 loop 没问题"——这不是事实，是**从未跑过**。在此环境想真

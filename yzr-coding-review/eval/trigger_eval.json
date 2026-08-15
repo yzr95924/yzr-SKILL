@@ -1,6 +1,6 @@
 [
   {
-    "query": "我刚写完一批代码,能用 yzr-code-refactoring-review 跑一遍吗?",
+    "query": "我刚写完一批代码,能用 yzr-coding-review 跑一遍吗?",
     "should_trigger": true
   },
   {
@@ -40,28 +40,48 @@
     "should_trigger": true
   },
   {
+    "query": "陪我一起 review 一下 src/parser.py,看看这段代码合不合理",
+    "should_trigger": true
+  },
+  {
+    "query": "逐条过一下这个 review 结果,我不想看一整份报告",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我看看 src/parser.py 里的变量命名清不清晰",
+    "should_trigger": true
+  },
+  {
+    "query": "review 一下这段代码,有没有明显的性能问题",
+    "should_trigger": true
+  },
+  {
+    "query": "这段设计有没有问题?帮我看下 internal/order 模块",
+    "should_trigger": true
+  },
+  {
     "query": "review 这个 800 行的 Java 文件 src/LegacyProcessor.java",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "这个 monorepo 包含 Python(src/)和 Go(internal/)代码,review 整个项目",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "review 我这个 PR 的所有改动:git diff main..HEAD",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "帮我 review 一下 src/parser.py,看看有什么可重构的",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "能不能帮我看看 orders.query() 那个函数的代码有什么可重构的",
-    "should_trigger": false
+    "should_trigger": true
   },
   {
     "query": "帮我写一个新函数 calculate_discount(price, qty)",
@@ -101,6 +121,14 @@
   },
   {
     "query": "配一下 GitHub Actions 的 CI,在 PR 时跑 ruff 和 mypy",
+    "should_trigger": false
+  },
+  {
+    "query": "帮我做一次安全审计,看 src/auth 有没有注入和越权",
+    "should_trigger": false
+  },
+  {
+    "query": "给项目配一套 lint 规则统一命名和 import 顺序",
     "should_trigger": false
   }
 ]

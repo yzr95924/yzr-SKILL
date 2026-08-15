@@ -1,59 +1,59 @@
 {
-  "skill_name": "yzr-code-refactoring-review",
+  "skill_name": "yzr-coding-review",
   "evals": [
     {
       "id": 1,
       "prompt": "帮我 review 一下 src/parser.py,看看有什么可重构的",
-      "expected_output": "完整代码审查报告(主表 5 列 + 总结段 + 工具记录脚注),不修改源文件;加载 references/languages/python.md",
+      "expected_output": "默认对话式分析回答:结论先行(有没有优化空间)+ 按严重度要点;不修改源文件;LLM 走 catalog + 合理性卡片",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 2,
       "prompt": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
-      "expected_output": "Go 文件的代码审查报告,加载 references/languages/golang.md,跑 golangci-lint(若可用)",
+      "expected_output": "默认对话式分析回答:结论先行 + 按严重度要点;LLM 走 catalog + 合理性卡片",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 3,
-      "prompt": "我刚写完一批代码,能用 yzr-code-refactoring-review 跑一遍吗?",
-      "expected_output": "询问代码位置 / 范围;得到回答后跑报告",
+      "prompt": "我刚写完一批代码,能用 yzr-coding-review 跑一遍吗?",
+      "expected_output": "询问代码位置 / 范围;得到回答后开始 review(默认对话式回答)",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 4,
       "prompt": "review 这个仓库的 src/parser.py 和 internal/handler/order.go 两个文件",
-      "expected_output": "识别两个语言(Python / Go),各跑一份报告或一份合并报告含语言路由",
+      "expected_output": "识别两个语言(Python / Go),默认对话式回答或按需报告;语言仅作元信息",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 5,
       "prompt": "review 我这个 PR 的所有改动:git diff main..HEAD",
-      "expected_output": "基于 diff 的报告,只 review 改动行 + 必要上下文",
+      "expected_output": "基于 diff 的 review,只审改动行 + 必要上下文;默认对话式回答",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 6,
       "prompt": "review 这个 800 行的 Java 文件 src/LegacyProcessor.java",
-      "expected_output": "询问是否分段;若用户确认不拆,跑全文件并提示体量大 + 风险点",
+      "expected_output": "询问是否分段;若用户确认不拆,跑全文件并提示体量大 + 风险点;发现多时建议逐条过或出报告",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 7,
       "prompt": "这个 monorepo 包含 Python(src/)和 Go(internal/)代码,review 整个项目",
-      "expected_output": "按语言分别加载插件;输出含语言分组的合并报告或两份独立报告",
+      "expected_output": "大范围体检 → 报告形态(完整档),语言仅作报告头部元信息",
       "files": [],
       "should_trigger": true
     },
     {
       "id": 8,
       "prompt": "能给个 markdown 表格的报告吗?(review src/utils.py)",
-      "expected_output": "按 references/report-template.md 输出表格化报告;不偏离模板列结构",
+      "expected_output": "用户明确要报告 → 报告形态轻量档(头部 + 主表 + 一句话收尾);不偏离模板列结构",
       "files": [],
       "should_trigger": true
     },
@@ -112,6 +112,48 @@
       "expected_output": "新功能,不触发本 skill;走开发流程",
       "files": [],
       "should_trigger": false
+    },
+    {
+      "id": 17,
+      "prompt": "陪我一起 review 一下 src/parser.py,看看这段代码合不合理",
+      "expected_output": "触发本 skill;合理性审视(边界 / 错误处理 / 可读性)+ 重构机会;默认对话式回答,结论先行",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 18,
+      "prompt": "逐条过一下 review 结果,我不想看一整份报告",
+      "expected_output": "触发本 skill;按严重度从高到低逐条呈现,等用户确认 / 改判 / 跳过",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 19,
+      "prompt": "这段代码的职责划分有问题吗?看看 internal/order 模块",
+      "expected_output": "触发本 skill;设计意图与职责维度审视 + 对应场景卡片,默认对话式回答",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 20,
+      "prompt": "帮我做一次安全审计,看 src/auth 有没有注入和越权",
+      "expected_output": "安全审计专项,不触发本 skill;提示走专项审计",
+      "files": [],
+      "should_trigger": false
+    },
+    {
+      "id": 21,
+      "prompt": "review 这个模块,我觉得整体设计可能有问题",
+      "expected_output": "触发本 skill;指出框架层问题并给结构性调整方向 + 局部发现照旧;不给完整新设计,不动手改",
+      "files": [],
+      "should_trigger": true
+    },
+    {
+      "id": 22,
+      "prompt": "review 一下这段代码,有没有明显的性能问题",
+      "expected_output": "触发本 skill;计算逻辑经济性维度审视(复杂度形态 / 重复昂贵调用卡片),默认对话式回答;指出缺陷 + 给方向,不展开调优(profile / benchmark 走专项)",
+      "files": [],
+      "should_trigger": true
     }
   ]
 }
