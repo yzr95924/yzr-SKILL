@@ -130,8 +130,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # Q&A / lint）
 ├── yzr-outline-wiki/           # Outline Wiki 搜 / 读 / 写 / 编辑（MCP 操作；含 references/
 │                               # doc_style + style_checklist；MCP 接入见其 §接入 小节）
-├── yzr-code-refactoring-review/ # 现有代码可重构点巡检（Fowler 60+ catalog +
-│                                # 4 语言插件；产出审查报告，不主动改文件）
+├── yzr-coding-review/           # 交互式代码 review（合理性审视 + 重构场景 catalog；
+│                                # 语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 ├── yzr-polish-writing/          # AI 生成文本润色改写（去 AI 腔 / 降冗余 / 风格 / 语气；
 │                                # 规则库 references/{style,redundancy,tone,ai-tells}.md，
 │                                # 直接产出改写版）

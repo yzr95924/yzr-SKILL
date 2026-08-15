@@ -53,7 +53,7 @@ python3 scripts/install-dev-deps.py
 - **论文 / 阅读**：
   - `yzr-gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type` 路由 4 套模板）
 - **代码评审 / 重构**：
-  - `yzr-code-refactoring-review` —— 现有代码可重构点巡检（Fowler 60+ 重构 catalog + 4 语言插件；产出按严重度排序的审查报告，不主动改文件）
+  - `yzr-coding-review` —— 交互式代码 review（合理性审视 + 重构场景 catalog；语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：
   - `yzr-outline-wiki` —— Outline Wiki 搜 / 读 / 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
 - **写作 / 润色**：
