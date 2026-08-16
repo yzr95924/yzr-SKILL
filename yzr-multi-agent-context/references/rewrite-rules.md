@@ -22,7 +22,7 @@
 特定 agent 的 bug），用 `部分 agent` / `某些 agent` 替代具体名字，保留可追溯性，而不是硬删。
 一句话测试：**"另一个 agent 的用户读到这句，能不能照样执行？"** 能 → 去品牌；不能 → 考虑 R5 逃生舱。
 
-> R1 不动的事实：命令名（`python3 -m scripts.run_eval`）、文件路径（`yzr-skill-creator/scripts/`）、
+> R1 不动的事实：命令名（`python3 -m scripts.optimize_description`）、文件路径（`yzr-skill-creator/scripts/`）、
 > 工具行为（"截断 MCP 多 block"）都保留，只换对工具的称呼。
 
 ## R2 — 记忆索引 `@import` 收口（不回退内联）
@@ -73,7 +73,7 @@ R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一�
 
 ## R5 — 不可泛化内容的逃生舱
 
-如果某段内容**确实无法泛化为工具无关表述**（比如 `run_eval.py` 调用 `claude -p` 子进程是硬编码依赖，
+如果某段内容**确实无法泛化为工具无关表述**（比如 `optimize_description.py` 调用 `claude -p` 子进程是硬编码依赖，
 去掉 `claude` 读者就无法执行），处理方式：
 
 1. 在 `AGENTS.md` 中写**泛化版本**：`评估脚本通过 agent CLI 子进程运行`。
@@ -81,7 +81,7 @@ R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一�
 
 **逃生舱内容的判定标准**：去掉工具名后，读者无法执行该操作。典型场景：
 
-- 脚本硬编码了 `claude` CLI 调用（如 `run_eval.py` / `improve_description.py` 调 `claude -p`）
+- 脚本硬编码了 `claude` CLI 调用（如 `optimize_description.py` 调 `claude -p`）
 - 特定的 `~/.claude.json` 配置路径
 - Claude Code 特有 MCP 行为（如截断多 block）需要点名才能定位
 
@@ -118,7 +118,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ```markdown
 <!-- Claude Code 专属 -->
-- `yzr-skill-creator/scripts/run_eval.py` 调用 `claude -p` 子进程：需本机已安装并登录 Claude Code。
+- `yzr-skill-creator/scripts/optimize_description.py` 调用 `claude -p` 子进程：需本机已安装并登录 Claude Code。
 - Outline 大文档整篇重写走 REST 绕开 `update_document` 换行吞字 bug（Claude Code 特有 MCP 行为）。
 ```
 

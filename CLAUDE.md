@@ -9,7 +9,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 <!-- Claude Code 专属（以下为无法泛化为工具无关的内容，AGENTS.md 不含此部分） -->
 
-- `yzr-skill-creator/scripts/run_eval.py` 与 `improve_description.py` 调用 `claude -p` 子进程
+- `yzr-skill-creator/scripts/optimize_description.py` 调用 `claude -p` 子进程
   跑评估 / 描述优化——需本机已安装并登录 Claude Code（`claude` CLI 不可用时脚本会直接报错）。
 - `.claude/settings.local.json#permissions.allow` 已预批准一组 MCP / Bash 权限（Gemini Docs
   MCP、`pip install *`、`python3 *` 等），新增依赖工具时若需新权限需走 `update-config` skill。

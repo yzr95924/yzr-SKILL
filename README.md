@@ -51,9 +51,6 @@ python3 scripts/install-dev-deps.py
 - **知识库**（本地 / 私有，复利累积型）：
   - `yzr-llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
   - `yzr-llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
-- **论文 / 阅读**：
-  - `yzr-gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type`
-    路由 4 套模板）
 - **代码评审 / 重构**：
   - `yzr-coding-review` —— 交互式代码 review（合理性审视 + 重构场景 catalog；语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：

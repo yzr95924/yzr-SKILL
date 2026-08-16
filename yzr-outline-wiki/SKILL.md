@@ -392,8 +392,6 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 > 能渲染的图片"。**不**管图片怎么来：
 >
 > - 截图 / 配图 / logo 等任意本地图片：直接走下面 3 步
-> - **论文关键架构图**：图源不归本 skill——用 `yzr-gemini-pdf-summary` SKILL.md
->   的 `--extract-figures` 抽到本地 `figures/*.png` 后，再走本 skill 的 attachment 3 步
 
 **完整 3 步流程**（每张图独立走一遍）：
 
@@ -638,5 +636,3 @@ curl -sS -X POST "<base>/api/documents.info" \
   风格 checklist（§0 OKF 元数据 + §1-§9 风格）
 - `yzr-llm-wiki-management` SKILL.md — OKF v0.1 子集的仓库
   锚点（本 skill 的 OKF 上传格式沿用同一定义）
-- `yzr-gemini-pdf-summary` SKILL.md — 上游：论文 PDF → 本地 summary.md +
-  figures/*.png（本 skill 只消费其本地产物）

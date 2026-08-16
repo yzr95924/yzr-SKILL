@@ -41,7 +41,7 @@ references/skill-template-guide.md「变体」。参考资料型 skill 可省略
 
 <按顺序的操作步骤。多入口 skill 可在「何时不使用」之前加一个路由节（如
 「四个入口」）。单步超过下放阈值（见 references/skill-writing-principles.md
-「正文超长根因诊断路径」）= 下放到 references/xxx-workflow.md，正文留路标>
+「正文超长根因诊断」）= 下放到 references/xxx-workflow.md，正文留路标>
 
 ## 参考样例
 

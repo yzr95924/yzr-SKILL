@@ -33,10 +33,6 @@ MEMORY 只记"为什么"；影响输出/行为的决策必须显式落到 SKILL.
 
 npx 分发包只含 SKILL 目录，影响行为的规则必须落 SKILL 源；MEMORY 不分发、vendor 是派生副本。 → [正文](skill-source-priority-over-memory-vendor.md)
 
-### H1 transform：publish 时注入，local 无 H1（parked）
-
-Gemini 产物保持无 H1（标题在 outline title 字段）；H1 由未来 publish skill 推送时注入，不回写 local。 → [正文](h1-transform-publish-time-inject.md)
-
 ### 影响分发后行为的经验必须进 SKILL
 
 新踩的坑/经验先进 SKILL 后 MEMORY；判定"另一台机器 npx 装的用户能自己解决吗"，不能则必须进 SKILL。 → [正文](experience-affecting-skill-distribution-goes-to-skill-not-memory.md)
@@ -65,13 +61,13 @@ check 耦合 CLI 写的 AGENTS.md 版本 vs SKILL frontmatter，my_SKILL 单独 
 "audit-YYYY-MM-DD.md" 那种报告归档到 skill 目录。用户没主动要 audit 文档时，结论放在回复里、
 修复改在文件里，不留 audit 文件也不写 MEMORY 历史。
 
-### run_eval / run_loop 并行克隆冲突（harness 结构性缺陷）
+### 描述优化 eval 的并行克隆冲突（harness 结构性缺陷）
 
 ProcessPoolExecutor(10 workers) 并行跑评测时，10 个 `_eval_skill_<uuid>` 克隆（描述相同）共存，
 模型任意调用其中一个，grader 只认分配给当前查询的克隆 → recall 结构性压到 ~6%（即使直接
 probe 单克隆能 100% 触发）。已安装 skill 还多一层"真 skill 偷调用"冲突。修法见正文：grader 改
 为认任一 `_eval_skill_<hex>` 命中即触发（已实测：recall 从 6% 升到 56% Train / 42% Test）。
-**本机曾未跑通过 run_loop**（修前全系统 0 个 iteration-* / best_description commit）——
+**本机曾未跑通过描述优化 loop**（修前全系统 0 个 iteration-* / best_description commit）——
 其它 skill 描述"看着 OK"是因为根本没经过优化，harness 缺陷从未暴露。修 grader 后实测有效。 →
 [正文](run-eval-harness-parallel-clone-collision.md)
 
