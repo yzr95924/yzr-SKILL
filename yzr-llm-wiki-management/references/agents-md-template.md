@@ -139,7 +139,8 @@
 
 - 路径：`<wiki-root>/wiki/log.md`
 - 纪律：
-  - 每次 ingest / query / lint 后**必须**追加一条
+  - 每次 ingest / query / lint 后**必须**追加一条——正路走 skill 仓的
+    `wiki_write.py log`（格式 + 滚动窗口截断自动保证）；带外手改才需要手工遵守格式与截断
   - 格式严格：`## [YYYY-MM-DD HH:MM] <op> | <title>`（op ∈ {`ingest`, `query`, `lint`, `setup`}；
     lint 也接受 `YYYY-MM-DD`）
     `setup` 由 workspace CLI 在初始化时按 `wiki-spec.md` §4 写入首条；
