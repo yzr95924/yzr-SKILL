@@ -14,8 +14,8 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   modify time: 2026-08-16
-  wiki_spec_version: 0.32.0
-  fixtures_check_count: 20
+  wiki_spec_version: 0.33.0
+  fixtures_check_count: 21
 ---
 
 # LLM Wiki Management
@@ -173,7 +173,8 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
      index / 不写 log；`ingest_diff` 跳过、`raw-modified` lint 排除、`sources:` 不得指向它）；
      草稿消化进 wiki 两条路（消化式 / 转正式 `mv`）都需用户确认——详 wiki-spec §15
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
-3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
+3. **AGENTS.md 是 schema 不是文档**——它承载 wiki 的纪律配置，不往里塞内容（完整纪律见
+   [`agents-md-template.md`](references/agents-md-template.md) §七「本文件本身的纪律」）
 4. **每次写入必更 log.md——追加一律走 `wiki_write.py log`**（格式 + 满
    `LOG_RETENTION_LIMIT` 自动截断由脚本保证，见 §设计决策「机械 vs 判断」）；lint
    `log-format` / `log-truncation-recommended` 只兜底带外手改
@@ -201,20 +202,16 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
    原子追加 `MEMORY.md` 索引行，`memory-not-indexed` 创建期免疫）；**不在 index.md
    强制列出**。MEMORY 沉淀只改 `MEMORY.md` 这一份、无副本漂移。写入流程见工作流 §4。
 10. **LLM 修改已审核页必须清 `reviewed` 戳——每次编辑后跑 `wiki_write.py touch`**
-   （自动 `updated`=现在 + 删 `reviewed` / `reviewed_at`，见 §设计决策「机械 vs 判断」）；
-   `lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
-   `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
-
-    > **注**：同样的规则也会出现在
-    > [`references/agents-md-template.md`](references/agents-md-template.md)
-    > §二「认知质量信号」末段——那里是 wiki 自带的 AGENTS.md 模板必须自包含（跨仓引不到 SKILL.md）；
-    > 两处措辞故意保持一致。SSOT 是 `page-templates.md` §一。
+    （自动 `updated`=现在 + 删 `reviewed` / `reviewed_at`，见 §设计决策「机械 vs 判断」）；
+    `lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 但 `updated > reviewed_at`，
+    内容在审核后又变了）兜底。完整生命周期规则见
+    [`agents-md-template.md`](references/agents-md-template.md) §二「认知质量信号」（纪律 canonical 副本）。
 
 11. **tag 白名单在 `wiki/tags.md`**（详
    [wiki-spec.md §9.1](references/wiki-spec.md#91-tag-白名单来源)）——LLM auto-extend bullet +
    用户审计循环（删 bullet → 下次 lint 报 `tag-not-in-taxonomy` 由用户裁定）；`wiki/tags.md` 无
    frontmatter，与 `MEMORY/MEMORY.md` 同形态。跨 spec 升级走 `lint_wiki.py --check-version --apply`。
-   `agents-md-template.md`「Tag Taxonomy」段自包含同样规则（必须——wiki 仓自带模板跨仓引不到 SKILL.md）。
+   `agents-md-template.md`「Tag Taxonomy」段承载同一规则（纪律 canonical 副本 = 模板，wiki 侧 AGENTS.md 由它渲染）。
 
 12. **本 wiki 自维护脚本走 `<wiki-root>/scripts/` + `SCRIPTS.md` 索引**（详
    [wiki-spec.md §14](references/wiki-spec.md#14-scripts本-wiki-仓扩展脚本目录)）——`SCRIPTS.md`
@@ -224,35 +221,12 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
    再按需 `Read scripts/SCRIPTS.md` 取完整契约（`@import` 展开后即见），按"调用约定"显式执行，
    **不**自动遍历 `scripts/`；改脚本只改 `SCRIPTS.md` 这一份。`scripts/` 不走 §9 5 必填、
    不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。
-   `agents-md-template.md`「scripts/ —— 本 wiki 仓的自维护脚本目录」段自包含同样规则。
+   `agents-md-template.md`「scripts/ —— 本 wiki 仓的自维护脚本目录」段承载同一规则（canonical 副本 = 模板）。
 
-13. **yzr 个人工作习惯——当前含：语言风格 / 遇阻退后一步 / 表达先归纳后落笔**——本 skill 是给 LLM 读的纪律，但它的
-    服务对象是用户。**语言风格**——所有面向用户的输出（ingest 汇报 / query 答案 / lint 报告 / migrate 说明 /
-    澄清提问 / 对话回复）遵守两条：
-    **不用黑话**——skill 内部术语（ingest / lint / orient ritual / SSOT / 复利 /
-    三层纪律 / fixtures / stale 等）对用户要说成日常语言——"把这份资料整理进 wiki" /
-    "检查 wiki 的健康状况" / "开工前先读 wiki 的守则、索引和日志"；必须提术语时
-    括号给一句白话解释。不写网络行话 / 口头禅（"牛逼" / "走起" / "整一个" / "搞一下"）。
-    **严谨精确**——动词说清结果（"已创建 `wiki/sources/foo.md` / 已更新 3 处字段 /
-    未执行（原因）"，不用"处理了 / 搞定了 / 相关的东西都弄好了"）；地点给相对路径
-    （`wiki/sources/foo.md`），不说"相关页面"；数量说准（"5 个页面缺 `updated`"，
-    不说"一些页面"）；区分事实与推断（"wiki 记载 X（来源：...）" vs "我推测 Y"，
-    没依据的不写进 wiki 正文）；报告按三段——**做了什么 / 没做什么（及原因）/ 需要你决定什么**。
-    反面例子："已 ingest 完成，相关文件都处理了"；正面例子："已把《Foo》整理为
-    `wiki/sources/foo.md`，更新了 `concepts/bar.md` 的参考来源；未动 `raw/`；需要你决定
-    是否归档这次 query 答案。"
-    **遇阻退后一步**——同一思路连续两次未果 / 修改面越滚越大 / 开始想绕过纪律
-    （"先跑通再说"）——任一信号出现即停下来退后一步：回头看（倒查路径上最早的可疑
-    决策点：误解需求 / 选错文件 / 选错抽象，优先修上游不在下游硬补）；第一性原理重审
-    （剥掉实现惯性，回到"目标是什么、真正的约束是什么"，与当前做法冲突时向用户说明
-    后换路）；举一反三（顺手查同类——同模式的其他文件 / 配置 / 页面是否有同样缺陷，
-    汇报按"类"报不只报当前这个点）。
-    **表达先归纳后落笔**——把需求 / 素材写成文字（纪律 / 文档 / 汇报）时先归纳再落笔，
-    不把输入清单逐项复述成结构：先合并同义（关键词 / 要求查语义重叠，重叠并为一条，
-    一条意思全文只说一次，标题 / 导语不重复正文已有的词）；每句过删除测试（写完逐句
-    问"删掉这句读者损失什么"，没损失就删——对纪律类文字冗余 = 稀释，每个多余词都在
-    分摊读者注意力）。
-    `agents-md-template.md` §九「yzr 个人工作习惯」段自包含同样规则（wiki 仓自带模板跨仓引不到 SKILL.md）。
+13. **yzr 个人工作习惯**（语言风格 / 遇阻退后一步 / 表达先归纳后落笔）——**canonical 副本 =
+    [`agents-md-template.md`](references/agents-md-template.md) §九**（纪律正文唯一维护点，
+    改习惯只改那一处；每个 wiki 的 AGENTS.md 随模板渲染自动带出同一段）。触发本 skill 的
+    会话对用户输出前先 `Read` 该段一次——这些习惯适用于一切面向用户的输出。
 
 ### 边界
 

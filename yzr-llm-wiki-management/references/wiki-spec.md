@@ -180,6 +180,15 @@
   - CLI 自身版本号
 - 模板顶部说明块的"本文件 ... 按 wiki-spec.md §2 拷贝生成"反向引用，CLI **不得修改**
 
+> **纪律正文唯一副本（canonical）**：模板与各 spec 节共享的纪律正文，**唯一维护点在
+> [`agents-md-template.md`](agents-md-template.md)**——wiki 跨仓读不到 skill，模板必须
+> 自包含，故它就是副本宿主。本 spec / page-templates.md / SKILL.md 只保留各自**独有**
+> 内容（机制契约 / rationale / 骨架 / digest + 指针），凡与模板重复的逐字纪律句以
+> 「纪律正文见模板 §X」指针代替。**改纪律只改模板对应段 + bump `wiki_spec_version`**；
+> spec 侧仅在机制变化时才跟改。引用方向**单向**：spec / page-templates / SKILL.md →
+> 模板；模板**不**含任何指向 skill 仓的引用（由 `check_wiki_fixtures.py` 的
+> `template-no-outbound-refs` check 机械强制）。
+
 ### CLAUDE.md（薄壳）
 
 - 路径：`<wiki-root>/CLAUDE.md`
@@ -214,6 +223,9 @@
 > **维护方**：CLI 在 init 时刻写入首条 setup 条目；
 > 后续所有 ingest / query / lint 条目由 **LLM agent** 追加 + 维护滚动窗口（见 §4.1）。
 > CLI 不参与 log.md 的后续追加。
+>
+> **agent 侧使用纪律见模板「log.md」段（canonical 副本）**——本节只留 CLI / 机制契约：
+> frontmatter、首条字面量、权威正则、滚动窗口截断实现。
 
 - 路径：`<wiki-root>/wiki/log.md`
 - frontmatter（**5 字段必填**，同 §3 但 `type=log`、`okf_version` 不出现）：
@@ -282,21 +294,15 @@
   （lint 校验实现见 SKILL 仓 `scripts/lint_wiki.py`，不归本 spec）
 - **MEMORY 不在 `wiki/index.md` 中强制列出**——它是 agent 私有入口，不需要 wiki 单一入口约束；
   但每条 `*.md` **必须**在 `MEMORY/MEMORY.md` 索引中列出一行（lint `memory-not-indexed` 兜底漏列）
-- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/MEMORY.md` 同步——见项目 `AGENTS.md` 工具规则段）：
-  - **完整条目**：含上下文 / 解决步骤 / 未来如何避免 → 建 `MEMORY/<slug>.md`（走 §5.2 规则）
-    - 索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
-  - **短条目**：一句话提醒 / 单一偏好 / 无需解释"为什么" → 索引行直接 `- 一句话事实`，
-    不单独建 `.md` 文件
-  - 判别尺度：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
-  - 短条目与完整条目可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底
-    "有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
+- **条目形式按事实颗粒度选**——完整条目（`MEMORY/<slug>.md` + 索引行）/ 短条目（索引行
+  直记）的判别尺度与格式纪律正文见模板「MEMORY/」段（canonical 副本）；本节只补 lint
+  语义：`memory-not-indexed` 只兜底"有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
 
 ### §5.1 MEMORY/MEMORY.md（索引）
 
 - 路径：`<wiki-root>/MEMORY/MEMORY.md`
 - **无 frontmatter**——它是**被 `<wiki-root>/AGENTS.md` 用 `@MEMORY/MEMORY.md` `@import` 加载**
-  的索引片段，不是 wiki 内容页
-  （对齐仓库根 `MEMORY/MEMORY.md` 形态）。lint 把它当 reserved 跳过 frontmatter / tag / 命名校验
+  的索引片段，不是 wiki 内容页。lint 把它当 reserved 跳过 frontmatter / tag / 命名校验
 - 正文骨架：顶部 1 段说明（本目录用途 + 何时写 / 命名 / 纪律指向 SKILL §4，**不**重复以免口径分裂）+
   `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §5.2 的 `MEMORY/<slug>.md`）
@@ -318,10 +324,10 @@
 - 命名约束：与 wiki 内容页一致，kebab-case `^[a-z0-9][a-z0-9-]*$`
 - frontmatter：**1 必填**（`title`），其余 5 字段（`type` / `created` / `updated` / `tags` /
   `description`）全 optional
-  - 理由：MEMORY 是 agent 私有记忆，frontmatter 是可选 decoration——与仓库根
-    `MEMORY/MEMORY.md`「短条目 1 行索引行」形态对齐；5 必填的 rationale（description
-    进 index 摘要、tags 走 wiki taxonomy、updated 触发 stale 判定等）对 MEMORY
-    多半不成立（见 spec §5「agent 私有」定位 + §5.2「与 wiki 内容页的区别」）
+  - 理由：MEMORY 是 agent 私有记忆，frontmatter 是可选 decoration——短条目即索引行
+    reminder、不单独建 `.md`；5 必填的 rationale（description 进 index 摘要、tags 走
+    wiki taxonomy、updated 触发 stale 判定等）对 MEMORY 多半不成立（见 spec §5「agent
+    私有」定位 + §5.2「与 wiki 内容页的区别」）
   - 若 frontmatter 含 `type`，取值需合法：5 类内容页枚举（`entity` / `concept` / `source` /
     `comparison` / `synthesis`），或 memory 扩展类型（`memory` / `memory-entry`，见下）
 - `type` 取值另有 2 类 memory 扩展（与 spec §9 的「5 类内容页 + 2 类 reserved」并列）：
@@ -498,8 +504,8 @@ compared:
 
 ### 可选可信度与认知质量字段（LLM 按需写，全部可选）
 
-> 语义权威定义在 SKILL 仓 [`page-templates.md`](page-templates.md) §一「可选：可信度与认知质量信号」；
-> 本表只列 CLI 自检用的字段类型，不重复语义。CLI 自检不要求这些字段存在——
+> 字段语义权威定义在 [`agents-md-template.md`](agents-md-template.md) §二「认知质量信号」
+> （canonical 副本）；本表只列 CLI 自检用的字段类型，不重复语义。CLI 自检不要求这些字段存在——
 > `reviewed` / `reviewed_at` 是人工审核背书信号，`contested` / `contradictions` 是
 > 认知冲突未裁定告警；两类正交。
 
@@ -511,11 +517,8 @@ compared:
 | `contradictions` | 任意内容页 | 否 | wiki 页路径数组；与本页主张冲突的页面（双向标注） |
 
 **生命周期规则**（LLM 必读，CLI 不强制但 CLI 合规自检可加 `reviewed-stale` 检查）：
-
-- LLM 创建新页不写 `reviewed` / `reviewed_at`
-- 人标记已审核 → 写 `reviewed: true` + `reviewed_at: <今天>`
-- LLM 修改页面正文 → **必须删除**这两个字段（戳过期，回到默认未审核）
-- lint `reviewed-stale` 兜底：`reviewed: true` 存在且 `updated > reviewed_at` 时给 warn
+纪律正文（背书快照非永久标签 / LLM 修改必删戳）见模板 §二「认知质量信号」（canonical
+副本）；本节只留 lint 语义：`reviewed: true` 存在且 `updated > reviewed_at` 时给 warn。
 
 完整 frontmatter 写法约束与 YAML 子集要求，**不在本 spec 范围内**——见 SKILL 仓的
 [`page-templates.md`](page-templates.md)（LLM 写作视角，非 CLI 视角）。
@@ -768,6 +771,9 @@ raw/external/*
 > **维护方**：CLI 在 init 时刻**始终创建** `scripts/` 目录 + 拷贝空 `SCRIPTS.md`
 > 骨架（参考 `references/fixtures/scripts.md.txt`）；后续**用户 + LLM agent 共有**
 > ——用户可手写 / LLM agent 可补——只要维持 `SCRIPTS.md` 索引同步。
+>
+> **agent 侧使用纪律见模板「scripts/」段（canonical 副本）**——本节只留机制契约与
+> 实现细节（路径 / 索引骨架 / 4 要素 / 权限 / 原子更新）。
 
 ### §14.1 设计动机
 
@@ -866,6 +872,10 @@ agent Read 时第一眼看到的 hook），下面紧跟 4 要素段落——只�
 > raw/ 总纪律是"LLM 只读，用户掌控"（§四层架构第 1 层）。本节定义该纪律的**第二处**
 > 写权限例外（第一处是 §13 `raw/external/` 的 symlink + anchor）：一个用户 + LLM
 > **双方可写**的草稿层，承载临场讨论 / 设计草稿 / 待整理笔记。
+>
+> **agent 侧纪律（可写性 / 豁免 / 归档两路 / 滑坡防线的日常执行版）见模板
+> 「raw/discussions/」段（canonical 副本）**——本节只留机制契约与 rationale（脚本豁免
+> 实现 / 为什么放 raw/ 下 / 归档细则）。
 
 ### §15.1 动机与边界
 

@@ -95,8 +95,9 @@ contradictions: [<wiki 页路径数组>, 可选]  # 与本页主张冲突的页�
 
 #### 生命周期规则（LLM 必读）
 
-`reviewed: true` 是"我对这一刻的内容背书"的快照，**不是永久标签**。任何对页面正文的
-LLM 修改都会让戳失效。纪律：
+「`reviewed: true` 是背书快照、**不是永久标签**，LLM 任何正文修改都让戳失效」的纪律正文
+见 [`agents-md-template.md`](agents-md-template.md) §二「认知质量信号」（canonical 副本）；
+本节只承载判定表 + lint 语义：
 
 | 事件 | 对 `reviewed` / `reviewed_at` 的操作 |
 | --- | --- |
@@ -107,9 +108,8 @@ LLM 修改都会让戳失效。纪律：
 
 **两道闸门**：
 
-1. **纪律闸门**——本节是唯一权威；其它文件（SKILL.md / agents-md-template.md / ingest-workflow.md /
-   wiki-spec.md）只引用、不重抄（例外：`agents-md-template.md` 必须自包含完整纪律——它是 wiki
-   自带的 AGENTS.md 模板，会被拷到每个 wiki 仓，不能跨仓引 SKILL.md）
+1. **纪律闸门**——生命周期纪律的 canonical 副本 = `agents-md-template.md` §二（模板随
+   init 渲染进每个 wiki 的 AGENTS.md）；本节只承载判定表 / lint 语义，不再逐字重复
 2. **lint 兜底**——`reviewed-stale` 触发条件：`reviewed: true` 存在 **且** `updated > reviewed_at`，
    把 LLM 漏清戳的页面拎出来提示人复审
 
