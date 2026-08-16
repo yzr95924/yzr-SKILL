@@ -1,0 +1,22 @@
+[
+  {"query": "老大让我把咱们仓库的 README.md 转成能直接双击打开的网页，要带目录，发给他看", "should_trigger": true},
+  {"query": "这份设计文档 design.md 里有公式和几个 mermaid 流程图，帮我导出成单文件的 HTML，公式要能渲染", "should_trigger": true},
+  {"query": "把 notes/ 目录下那几十篇笔记批量转成 html，深色主题就行", "should_trigger": true},
+  {"query": "这周技术分享的讲稿是 markdown 写的，帮我转成好看的网页形式发群里", "should_trigger": true},
+  {"query": "我想把论文草稿 paper.md 转成 html 收藏，不用上传任何地方，本地打开看", "should_trigger": true},
+  {"query": "用 agent-html-drop 把这份 md 转成 html 上传，拿到链接分享给别人", "should_trigger": true},
+  {"query": "README 里有些代码块，帮我转成 html，语法高亮要好看", "should_trigger": true},
+  {"query": "给我一个自包含的 html 版本的这个文档（本地 md 转），不要依赖外网脚本", "should_trigger": true},
+  {"query": "这个 .md 文件转网页后能不能自定义主题样式？我想传一个模板进去", "should_trigger": true},
+  {"query": "客户要一份可分享的 HTML 版产品说明，我这边是 markdown 草稿", "should_trigger": true},
+  {"query": "帮我把这个 HTML 文件转回 Markdown，我要在 wiki 里编辑", "should_trigger": false},
+  {"query": "给团队搭一个文档站：用 Vitepress 起个项目，把 md 都放进去，还要部署到 GitHub Pages", "should_trigger": false},
+  {"query": "我要做公司官网的首页，从零写一个响应式页面，深色主题", "should_trigger": false},
+  {"query": "这个 PDF 里有公式，帮我转成 markdown 存起来", "should_trigger": false},
+  {"query": "把网页版这篇博客保存成 markdown 笔记", "should_trigger": false},
+  {"query": "帮我在线编辑这份 md 文档，开个实时预览边改边看", "should_trigger": false},
+  {"query": "把这份 HTML 片段（邮件模板）改成移动端适配，直接粘贴用", "should_trigger": false},
+  {"query": "这个 markdown 里嵌了段 HTML，帮我改成 vue 组件", "should_trigger": false},
+  {"query": "把这个 html 文件上传到 Outline wiki 归档", "should_trigger": false},
+  {"query": "这份 md 想转成 PDF 发出去", "should_trigger": false}
+]
