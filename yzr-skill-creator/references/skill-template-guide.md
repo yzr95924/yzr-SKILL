@@ -22,7 +22,7 @@ skill-name/
 需要考虑 `SKILL.md` 的大小：保持简短（正文长度权威上限见
 `references/skill-writing-principles.md`「正文写作原则」），详细文档挪到 `references/`；
 跨文件用链接引用，不内联。版本演进史不内联进 SKILL.md / references 正文——集中放
-`CHANGELOG.md`（原则见 `references/skill-writing-principles.md`「正文不堆版本演进史」）。
+`CHANGELOG.md`（原则见 `references/skill-writing-principles.md`「时间性信息不内联」）。
 
 ## progressive disclosure（三级加载）
 
@@ -31,13 +31,8 @@ skill-name/
 3. **捆绑资源**（`scripts/` / `references/` / `assets/` / `eval/`）：按需加载
    — scripts 可不读直接执行；references / assets 需 Read 才加载。
 
-**关键模式**（以下条目的权威口径都在 `references/skill-writing-principles.md`「正文写作原则」，
-此处只给结论、不重抄具体数字）：
-
-- 长度上限 + 接近上限就抽一层到 `references/`，并给出清晰的"何时去读"指引
-- SKILL.md 内引用其它文件时，说明何时去读
-- one-level-deep：SKILL.md → references 合法；references → references 禁止（加载链）
-- reference 文件超过 TOC 阈值要带目录（模板文件例外见原则文件）
+**关键模式**（长度上限与抽层 / 何时去读 / 引用深度 / TOC 阈值——权威口径全部见
+`references/skill-writing-principles.md`「正文写作原则」的「结构与加载」节，此处不重抄）：
 
 **领域组织**：skill 支持多领域 / 框架时按变体组织——
 
