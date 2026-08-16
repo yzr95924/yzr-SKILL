@@ -30,7 +30,7 @@ metadata:
    在哪里挣扎"→ 改 → 重跑验证。
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description /
    触发准确率，不动 skill 正文（"帮我优化 XX 的描述，让它该触发时触发"）。**这是独立
-   入口，不需要先创建或改进那个 skill**；脚本 `run_loop.py` / `improve_description.py`
+   入口，不需要先创建或改进那个 skill**；脚本 `optimize_description.py`
    原生支持指向任意 skill 目录，详见「工作流 / 步骤」下对应小节
 4. **校验某个 skill 的写作原则（独立入口）** —— 不动手改，拿写作原则当 checklist
    审计某个已有 skill 符合多少、违反哪些（"帮我检查 XX skill 写得规不规范 / 有没有
@@ -68,7 +68,9 @@ metadata:
 - **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader
   会偏向自己刚写的版本（盲测约定见 `references/agents/`）
 - **指标单一来源**：脚本里有 `CONST = value` 的，prose 用 `` `CONST` `` 引用，禁止写字面量
-  ——本 skill 自身在 `scripts/utils.py::DESCRIPTION_MAX_CHARS`、`scripts/run_loop.py::DEFAULT_HOLDOUT_RATIO` 带头遵守（原则见 `references/skill-writing-principles.md`）
+  ——本 skill 自身在 `scripts/utils.py::DESCRIPTION_MAX_CHARS`、
+  `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` 带头遵守（原则见
+  `references/skill-writing-principles.md`）
 - **与用户沟通**：skill 创建器的使用者编程背景差异很大——注意根据上下文线索调整措辞；拿不准时简短解释一下术语是 OK 的；不确定用户是否能理解时，用一句简短定义澄清
 
 ## 工作流 / 步骤
@@ -200,7 +202,7 @@ prompt，等下一步再起草断言。
 ### 描述优化（独立入口）
 
 > 优化原则见 `references/skill-writing-principles.md#description-优化原则`
-> （`improve_description.py` 运行时也读这一节）。
+> （`optimize_description.py` 运行时也读这一节）。
 
 直接优化某个已有 skill 的 description，提升触发准确率。`--skill-path` 原生支持
 任意 skill 目录——刚创建/改进完想顺手优化也一样走这套流程。
@@ -221,7 +223,7 @@ prompt，等下一步再起草断言。
 把评估集存到 workspace，然后后台运行:
 
 ```bash
-python -m scripts.run_loop \
+python -m scripts.optimize_description \
   --eval-set <path-to-trigger-eval.json> \
   --skill-path <path-to-skill> \
   --max-iterations 5 \
@@ -230,7 +232,9 @@ python -m scripts.run_loop \
 
 `--model` 可选：省略时 `claude -p` 用本机 claude CLI 的默认模型（不强绑定具体模型）；
 要指定时传 `--model <id>`。跑的过程中定期 tail 输出，告知用户当前在第几轮、分数长什么样。
-脚本自动把评估集按 `DEFAULT_HOLDOUT_RATIO` 拆训练 / 保留测试（SSOT 在 `scripts/run_loop.py`）。
+脚本自动把评估集按 `DEFAULT_HOLDOUT_RATIO` 拆训练 / 保留测试（SSOT 在
+`scripts/optimize_description.py`）。结束时会打印 before/after 摘要（stderr），
+JSON 结果走 stdout。
 
 #### 第 4 步：应用结果
 
@@ -246,17 +250,19 @@ python -m scripts.run_loop \
 #### 怎么校验
 
 1. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文
-   写作原则，逐条核对），grep / 命令清单见 `references/audit-checklist.md`。
+   写作原则 + 末尾「审计速查」表，逐条核对）。
 2. 读目标 skill 的 `SKILL.md`（必要时连带 `references/` / `scripts/`）。
 3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。能程序化的查：
 
    | 类别 | 操作 |
    | --- | --- |
-   | frontmatter 合法性 | `python -m scripts.quick_validate <skill-dir>` |
+   | frontmatter 合法性 + description 固定格式标记（触发： / 不适用：） | `python -m scripts.quick_validate <skill-dir>` |
    | 正文结构一致性（规范节缺失 / 乱序 / 额外节） | `python -m scripts.quick_validate <skill-dir> --tier <default\|reference\|meta>`——WARN 不 fail；节名 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS` |
    | 跨 skill 双向依赖 | `python -m scripts.check_skill_dependencies <repo-root>`（"互提" ≠ "互依"，是否成环靠 agent 读正文确认） |
    | 跨文件 link anchor 漂移（spec 演进 / 段号变 / 章节删后无人察觉） | `python -m scripts.check_anchor_health <skill-dir>` 或 `--repo-root` 全扫（`--json` 机器可读 / `--include-templates` 审模板） |
-   | 其余 grep 类：正文长度 / 跨文件重复 / 常量引用 / 链接路径基准 / Iron Law / 三件套 / 形式匹配 / 版本史 / 精简 | `references/audit-checklist.md`（按原则分节；脚本用法细节也在此） |
+
+   其余 grep 类检查（正文长度 / 跨文件重复 / 常量引用 / 链接路径基准 / Iron Law / 三件套 /
+   形式匹配 / 版本史 / 精简）集中在 principles 末尾「审计速查」表，逐条执行。
 
 4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法。
 
@@ -282,8 +288,7 @@ python -m scripts.run_loop \
 - `references/schemas.md` —— evals.json、grading.json 等的 JSON 结构
 - `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅页步骤
 - `references/skill-template-guide.md` —— 通用写作骨架 / 模板 / 变体规则
-- `references/skill-writing-principles.md` —— description + 正文写作原则（SSOT，审计 checklist）
-- `references/audit-checklist.md` —— 入口 4 的审计检查操作清单（grep / 命令清单，按原则分节）
+- `references/skill-writing-principles.md` —— description + 正文写作原则 + 末尾审计速查表（SSOT）
 - `references/eval-pipeline.md` —— 评估测试用例的机械细节（workspace 布局 / schema / 命令）
 
 `assets/`:

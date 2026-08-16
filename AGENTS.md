@@ -55,8 +55,7 @@ python3 yzr-skill-creator/scripts/quick_validate.py <skill-dir>
 cd yzr-skill-creator && python3 -m scripts.quick_validate <skill-dir>
 
 # 评估 / 描述优化 等其他脚本同理
-python3 yzr-skill-creator/scripts/run_eval.py --eval-set ... --skill-path ...
-python3 yzr-skill-creator/scripts/run_loop.py --eval-set ... --skill-path ... --model <id>
+python3 yzr-skill-creator/scripts/optimize_description.py --eval-set ... --skill-path ... --model <id>
 ```
 
 ### Markdown 格式 / lint
@@ -123,8 +122,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── yzr-multi-agent-context/       # CLAUDE.md → AGENTS.md 单源 + CLAUDE.md 薄壳改造（元 skill）
-├── yzr-gemini-pdf-summary/      # 本地 PDF（论文 / 手册 / 白皮书 / 书）→ 中文 Markdown
-│                                # （Gemini 多模态直读；4 类模板路由）
 ├── yzr-llm-wiki-management/     # 本地单 wiki 维护（yzr-llm-workspace-management 的内层）
 ├── yzr-llm-workspace-management/# 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
 │                                # Q&A / lint）
@@ -140,7 +137,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # （执行期活文档，进度/问题/设计变更循环）
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
-    ├── scripts/           # quick_validate / run_loop / generate_review / improve_description …
+    ├── scripts/           # quick_validate / optimize_description / generate_review …
     ├── references/        # schemas.md（evals/history 等 JSON 结构）+ agents/{grader,
     │                      # comparator,analyzer}.md
     └── assets/eval_review.html  # 描述优化的查询评审页模板
@@ -178,13 +175,11 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构校验（`--tier <default\|reference\|meta>`；结构问题 WARN 不 fail） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
 | `scripts/check_anchor_health.py` | 跨文件 link anchor 漂移检查（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
-| `scripts/run_eval.py` / `aggregate_benchmark.py` / `generate_report.py` | 跑评估用例、聚合结果、生成报告 |
-| `scripts/run_loop.py` | 描述优化的后台循环（60% 训练 / 40% 保留评估） |
-| `scripts/improve_description.py` | 单轮描述优化 |
-| `scripts/generate_review.py` | 启动本地评审页（`scripts/viewer.html`；定性输出 + benchmark 数据），供用户反馈评估结果 |
+| `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环，`--single-round` 单轮）；输出 results.json + 终端摘要，无 HTML 报告 |
+| `scripts/aggregate_benchmark.py` / `generate_review.py` | 行为评估（with-skill vs baseline）的聚合与 viewer（入口 1/2 用；`scripts/viewer.html` 定性输出 + benchmark 数据，供用户反馈评估结果） |
 
 `references/agents/{grader,comparator,analyzer}.md` 定义了三个子 agent 指令；
-`references/schemas.md` 给出 `evals.json` / `history.json` / `grading.json` 的字段约定。
+`references/schemas.md` 给出 `evals.json` / `grading.json` 等字段约定。
 
 ### 跨 skill 协作约定
 
@@ -196,15 +191,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
   `POST /api/documents.info` 拿正文（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持
   多 block 后撤销）。破坏性操作（移动 / 删除 / 归档）必须先
   在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
-- `yzr-gemini-pdf-summary` ↔ `yzr-outline-wiki` 构成本地论文管线，单向流动：
-  - `yzr-gemini-pdf-summary` 把 PDF 跑成本地 `summary.md` + `figures/*.png`
-    （`--extract-figures` 模式产物）
-  - `yzr-outline-wiki` 拿 `figures/*.png` 按 attachment 3 步推上 outline：
-    `create_attachment` → `curl` → Markdown 引用 `attachments.redirect?id=...`
-  - 两个 skill **不互调**：上游只输出本地文件，下游只消费本地文件
-  - 禁止任何一方写"调用对方 API / 编排对方 step"
-  - `--full` 模式由 `yzr-gemini-pdf-summary` 独自负责落到 `<wiki_root>/raw/papers/` 为止；
-    后续 publish 编排不在本仓库 skill 范围
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级
   （`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须
   在同一轮并行启动，不要串行。
@@ -220,5 +206,5 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
   清单见各自 agent 配置文件（路径因 agent 而异，本文件不展开）。
 - 新增 skill 时优先复用 `yzr-skill-creator/scripts/quick_validate.py` 做预检，再决定是否
   走评估 / 描述优化流程。
-- `yzr-skill-creator` 内部的 `run_eval` / `improve_description` 会调用 agent CLI 子进程
+- `yzr-skill-creator` 内部的 `optimize_description` 会调用 agent CLI 子进程
   （具体 CLI 因 agent 而异，见各自 agent 的逃生舱）。

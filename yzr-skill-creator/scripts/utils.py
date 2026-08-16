@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 # Description length hard limit, in characters. Single source of truth for this metric:
-# quick_validate.py enforces it, improve_description.py rewrites over-long descriptions
+# quick_validate.py enforces it, optimize_description.py rewrites over-long descriptions
 # against it. The human-facing statement lives in references/skill-writing-principles.md
 # ("指标单一来源" 原则) — change the limit here and code updates everywhere.
 DESCRIPTION_MAX_CHARS = 1024
@@ -69,7 +69,7 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
             # 块标量内容（保留为单空格），不能当作终止信号——否则像
             # `description: |\n  para1.\n\n  para2.\nmetadata:` 这种带段落分隔的
             # 写法会被截到 `para1.`，丢失 `para2.` 之后所有 trigger 信号
-            # （run_eval / run_loop 的 starting description 也会因此退化）。
+            # （optimize_description 的 starting description 也会因此退化）。
             if value in ("", ">", "|", ">-", "|-"):
                 continuation_lines: List[str] = []
                 i += 1

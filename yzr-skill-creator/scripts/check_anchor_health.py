@@ -47,6 +47,19 @@ Usage
 
 Exit code: 0 = clean; 1 = at least one issue; 2 = setup error
 (argparse / I/O).
+
+Manual rules this script encodes (fallback when the script is unavailable)
+-------------------------------------------------------------------------
+- Path base is the directory of the CONTAINING file, not the skill root:
+  SKILL.md (at skill root) references `references/foo.md`; a doc inside
+  references/ references a sibling as `b.md`, NOT `../b.md` (that resolves
+  to `<skill>/b.md` — dead link). Referencing the skill root from
+  references/ is `../scripts/foo.py` (legal).
+- Most common mistake: `references/` docs writing `../X.md` for a sibling.
+- GitHub-style heading slug: lowercase + strip punctuation + spaces to `-`;
+  full-width punctuation `：` / `、` / `（` / `）` is REMOVED, not converted.
+- Code-fence "teaching example" paths (sources/foo.md inside a fence) are
+  exempt — their target is not supposed to exist.
 """
 
 import argparse
@@ -80,8 +93,7 @@ _FENCE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})")
 
 # Explicit HTML anchor tags. GitHub honors `<a id="...">` and `<a name="...">`
 # as navigation targets independent of heading slugs — skills use these for
-# stable TOC anchors that survive heading rewording (see
-# yzr-gemini-pdf-summary/references/full-mode-contract.md). We must treat
+# stable TOC anchors that survive heading rewording. We must treat
 # them as valid anchor destinations, else every such TOC reads as drift.
 _EXPLICIT_ANCHOR_RE = re.compile(r"""<a\b[^>]*\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 

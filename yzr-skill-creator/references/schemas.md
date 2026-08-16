@@ -8,13 +8,15 @@ This document defines the JSON schemas used by yzr-skill-creator.
 ## 目录
 
 - [evals.json](#evalsjson) — 评估集
-- [history.json](#historyjson) — 评估运行历史
 - [grading.json](#gradingjson) — 单次运行的断言评分
 - [metrics.json](#metricsjson) — 评估指标
 - [timing.json](#timingjson) — 单次运行的时序数据
 - [benchmark.json](#benchmarkjson) — 跨运行的聚合基准
 - [comparison.json](#comparisonjson) — 两份输出的盲测 A/B
 - [analysis.json](#analysisjson) — 基准分析观察
+
+> 描述优化（入口 3）没有独立 JSON schema——`scripts/optimize_description.py` 直接输出
+> results.json（含 history 数组），字段以该脚本 docstring 为准。
 
 ---
 
@@ -47,65 +49,7 @@ Defines the evals for a skill. Located at `eval/evals.json` within the skill dir
 - `evals[].prompt`: The task to execute
 - `evals[].expected_output`: Human-readable description of success
 - `evals[].files`: Optional list of input file paths (relative to skill root)
-- `evals[].expectations`: List of verifiable statements---
-
-## history.json
-
-Tracks version progression in Improve mode. Located at workspace root.
-
-This is the shape actually written by `scripts/run_loop.py` and consumed by
-`scripts/generate_report.py` (see `scripts/run_loop.py::main` for the producer
-side, and `scripts/generate_report.py::generate_html` for the consumer side).
-
-```json
-{
-  "started_at": "2026-01-15T10:30:00Z",
-  "skill_name": "pdf",
-  "skill_path": "/path/to/pdf",
-  "model": "claude-sonnet-4-6",
-  "iterations_run": 3,
-  "train_size": 12,
-  "test_size": 8,
-  "trigger_threshold": 0.5,
-  "best_description": "pdf skill that does X, Y, Z",
-  "history": [
-    {
-      "iteration": 0,
-      "parent": null,
-      "description": "v0 description (the starting point)",
-      "train_passed": 6,
-      "train_total": 12,
-      "train_trigger_rate": 0.50,
-      "test_passed": 3,
-      "test_total": 8,
-      "test_trigger_rate": 0.38,
-      "train_results": [{"query": "...", "should_trigger": true, "triggered": true}],
-      "test_results":  [{"query": "...", "should_trigger": true, "triggered": false}],
-      "elapsed_seconds": 45.2
-    }
-  ]
-}
-```
-
-**Fields:**
-
-- `started_at`: ISO timestamp of when the loop started
-- `skill_name`: Name of the skill being improved
-- `skill_path`: Absolute path to the skill directory
-- `model`: Model id used for both evaluation and improvement
-- `iterations_run`: Number of iterations actually executed (may be less than `max_iterations` if early-stopped)
-- `train_size` / `test_size`: Sizes of the train/holdout split (default `DEFAULT_HOLDOUT_RATIO`, SSOT in
-  `scripts/run_loop.py`)
-- `trigger_threshold`: Trigger rate below which a query is counted as "not triggered"
-- `best_description`: The description with the best test pass rate (or train pass rate as tiebreaker)
-- `history[].iteration`: 0-based iteration index
-- `history[].parent`: Parent iteration index this description was derived from (`null` for the starting point)
-- `history[].description`: The skill description text used in this iteration
-- `history[].train_passed` / `train_total` / `train_trigger_rate`: Aggregate stats over the train split
-- `history[].test_passed` / `test_total` / `test_trigger_rate`: Aggregate stats over the holdout split
-- `history[].train_results` / `test_results`: Per-query trigger results
-  (improvement model sees train only; test is intentionally withheld)
-- `history[].elapsed_seconds`: Wall-clock time for this iteration
+- `evals[].expectations`: List of verifiable statements
 
 ---
 

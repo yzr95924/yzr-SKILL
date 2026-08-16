@@ -10,8 +10,8 @@ description: |
   触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接
   看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传
   分享"。
-  不适用：上传到 Outline Wiki（走 yzr-outline-wiki）、PDF 转 Markdown（走
-  yzr-gemini-pdf-summary）、HTML 反向转 Markdown、实时预览编辑器。
+  不适用：上传到 Outline Wiki（走 yzr-outline-wiki）、PDF 转 Markdown、HTML 反向转
+  Markdown、实时预览编辑器。
 metadata:
   author: Zuoru YANG
   modify time: 2026-08-04
@@ -37,7 +37,7 @@ metadata:
 ### 不使用
 
 - **上传到 Outline Wiki** → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
-- **PDF → Markdown** → 走 `yzr-gemini-pdf-summary`
+- **PDF → Markdown** → 本 skill 不做
 - **HTML → Markdown**（反向）→ 本 skill 不做
 - 想要实时预览 / 在线编辑器 → 本 skill 是一次性导出，不是编辑器
 

@@ -96,7 +96,7 @@ def check_description_format(skill_path):
 
     硬性约定 SSOT 在 references/skill-writing-principles.md「description 优化原则」
     （固定格式）：场景一句（中文 lead）+ 触发： + 不适用：，槽内措辞自由。
-    WARN 不 fail——描述触发准确性由 run_loop 优化，这里只防结构漂移。
+    WARN 不 fail——描述触发准确性由 optimize_description 优化，这里只防结构漂移。
     """
     try:
         _, description, _ = parse_skill_md(Path(skill_path))
