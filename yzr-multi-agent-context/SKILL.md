@@ -1,11 +1,15 @@
 ---
 name: yzr-multi-agent-context
-description: 在用户处理 AI coding agent 项目上下文收敛成一份工具无关 AGENTS.md（多 agent 原生加载）的
-  任一子问题时使用——典型场景：CLAUDE.md 改薄壳 @AGENTS.md（含 Claude 专属逃生舱）/ 合并去重并存
-  CLAUDE.md + AGENTS.md / 抽硬绑 Claude 内容进逃生舱 / 回退内联 MEMORY 索引到 @MEMORY/MEMORY.md +
-  顶部强制 Read 指令 / 规范化现有 AGENTS.md / 跑迁移覆盖率验证。两条入口：CLAUDE.md 迁移 / AGENTS.md
-  规范化。不适用：裸项目（先用 /init）/ 不读 AGENTS.md、只认自家专属格式的 agent（先手动
-  转）/ 改权限 / MCP / scripts。
+description: |
+  当用户处理 AI coding agent 项目上下文收敛成一份工具无关 AGENTS.md（多 agent 原生加载）的
+  任一子问题时使用本 skill——典型场景：CLAUDE.md 改薄壳 @AGENTS.md（含 Claude 专属逃生舱）/
+  合并去重并存 CLAUDE.md + AGENTS.md / 抽硬绑 Claude 内容进逃生舱 / 回退内联 MEMORY 索引到
+  @MEMORY/MEMORY.md + 顶部强制 Read 指令 / 规范化现有 AGENTS.md / 跑迁移覆盖率验证。两条
+  入口：CLAUDE.md 迁移 / AGENTS.md 规范化。
+  触发："把 CLAUDE.md 改成薄壳引用 AGENTS.md" / "帮我规范化这个项目的 AGENTS.md" /
+  "CLAUDE.md 和 AGENTS.md 内容重复了，合并一下"。
+  不适用：裸项目（先用 /init）/ 不读 AGENTS.md、只认自家专属格式的 agent（先手动转）/ 改权限 /
+  MCP / scripts。
 metadata:
   author: Zuoru YANG
   category: project-config

@@ -15,8 +15,7 @@ workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个�
 这一层，缺了 `run-N/` 会聚合出全 0 的空 benchmark：
 
 - **创建新 skill**：`without_skill/run-1/outputs/`——完全不带 skill 的 baseline
-- **改进现有 skill**：`old_skill/run-1/outputs/`——用快照（`cp -r <skill-path> <workspace>/skill-snapshot/`）
-  后的旧版
+- **改进现有 skill**：`old_skill/run-1/outputs/`——用快照后的旧版（`cp -r` 快照命令见「第 1 步」）
 
 `grading.json` / `timing.json` 同样落在 `run-N/` 下（与 `outputs/` 同级）。
 
@@ -27,6 +26,12 @@ workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个�
 
 对每个测试用例，在**同一轮**启动两个子 agent——一个带 skill、一个不带。
 **重要**：不要先启动 with-skill、再串行启动 baseline；并发启动让它们大致同时完成。
+
+> **没有子 agent 的环境（降级路径）**：无法并行启动子 agent 时，改为**串行**执行——
+> 对每个测试用例，自己读该 skill 的 SKILL.md 并按其指令完成任务（**跳过 baseline**：
+> 你写的 skill 你自己跑，独立性的损失由人工评审环节补偿）。定性评估照常进行，
+> **跳过定量 benchmark**（没有 baseline 对比就没有意义）。迭代循环照旧——改进 →
+> 重跑测试用例 → 问用户反馈，只是中间没有 viewer，直接在对话里展示输出。
 
 **With-skill prompt 模板：**
 
@@ -72,13 +77,13 @@ Execute this task:
 让瞥一眼结果的人立刻明白每个断言在检查什么。偏主观的 skill（写作风格、设计质量）
 更适合定性评估，不要给需要人为判断的事强行套断言。
 
-断言定稿后，更新 `eval_metadata.json` 和 `eval/evals.json`。同时向用户说明
-viewer 里会看到什么——既包括定性输出，也包括定量基准。
+断言定稿后，更新 `eval_metadata.json` 和 `eval/evals.json`。
 
 ## 第 3 步：跑完时采集时序数据
 
 每个子 agent 任务结束时，会收到一个通知，其中含 `total_tokens` 和 `duration_ms`。
-**立即**（不等批量）存到该运行目录下的 `timing.json`：
+**立即**（不等批量）存到该运行目录下的 `timing.json`（最小字段；完整字段见
+`references/schemas.md`「timing.json」）：
 
 ```json
 {
@@ -95,6 +100,8 @@ viewer 里会看到什么——既包括定性输出，也包括定量基准。
 1. **为每次运行打分**：启动 grader 子 agent（或内联打分），它读
    `references/agents/grader.md`，逐条核对断言与输出。评分存到
    `<run>/grading.json`。
+   - spawn grader 的 prompt 里附 `<skill-creator>/references/schemas.md` 的 grading.json 节路径——
+     agents/grader.md 只含 JSON 骨架，完整 schema 与字段说明以 schemas.md 为准
    - `grading.json` 的 `expectations` 数组**必须**用字段 `text` / `passed` / `evidence`
      （不要 `name` / `met` / `details` 变体）——viewer 依赖这些确切字段名
    - 可编程检查的断言写脚本跑，不要肉眼判断——脚本更快、可跨迭代复用
@@ -109,7 +116,7 @@ python -m scripts.aggregate_benchmark <workspace>/iteration-N --skill-name <name
 及均值 ± 标准差与差值。**`with_skill` 必须在它对应 baseline 之前**。
 手动生成时参 `references/schemas.md` 的精确 schema。
 
-- **分析基准**：读 `references/agents/analyzer.md`「分析基准结果」节。
+- **分析基准**：读 `references/agents/benchmark-analyzer.md`。
   关注点：无论是否使用 skill 都始终通过的断言（= 用例没鉴别力）、高方差 eval、
   时间 / Token 取舍等。聚合统计常掩盖模式。
 
@@ -157,19 +164,10 @@ kill $VIEWER_PID 2>/dev/null
 
 ## Viewer 输出口径
 
-**Outputs tab** 一次展示一个测试用例：
-
-- **Prompt**：给出的任务
-- **Output**：skill 产出的文件，能内联展示就内联
-- **Previous Output**（第 2 轮及以后）：折叠区域，展示上一轮输出
-- **Formal Grades**（跑了评分时）：折叠区域，断言通过 / 失败详情
-- **Feedback**：文本框，边输入边自动保存
-- **Previous Feedback**（第 2 轮及以后）：上一轮评论
-
-**Benchmark tab**：每种配置的通过率、时序、Token 消耗、单 eval 拆解、分析观察。
-通过上下页按钮或方向键浏览；点"Submit All Reviews"把所有反馈存到 `feedback.json`。
+**Outputs tab** 逐个测试用例展示（Prompt / Output / Previous Output / Formal Grades / Feedback，第 2 轮起带
+上一轮对比）；**Benchmark tab** 展示各配置的通过率 / 时序 / Token / 单 eval 拆解。用户点"Submit All
+Reviews"把反馈存到 `feedback.json`。看 viewer 的是用户——agent 只需告知"两个 tab"即可。
 
 ## 何时去读本文件
 
-执行 入口 1 / 2（创建 / 改进 skill）需要落地测试用例时 `Read`。`/skill-test` 等
-其它评估框架不接此约定；混用 = benchmark 不可比。
+执行 入口 1 / 2（创建 / 改进 skill）需要落地测试用例时 `Read`。

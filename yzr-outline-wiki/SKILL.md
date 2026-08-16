@@ -1,15 +1,16 @@
 ---
 name: yzr-outline-wiki
-description: 用户要与 Outline Wiki 工作区打交道时使用本 skill——按关键词全文
-  搜索匹配文档列表（"搜 outline / 找 outline 文档"）、按文档 ID 拉取 Markdown
-  原文与元数据，创建 / 编辑 / 更新文档（"写 / 推 / 上传 / publish 到 outline"），
-  以及扩展写操作：图片附件（论文笔记 / 架构图等含图文档）、@mention、评论、
-  Collection 管理、移动 / 删除 / 归档。写前先搜查重，产出遵守仓库 Markdown
-  风格指纹（`*` bullet / `==高亮==` / 正文首块 ```yaml 元数据块）与 OKF 上传
-  格式控制。**不**用于配置 outline MCP / 鉴权（MCP server 在 agent 配置文件中
-  维护）；**不**用于 Notion / Confluence / Obsidian / GitHub Wiki。'outline' 若指
-  大纲 / 议程同名词则无关；分享 / 导出 / 权限调整官方 MCP 未列、server 通常
-  也未暴露，走 UI 或 REST。
+description: |
+  当用户要与 Outline Wiki 工作区打交道时使用本 skill——按关键词全文搜索匹配文档列表（"搜
+  outline / 找 outline 文档"）、按文档 ID 拉取 Markdown 原文与元数据，创建 / 编辑 / 更新文档
+  （"写 / 推 / 上传 / publish 到 outline"），以及扩展写操作：图片附件（论文笔记 / 架构图等含
+  图文档）、@mention、评论、Collection 管理、移动 / 删除 / 归档。写前先搜查重，产出遵守仓库
+  Markdown 风格指纹（`*` bullet / `==高亮==` / 正文首块 ```yaml 元数据块）与 OKF 上传格式
+  控制。
+  触发："搜 outline / 找 outline 文档" / "写 / 推 / 上传 / publish 到 outline"。
+  不适用：配置 outline MCP / 鉴权（MCP server 在 agent 配置文件中维护）；Notion / Confluence /
+  Obsidian / GitHub Wiki；'outline' 若指大纲 / 议程同名词则无关；分享 / 导出 / 权限调整官方
+  MCP 未列、server 通常也未暴露，走 UI 或 REST。
 metadata:
   author: Zuoru YANG
   category: knowledge-base

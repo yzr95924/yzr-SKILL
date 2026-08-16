@@ -1,0 +1,28 @@
+{
+  "skill_name": "yzr-skill-creator",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我做一个处理 Excel 表格的 skill，能按列名做条件过滤并导出成 CSV",
+      "expected_output": "一个结构合规的 <skill-name>/SKILL.md（frontmatter + 正文骨架）+ 必要的 scripts/ 支撑，正文节名与顺序遵循规范骨架",
+      "files": [],
+      "expectations": [
+        "产出 SKILL.md 的正文包含全部规范 H2 节：何时不使用、输入 / 输出、执行原则 / 边界、工作流 / 步骤（顺序一致）",
+        "产出 SKILL.md 的 frontmatter 含 name / description，description 描述具体触发场景且写\"主动\"",
+        "`python -m scripts.quick_validate <skill-dir> --tier default` 对产出无 WARN（额外路由节 INFO 可接受）",
+        "产出 SKILL.md 引用了 assets/skill-template.md 骨架对应的规范节名，而不是自创节名"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "把我这个 yzr-gemini-pdf-summary skill 改进一下：它有时不该触发时也触发",
+      "expected_output": "改进后的 skill + iteration-N/ 评估产物（with-skill vs baseline），且改进前先 cp -r 快照旧版",
+      "files": [],
+      "expectations": [
+        "编辑前存在 skill-snapshot/ 或旧版副本（cp -r 快照）",
+        "workspace 存在 iteration-N/eval-<ID>/{with_skill,old_skill} 目录结构与 benchmark.json",
+        "改进后的 SKILL.md 正文节名仍符合 CANONICAL_BODY_SECTIONS（结构未因迭代破坏）"
+      ]
+    }
+  ]
+}

@@ -31,15 +31,13 @@ skill-name/
 3. **捆绑资源**（`scripts/` / `references/` / `assets/` / `eval/`）：按需加载
    — scripts 可不读直接执行；references / assets 需 Read 才加载。
 
-**关键模式**：
+**关键模式**（以下条目的权威口径都在 `references/skill-writing-principles.md`「正文写作原则」，
+此处只给结论、不重抄具体数字）：
 
-- SKILL.md 控制在长度上限以内（5000 词硬限；元 / 普通 skill tiered 软目标见
-  `references/skill-writing-principles.md`）；接近上限就抽一层到 `references/`，
-  并给出清晰的"何时去读"指引。
-- SKILL.md 内清晰引用其它文件，并说明何时去读。
-- `references/*.md` 与 SKILL.md 同级（**one-level-deep**：SKILL.md → references 合法；
-  references → references 禁止——会丢信息，见原则文件「精简原则」）。
-- 单个 reference 文件 > 300 行要带 TOC（模板文件 CLI 字面拷贝不受此约束）。
+- 长度上限 + 接近上限就抽一层到 `references/`，并给出清晰的"何时去读"指引
+- SKILL.md 内引用其它文件时，说明何时去读
+- one-level-deep：SKILL.md → references 合法；references → references 禁止（加载链）
+- reference 文件超过 TOC 阈值要带目录（模板文件例外见原则文件）
 
 **领域组织**：skill 支持多领域 / 框架时按变体组织——
 
@@ -74,13 +72,27 @@ Input: Added user authentication with JWT tokens
 Output: feat（auth）: implement JWT-based authentication
 ```
 
-### 重点内容
+### 正文骨架（canonical 节）
 
-1. **何时使用 / 不使用**：定义清楚 agent 调用的场景和不使用的场景
-2. **输入 / 输出**：定义 skill 具体的输入输出形式
-3. **执行原则 / 边界**：定义 skill 具体的执行原则和边界（贯穿全程的判断基线）
-4. **工作流 / 步骤**：定义 skill 操作的步骤序列
-5. **参考样例**：提供可指导 agent 的真实例子
+SKILL.md 正文的规范 H2 节名、顺序、各类型的可省略规则——唯一真源在
+`scripts/utils.py::CANONICAL_BODY_SECTIONS`（**prose 不重抄节名列表**，改常量一处生效；
+快速审计用 `python -m scripts.quick_validate <skill-dir> --tier <type>`）。
+可直接 `cp` 填充的骨架在 `assets/skill-template.md`。
+
+### 变体（各类型的骨架适配）
+
+- **参考资料型**（只聚合信息、不改变 agent 行为）：可省略「执行原则 / 边界」与
+  「工作流 / 步骤」两节——把"行为约束 / 步骤"留给真正的配方型 skill
+- **元 / 多入口 skill**：允许在第一个规范节前加**一个**路由节（如「四个入口」），
+  规范节本身仍按 canonical 顺序完整保留
+- **领域特有节**（评审立场 / 设计决策 / 前置条件等）：放「执行原则 / 边界」之后；
+  超过下放阈值（见 `references/skill-writing-principles.md`「正文超长根因诊断路径」）
+  下放到 `references/`，正文只留路标
+- **视角 / 立场节的加与不加**：视角 / 立场（如「评审立场」）仅当 skill 的核心价值是
+  **判断**且立场需要成段展开时才立节（review / 评审 / 审计类典型——立场本身决定产物：
+  "以维护者立场而非作者立场看代码"）；一两句话能讲清的立场写成「执行原则 / 边界」的
+  一条 bullet（"立场 + 为什么"）；机械型 skill（转换 / 提取 / 管线）**不加**——写不出
+  有内容的视角节 = 该加的是别的东西或什么都不加
 
 ### 何时去读本文件
 

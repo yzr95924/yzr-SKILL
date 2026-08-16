@@ -9,6 +9,30 @@ from typing import List, Tuple
 # ("指标单一来源" 原则) — change the limit here and code updates everywhere.
 DESCRIPTION_MAX_CHARS = 1024
 
+# Canonical SKILL.md body sections (H2 headings), in canonical order. Single source
+# of truth for the body skeleton: quick_validate.py checks skills against it,
+# assets/skill-template.md and references/skill-template-guide.md reference it by
+# name — prose must NOT re-list the headings (指标单一来源 原则).
+#
+# Each entry: (heading, exempt_tiers) where exempt_tiers is the set of skill tiers
+# allowed to omit the section. Tiers:
+#   default   — 普通 workflow skill（缺省）
+#   reference — 纯参考资料型（只聚合信息、不改变 agent 行为，可省行为类节）
+#   meta      — 元 skill / 多入口 skill（允许在第一个规范节前加路由节）
+# Empty exempt set = required for every tier. 参考样例 / 参考文件 are recommended
+# for all tiers, so they exempt every tier (missing them = INFO, not WARN).
+CANONICAL_BODY_SECTIONS = (
+    ("## 何时不使用", frozenset()),
+    ("## 输入 / 输出", frozenset()),
+    ("## 执行原则 / 边界", frozenset({"reference"})),
+    ("## 工作流 / 步骤", frozenset({"reference"})),
+    ("## 参考样例", frozenset({"default", "reference", "meta"})),
+    ("## 参考文件", frozenset({"default", "reference", "meta"})),
+)
+
+# Allowed --tier values for quick_validate.py's body-structure check.
+SKILL_TIERS = ("default", "reference", "meta")
+
 
 def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     """Parse a SKILL.md file, returning (name, description, full_content)."""

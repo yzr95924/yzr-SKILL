@@ -69,7 +69,7 @@ iter 2+ 56%+。结构性缺陷确认是 recall 压低的主因。
 ## 影响
 
 - 对所有**已安装**的 skill（yzr-skill-creator / yzr-multi-agent-context / yzr-gemini-pdf-summary /
-  yzr-outline-wiki-* / yzr-llm-* / yzr-coding-review / 任何第三方装在 `~/.claude/skills/`
+  `yzr-outline-wiki-*` / `yzr-llm-*` / yzr-coding-review / 任何第三方装在 `~/.claude/skills/`
   的 skill）跑描述优化，harness 都会产生噪声。
 - 对**未安装**的 skill 跑描述优化（如新写的 skill 还没分发），并行克隆冲突仍然存在（10 个
   相同描述的克隆），只是没有"真 skill 偷调用"那一层——recall 会比 0% 好但仍偏低。

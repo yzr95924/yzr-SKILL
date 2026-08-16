@@ -166,19 +166,22 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 3. **捆绑资源**：`scripts/` 可执行、`references/` 按需阅读、`assets/` 模板/图标、`eval/`
    评估集。
 
-正文应包含的小节：`何时使用 / 不使用`、`输入 / 输出`、`执行原则 / 边界`、`工作流 / 步骤`、
-可选 `参考样例`。描述写得"主动"，把"何时使用"全部塞进 `description` 而不是正文里。
+正文规范 H2 节名 / 顺序 / 各类型豁免的 SSOT 在
+`yzr-skill-creator/scripts/utils.py::CANONICAL_BODY_SECTIONS`，可拷贝骨架在
+`yzr-skill-creator/assets/skill-template.md`——此处与其它 prose 不重抄节名列表。
+描述写得"主动"，把"何时使用"全部塞进 `description` 而不是正文里。
 
 ### yzr-skill-creator 内部脚本
 
 | 脚本 | 作用 |
 | --- | --- |
-| `scripts/quick_validate.py` | frontmatter 合法性校验（可单独调用） |
+| `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构校验（`--tier <default\|reference\|meta>`；结构问题 WARN 不 fail） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
+| `scripts/check_anchor_health.py` | 跨文件 link anchor 漂移检查（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
 | `scripts/run_eval.py` / `aggregate_benchmark.py` / `generate_report.py` | 跑评估用例、聚合结果、生成报告 |
 | `scripts/run_loop.py` | 描述优化的后台循环（60% 训练 / 40% 保留评估） |
 | `scripts/improve_description.py` | 单轮描述优化 |
-| `scripts/generate_review.py` | 渲染 `assets/eval_review.html` 供用户人工评审触发评估集 |
+| `scripts/generate_review.py` | 启动本地评审页（`scripts/viewer.html`；定性输出 + benchmark 数据），供用户反馈评估结果 |
 
 `references/agents/{grader,comparator,analyzer}.md` 定义了三个子 agent 指令；
 `references/schemas.md` 给出 `evals.json` / `history.json` / `grading.json` 的字段约定。
