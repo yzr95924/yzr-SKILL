@@ -67,10 +67,10 @@ check 耦合 CLI 写的 AGENTS.md 版本 vs SKILL frontmatter，my_SKILL 单独 
 
 ### run_eval / run_loop 并行克隆冲突（harness 结构性缺陷）
 
-ProcessPoolExecutor(10 workers) 并行跑评测时，10 个 _eval_skill_<uuid> 克隆（描述相同）共存，
+ProcessPoolExecutor(10 workers) 并行跑评测时，10 个 `_eval_skill_<uuid>` 克隆（描述相同）共存，
 模型任意调用其中一个，grader 只认分配给当前查询的克隆 → recall 结构性压到 ~6%（即使直接
 probe 单克隆能 100% 触发）。已安装 skill 还多一层"真 skill 偷调用"冲突。修法见正文：grader 改
-为认任一 _eval_skill_<hex> 命中即触发（已实测：recall 从 6% 升到 56% Train / 42% Test）。
+为认任一 `_eval_skill_<hex>` 命中即触发（已实测：recall 从 6% 升到 56% Train / 42% Test）。
 **本机曾未跑通过 run_loop**（修前全系统 0 个 iteration-* / best_description commit）——
 其它 skill 描述"看着 OK"是因为根本没经过优化，harness 缺陷从未暴露。修 grader 后实测有效。 →
 [正文](run-eval-harness-parallel-clone-collision.md)
@@ -89,5 +89,5 @@ npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答
 退回默认 line_length 80 → 正常行被误报 MD013。从仓库根跑，或 `-c .markdownlint.jsonc` 显式指定 config。
 另：MD060（compact 表格竖线 `|---|` 无空格）已在 `.markdownlint.jsonc` 显式 `false` 关闭（仓库用标准
 GFM 表格，紧凑分隔行每表都触发属误报）；`canonical/` + `fixtures/*.txt`（字节金标准，改了破坏 detector）
-+ `*-spec-changelog.md`（超长叙事 cell，`|`/`<placeholder>` 假阳性）在 `.markdownlintignore` 排除。
+`*-spec-changelog.md`（超长叙事 cell，`|`/`<placeholder>` 假阳性）在 `.markdownlintignore` 排除。
 判回归只看有无 **新错误类别**（如新出现 MD013/MD041），不计 lint 计数绝对值。

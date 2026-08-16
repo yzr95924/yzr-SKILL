@@ -1,15 +1,16 @@
 ---
 name: yzr-llm-workspace-management
 description: |
-  用本 skill 管理由 yzr-llm-wiki-management 维护的多个本地 wiki：在 workspace 层级扫描所有 wiki、
-  生成与维护全局 INDEX.md / STATS.md / LINT.md，做跨 wiki 综合问答（路由 / 合成 / 对比 / 局部），
-  维护跨 wiki 交叉引用，做 workspace 级 lint，沉淀跨 wiki agent 私有记忆到 MEMORY/。
-  触发场景："总结我所有 wiki 中关于 X 的内容"、"对比 wiki A 和 wiki B 对 Y 的看法"、
-  "这个问题该查哪个 wiki"、"扫一下我的 workspace"、"workspace 整体 lint"、
-  "记一下：用户偏好按时间线分 wiki"。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——
-  CLI 负责确定性元数据操作，本 skill 负责需要 LLM 判断的跨 wiki 决策。不适用：单 wiki 的
-  ingest / query / lint（走 yzr-llm-wiki-management）；workspace / wiki 元数据 CRUD（走
-  workspace CLI）；云端协作 wiki（走 yzr-outline-wiki）。
+  当用户要管理由 yzr-llm-wiki-management 维护的多个本地 wiki 时使用本 skill：在 workspace
+  层级扫描所有 wiki、生成与维护全局 INDEX.md / STATS.md / LINT.md，做跨 wiki 综合问答
+  （路由 / 合成 / 对比 / 局部），维护跨 wiki 交叉引用，做 workspace 级 lint，沉淀跨 wiki
+  agent 私有记忆到 MEMORY/。弥补 workspace CLI 只能管元数据不能感知内容的缺陷——CLI 负责
+  确定性元数据操作，本 skill 负责需要 LLM 判断的跨 wiki 决策。
+  触发："总结我所有 wiki 中关于 X 的内容" / "对比 wiki A 和 wiki B 对 Y 的看法" / "这个问题
+  该查哪个 wiki" / "扫一下我的 workspace" / "workspace 整体 lint" / "记一下：用户偏好按
+  时间线分 wiki"。
+  不适用：单 wiki 的 ingest / query / lint（走 yzr-llm-wiki-management）；workspace / wiki
+  元数据 CRUD（走 workspace CLI）；云端协作 wiki（走 yzr-outline-wiki）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base

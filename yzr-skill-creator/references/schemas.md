@@ -2,6 +2,9 @@
 
 This document defines the JSON schemas used by yzr-skill-creator.
 
+> 本文件是 JSON schema **唯一完整示例来源**——`references/agents/*.md` 只含骨架，字段精确值
+> 一律以本文件为准（spawn 子 agent 时把对应节的路径附进 prompt）。
+
 ## 目录
 
 - [evals.json](#evalsjson) — 评估集
@@ -17,7 +20,7 @@ This document defines the JSON schemas used by yzr-skill-creator.
 
 ## evals.json
 
-Defines the evals for a skill. Located at `evals/evals.json` within the skill directory.
+Defines the evals for a skill. Located at `eval/evals.json` within the skill directory.
 
 ```json
 {
@@ -27,7 +30,7 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
       "id": 1,
       "prompt": "User's example prompt",
       "expected_output": "Description of expected result",
-      "files": ["evals/files/sample1.pdf"],
+      "files": ["eval/files/sample1.pdf"],
       "expectations": [
         "The output includes X",
         "The skill used script Y"
@@ -38,14 +41,13 @@ Defines the evals for a skill. Located at `evals/evals.json` within the skill di
 ```
 
 **Fields:**
+
 - `skill_name`: Name matching the skill's frontmatter
 - `evals[].id`: Unique integer identifier
 - `evals[].prompt`: The task to execute
 - `evals[].expected_output`: Human-readable description of success
 - `evals[].files`: Optional list of input file paths (relative to skill root)
-- `evals[].expectations`: List of verifiable statements
-
----
+- `evals[].expectations`: List of verifiable statements---
 
 ## history.json
 
@@ -69,6 +71,7 @@ side, and `scripts/generate_report.py::generate_html` for the consumer side).
   "history": [
     {
       "iteration": 0,
+      "parent": null,
       "description": "v0 description (the starting point)",
       "train_passed": 6,
       "train_total": 12,
@@ -76,35 +79,23 @@ side, and `scripts/generate_report.py::generate_html` for the consumer side).
       "test_passed": 3,
       "test_total": 8,
       "test_trigger_rate": 0.38,
-      "train_results": [{"query": "...", "should_trigger": true, "triggered": true}, ...],
-      "test_results":  [{"query": "...", "should_trigger": true, "triggered": false}, ...],
+      "train_results": [{"query": "...", "should_trigger": true, "triggered": true}],
+      "test_results":  [{"query": "...", "should_trigger": true, "triggered": false}],
       "elapsed_seconds": 45.2
-    },
-    {
-      "iteration": 1,
-      "parent": 0,
-      "description": "v1 description (improved by LLM)",
-      "train_passed": 8,
-      "train_total": 12,
-      "train_trigger_rate": 0.67,
-      "test_passed": 5,
-      "test_total": 8,
-      "test_trigger_rate": 0.62,
-      "train_results": [...],
-      "test_results": [...],
-      "elapsed_seconds": 52.7
     }
   ]
 }
 ```
 
 **Fields:**
+
 - `started_at`: ISO timestamp of when the loop started
 - `skill_name`: Name of the skill being improved
 - `skill_path`: Absolute path to the skill directory
 - `model`: Model id used for both evaluation and improvement
 - `iterations_run`: Number of iterations actually executed (may be less than `max_iterations` if early-stopped)
-- `train_size` / `test_size`: Sizes of the train/holdout split (default `DEFAULT_HOLDOUT_RATIO`, SSOT in `scripts/run_loop.py`)
+- `train_size` / `test_size`: Sizes of the train/holdout split (default `DEFAULT_HOLDOUT_RATIO`, SSOT in
+  `scripts/run_loop.py`)
 - `trigger_threshold`: Trigger rate below which a query is counted as "not triggered"
 - `best_description`: The description with the best test pass rate (or train pass rate as tiebreaker)
 - `history[].iteration`: 0-based iteration index
@@ -137,10 +128,10 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
     }
   ],
   "summary": {
-    "passed": 2,
+    "passed": 1,
     "failed": 1,
-    "total": 3,
-    "pass_rate": 0.67
+    "total": 2,
+    "pass_rate": 0.5
   },
   "execution_metrics": {
     "tool_calls": {
@@ -165,6 +156,12 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
       "type": "factual",
       "verified": true,
       "evidence": "Counted 12 fields in field_info.json"
+    },
+    {
+      "claim": "All required fields were populated",
+      "type": "quality",
+      "verified": false,
+      "evidence": "Reference section was left blank despite data being available"
     }
   ],
   "user_notes_summary": {
@@ -176,22 +173,24 @@ Output from the grader agent. Located at `<run-dir>/grading.json`.
     "suggestions": [
       {
         "assertion": "The output includes the name 'John Smith'",
-        "reason": "A hallucinated document that mentions the name would also pass"
+        "reason": "A hallucinated document that mentions the name would also pass — consider checking it appears as the primary contact with matching phone and email from the input"
       }
     ],
-    "overall": "Assertions check presence but not correctness."
+    "overall": "Assertions check presence but not correctness. Consider adding content verification."
   }
 }
 ```
 
 **Fields:**
+
 - `expectations[]`: Graded expectations with evidence
 - `summary`: Aggregate pass/fail counts
 - `execution_metrics`: Tool usage and output size (from executor's metrics.json)
 - `timing`: Wall clock timing (from timing.json)
 - `claims`: Extracted and verified claims from the output
 - `user_notes_summary`: Issues flagged by the executor
-- `eval_feedback`: (optional) Improvement suggestions for the evals, only present when the grader identifies issues worth raising
+- `eval_feedback`: (optional) Improvement suggestions for the evals, only present when the grader identifies issues
+  worth raising
 
 ---
 
@@ -219,11 +218,10 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 ```
 
 **Fields:**
+
 - `tool_calls`: Count per tool type
 - `total_tool_calls`: Sum of all tool calls
 - `total_steps`: Number of major execution steps
-- `files_created`: List of output files created
-- `errors_encountered`: Number of errors during execution
 - `output_chars`: Total character count of output files
 - `transcript_chars`: Character count of transcript
 
@@ -233,7 +231,8 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 
 Wall clock timing for a run. Located at `<run-dir>/timing.json`.
 
-**How to capture:** When a subagent task completes, the task notification includes `total_tokens` and `duration_ms`. Save these immediately — they are not persisted anywhere else and cannot be recovered after the fact.
+**How to capture:** When a subagent task completes, the task notification includes `total_tokens` and `duration_ms`.
+Save these immediately — they are not persisted anywhere else and cannot be recovered after the fact.
 
 ```json
 {
@@ -253,7 +252,8 @@ Wall clock timing for a run. Located at `<run-dir>/timing.json`.
 
 ## benchmark.json
 
-Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
+Output from Benchmark mode. Located at `<workspace>/iteration-N/benchmark.json`（`aggregate_benchmark.py`
+的 `--benchmark-dir` 参数传入目录下）。
 
 ```json
 {
@@ -270,7 +270,6 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
   "runs": [
     {
       "eval_id": 1,
-      "eval_name": "Ocean",
       "configuration": "with_skill",
       "run_number": 1,
       "result": {
@@ -321,6 +320,7 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
 ```
 
 **Fields:**
+
 - `metadata`: Information about the benchmark run
   - `skill_name`: Name of the skill
   - `timestamp`: When the benchmark was run
@@ -328,22 +328,26 @@ Output from Benchmark mode. Located at `benchmarks/<timestamp>/benchmark.json`.
   - `runs_per_configuration`: Number of runs per config (e.g. 3)
 - `runs[]`: Individual run results
   - `eval_id`: Numeric eval identifier
-  - `eval_name`: Human-readable eval name (used as section header in the viewer)
-  - `configuration`: Must be `"with_skill"` or `"without_skill"` (the viewer uses this exact string for grouping and color coding)
-  - `run_number`: Integer run number (1, 2, 3...)
+  - `configuration`: `"with_skill"` / `"without_skill"`（创建流程）或 `"new_skill"` / `"old_skill"`（改进流程）——
+    脚本对配置名不敏感、按实际目录名收集（`aggregate_benchmark.py` 认 `eval-*/<config>/run-N/` 这一层）；
+    注意 `run_number` 才是区分重复运行的键。viewer 用此字符串分组 / 着色
   - `result`: Nested object with `pass_rate`, `passed`, `total`, `time_seconds`, `tokens`, `errors`
 - `run_summary`: Statistical aggregates per configuration
-  - `with_skill` / `without_skill`: Each contains `pass_rate`, `time_seconds`, `tokens` objects with `mean` and `stddev` fields
+  - `with_skill` / `without_skill`: Each contains `pass_rate`, `time_seconds`, `tokens` objects with `mean` and
+    `stddev` fields
   - `delta`: Difference strings like `"+0.50"`, `"+13.0"`, `"+1700"`
 - `notes`: Freeform observations from the analyzer
 
-**Important:** The viewer reads these field names exactly. Using `config` instead of `configuration`, or putting `pass_rate` at the top level of a run instead of nested under `result`, will cause the viewer to show empty/zero values. Always reference this schema when generating benchmark.json manually.
+**Important:** The viewer reads these field names exactly. Using `config` instead of `configuration`, or putting
+`pass_rate` at the top level of a run instead of nested under `result`, will cause the viewer to show empty/zero
+values. Always reference this schema when generating benchmark.json manually.
 
 ---
 
 ## comparison.json
 
-Output from blind comparator. Located at `<grading-dir>/comparison-N.json`.
+Output from blind comparator. Located at `<grading-dir>/comparison-N.json`（comparator 未指定路径时
+默认 `comparison.json`）。
 
 ```json
 {
@@ -395,19 +399,21 @@ Output from blind comparator. Located at `<grading-dir>/comparison-N.json`.
   },
   "expectation_results": {
     "A": {
-      "passed": 4,
-      "total": 5,
-      "pass_rate": 0.80,
+      "passed": 2,
+      "total": 2,
+      "pass_rate": 1.00,
       "details": [
-        {"text": "Output includes name", "passed": true}
+        {"text": "Output includes name", "passed": true},
+        {"text": "Output includes date", "passed": true}
       ]
     },
     "B": {
-      "passed": 3,
-      "total": 5,
-      "pass_rate": 0.60,
+      "passed": 1,
+      "total": 2,
+      "pass_rate": 0.50,
       "details": [
-        {"text": "Output includes name", "passed": true}
+        {"text": "Output includes name", "passed": true},
+        {"text": "Output includes date", "passed": false}
       ]
     }
   }
@@ -430,11 +436,13 @@ Output from post-hoc analyzer. Located at `<grading-dir>/analysis.json`.
   },
   "winner_strengths": [
     "Clear step-by-step instructions for handling multi-page documents",
-    "Included validation script that caught formatting errors"
+    "Included validation script that caught formatting errors",
+    "Explicit guidance on fallback behavior when OCR fails"
   ],
   "loser_weaknesses": [
     "Vague instruction 'process the document appropriately' led to inconsistent behavior",
-    "No script for validation, agent had to improvise"
+    "No script for validation, agent had to improvise and made errors",
+    "No guidance on OCR failure, agent gave up instead of trying alternatives"
   ],
   "instruction_following": {
     "winner": {
@@ -445,7 +453,8 @@ Output from post-hoc analyzer. Located at `<grading-dir>/analysis.json`.
       "score": 6,
       "issues": [
         "Did not use the skill's formatting template",
-        "Invented own approach instead of following step 3"
+        "Invented own approach instead of following step 3",
+        "Missed the 'always validate output' instruction"
       ]
     }
   },
@@ -453,13 +462,25 @@ Output from post-hoc analyzer. Located at `<grading-dir>/analysis.json`.
     {
       "priority": "high",
       "category": "instructions",
-      "suggestion": "Replace 'process the document appropriately' with explicit steps",
+      "suggestion": "Replace 'process the document appropriately' with explicit steps: 1) Extract text, 2) Identify sections, 3) Format per template",
       "expected_impact": "Would eliminate ambiguity that caused inconsistent behavior"
+    },
+    {
+      "priority": "high",
+      "category": "tools",
+      "suggestion": "Add validate_output.py script similar to winner skill's validation approach",
+      "expected_impact": "Would catch formatting errors before final output"
+    },
+    {
+      "priority": "medium",
+      "category": "error_handling",
+      "suggestion": "Add fallback instructions: 'If OCR fails, try: 1) different resolution, 2) image preprocessing, 3) manual extraction'",
+      "expected_impact": "Would prevent early failure on difficult documents"
     }
   ],
   "transcript_insights": {
-    "winner_execution_pattern": "Read skill -> Followed 5-step process -> Used validation script",
-    "loser_execution_pattern": "Read skill -> Unclear on approach -> Tried 3 different methods"
+    "winner_execution_pattern": "Read skill -> Followed 5-step process -> Used validation script -> Fixed 2 issues -> Produced output",
+    "loser_execution_pattern": "Read skill -> Unclear on approach -> Tried 3 different methods -> No validation -> Output had errors"
   }
 }
 ```

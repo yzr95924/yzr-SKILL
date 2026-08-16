@@ -8,7 +8,7 @@
 
 | 工具 | 用途 | 来源 |
 | --- | --- | --- |
-| `pyyaml` | 跑 `yzr-skill-creator/scripts/quick_validate.py` 校验 SKILL.md frontmatter | pip |
+| `pyyaml` | 跑 `yzr-skill-creator/scripts/quick_validate.py` 校验 SKILL.md frontmatter + 正文结构（`--tier`） | pip |
 | `ruff` | Python 格式化 + lint（`pyproject.toml` 配 py37 + 120 行宽） | pip |
 | `markdownlint-cli` | Markdown 行宽与 lint（`.markdownlint.jsonc` 配 MD013 ≤ 120） | npm |
 
@@ -36,6 +36,7 @@ python3 scripts/install-dev-deps.py
 > `export PATH="$HOME/Library/Python/3.14/bin:$PATH"` 到 `~/.zshrc`。
 
 ## 设计原则
+
 - 主要参考
   - [Claude 官方指导](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
   - [Claude 官方生成 skill 的 skill](https://github.com/anthropics/skills/tree/main/skills/skill-creator)
@@ -51,7 +52,8 @@ python3 scripts/install-dev-deps.py
   - `yzr-llm-wiki-management` —— 单 wiki 内 ingest / query / lint / memory
   - `yzr-llm-workspace-management` —— 多个 wiki 之上的全局视图（INDEX.md / STATS.md / MEMORY/）+ 跨 wiki Q&A / xref / lint
 - **论文 / 阅读**：
-  - `yzr-gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type` 路由 4 套模板）
+  - `yzr-gemini-pdf-summary` —— 本地 PDF（论文 / 产品手册 / 白皮书 / 书籍）→ 中文结构化 Markdown（Gemini 多模态直读，含图表 / 公式 / 版式；按 `--type`
+    路由 4 套模板）
 - **代码评审 / 重构**：
   - `yzr-coding-review` —— 交互式代码 review（合理性审视 + 重构场景 catalog；语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 - **outline 工具**（远程 wiki 协作）：
@@ -69,7 +71,8 @@ python3 scripts/install-dev-deps.py
 
 - 所有 SKILL 名字与起对应的文件夹名字保持一致，对应的文件夹下必须包含 `SKILL.md` 文件，其他目录结构可以先创建，后面再扩展；
 - 所以 Markdown 文件需要进行格式化和 lint 操作，确保格式统一；
-- 所有 Python 文件统一走 `ruff`（配置见根目录 `pyproject.toml`），`ruff format` + `ruff check` 双管齐下，target 锁在 `py37`（最低支持 Python 3.7，注解走 Optional/List/Tuple）；
+- 所有 Python 文件统一走 `ruff`（配置见根目录 `pyproject.toml`），`ruff format` + `ruff check` 双管齐下，target 锁在 `py37`（最低支持 Python
+  3.7，注解走 Optional/List/Tuple）；
 - 一些经验可以持久化到 [`MEMORY/`](./MEMORY/)（`MEMORY.md` 是索引，正文与索引同级）
 
 ## 依赖的 MCP 和外部的 Skills
@@ -82,6 +85,7 @@ python3 scripts/install-dev-deps.py
 ### 依赖的 Skills
 
 外部 Gemini API 文档 skill 按需装（查 Gemini API 文档时）：
+
 ```shell
 $> npx skills add google-gemini/gemini-skills --skill gemini-api-dev
 $> npx skills add google-gemini/gemini-skills --skill gemini-live-api-dev

@@ -1,15 +1,15 @@
 ---
 name: yzr-writing-review
 description: |
-  Use this skill when 用户要和 agent 一起 review 一段现有文字 / 文档（多为 AI 生成，也接受
-  人写草稿）——审视内容是否合理：逻辑连贯性、结构组织、冗余注水、AI 腔、风格语气，
-  以及（提供参照输入时）跨文档 SSOT 一致性。默认只审不改、结论先行；用户确认后可承接
-  改写。触发："review 这篇文档 / 这段文字 / 这段总结 / 审一下 / 看看合不合理 /
-  逻辑有没有问题 / 有没有重复 / 太啰嗦 / 一股 AI 味 / less AI-sounding / 帮我过一遍 /
-  这段文字有没有需要改的"；润色类（"润色 / 改写 / 精简 / 压缩 / 太长了 / polish /
-  rewrite / condense / shorten / make it less verbose"）与档位词（"lite / full /
-  ultra"）同样触发本 skill。不适用：翻译、事实核查（只指出存疑不验证）、从零写作、
-  内容意图变更（加观点 / 改结论）、代码 review（走 yzr-coding-review）。
+  当用户要和 agent 一起 review 一段现有文字 / 文档（多为 AI 生成，也接受人写草稿）时使用本
+  skill——审视内容是否合理：逻辑连贯性、结构组织、冗余注水、AI 腔、风格语气，以及（提供参照
+  输入时）跨文档 SSOT 一致性。默认只审不改、结论先行；用户确认后可承接改写。
+  触发："review 这篇文档 / 这段文字 / 这段总结 / 审一下 / 看看合不合理 / 逻辑有没有问题 /
+  有没有重复 / 太啰嗦 / 一股 AI 味 / less AI-sounding / 帮我过一遍 / 这段文字有没有需要改的"；
+  润色类（"润色 / 改写 / 精简 / 压缩 / 太长了 / polish / rewrite / condense / shorten /
+  make it less verbose"）与档位词（"lite / full / ultra"）同样触发本 skill。
+  不适用：翻译、事实核查（只指出存疑不验证）、从零写作、内容意图变更（加观点 / 改结论）、
+  代码 review（走 yzr-coding-review）。
 metadata:
   author: Zuoru YANG
   category: writing
