@@ -66,12 +66,13 @@ metadata:
   （"只改 frontmatter" / "只动 description 字段"）。维度分清：frontmatter 只决定
   "何时调"、正文决定"怎么用"——入口 3 只动前者，入口 1/2 才动正文
 - **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader
-  会偏向自己刚写的版本（盲测约定见 `references/agents/`）
+  会偏向自己刚写的版本（grader 盲评约定见 `references/agents/grader.md`）
 - **指标单一来源**：脚本里有 `CONST = value` 的，prose 用 `` `CONST` `` 引用，禁止写字面量
   ——本 skill 自身在 `scripts/utils.py::DESCRIPTION_MAX_CHARS`、
   `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` 带头遵守（原则见
   `references/skill-writing-principles.md`）
-- **与用户沟通**：skill 创建器的使用者编程背景差异很大——注意根据上下文线索调整措辞；拿不准时简短解释一下术语是 OK 的；不确定用户是否能理解时，用一句简短定义澄清
+- **与用户沟通**：skill 使用者编程背景差异大——术语（eval / holdout / baseline 等）先给
+  一句人话解释
 
 ## 工作流 / 步骤
 
@@ -277,13 +278,17 @@ JSON 结果走 stdout。
 - **逐段精读判据**：每段过精简 3 问 + 粒度约束删除测试（"删掉这句，称职 agent 会做错吗？"）；
   description 7 条与正文 6 组原则逐条判，不只跑审计速查表的程序化项；**精简结论须列出
   "考虑过删但保留"的边缘段 + 一句保留理由**（删除测试为何通过），不能只给"全过"汇总——否则
-  "全过"不可验证
+  "全过"不可验证。**保留理由必须是删除测试的正面答案**："删掉它，agent 会在哪个具体场景
+  做错？"——禁止用"合理分工 / 与详述不冲突 / 不违规"这类合规性措辞当保留理由（合规 ≠ 必要；
+  不违规 ≠ 该留）
 - **脚本逐行标准**：死代码 / 冗余 import / 参数遮蔽 / 未转义注入（`</script>` 类）/ 字面量
   重抄常量 / 应计算却硬编码的值
-- **报告分级**：fail 按 P1 真实 bug / P2 代码质量 / P3 口径散落 / P4 观察项分级，每条附
-  `文件:行` 证据 + 修法；pass 项计数汇总（要展开逐条列出时再说）
-- **修复流**：逐项等用户确认 → 修 → 同步 vendored 副本 → quick_validate + markdownlint + ruff
-  验证 → git diff 过目
+- **报告分级**：fail 按 P1 真实 bug / P2 代码质量 / P3 口径散落分级，每条附
+  `文件:行` 证据 + 修法；**P4 观察项必须给"保留 vs 砍"的明确建议**——保留者附删除测试
+  正面理由，建议砍者直接进修复清单，不允许"观察项 = 默认不动"的死档；pass 项计数汇总
+  （要展开逐条列出时再说）
+- **修复流**：逐项等用户确认 → 修（只动仓库源，不手拷 vendored）→ quick_validate +
+  markdownlint + ruff 验证 → commit + push（用户经 npx 同步 vendored）→ git 确认
 
 ## 参考样例
 
@@ -298,8 +303,6 @@ JSON 结果走 stdout。
 `references/agents/` 目录包含专用子 agent 的指令。需要启动相关子 agent 时读取。
 
 - `references/agents/grader.md` —— 如何对照输出评估断言
-- `references/agents/comparator.md` —— 如何对两份输出做盲测 A/B
-- `references/agents/analyzer.md` —— 如何分析为什么某个版本胜出（post-hoc 分析）
 - `references/agents/benchmark-analyzer.md` —— 如何分析 benchmark 聚合结果（评估流程第 4 步）
 
 `references/` 补充文档:

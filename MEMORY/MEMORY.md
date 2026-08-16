@@ -17,9 +17,10 @@
 
 新脚本首选 Python 3（便于生态统一），仅一行管道/纯文本流场景用 shell。 → [正文](python-preferred-over-shell.md)
 
-### SKILL 描述类修改默认同步仓库源
+### SKILL 描述类修改：直落仓库源 + commit/push + 用户 npx 同步
 
-改 SKILL.md/references/scripts 前默认目标是仓库源（非 vendored 副本），改完 `cp` 回源并用 `git` 确认。 → [正文](skill-edits-sync-to-repo-source.md)
+改 SKILL.md/references/scripts 一律直落仓库源（非 vendored 副本），修完 commit + push，用户经 `npx skills`
+同步 vendored；agent 不再手拷。 → [正文](skill-edits-sync-to-repo-source.md)
 
 ### SKILL 源 vs 运行时 vendor
 
