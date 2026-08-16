@@ -5,7 +5,8 @@
 > 这里规定的边界。
 >
 > **本文件（`AGENTS.md`）是本 workspace 纪律的单一真源（SSOT）**——工具无关。由 workspace CLI 在初始化时
-> 按 [`workspace-spec.md`](workspace-spec.md) §4 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则
+> 按 `yzr-llm-workspace-management` skill 仓 `references/workspace-spec.md` §4 拷贝生成（spec 随 skill
+> 分发，不在本 workspace 内）；后续可由用户编辑，**但**任何与本 skill 的核心原则
 > 冲突的修改都视为"非标准配置"，skill 行为不再保证一致。
 >
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具
@@ -61,7 +62,7 @@
   不写 workspace.toml / CLI 内部配置 / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
 - **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/MEMORY/`
 
-完整不变量与权威定义见 [`workspace-spec.md`](workspace-spec.md)。
+完整不变量与权威定义见 `yzr-llm-workspace-management` skill 仓 `references/workspace-spec.md`（随 skill 分发）。
 
 ## 二、跨 wiki 约定
 
@@ -87,7 +88,7 @@
 
 ### wiki 命名
 
-新 wiki 命名见 `workspace-spec.md §15` 推荐纯 kebab-case（如 `llm-inference-opt`）；
+新 wiki 命名见 skill 仓 `workspace-spec.md` §15：推荐纯 kebab-case（如 `llm-inference-opt`）；
 CLI 允许 `[a-z0-9_-]{1,64}`，但**推荐避免下划线**以保持与 skill 名风格一致。
 
 ## 三、查询 / 综合纪律
@@ -148,7 +149,7 @@ frontmatter 5 必填（`title` / `type` / `created` / `updated` / `tags`，**仅
 （`MEMORY.md` 索引本身无 frontmatter，被本文件 `@MEMORY/MEMORY.md` import 会话常驻）。
 **写每条经验后必须同步追加 `MEMORY.md` 索引一行**（按"条目形式"选完整或短格式），
 否则下次会话读不到。详见
-`workspace-spec.md` §9。
+skill 仓 `workspace-spec.md` §9。
 
 ## 六、当前配置
 
@@ -159,7 +160,7 @@ frontmatter 5 必填（`title` / `type` / `created` / `updated` / `tags`，**仅
 >
 > **迁移例外**：spec 升级时，agent 经用户确认可全量重渲染本文件 + 薄壳 `CLAUDE.md`、
 > 补 `.gitignore` 骨架、bump `workspace.toml` 的 `templates_version` 单字段
-> （流程见 workspace-spec §17 / SKILL.md §6 Migrate）；本地定制先逐条与用户裁定
+> （流程见 skill 仓 workspace-spec §17 / SKILL.md §6 Migrate）；本地定制先逐条与用户裁定
 > 搬 `MEMORY/` 或丢弃。
 
 | 字段 | 值 |
