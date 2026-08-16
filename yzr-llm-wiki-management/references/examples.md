@@ -34,14 +34,13 @@
 ```text
 1. ingest_diff.py 确认这是未摄取文件
 2. Read raw/articles/distributed-systems-overview.md 全文
-3. 在 wiki/sources/distributed-systems-overview.md 写摘要页：
-   - frontmatter: type=source, sources=[raw/articles/...md], tags=[distributed-systems, consensus]
-   - 正文：摘要 + 关键概念 + 主要权衡 + 与同类工作的关系
+3. wiki_write.py new --type source --slug distributed-systems-overview --title "Distributed Systems Overview" --sources raw/articles/...md --tags distributed-systems,consensus
+   → Edit 写正文：摘要 + 关键概念 + 主要权衡 + 与同类工作的关系
 4. 检查 concepts/distributed-systems.md, concepts/consensus.md 是否已存在
    - 不存在：创建并把本次贡献写进
    - 存在：追加"参考来源"段
-5. 更新 wiki/index.md：sources/ 段加一条；concepts/ 段同步
-6. 追加 log.md：## [2026-06-24 14:35] ingest | Distributed Systems Overview
+5. wiki_write.py index add wiki/sources/distributed-systems-overview.md
+6. wiki_write.py log --op ingest --title "Distributed Systems Overview"
 7. 若启用 git，建议 commit；裸目录树 wiki 跳过此步
 ```
 
@@ -59,10 +58,10 @@
    <Concept B> 强调 <特点 2>（来源 sources/<source-b>.md）..."
 4. 询问用户："这段对比适合归档为 wiki/comparisons/<concept-a>-vs-<concept-b>.md 吗？"
 5. 用户同意后：
-   - 用 references/page-templates.md §二 comparison 模板
-   - 写 wiki/comparisons/<concept-a>-vs-<concept-b>.md
-   - 更新 index.md
-   - 追加 log.md：## [2026-06-24 15:10] query | <Concept A> vs <Concept B>
+   - `wiki_write.py new --type comparison --slug <concept-a>-vs-<concept-b> --title ...`
+     脚手架 + 按 references/page-templates.md §二 comparison 模板写正文
+   - `wiki_write.py index add wiki/comparisons/<concept-a>-vs-<concept-b>.md`
+   - `wiki_write.py log --op query --title "<Concept A> vs <Concept B>"`
 ```
 
 ## 样例四：lint 发现腐烂迹象

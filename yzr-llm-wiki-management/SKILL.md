@@ -14,7 +14,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   modify time: 2026-08-16
-  wiki_spec_version: 0.30.1
+  wiki_spec_version: 0.31.0
   fixtures_check_count: 20
 ---
 
@@ -28,10 +28,10 @@ metadata:
 本 skill 提供三块交付物：
 
 - **SKILL.md（本文）**——工作流 + 纪律的"宪法"
-- **scripts/**——ingest_diff.py / lint_wiki.py / log_format.py + **check_wiki_fixtures.py**
-  （**CLI 产物合规的可执行真源**：fixtures 一致性检查，spec 文档是它的说明，不一致时以
-  探测器为准；`lint_wiki.py --check-version` 自动调一次）。把高频 deterministic 任务固化
-  下来（**不**含 setup_wiki——wiki 仓的创建由外部 workspace CLI 负责）。当前检查项数见
+- **scripts/**——ingest_diff.py / lint_wiki.py / check_wiki_fixtures.py / log_format.py /
+  **wiki_write.py**（机械字节写操作：log / index / touch / new / memory 五子命令，见 §设计决策
+  「机械 vs 判断」的准入规则）。高频 deterministic 任务固化下来（**不**含
+  setup_wiki——wiki 仓的创建由外部 workspace CLI 负责）。当前检查项数见
   `metadata.fixtures_check_count`（详见 [`references/migrate-workflow.md`](references/migrate-workflow.md) + §五 Migrate）。
 - **references/**——按需加载：AGENTS.md schema 模板 + CLAUDE.md 薄壳模板、各操作详细流程、页面模板、
   wiki-spec.md（wiki 仓出生形态 + skill 读取契约）、fixtures（CLI 字节级比对金标准）、migrate-workflow.md §六
@@ -79,6 +79,25 @@ metadata:
   附录 B 走 Edit/Write 修复；详见 §5 Migrate
 
 ## 设计决策
+
+### 机械 vs 判断——写操作进脚本的准入规则
+
+> **一个写操作进脚本（`wiki_write.py`），当且仅当：(1) 输出字节是输入的纯函数**
+> （不读正文、无权衡、无用户偏好）；**(2) lint 已有对应检查能验证产物**（round-trip
+> 可测：脚本产物必须 lint-clean）。**两条缺一 → 留 agent/md。迁移期一律 agent**
+> （迁移 = 格式未定之时，脚本只认识当前形态）。完整论证见 changelog 0.31.0。
+
+- **已固化**（五子命令都满足两条）：log 追加+截断 / index 条目增删 / touch `updated`+清
+  reviewed 戳 / new 脚手架（5 必填 frontmatter + H1，slug 校验 + 拒覆盖）/
+  memory 条目+索引行。**留 md**：摘要写作、entity/concept 是否新建、矛盾处理、query
+  综合与归档征询、语义合并——都要读内容做判断
+- **逃生舱**：手写始终合法、lint 兜底——脚本是默认路径不是闸门，agent 遇到脚本不支持
+  的形态退到 Edit/Write 不算违规
+- **脚本不自带内容知识**：不生成摘要、不嵌正文模板（SSOT 在 page-templates.md）、不做
+  语义合并——想往脚本里加"理解"就是边界被侵蚀的信号
+- **常量单一来源 + 版本防护**：wiki_write.py 从 lint_wiki.py / log_format.py import
+  （VALID_TYPES / LOG_RETENTION_LIMIT / LOG_LINE_RE 等），spec 改格式变更点不增；
+  启动时 wiki §八 版本与 SKILL 不一致 → 警告"先 migrate 再写"（不阻断）
 
 ### 四层架构——为什么是四层
 
@@ -155,11 +174,12 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
      草稿消化进 wiki 两条路（消化式 / 转正式 `mv`）都需用户确认——详 wiki-spec §15
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema，不是文档**——它是给 LLM 看的"工作守则"，不要往里塞内容
-4. **每次写入必更 log.md**——格式严格，权威定义在 `<wiki-root>/AGENTS.md` §一（正则见
-   [`references/page-templates.md`](references/page-templates.md) §7；脚本以
-   `scripts/lint_wiki.py` 为准）
-5. **每页必带 YAML frontmatter**——5 必填（`title` / `type` / `created` /
-   `updated` / `tags`）+ 推荐 `description`（`index.md` 条目摘要从它来）。
+4. **每次写入必更 log.md——追加一律走 `wiki_write.py log`**（格式 + 满
+   `LOG_RETENTION_LIMIT` 自动截断由脚本保证，见 §设计决策「机械 vs 判断」）；lint
+   `log-format` / `log-truncation-recommended` 只兜底带外手改
+5. **每页必带 YAML frontmatter——新建页走 `wiki_write.py new`**（5 必填（`title` /
+   `type` / `created` / `updated` / `tags`）+ 推荐 `description`（`index.md` 条目摘要
+   从它来）由脚本脚手架保证；slug 校验 + 拒覆盖）。
    **为什么是这 5 个**见 [wiki-spec.md §9](references/wiki-spec.md)（OKF 字段齐全性 × lint
    一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：
@@ -177,13 +197,12 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 7. **index.md 是 wiki 内容页的单一入口**——所有非 log / 非 MEMORY 的页面必须在 `wiki/index.md` 中出现
 8. **query 的好答案必问"是否归档"**——能写回 wiki 的不要浪费在聊天里
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
-   时主动追加；frontmatter **仅 `title` 必填**（其余 5 字段全 optional，与 wiki 内容页
-   的 5 必填规则解耦——spec §5.2），**不在 index.md 强制列出**，**但每条
-   必须在 `MEMORY/MEMORY.md` 索引列一行**（lint `memory-not-indexed` 兜底漏列）。
-   MEMORY 沉淀只改 `MEMORY.md` 这一份、无副本漂移。写入流程见工作流 §4。
-10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
-   query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**
-   回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
+   时主动追加；**新条目走 `wiki_write.py memory add`**（frontmatter 仅 `title` 必填 +
+   原子追加 `MEMORY.md` 索引行，`memory-not-indexed` 创建期免疫）；**不在 index.md
+   强制列出**。MEMORY 沉淀只改 `MEMORY.md` 这一份、无副本漂移。写入流程见工作流 §4。
+10. **LLM 修改已审核页必须清 `reviewed` 戳——每次编辑后跑 `wiki_write.py touch`**
+   （自动 `updated`=现在 + 删 `reviewed` / `reviewed_at`，见 §设计决策「机械 vs 判断」）；
+   `lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
    `updated > reviewed_at`）兜底。SSOT：[`page-templates.md` §一](references/page-templates.md#生命周期规则llm-必读)。
 
     > **注**：同样的规则也会出现在
@@ -244,10 +263,12 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 
 - 在 wiki 页面里手写"先写一段话再贴图"等散文式总结（散弹式散落口径冲突的根源）
 - 把同一个概念分散在多个 entities/ 文件里（必须先 search 是否已有同名页）
-- 不写 log 条目就改 wiki（失去操作语义记录 + 无法 ingest_diff 识别新文件）
+- 改 wiki 不追加 log 条目就收工——失去操作语义记录（正路：`wiki_write.py log`，
+  见核心原则 §4）
 - 跨 wiki 互引但不更新对端 index（两套 wiki 同步是用户的责任）
 - 用 Obsidian-only 语法（`[[wikilink]]`、`![[embed]]`）——本 skill 假设通用 Markdown
-- 把 yzr-llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py）
+- 把 yzr-llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py /
+  wiki_write.py / check_wiki_fixtures.py）
   复制进 `<wiki-root>/scripts/`——SSOT 在 skill 仓；本 wiki 自维护脚本必须同时更新 `SCRIPTS.md` 索引段
 - 把外部代码仓接入走 `cp -r` 内嵌到 `raw/` 而非 `raw/external/` symlink——失去
   commit 锚点 + 占用空间 + 违反 spec §13 纪律
@@ -359,8 +380,10 @@ SKILL 不动。
 
 1. 跑 `scripts/ingest_diff.py <wiki-root>`（日常加 `--check-stale`）找出未摄取/待重摄文件清单
 2. **单篇对一下要点**——仅交互式单篇或少量场景：确认主题方向 / 重点交叉的 entity / 用户判断要保留
-3. 对每个文件：Read 全文 → 提取元数据 → 写 `wiki/sources/<slug>.md`(stale-raw 走 **Edit**,**不**Write 覆盖)
-   → 同步 entity/concept(只 append "Sources" 段) → 更新 `wiki/index.md` → 追加 `log.md`
+3. 对每个文件：Read 全文 → 提取元数据 → `wiki_write.py new --type source ...` 建骨架 →
+   写正文（stale-raw 走 **Edit**,**不** Write 覆盖）→ 同步 entity/concept(只 append
+   "Sources" 段) → `wiki_write.py index add` → `wiki_write.py log --op ingest` →
+   **编辑过的页跑 `wiki_write.py touch`**
 4. **commit**（仅启用 git 时）：节奏由用户/agent 决定，**不**自动 commit
 
 ### 批处理摄取（≥ 3 份 raw 同时摄入）
@@ -421,17 +444,14 @@ git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描
 - 跨 ingest 关联（两 source 页指向同一论文不同章节）
 - lint 报告的 recurring pattern（每次 lint 都报某 type 缺字段）
 
-**流程摘要**（agent 主动；本节 7 步即完整流程，frontmatter 字段 / 索引同步 / 完整 vs
-短条目判定的权威定义在 [spec §5](references/wiki-spec.md#5-memory) + §5.2 + 仓库根
-`MEMORY/MEMORY.md` 索引自身的写法）：
+**流程摘要**（agent 主动；frontmatter 字段 / 索引同步 / 完整 vs 短条目判定的权威定义在
+[spec §5](references/wiki-spec.md#5-memory) + §5.2 + 仓库根 `MEMORY/MEMORY.md` 索引自身的写法）：
 
 1. 决定是否值得写——能否让未来 agent 工作更顺？
-2. 判别条目形式：**完整**（含 why+how 上下文）→ 走 3-6；**短**（纯 reminder）→ 直跳 5
-3. 在 `MEMORY/<slug>.md` 创建文件（kebab-case 按主题归类，**不**按时间归档）
-4. 写 frontmatter（**仅 `title` 必填**；其余 5 字段全 optional——spec §5.2；短条目可仅 1 行 `title:`）
-5. 写正文——记录具体经验，含上下文 / 解决步骤 / 未来如何避免
-6. 同步追加 `MEMORY/MEMORY.md` 索引一行（**漏写 = 下次读不到，lint `memory-not-indexed` 兜底**）
-7. **不**追加 log 条目 / **不**在 wiki/index.md 列出（MEMORY 不走单一入口约束）
+2. 判别条目形式：**完整**（含 why+how 上下文）→ `wiki_write.py memory add --slug ... --title ...`
+   建文件 + 索引行，再 Edit 写正文；**短**（纯 reminder）→ 直接 `MEMORY/MEMORY.md` 加一行索引
+3. 写正文——记录具体经验，含上下文 / 解决步骤 / 未来如何避免
+4. **不**追加 log 条目 / **不**在 wiki/index.md 列出（MEMORY 不走单一入口约束）
 
 **纪律**：
 
@@ -453,6 +473,8 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
   frontmatter / 移文件 / 补索引 / 同步 AGENTS.md 到模板（全量重渲染，wiki-spec §10.1）；
   走 plan.fixtures_actions[] 修约定文件；
   语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则) 走
+- **迁移期不走 `wiki_write.py`**——迁移 = 格式流动期，机械写命令只认识当前形态
+  （准入规则例外，见 §设计决策「机械 vs 判断」）
 - **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
   走 migrate-workflow.md §六（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）

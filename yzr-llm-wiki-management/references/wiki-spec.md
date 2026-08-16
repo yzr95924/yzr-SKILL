@@ -254,8 +254,8 @@
 - **滚动窗口**：`log.md` 只保**最近 50 条**操作条目（滚动窗口阈值，lint 兜底见下）。按正则
   `^## \[\d{4}-\d{2}-\d{2}\]` 计，不含 frontmatter 与空白行
 - **截断时机**（两层）：
-  1. **写入时**——agent 在 ingest / query / lint 写完新条目后，若条目数 > 上限，用 Edit
-     删最旧的若干条保最近 N 条（脚本不修改 wiki 内容，截断由 agent 用 Edit/Write 做）
+  1. **写入时**——`wiki_write.py log` 追加后自动截断保最近 N 条（正路）；
+     带外手改（直接 Edit）时由 agent 按本条规则手工截断
   2. **lint 兜底**——lint 在条目数超过上限时报 `log-truncation-recommended`
      （warning），agent 看到后截断
 - **删条目规则**：删 frontmatter 之后、最旧的若干 `## [date] op | title` 行；**保留 frontmatter

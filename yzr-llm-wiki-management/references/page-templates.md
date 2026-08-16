@@ -454,7 +454,8 @@ ingest/query/lint/setup 行推荐带 HH:MM；date-only 也合法）：
 **lint 检查**：
 
 - 每行匹配正则
-- 滚动窗口：条目数 > `LOG_RETENTION_LIMIT`（50）时报 `log-truncation-recommended`；agent 截断保最近 N 条（frontmatter 不动）
+- 滚动窗口：条目数 > `LOG_RETENTION_LIMIT`（50）时报 `log-truncation-recommended`；
+  正路 `wiki_write.py log` 写入时自动截断（frontmatter 不动）
 
 ## 三、模板使用规则
 

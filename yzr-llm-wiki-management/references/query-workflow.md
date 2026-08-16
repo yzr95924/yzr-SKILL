@@ -109,8 +109,9 @@ Query 是 wiki 的"消费侧"——把多份资料综合成答案，**好答案�
 - 正文：把对话里的答案整理成可独立阅读的页面；**synthesis 页对来源可分的断言用标准脚注
   `[^n]` 逐段溯源**（写法见 [page-templates.md §二.5](page-templates.md#5-synthesis综合页)），
   让每个论点都能不重读 raw 就回溯到具体 source——这是 synthesis 区别于 source 摘要的关键
-- 同步 `index.md`（加 comparison / synthesis 类别条目）
-- 追加 `log.md`：`## [YYYY-MM-DD HH:MM] query | <title>`（lint 也接受 `YYYY-MM-DD`；写完若 > 50 条按 wiki-spec §4.1 截断保最近 50）
+- 脚手架：`wiki_write.py new --type comparison|synthesis --slug ... --title ...`
+- 同步 index：`wiki_write.py index add <page>`
+- 追加 log：`wiki_write.py log --op query --title "<title>"`
 
 ### Step 6：若启用 git，建议 commit（同 ingest）；裸目录树 wiki 跳过此步
 

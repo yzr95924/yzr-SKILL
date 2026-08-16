@@ -24,6 +24,8 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **agent**（本节定义）= 修复者。按 stdout 返回的 migration plan（`--apply --json` 的
   `report.migration_plan`）+ [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 用
   Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
+- **迁移期不走 `wiki_write.py`**——迁移 = 格式流动期，机械写命令只认识当前形态
+  （准入规则例外，见 SKILL.md §设计决策「机械 vs 判断」）
 - **[`wiki-spec-changelog.md`](wiki-spec-changelog.md)** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
 - **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
 
