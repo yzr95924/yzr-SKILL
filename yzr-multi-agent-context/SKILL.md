@@ -13,7 +13,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: project-config
-  last_modified: 2026-07-19
+  modify time: 2026-08-16
 ---
 
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
@@ -37,7 +37,7 @@ agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
 索引，展开的读了也无害（从「段内逐点补指引」升级为「一条通则兜底」，不再绑定具体 agent）。
 
 为什么不把 MEMORY.md 索引内联进 AGENTS.md 正文：内联要双写（MEMORY.md 改一处就得回贴 AGENTS.md，
-必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成”MEMORY.md + AGENTS.md”双源。而自动展开
+必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成“MEMORY.md + AGENTS.md”双源。而自动展开
 `@import` 的 agent 本就把索引读入，不展开的由顶部指令补回——不值得为不展开的少数内联。
 
 **记忆跟 repo 走**（R6）：跨会话记忆的真源是 repo 根 `MEMORY/`，不是 agent 私有 memory（如
@@ -71,23 +71,16 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或按顶部强制 Read 指令读——Step 1 段落分层决策树见
 [`references/layering.md`](references/layering.md)。
 
-## 何时使用 / 不使用
+## 何时不使用
 
-> 触发场景已在上方 description 给出；本节只补充 description 没说的边界细节。
-
-典型适用：用户想让多个 IDE / agent 共用同一份项目上下文（从只读 `CLAUDE.md` 切到读 `AGENTS.md` 的多
-agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之前部分迁移），想规范化成多 agent 通用标准。
-
-不使用（边界）：
+> 触发场景 / 不适用已在 frontmatter description 给出。本节只补 description 没说的边界细节与出路：
 
 - **迁移权限**（`.claude/settings.local.json`）或 **MCP 配置**——工具专属且敏感，本 skill 不碰
 - **改 `scripts/` / `references/`**——只动上下文文件（CLAUDE.md / AGENTS.md / MEMORY）
 - **删掉 `CLAUDE.md`**——本 skill 保留薄壳共存；彻底删需用户显式确认
 - **迁向不读 `AGENTS.md` 的 agent**——主路径对任何读 `AGENTS.md` 的 agent 都成立；只有目标 agent 完全
-  不读 `AGENTS.md`（只认自家专属格式）才不适用
+  不读 `AGENTS.md`（只认自家专属格式）才不适用——先手动转成 `AGENTS.md` / `CLAUDE.md` 再来
 - **生成 agent 专属触发式 rule 文件**（如 `.qoder/rules/`）——官方多未文档化，交给用户在目标 agent IDE 配置
-- **解析 agent 专属触发式 / 格式**（各家专属格式各异且多带触发条件，如 `.cursor/rules/*.mdc`、
-  `GEMINI.md`、`.windsurfrules` 等）——先手动转成 `AGENTS.md` / `CLAUDE.md` 再来
 - **裸项目从零生成**（既无 `CLAUDE.md` 又无 `AGENTS.md`）——本 skill 只归约**已有**的 agent 上下文；
   裸项目先用 agent 自带的 `/init` 生成初始上下文，再来归约
 
@@ -113,9 +106,6 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 └── MEMORY/                   新/改：存在则 MEMORY.md + 各 slug 正文按 R1 去品牌；不存在则建最小 MEMORY.md（R6）
 ```
 
-`.migration-backup/` **不在交付物里**——它只是 Step 1–5 期间的临时快照目录，Step 5 验证通过即删
-（见 Step 5 收尾），不留在用户项目里。
-
 ## 两条路径（前置检测路由）
 
 `precheck.py` 检测项目状态，路由到两条归约路径之一——两条**共享后半段**（去品牌 R1 + R3–R5 + L2 走
@@ -129,7 +119,7 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 
 两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让不原生读 `AGENTS.md` 的 agent 也加载同一份内容。
 
-## 执行原则
+## 执行原则 / 边界
 
 > 使用边界（不碰权限 / MCP / `scripts` / `references`、不删 `CLAUDE.md`、不生成 agent
 > 专属 rule 文件）已在「何时使用 / 不使用」给出，此处不重抄。
@@ -137,7 +127,7 @@ agent 场景）；项目已有 `AGENTS.md`（手写 / 别的工具生成 / 之�
 ### 改写规则 R1–R6（摘要）
 
 - **R1 工具无关化**：去品牌、不改事实。完整替换表（`Claude Code` → `AI coding agent`、`claude -p` →
-  `agent CLI` 等，含”何时保留工具名”判定）见 [`references/rewrite-rules.md`](references/rewrite-rules.md)——
+  `agent CLI` 等，含"何时保留工具名"判定）见 [`references/rewrite-rules.md`](references/rewrite-rules.md)——
   Step 2 / 3 改写时对照。
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
@@ -200,7 +190,7 @@ python3 scripts/precheck.py <project-root>
 4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`references/layering.md`](references/layering.md)）；
    超出把详细内容下沉到 L2（`MEMORY/`）。
 5. 自检：
-   - `grep -iE “claude code|\.claude/” AGENTS.md` 应无命中（去品牌通过）
+   - `grep -iE "claude code|\.claude/" AGENTS.md` 应无命中（去品牌通过）
    - `grep -nE '^@MEMORY/MEMORY\.md$' AGENTS.md` 应有 1 行命中（R2 引用；MEMORY/ 现为默认存在，见 R6）
    - 顶部应有强制 Read 指令 blockquote（H1 后、首个 `##` 前；含 `@` + Read 特征——所有 AGENTS.md 必备）
 
@@ -237,9 +227,19 @@ python3 scripts/coverage.py <project-root>
 
 ## 参考样例
 
-骨架模板（AGENTS.md 骨架、CLAUDE.md 薄壳模板、路径 2 规范化诊断清单）分别在
-[`references/layering.md`](references/layering.md) / [`references/rewrite-rules.md`](references/rewrite-rules.md)，
-按需 Read。
+**端到端最小示例（路径 1 迁移）**。输入：项目根只有一份 `CLAUDE.md`。
 
-触发评估集（description 触发优化用的 20 条 `{query, should_trigger}` 查询，**非**行为评估集）在
-[`eval/trigger-evals.json`](eval/trigger-evals.json)。
+> 用户："这个项目只有 CLAUDE.md，帮我迁成多 agent 都能读的 AGENTS.md"
+>
+> 1. `precheck.py` 报 [路径 1] → 快照 `CLAUDE.md` 到 `.migration-backup/`（Step 1）
+> 2. 按分层决策树分类段落 → 去品牌（R1）写入 AGENTS.md 骨架，挂 `@MEMORY/MEMORY.md`（R2）
+> 3. 无 `MEMORY/` → 建最小 `MEMORY/MEMORY.md`（R6）
+> 4. 生成薄壳 `CLAUDE.md`（`@AGENTS.md` + 逃生舱注释块，Step 4 展示确认）
+> 5. `coverage.py` 比对 100% 目标 → markdownlint 0 error → `rm -rf .migration-backup/`
+
+## 参考文件
+
+- [`references/layering.md`](references/layering.md) —— 分层模型 + 段落分层决策树（Step 1 / 2）
+- [`references/rewrite-rules.md`](references/rewrite-rules.md) —— R1–R6 完整规则 + 路径 2 诊断清单（Step 2 / 3 / 4）
+- [`eval/trigger_eval.json`](eval/trigger_eval.json) —— 触发评估集（description 触发优化用的
+  20 条 `{query, should_trigger}` 查询，**非**行为评估集）
