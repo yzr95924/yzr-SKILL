@@ -135,7 +135,7 @@ metadata:
 
 后面为 skill 的正文——**骨架从 `assets/skill-template.md` 拷贝**，逐节填充（规范节名 / 顺序 /
 各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
-`references/skill-template-guide.md`「变体」）。先填全骨架再按精简原则删节，不要"想到哪写到哪"——
+`references/skill-template-guide.md`「变体」）。先填全骨架再按「精简与粒度约束」删节，不要"想到哪写到哪"——
 SKILL.md 格式统一靠的就是这份骨架。
 
 起草完成后先跑预检再进入测试用例：
@@ -174,7 +174,7 @@ prompt，等下一步再起草断言。
 
 跑过测试用例、用户评审过结果后，根据反馈迭代——迭代原则（从反馈归纳泛化 / 保持精简 /
 解释"为什么" / 找跨用例重复工作进 `scripts/`）见 `references/skill-writing-principles.md`
-「精简原则」+「解释为什么」+「executable scripts 优于生成代码」三条，此处不重抄。
+「精简与粒度约束」+「解释为什么」+「机械操作脚本化」三条，此处不重抄。
 
 #### 迭代循环
 
@@ -195,8 +195,8 @@ prompt，等下一步再起草断言。
 
 #### Concision review（每轮迭代必做）
 
-下轮改动前对每段答精简原则 3 问（哪段必需？哪段是 agent 常识冗余？哪段是 case 抄进去的
-过拟合？），处理顺序按修法优先级 6 步——见 `references/skill-writing-principles.md`「精简原则」。
+下轮改动前对每段答「精简与粒度约束」三问（哪段必需？哪段是 agent 常识冗余？哪段是 case 抄进去的
+过拟合？），处理顺序按修法优先级——见 `references/skill-writing-principles.md`「精简与粒度约束」。
 
 停止条件：用户满意 / 反馈全空 / 看不到有意义的进展。
 
@@ -275,8 +275,8 @@ JSON 结果走 stdout。
 - **全量范围**：`SKILL.md` + `references/` + `scripts/` + `assets/` + `eval/` 每个文件逐行读，
   无抽样；`references/canonical/` 与 `fixtures/*.txt` 是字节金标准，不碰内容，只审自包含注释
   （"与哪份 SSOT 重复 + 理由"）是否齐全
-- **逐段精读判据**：每段过精简 3 问 + 粒度约束删除测试（"删掉这句，称职 agent 会做错吗？"）；
-  审计速查表（`references/skill-writing-principles.md`）逐条判——description 组与正文组都要过，
+- **逐段精读判据**：每段过「精简与粒度约束」删除测试（"删掉这句，称职 agent 会做错吗？"）+
+  等价三问；审计速查表（`references/skill-writing-principles.md`）逐条判——description 组与正文组都要过，
   不只跑程序化项；**精简结论须列出"考虑过删但保留"的边缘段 + 一句保留理由**（删除测试为何
   通过），不能只给"全过"汇总——否则"全过"不可验证。**保留理由必须是删除测试的正面答案**：
   "删掉它，agent 会在哪个具体场景做错？"——禁止用"合理分工 / 与详述不冲突 / 不违规"这类
