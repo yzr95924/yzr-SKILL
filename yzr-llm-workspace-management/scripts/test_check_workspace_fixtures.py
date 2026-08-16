@@ -403,6 +403,49 @@ class WorkspaceTomlReadsSatisfiedTest(unittest.TestCase):
         self.assertIs(c["passed"], None)
 
 
+class TemplateNoOutboundRefsTest(unittest.TestCase):
+    """模板零出边引用（0.8.0+ 架构不变量）——检测逻辑喂合成文本 + 端到端干净 pass。"""
+
+    def _scan(self, text):
+        """直接调用脚本内的扫描函数（不改真实模板文件）。"""
+        sys.path.insert(0, str(SCRIPT_PATH.parent))
+        try:
+            from check_workspace_fixtures import _scan_template_outbound_refs
+
+            return _scan_template_outbound_refs(text)
+        finally:
+            sys.path.remove(str(SCRIPT_PATH.parent))
+
+    def test_clean_text_no_hits(self):
+        self.assertEqual(self._scan("# 标题\n\n- 自包含措辞（见本文件顶部「关键」段）\n"), [])
+
+    def test_skill_file_refs_detected(self):
+        text = "见 `workspace-spec.md` §15 与 `workspace-claude-md-template.md`\n且 SKILL.md、references/、yzr-llm-workspace-management、yzr-llm-wiki-management 都算"
+        hits = self._scan(text)
+        for pat in (
+            "workspace-spec.md",
+            "workspace-claude-md-template.md",
+            "SKILL.md",
+            "references/",
+            "yzr-llm-workspace-management",
+            "yzr-llm-wiki-management",
+        ):
+            self.assertTrue(any(pat in h for h in hits), f"{pat} 应被检出: {hits}")
+
+    def test_arabic_section_ref_detected(self):
+        self.assertTrue(any("§节号" in h for h in self._scan("详见 spec §13.3")))
+
+    def test_chinese_section_ref_ok(self):
+        self.assertEqual(self._scan("详见本文件 §六「迁移例外」段"), [])
+
+    def test_check_passes_on_clean_workspace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            build_workspace(tmp)
+            code, report = run_check(tmp)
+        self.assertEqual(code, 0)
+        self.assertIs(check_by_id(report, "template-no-outbound-refs")["passed"], True)
+
+
 class CliBehaviorTest(unittest.TestCase):
     def test_env_var_root(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -437,6 +480,7 @@ class CliBehaviorTest(unittest.TestCase):
             "memory-index-skeleton",
             "workspace-toml-templates-version-sync",
             "workspace-toml-reads-satisfied",
+            "template-no-outbound-refs",
         }
         self.assertEqual({c["id"] for c in report["checks"]}, expected_ids)
         for c in report["checks"]:

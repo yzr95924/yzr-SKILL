@@ -16,7 +16,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   modify time: 2026-08-16
-  workspace_spec_version: 0.7.2
+  workspace_spec_version: 0.8.0
 ---
 
 # LLM Workspace Management

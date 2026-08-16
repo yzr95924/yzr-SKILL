@@ -178,7 +178,9 @@
   - 创建日期（当天，`YYYY-MM-DD HH:MM`；lint 也接受 `YYYY-MM-DD`，详见 §9 字段说明）
   - wiki spec 版本号（CLI 当前兼容版本）
   - CLI 自身版本号
-- 模板顶部说明块的"本文件 ... 按 wiki-spec.md §2 拷贝生成"反向引用，CLI **不得修改**
+- 模板顶部说明块的自述（"由 workspace CLI 在初始化时按本 skill 的官方模板拷贝生成"）为
+  **自包含措辞**——模板是引用图汇点，**零出边**（不指向任何 skill 仓文件；由
+  `check_wiki_fixtures.py` 的 `template-no-outbound-refs` check 强制），CLI **不得修改**
 
 > **纪律正文唯一副本（canonical）**：模板与各 spec 节共享的纪律正文，**唯一维护点在
 > [`agents-md-template.md`](agents-md-template.md)**——wiki 跨仓读不到 skill，模板必须

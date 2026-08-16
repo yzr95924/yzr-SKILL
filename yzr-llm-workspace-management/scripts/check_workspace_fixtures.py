@@ -95,6 +95,12 @@ CHECK_REGISTRY = [
         "rule_ref": "workspace-spec.md §2（SKILL 读取契约）",
         "desc": "workspace.toml 含 SKILL scan/migrate 读取的字段：templates_version + 每个 [wikis.<name>] 的 path / created_at",
     },
+    {
+        "id": "template-no-outbound-refs",
+        "severity": "error",
+        "rule_ref": "workspace-spec.md §4 + §17.3",
+        "desc": "references/workspace-agents-md-template.md 不含任何指向 skill 仓的出边引用（workspace-spec.md / workspace-claude-md-template.md / SKILL.md / references/ / skill 名 / 阿拉伯数字 §节号；零白名单）",
+    },
 ]
 
 
@@ -529,6 +535,60 @@ def check_workspace_toml_reads_satisfied(ws_root: Path, info: Dict[str, str]) ->
     return out
 
 
+# 模板零出边引用（0.8.0+ 架构不变量：纪律正文唯一维护点 = 模板，模板是引用图汇点）。
+# 任何指向 skill 仓文件 / 阿拉伯数字 §节号的引用都会被本 check 报 error——workspace 侧
+# agent 跨仓解析不了这些指针（模板自己都写着"模板与配套工具随 skill 分发，不在本 workspace 内"），
+# 对运行时读者是死指针；改纪律只改模板对应段，spec / SKILL.md 单向指入模板。
+TEMPLATE_OUTBOUND_PATTERNS = (
+    "workspace-spec.md",
+    "workspace-claude-md-template.md",
+    "SKILL.md",
+    "references/",
+    "yzr-llm-workspace-management",
+    "yzr-llm-wiki-management",
+)
+TEMPLATE_OUTBOUND_SECTION_RE = re.compile(r"§[0-9]")
+
+
+def _scan_template_outbound_refs(text):
+    """扫模板文本中的出边引用，返回 ["<行号>:<模式>", ...]（空 = 干净）。
+
+    独立成函数便于测试——检测逻辑直接喂合成文本；check 函数做文件 IO + 报告。
+    """
+    hits = []  # type: List[str]
+    for ln_no, ln in enumerate(text.splitlines(), 1):
+        for pat in TEMPLATE_OUTBOUND_PATTERNS:
+            if pat in ln:
+                hits.append(f"{ln_no}:{pat}")
+        if TEMPLATE_OUTBOUND_SECTION_RE.search(ln):
+            hits.append(f"{ln_no}:§节号引用")
+    return hits
+
+
+def check_template_no_outbound_refs(ws_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+    """references/workspace-agents-md-template.md 不含任何指向 skill 仓的出边引用（0.8.0+）。
+
+    模板随 init 拷贝进 workspace 成为 AGENTS.md——workspace 侧 agent 读不到 skill 仓，模板内
+    一切 `workspace-spec.md` / `workspace-claude-md-template.md` / `SKILL.md` /
+    `references/` / skill 名 / 阿拉伯数字 §节号 引用都是死指针（零白名单，含 provenance
+    声明也不得携带——0.8.0 起全部改写为自包含措辞）。skill 仓内文件 → 模板 单向引用由本
+    check 机械强制；对每个 workspace 报告同一结果（模板是全局文件），违反时 error 逼
+    skill 侧修复。
+    """
+    out = {"passed": True, "severity": "error", "file": "references/workspace-agents-md-template.md"}  # type: Dict[str, object]
+    template = _read_text(Path(__file__).resolve().parent.parent / "references" / "workspace-agents-md-template.md")
+    if template is None:
+        out["passed"] = None
+        out["skipped"] = "references/workspace-agents-md-template.md 未找到（无法模板自检）"
+        return out
+    hits = _scan_template_outbound_refs(template)
+    if hits:
+        out["passed"] = False
+        out["expected"] = "模板不含任何指向 skill 仓的引用（自包含措辞；spec / SKILL.md 单向指入模板）"
+        out["actual"] = "出边引用: " + "; ".join(hits[:8])
+    return out
+
+
 # (check_id, 函数) 映射——顺序同 CHECK_REGISTRY
 CHECK_FUNCS = [
     ("agents-version-is-current", check_agents_version_is_current),
@@ -538,6 +598,7 @@ CHECK_FUNCS = [
     ("memory-index-skeleton", check_memory_index_skeleton),
     ("workspace-toml-templates-version-sync", check_workspace_toml_templates_version),
     ("workspace-toml-reads-satisfied", check_workspace_toml_reads_satisfied),
+    ("template-no-outbound-refs", check_template_no_outbound_refs),
 ]
 
 
