@@ -6,11 +6,12 @@ ingest_diff.py — 找出 raw/ 里需要 LLM 关注的文件
   python3 ingest_diff.py [<WIKI_ROOT>] [--json] [--relative] [--check-stale]
 
 判定"已摄取"的依据：
-- 扫 <WIKI_ROOT>/raw/ 递归收集所有文件路径
+- 扫 <WIKI_ROOT>/raw/ 递归收集可摄取的文本素材（扩展名白名单：*.md / *.markdown / *.txt；
+  见 INGEST_GLOBS）
 - 读所有 wiki/sources/*.md 的 frontmatter.sources 字段，建立 raw 路径 → source 页映射
 - 同时读 wiki/log.md 提取 ingest 条目标题（排查"log 写了但 source 页丢了"）
 
-两类需要关注的文件：
+三类需要关注的文件：
 1. **未摄取**（reason=untracked）——raw 路径不在任何 source 页的 sources 字段里
 2. **待重新摄取**（reason=stale-raw，仅 --check-stale）——raw 路径已有 source 页，
    但 raw 文件 mtime 晚于 source 页 frontmatter.updated，说明 raw 被用户更新过
@@ -133,7 +134,7 @@ def collect_raw_files(raw_root: Path) -> List[Path]:
             name = p.name
             if name.startswith("."):
                 continue
-            if name in (".DS_Store", "Thumbs.db"):
+            if name == "Thumbs.db":
                 continue
             key = str(p)
             if key in seen:
@@ -293,7 +294,7 @@ def main() -> int:
     # log-only 异常提示
     log_only = [pr for pr in pending if pr[1] == "log-only-no-source-page"]
     if log_only and not args.json:
-        print()
+        print(file=sys.stderr)
         print(
             f"WARN: {len(log_only)} 个文件在 log.md 中有 ingest 记录但对应的 source 页缺失，建议重建：", file=sys.stderr
         )

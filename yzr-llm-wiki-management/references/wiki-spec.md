@@ -164,7 +164,7 @@
 > 约束（权威定义见 §9.1）；**tag 白名单本体**归 [`wiki/tags.md`](#91-tag-白名单来源)
 > 维护，CLI init 不向 AGENTS.md 写入 tag 字典。
 >
-> **scripts 索引**：SSOT 模板含 `### Wiki-local scripts` 段，引用
+> **scripts 索引**：SSOT 模板含 `### scripts/ —— 本 wiki 仓的自维护脚本目录` 段，引用
 > [`scripts/SCRIPTS.md`](#14-scripts本-wiki-仓扩展脚本目录) 索引；CLI init 必须
 > 同时在 AGENTS.md 顶部插入 `@scripts/SCRIPTS.md` import 行（`scripts/` 是 opt-in
 > 扩展，不存在不算违规）。
@@ -537,7 +537,7 @@ CLI 仓跟随升级。
 ### §10.1 AGENTS.md 模板同步
 
 `AGENTS.md` 的 per-wiki 变量只有 4 个——主题 / 创建日期 / CLI 版本 / Wiki Spec 版本
-（全在 H1 + §八 表格）；正文 §一~§七 是纪律文本，跨 wiki 逐字相同。因此一致性校验
+（全在 H1 + §八 表格）；正文 §一~§七 + §九 是纪律文本，跨 wiki 逐字相同。因此一致性校验
 **不**做"存在性断言"，做**模板渲染字节比对**：
 
 - `check_wiki_fixtures.py` 的 `agents-md-template-sync`（error）：从 wiki §八 提取
@@ -807,26 +807,9 @@ raw/external/*
   Read 即可，**不**需要在 AGENTS.md 单独投影 one-liner
 - **更新纪律**：脚本增删时**只改这一份**（`scripts/SCRIPTS.md`）——AGENTS.md 单行
   `@import` 引用同步指向 `SCRIPTS.md` 全文，**不**需要再同步 AGENTS.md
-- **骨架**(CLI init 时刻拷贝):
-
-  ```markdown
-  # Scripts
-
-  > 本目录存放本 wiki 自维护的脚本（项目级 ingest 扩展 / 外部 CLI 胶水 / 自动化 hook）。
-  >
-  > **加载机制**：`<wiki-root>/AGENTS.md` 顶部单行 `@scripts/SCRIPTS.md` 自动加载本文件全文；
-  > 不展开 `@import` 的 agent 由 AGENTS.md 顶部 Read 指令兜底（直接 Read 本文件）。
-  > 脚本增删时**只改这一份**（详见上方 §14.3 加载机制说明）。
-  >
-  > 何时写 / 编排纪律见 SKILL §核心原则 §12（本文件不重复，避免口径分裂）。
-
-  ## 索引
-
-  <!-- 每脚本一段：### <name> — <label>，首行起头 `- \`<name>\` — <一句话用途>` one-liner，后接 4 要素 -->
-  （暂无脚本 —— 在此追加一段：`### <name> — <label>` + 完整 4 要素）
-  ```
-
-- 字面量模板进 `references/fixtures/scripts.md.txt`(CLI init 拷贝)
+- **骨架**（CLI init 时刻拷贝）——字面量模板进 `references/fixtures/scripts.md.txt`
+  （字节权威，本 spec 不复制）；形态：无 frontmatter、`## 索引` 单段（one-liner +
+  4 要素子节），见 §14.4
 - **无**占位符——SCRIPTS.md 是 wiki 内的"脚本契约",与 `MEMORY/MEMORY.md` / `wiki/tags.md`
   同族(均无 frontmatter、wiki 名由 AGENTS.md §一承载,SCRIPTS.md 不重复)
 

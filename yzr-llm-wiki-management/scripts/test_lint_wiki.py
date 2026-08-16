@@ -191,5 +191,74 @@ class GitPorcelainPathsTest(unittest.TestCase):
         self.assertEqual(self.lint_wiki._git_porcelain_paths("XY"), [])
 
 
+class SeverityOfTest(unittest.TestCase):
+    """severity_of() 映射守护——P1 漏映射（sources-* 三条落默认 info）曾让
+    `--severity error` 静默滤掉 error 级 finding。加映射单测防止再漏。"""
+
+    def setUp(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import lint_wiki  # noqa: E402
+
+        self.severity_of = lint_wiki.severity_of
+
+    def test_sources_family_error(self):
+        """sources-* 全族必须 error（含曾漏映射的三条）。"""
+        for prefix in (
+            "sources-missing",
+            "sources-malformed",
+            "sources-out-of-root",
+            "sources-absolute-path",
+            "sources-external-anchor-missing",
+            "sources-external-symlink-missing",
+            "source-in-discussions",
+        ):
+            self.assertEqual(self.severity_of(prefix + ": x"), "error", f"{prefix} 应为 error")
+
+    def test_representative_others(self):
+        self.assertEqual(self.severity_of("memory-not-indexed: x"), "info")
+        self.assertEqual(self.severity_of("memory-index-dangling: x"), "warn")
+        self.assertEqual(self.severity_of("external-anchor-orphan: x"), "warn")
+        self.assertEqual(self.severity_of("log-format: x"), "warn")
+        self.assertEqual(self.severity_of("unknown-finding: x"), "info")
+
+
+class MemoryIndexDanglingTest(unittest.TestCase):
+    """反向悬空检查：MEMORY.md 索引指向的 <slug>.md 不存在 → memory-index-dangling（warn）。"""
+
+    def _memory_index(self, extra_line="", with_link=False):
+        body = "# MEMORY\n\n> 索引说明\n\n## 索引\n\n"
+        if with_link:
+            body += "- foo — 一句话 → [正文](foo.md)\n"
+        else:
+            body += "- 一句话事实（短条目，无链接）\n"
+        return body + extra_line
+
+    def test_dangling_index_link_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build_minimal_wiki(tmp)
+            (root / "MEMORY").mkdir(parents=True, exist_ok=True)
+            (root / "MEMORY" / "MEMORY.md").write_text(self._memory_index(with_link=True), encoding="utf-8")
+            _, stdout = run_lint(root)
+        self.assertIn("memory-index-dangling", stdout, "索引指向缺失文件应报出：\n" + stdout)
+
+    def test_short_entry_no_link_not_reported(self):
+        """短条目（无链接的纯索引行）不算 dangling。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build_minimal_wiki(tmp)
+            (root / "MEMORY").mkdir(parents=True, exist_ok=True)
+            (root / "MEMORY" / "MEMORY.md").write_text(self._memory_index(), encoding="utf-8")
+            _, stdout = run_lint(root)
+        self.assertNotIn("memory-index-dangling", stdout, f"短条目不应误报：\n{stdout}")
+
+    def test_existing_file_not_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = build_minimal_wiki(tmp)
+            (root / "MEMORY").mkdir(parents=True, exist_ok=True)
+            (root / "MEMORY" / "MEMORY.md").write_text(self._memory_index(with_link=True), encoding="utf-8")
+            (root / "MEMORY" / "foo.md").write_text("---\ntitle: Foo\n---\n\n# Foo\n", encoding="utf-8")
+            _, stdout = run_lint(root)
+        self.assertNotIn("memory-index-dangling", stdout, f"文件存在不应误报：\n{stdout}")
+
+
 if __name__ == "__main__":
     unittest.main()

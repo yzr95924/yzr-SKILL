@@ -21,7 +21,9 @@ cmp -s $TMP/scripts/SCRIPTS.md     canonical/scripts.md       # 无 frontmatter 
 cmp -s $TMP/.gitignore             <fixture>/gitignore.txt    # .gitignore 纯文本常量,fixture 比对足够
 ```
 
-> **注**：`scripts.md.txt` 是 **无占位符**少数派（不要从"fixture 都带占位符"推导），**不是**与 `index.md.txt` / `log.md.txt` 同族。分组见 §fixture 取值约定。
+> **注**：`scripts.md.txt` 与 `memory-index.txt` 是**无占位符**（直接落盘，与 canonical 字节相同）；
+> `index.md.txt` / `log.md.txt` 带占位符（渲染后 ≠ canonical）。不要从"fixture 都带占位符"推导。
+> 分组见 §fixture 取值约定。
 
 任何一个不一致 → CLI 实现有 bug,应 fail 退出。
 
@@ -60,8 +62,8 @@ fixtures 是**带占位符的字节模板**(而非渲染后的字面量)：
 
 - 主题名占位符：`{{TOPIC_NAME}}`
 - 日期占位符：`{{SETUP_DATE}}`
-- `.gitignore` / `wiki/tags.md` / `scripts.md.txt` 无占位符,直接落盘
-  （三者形态一致——无 frontmatter、纯 Markdown；`tags.md.txt` 与 `memory-index.txt` 一样属于
+- `.gitignore` / `wiki/tags.md` / `scripts.md.txt` / `memory-index.txt` 无占位符，直接落盘
+  （形态一致——无 frontmatter、纯 Markdown；`tags.md.txt` 与 `memory-index.txt` 属于
   wiki 根级文件，不带 wiki 名占位）
 
 CLI 必须按 `mapping = {"TOPIC_NAME": <用户传入>, "SETUP_DATE": <today YYYY-MM-DD HH:MM>}` 做替换，

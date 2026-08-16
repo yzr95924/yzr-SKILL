@@ -126,8 +126,8 @@ LLM 修改都会让戳失效。纪律：
 ## 二、各类型模板
 
 > **本节约定**：每类模板只列**路径 + 必填 frontmatter + 极简正文骨架**（节名 + 一句
-> "..."占位）。**完整正文示例**（"Source 页 100+ 行填充实例" / "Concept 页正文骨架填充"等）
-> 100+ 行的填充示例见 SKILL.md §参考样例段样例二（source 摘要实例）——按需 Read，避免本文件膨胀。
+> "..."占位）。**完整正文示例**（source 摘要实例）见 [`examples.md`](examples.md)
+> 样例二——按需 Read，避免本文件膨胀。
 
 ### 1. `entity`（实体页）
 
@@ -243,7 +243,7 @@ venue: <会议名 / 期刊>          # 可选
 # <Title>
 
 **作者**：<authors>
-**来源**：[<raw path>](../raw/<...>)（必填项；absent → lint sources-missing）
+**来源**：[<raw path>](../../raw/<...>)（必填项；absent → lint sources-missing）
 
 ## 摘要
 
@@ -463,6 +463,5 @@ ingest/query/lint/setup 行推荐带 HH:MM；date-only 也合法）：
 3. **重写时**——若 `type` / `sources` 等关键字段需要变，**先和用户确认**
 4. **归档 query 答案**——根据答案性质选 `comparison`（对比）或 `synthesis`（综合）
 5. **完整正文示例**——本文件只留 frontmatter SSOT + 极简骨架（节名 + `...` 占位）；
-   真实 wiki 里 5 类模板的 100+ 行填充实例（"Source 页正文骨架填充" / "Concept 演进综合"
-   / "index.md 列表"）见 SKILL.md §参考样例段样例二 + 样例三
-   的 source 摘要与综合 markdown 实例——按需 Read，无需把详细实例塞进本文件
+   真实 wiki 里 5 类模板的填充实例见 [`examples.md`](examples.md) 样例二 / 样例三
+   （source 摘要 + 综合 markdown）——按需 Read，无需把详细实例塞进本文件

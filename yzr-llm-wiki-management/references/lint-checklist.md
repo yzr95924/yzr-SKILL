@@ -147,7 +147,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 
 ### 2. frontmatter 完整性
 
-- 扫 `wiki/**` 下所有 `.md`（排除 `index.md` / `log.md`）**+** 扫 `<wiki-root>/MEMORY/*.md`
+- 扫 `wiki/` 5 个内容子目录（entities / concepts / sources / comparisons / syntheses）下的
+  所有 `.md` **+** 扫 `<wiki-root>/MEMORY/*.md`
   （与 `wiki/` 平级、单独子树扫；排除 `MEMORY.md` 本身——索引无 frontmatter）
 - 校验口径分两类（spec §5.2 vs §9）：
   - **wiki 5 类内容页**（entities / concepts / sources / comparisons / syntheses）：
@@ -181,7 +182,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   - 跨平台正则自写——不走 `Path.is_absolute()`（它在 Linux / Windows 上对同一字符串
     判定结果不同），lint 必须在 POSIX 主机上跑也能正确报 Windows 绝对路径
   - 命中后 `continue` 跳过后续 `sources-out-of-root` / `sources-missing`——同一根因不重复报错
-  - **为什么是 error**：`raw/` 路径是 wiki 内 source 页的"永久引用"（[§一 纪律 SSOT](wiki-spec.md)），
+  - **为什么是 error**：`raw/` 路径是 wiki 内 source 页的"永久引用"（§一 纪律 SSOT 在
+    [`agents-md-template.md`](agents-md-template.md)），
     绝对路径会破坏跨机器可移植性（A 机上的 `/Users/foo/...` 在 B 机上无意义），与"raw 与 wiki
     矛盾以 raw 为准"的纪律同级
   - **与 anchor 字段的对比**：`raw/external/.symlink-anchor.toml` 的 `[[entry]].target`
@@ -333,8 +335,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
   有哪些条目，避免 MEMORY 沦为只写不读的死库
 - 扫 `<wiki-root>/MEMORY/*.md`（排除 `MEMORY.md` 本身）；任一经验条目 `<slug>.md` **未在 MEMORY.md 索引中
   列出** → 报 `memory-not-indexed`
-- **反向**（索引列了某 `<slug>.md` 但文件不存在）由 §二.4 路径引用完整性的 `broken-link` 覆盖
-  （MEMORY.md 的 markdown 链接会被扫）——本项不重复检查
+- **反向**（索引列了某 `<slug>.md` 但文件不存在）由 lint_wiki.py `check_memory_index` 的
+  `memory-index-dangling` 检查覆盖（warn）——本项不重复检查
 - `MEMORY.md` 不存在 → **静默跳过**（老 wiki 迁移期未补索引，不报错）
 - `check_wiki_fixtures.py` 的 `agents-md-template-sync`（error）对 AGENTS.md 整文做
   模板渲染字节比对——顶部 `@MEMORY/MEMORY.md` import 行 / 强制 Read 指令 blockquote 等全部
@@ -451,7 +453,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 4. 若启用 git，重大修复 commit 时建议加 `lint: <summary>` 前缀；裸目录树 wiki 跳过 commit 步骤
 5. **若跑 fixtures-check**——按 §五 Decision tree 区分脚本 vs LLM 修；
    `fixtures-fix-*` 系列可通过 Edit 落，`fixtures-fix-anchor-merge/-schema/-symlink-matches`
-   三条要走 §5.3 五步迁移（不是单 Edit）
+   三条要走 [`migrate-workflow.md`](migrate-workflow.md) §6.3 五步迁移（不是单 Edit）
 
 ## 七、lint 频率
 
@@ -468,8 +470,9 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 - **不**评估 frontmatter 的语义是否合理（只检查字段存在性 + 类型合法）
 - **不**取代 schema（`AGENTS.md`）——schema 是源头，lint 是脚本化检查
 - **fixtures 边界**——`check_wiki_fixtures.py` 扫「约定文件」
-  （AGENTS.md / CLAUDE.md / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
-  MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）的合规性：
+  （AGENTS.md §八 / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
+  MEMORY/MEMORY.md / MEMORY/*.md 条目 / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml /
+  wiki_metadata.toml）的合规性：
   **`metadata.fixtures_check_count` 条** check（13 条结构探测 + 7 条骨架字段比对，后者读 `references/canonical/` +
   `references/fixtures/gitignore.txt` 作 SSOT）；语义合并走 §五由 LLM 判断——脚本不替代人。
   常规 lint 另跑 `check_spec_version`（§二前置）报版本漂移 warn

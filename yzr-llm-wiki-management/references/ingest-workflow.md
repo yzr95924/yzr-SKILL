@@ -41,7 +41,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 
 ### Step 2：评估规模
 
-如果未摄取文件 < 5 → 一次性处理；5~20 → 建议分批但可接受；> 20 → 强烈建议
+如果未摄取文件 < 3 → 一次性处理；3~20 → 建议分批但可接受；> 20 → 强烈建议
 分批 + 询问用户"是否先处理这 5 个"。
 
 **分批策略**：按主题聚类（同一议题 / 同一作者 / 同一时间段优先），不要按文件
@@ -65,7 +65,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 2. **提取元数据**：标题、作者 / 来源、发布时间、URL（若有）、关键标签
 3. **生成 slug**——kebab-case 短标题（例 `attention-is-all-you-need`），文件名
    `<slug>.md`
-4. **写 `wiki/sources/<slug>.md`**，使用 source 模板（见 `page-templates.md#source`）：
+4. **写 `wiki/sources/<slug>.md`**，使用 source 模板（见 [`page-templates.md`](page-templates.md) §二.3）：
    - frontmatter：title / description（一句话摘要，index 摘要从它来）/ type=source /
      tags / sources=[raw 路径] / updated=today（`created`：全新文件设 today；stale-raw 保留原值）
    - 正文：
@@ -91,7 +91,7 @@ python3 yzr-llm-wiki-management/scripts/ingest_diff.py "$LLM_WIKI_ROOT" --check-
 
 **若新建 entity / concept 页**：
 
-- 走 `page-templates.md#entity` 或 `#concept` 模板
+- 走 [`page-templates.md`](page-templates.md) §二.1 / §二.2 的 entity / concept 模板
 - frontmatter 含 `created=updated=today`
 - 正文含：定义 / 关键属性 / 已知出现于（指向 source 页列表）
 
@@ -196,7 +196,8 @@ url: <原始链接>
 
 - **raw 文件不可读**（PDF 加密、图片 OCR 失败）——提示用户处理源文件
 - **已存在同名 source 页**——用 Edit 更新而不是 Write 覆盖
-- **wiki/index.md 缺类别段**——可能是 setup 没跑完整；先调 setup 修复
+- **wiki/index.md 缺类别段**——按 [`page-templates.md`](page-templates.md) §6 骨架手动补
+  类别段（或走 migrate fixtures 修复，CLI 拒绝覆盖已有 wiki）
 - **log.md 格式错乱**——append 前先确认上一行有换行结束
 
 ## 八、反模式

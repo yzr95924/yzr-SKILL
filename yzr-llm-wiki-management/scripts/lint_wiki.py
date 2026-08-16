@@ -64,7 +64,6 @@ VALID_TYPES = {
     "memory-entry",
 }
 # reviewed 字段仅在值为严格 `true` 时合法；缺省 / 其它值（含 "true" 字符串、yes、1、false）判非法
-REVIEWED_VALUES = {"true"}
 WIKI_SUBDIRS = ("entities", "concepts", "sources", "comparisons", "syntheses")
 MEMORY_SUBDIR = "MEMORY"
 EXTERNAL_SUBDIR = "external"
@@ -117,7 +116,7 @@ def _is_absolute_path(p: str) -> bool:
 # 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
-CURRENT_WIKI_SPEC = "0.30.0"  # 0.30.0 = 交互语言风格纪律（SKILL.md 核心原则 §13 + agents-md-template §九）；0.29.0 raw/discussions/ 协作草稿层（spec §15）+ raw/external/ target 角色切分（§13.3）仍生效
+CURRENT_WIKI_SPEC = "0.30.1"
 
 
 def _assert_spec_version_sync() -> None:
@@ -157,14 +156,15 @@ def _assert_spec_version_sync() -> None:
 _assert_spec_version_sync()
 
 # 已知 legacy pattern 的"pattern key"——为后续扩展预留，每个 key 是一类迁移动作。
-# rule_ref 指向 wiki-spec-changelog.md 的对应行；agent 修复时按此引用。
+# rule_ref 指向 wiki-spec-changelog.md 的对应版本行（changelog 是单表无锚点，
+# agent 修复时在 changelog 中按版本号搜索该行）。
 LEGACY_PATTERN_KEYS = {
-    "confidence-field": "wiki-spec-changelog.md#0-7-0",
+    "confidence-field": "wiki-spec-changelog.md（搜 0.7.0 行）",
     # 0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法（spec §5.2）；
     # 本规则仅对 wiki 5 类内容页误用 reserved `type: memory` 报错。
-    "type-memory-value": "wiki-spec-changelog.md#0-19-0",
-    "claudemd-tag-section": "wiki-spec-changelog.md#0-8-0",
-    "claudemd-not-thinshell": "wiki-spec-changelog.md#0-11-0",
+    "type-memory-value": "wiki-spec-changelog.md（搜 0.19.0 行）",
+    "claudemd-tag-section": "wiki-spec-changelog.md（搜 0.8.0 行）",
+    "claudemd-not-thinshell": "wiki-spec-changelog.md（搜 0.11.0 行）",
 }
 
 # 严重性等级
@@ -608,7 +608,7 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
     校验口径分两类（spec §5.2 vs §9）：
     - wiki 5 类内容页（entities/concepts/sources/comparisons/syntheses）：
       5 必填（title/type/created/updated/tags）+ 推荐 description
-    - MEMORY/*.md：仅 `title` 必填，其余 4 字段全 optional（frontmatter 是
+    - MEMORY/*.md：仅 `title` 必填，其余 5 字段全 optional（frontmatter 是
       可选 decoration；MEMORY 不在 wiki/index.md 列出、无 reviewed 概念、
       tag 不共享 wiki taxonomy——5 必填的 rationale 对 MEMORY 多半不成立）
     """
@@ -710,11 +710,11 @@ def check_frontmatter(wiki_root: Path) -> List[str]:
                             try:
                                 sp.relative_to(wiki_root.resolve())
                             except ValueError:
-                                findings.append(f"sources-out-of-root: {rel} sources[0]='{s}'不在 wiki 根下")
+                                findings.append(f"sources-out-of-root: {rel} sources='{s}'不在 wiki 根下")
                                 continue
                             if not sp.is_file():
-                                findings.append(f"sources-missing: {rel} sources[0]='{s}'但文件不存在")
-    # MEMORY/*.md（排除 MEMORY/MEMORY.md 索引）：仅 title 必填；其余 4 字段全 optional。
+                                findings.append(f"sources-missing: {rel} sources='{s}'但文件不存在")
+    # MEMORY/*.md（排除 MEMORY/MEMORY.md 索引）：仅 title 必填；其余 5 字段全 optional。
     # frontmatter 整体仍可选（与短条目「1 行索引行」形态对齐）；有就按"有就校验"的
     # 弱规则（type 若取则在 VALID_TYPES 内；tags 若取则是 list）。
     for p in pages["memory"]:
@@ -1049,7 +1049,7 @@ def check_filename_kebab(wiki_root: Path) -> List[str]:
     for sub in WIKI_SUBDIRS + ("index", "log"):
         for p in pages[sub]:
             stem = p.stem
-            if not re.match(r"^[a-z0-9][a-z0-9-]*$", stem):
+            if not SOURCE_NAME_RE.match(stem):
                 rel = p.relative_to(wiki_root).as_posix()
                 findings.append(
                     f"filename-not-kebab: {rel} 文件名 '{p.name}' 应使用 kebab-case（小写字母 + 数字 + 短横线）"
@@ -1059,7 +1059,7 @@ def check_filename_kebab(wiki_root: Path) -> List[str]:
         if p.name == "MEMORY.md" and p.parent.name == MEMORY_SUBDIR:
             continue
         stem = p.stem
-        if not re.match(r"^[a-z0-9][a-z0-9-]*$", stem):
+        if not SOURCE_NAME_RE.match(stem):
             rel = p.relative_to(wiki_root).as_posix()
             findings.append(
                 f"filename-not-kebab: {rel} 文件名 '{p.name}' 应使用 kebab-case（小写字母 + 数字 + 短横线）"
@@ -1365,8 +1365,10 @@ def check_memory_index(wiki_root: Path) -> List[str]:
     不走 wiki/index.md 强制入口；但每条经验条目需在 `MEMORY.md` 列一行，否则
     下次 `@import` 加载后该 agent 视角下 MEMORY 沦为死库。
 
-    反向（索引列了但文件不存在）已被 check_link_integrity 的 broken-link 覆盖
-    （`MEMORY.md` 的 markdown 链接都被扫）。
+    反向（索引列了某 `<slug>.md` 但文件不存在）也在此检查：`memory-index-dangling`
+    warn——索引行指向不存在的文件 = 索引与磁盘脱节（MEMORY 纪律"不删除条目"被违反
+    或文件被误移），下次会话按索引读必落空。注意只能靠链接判定：短条目
+    （`- 一句话事实`）无链接、不算 dangling。
 
     MEMORY.md 不存在时静默跳过（老 wiki 迁移期 / spec <0.6.0，不报错）。
     severity = info（轻量索引非强制入口，类比 tag-not-in-taxonomy）。
@@ -1402,6 +1404,12 @@ def check_memory_index(wiki_root: Path) -> List[str]:
             continue
         if target.is_file():
             indexed.add(target.name)
+        else:
+            # 反向：索引指向的 <slug>.md 不存在（短条目无链接、不进来）——索引与磁盘脱节
+            findings.append(
+                f"memory-index-dangling: MEMORY/MEMORY.md 索引指向 "
+                f"{target.relative_to(wiki_root).as_posix()}，但该文件不存在"
+            )
     # 扫 MEMORY/*.md（排除 MEMORY.md 本身）；任一不在 indexed → memory-not-indexed
     if not mem_dir.is_dir():
         return findings
@@ -1485,8 +1493,11 @@ def severity_of(finding: str) -> str:
             "missing-frontmatter",
             "invalid-type",
             "sources-missing",
+            "sources-malformed",
             "sources-out-of-root",
             "sources-absolute-path",
+            "sources-external-anchor-missing",
+            "sources-external-symlink-missing",
             "source-in-discussions",
             "broken-link",
             "orphan-page",
@@ -1520,6 +1531,7 @@ def severity_of(finding: str) -> str:
             "contradiction-asymmetric",
             "oversized-page",
             "related-broken-link",
+            "memory-index-dangling",
         )
     ):
         return "warn"

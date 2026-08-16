@@ -36,7 +36,21 @@ def _target_spec():
     return m.group(1).strip()
 
 
+def _fixtures_check_count():
+    """读 SKILL.md metadata.fixtures_check_count——check 注册数的 SSOT 声明（metadata 侧）。
+
+    代码侧真源是 CHECK_REGISTRY；本测试断言两侧一致（metadata 改动不改代码时测试 fail），
+    让"20/21"这类计数改动必须同时落 metadata + 代码。
+    """
+    text = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+    m = re.search(r"^[ \t]*fixtures_check_count:[ \t]*(\S+)[ \t]*$", text, re.MULTILINE)
+    if not m:
+        raise AssertionError("SKILL.md 缺 metadata.fixtures_check_count")
+    return int(m.group(1).strip())
+
+
 TARGET_SPEC = _target_spec()
+FIXTURES_CHECK_COUNT = _fixtures_check_count()
 
 
 def _render_agents_md(topic="Test", date="2026-06-28", cli="0.1.0", spec=None):
@@ -155,12 +169,45 @@ class CleanWikiTest(unittest.TestCase):
         for c in report["checks"]:
             self.assertIsNot(c["passed"], False, f"clean 下 {c['id']} 不应 fail：{c}")
 
-    def test_check_count_is_20(self):
-        """12 显式 + wiki-metadata-reads-satisfied + 7 骨架 = 20。"""
+    def test_check_count_matches_metadata(self):
+        """check 总数 = SKILL.md metadata.fixtures_check_count（metadata 与代码两侧对账）。
+
+        代码侧注册数变化（新增 / 删除 check）但 metadata 未同步 → 本测试 fail。
+        """
         with tempfile.TemporaryDirectory() as tmp:
             build_wiki(tmp)
             _, report = run_check(tmp)
-        self.assertEqual(len(report["checks"]), 20)
+        self.assertEqual(
+            len(report["checks"]),
+            FIXTURES_CHECK_COUNT,
+            f"实际 check 数 {len(report['checks'])} != metadata.fixtures_check_count "
+            f"({FIXTURES_CHECK_COUNT})——改代码时需同步 SKILL.md frontmatter",
+        )
+
+
+class LogLineRegexConsistencyTest(unittest.TestCase):
+    """log 条目正则双份（log_format.py SSOT + check_wiki_fixtures.py vendored 副本）必须逐字一致。
+
+    vendored 副本是 0.28.0 有意为之（standalone 约束）；本测试守护它不漂移。
+    """
+
+    def test_log_line_re_pattern_identical(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import log_format  # noqa: E402
+
+        vendored = (SKILL_ROOT / "scripts" / "check_wiki_fixtures.py").read_text(encoding="utf-8")
+        m = re.search(r"LOG_LINE_RE = re\.compile\(\n(.*?)\n\)", vendored, re.DOTALL)
+        self.assertIsNotNone(m, "check_wiki_fixtures.py 未找到 vendored LOG_LINE_RE")
+        parts = []
+        for ln in m.group(1).splitlines():
+            lit = re.match(r'\s*r?"(.*)"\s*$', ln)
+            self.assertIsNotNone(lit, f"无法解析 vendored 正则片段行: {ln!r}")
+            parts.append(lit.group(1))
+        self.assertEqual(
+            "".join(parts),
+            log_format.LOG_LINE_RE.pattern,
+            "两脚本 log 条目正则漂移——改 log_format.py 时需同步 vendored 副本",
+        )
 
 
 class WikiMetadataReadsSatisfiedTest(unittest.TestCase):

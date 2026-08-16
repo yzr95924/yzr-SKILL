@@ -6,14 +6,15 @@ description: |
   接入）、跨页综合 / 对比 / 矛盾协调 / 答案归档回 wiki、矛盾 / 孤儿 / 过期摘要 lint、spec
   升级迁移。坚持 raw/ 用户掌控 + wiki/ LLM 拥有 + AGENTS.md 单一真源 四层纪律。
   触发："把这篇论文摄取进 wiki" / "总结 wiki 里关于 X 的内容" / "wiki 里 A 和 B 说法矛盾，
-  帮我协调" / "扫一下 wiki 有没有孤儿页 / 过期摘要"。
+  帮我协调" / "扫一下 wiki 有没有孤儿页 / 过期摘要" / "升级 wiki / 迁移到最新 spec / 检查
+  wiki 版本" / "把 X 仓库（源码）纳入 wiki" / "想搭一个 wiki 管理 X"。
   不适用：云端 / 团队协作 wiki（Notion / Confluence / Outline / GitHub Wiki——走
   yzr-outline-wiki）。
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-08-14
-  wiki_spec_version: 0.30.0
+  modify time: 2026-08-16
+  wiki_spec_version: 0.30.1
   fixtures_check_count: 20
 ---
 
@@ -36,31 +37,20 @@ metadata:
   wiki-spec.md（wiki 仓出生形态 + skill 读取契约）、fixtures（CLI 字节级比对金标准）、migrate-workflow.md §六
   (语义合并规则，agent 走 migration plan 时的合并依据)
 
-## 何时使用 / 不使用
+## 何时不使用
 
-### 使用
-
-- 用户在对话中说"摄取/归档到 wiki / ingest to wiki / 把这篇文章整理进 wiki"
-- 用户在对话中说"wiki 里有 X 吗 / 在 wiki 里搜一下 / 总结 wiki 中关于 Y 的内容"
-- 用户在对话中说"lint wiki / wiki 健康检查 / 找矛盾 / 找孤儿页"
-- 用户在对话中说"升级 wiki / 迁移到最新 spec / 检查 wiki 版本 / 老格式 / reformat"——
-  走 §5 Migrate
-- 用户指向 `<wiki-root>/raw/` 里新出现 / 未归档的文件
-- 用户首次提到"我想搭一个 wiki 用来管理 X 的研究 / 读书笔记 / 项目"
-- 用户提到"AGENTS.md 怎么写 / raw/ 和 wiki/ 的边界"
-- 用户想把外部代码仓（Linux kernel / Ray 源码等）作为语料纳入 wiki——走
-  `raw/external/` 扁平的 symlink + `.symlink-anchor.toml` 路径（详见
-  [wiki-spec §13](references/wiki-spec.md#13-rawexternal外部代码仓接入可选)）
-
-### 不使用
+"何时使用 / 不适用"已在 frontmatter description（含触发词），正文不重抄。本节只补**出路**与
+正文独有负例：
 
 - **云端协作 wiki**（Notion / Confluence / Outline Wiki / GitHub Wiki）——走
-  `yzr-outline-wiki`（搜 / 读 / 写 / 编辑）
+  `yzr-outline-wiki`（搜 / 读 / 写 / 编辑）。两套 skill 方向单向：本地研究沉淀 →
+  云端分享，不冲突
 - **一次性文档生成**（不是累积型）——直接用普通文件写入流程
 - **没有 raw/ 资料 + 没有累积需求**——skill 的价值在"复利"，一次性整理用不上
 - **需强结构化数据库**（带 schema / SQL / 全文检索后端）——wiki 规模 ≤ 数百页时
   index.md 足够；超过该规模再考虑迁移到专用工具
 - **多人实时协作**——本 skill 假设单人使用（多账号实时协同走云端 wiki）
+- **系统设计文档写作**（单篇正式设计文档）——走 `yzr-sys-design-doc`
 
 ## 输入 / 输出
 
@@ -95,71 +85,35 @@ metadata:
 参考 Karpathy gist 的核心论断：**"Knowledge 的累加依赖纪律，不依赖意志力"**。
 四层各自承担一个责任，互相制衡：
 
-1. **`raw/` 真相之源**——用户只管策划原始资料（论文、剪藏、PDF、笔记、播客转写），
-   对 LLM 只读。**两处写权限例外**：① `raw/external/` 顶层（**扁平布局**）下 LLM **可**创建
-   symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新）——详见
-   [wiki-spec §13.3](references/wiki-spec.md#133-责任切分用户--llm-共有)
-   - [wiki-spec §13.5](references/wiki-spec.md#135-git-仓锚定要求lint-强制)；② `raw/discussions/`
-   用户 + LLM **双方可写**的协作草稿层（临时讨论 / 设计草稿 / 待整理笔记）——详见
-   [wiki-spec §15](references/wiki-spec.md#15-rawdiscussions协作草稿层可选)。其余 `raw/` 子树
-   （articles / papers / assets / clippings / podcasts 等）LLM 仍只读。
-   **纪律完整定义**（含 LLM 不写 / 用户可改 / 改名会断链 / wiki 与 raw 矛盾以
-   raw 为准 4 条）见 `<wiki-root>/AGENTS.md` §一（由 workspace CLI 在 init 时拷到每个 wiki，
-   模板见 [`references/agents-md-template.md`](references/agents-md-template.md)）。
-   `raw/` 下子目录自由组织——CLI 默认建 `articles/` + `assets/`，但 `podcasts/` /
-   `clippings/` / `papers/` / `external/` / `discussions/` 等自定义子目录同样可用；
-   `ingest_diff.py` 递归扫整棵 `raw/`（跳过 `assets/` + `discussions/`）。
+1. **`raw/` 真相之源**——用户只管策划原始资料，对 LLM 只读。**两处写权限例外**：
+   `raw/external/`（外部代码仓 symlink 接入，LLM 主导，spec §13.3）+ `raw/discussions/`
+   （协作草稿层，双方可写，spec §15）。完整纪律（含"wiki 与 raw 矛盾以 raw 为准"4 条）
+   在 `<wiki-root>/AGENTS.md` §一（模板见
+   [`references/agents-md-template.md`](references/agents-md-template.md)），操作细则在
+   核心原则 §1 + spec §13/§15。`raw/` 下子目录自由组织；
+   `ingest_diff.py` 递归扫整棵 `raw/`（扩展名白名单 *.md/*.markdown/*.txt；跳过
+   `assets/` + `discussions/`）。
 2. **`wiki/` 复利资产**——LLM 拥有这一层（5 个内容页子目录 + index.md）。人类**不写**
    wiki 内容，只读 + 提问题。每次摄入新资料或回答新问题，wiki 都变得**更厚**而不是更乱。
-3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 在工作中沉淀的经验、踩坑、用户偏好，
-   物理上位于 `<wiki-root>/MEMORY/`（与 `wiki/` 同级、不嵌在 `wiki/` 下），与 wiki 内容页
-   同归属（LLM 写、用户不写）但**不**走单一入口约束、不被 lint 当 wiki 内容页扫。`MEMORY.md`
-   是单一真源（无 frontmatter），AGENTS.md 顶部一行 `@MEMORY/MEMORY.md` `@import` 加载——
-   agent 自动展开拿到 MEMORY 全文（详见 [`references/agents-md-template.md`](references/agents-md-template.md)
-   顶部 L2 索引段 + HTML 注释 Read 指引）。改 MEMORY 只改 `MEMORY.md` 这一处、
-   `@import` 引用同步指向全文，无副本漂移。
-   为什么 MEMORY 位于 `<wiki-root>/`（与 `wiki/` 平级）：对应 §四层架构第 3 层（独立于 wiki/ 内容）、将来 publish 时
-   MEMORY 自然留作私有层不外传。详细规则见 spec §5。
-4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 / 不写什么"的约定
-   集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的"宪法"。`CLAUDE.md` 是
-   `@AGENTS.md` 薄壳，仅供经薄壳自动加载的 agent 读到 SSOT；原生读 `AGENTS.md` 的其他 agent
-   直读。**L2 索引走 `@import` 收口 + 顶部强制 Read 指令**：AGENTS.md 顶部 `@MEMORY/MEMORY.md` 与
-   `@scripts/SCRIPTS.md` 两行 `@import`——自动展开 `@import` 的 agent 透明拿到 L2 索引；不展开 `@import`
-   的 agent 由 AGENTS.md **顶部强制 Read 指令** blockquote 兜底（详见 spec §5.1 + §14.3 +
-   [`references/agents-md-template.md`](references/agents-md-template.md) 顶部）。
-   没有它，LLM 会退化成普通聊天机器人；有它，LLM 是"纪律严明的 wiki 维护者"。**为什么 AGENTS.md
-   作 SSOT + CLAUDE.md 薄壳**（套用 `yzr-multi-agent-context` 方法）：一套真源、多 agent 兼容
-   （详见 `yzr-multi-agent-context/SKILL.md`「设计与原理」段）。
+3. **`MEMORY/` agent 持久化记忆（与 `wiki/` 平级）**——LLM agent 工作中沉淀的经验 /
+   踩坑 / 用户偏好，用户不写。为什么放 `<wiki-root>/` 而非 `wiki/` 内：物理位置跟逻辑
+   分层对齐（独立于 wiki/ 内容），将来 publish 时自然留作私有层不外传。`MEMORY.md`
+   是索引单一真源（无 frontmatter），AGENTS.md 顶部 `@MEMORY/MEMORY.md` 加载，改只改
+   这一处、无副本漂移。操作细则在核心原则 §9 + 工作流 §4 + spec §5。
+4. **`AGENTS.md` 纪律配置（SSOT）+ `CLAUDE.md` 薄壳**——把"wiki 怎么写 / 写什么 /
+   不写什么"的约定集中到 `AGENTS.md`（工具无关单一真源），是维护本 wiki 的 agent 的
+   "宪法"；`CLAUDE.md` 是 `@AGENTS.md` 薄壳（`yzr-multi-agent-context` 方法：一套真源、
+   多 agent 兼容）。顶部 `@MEMORY/MEMORY.md` + `@scripts/SCRIPTS.md` 两行 `@import` 收口 +
+   强制 Read 指令兜底（spec §5.1 + §14.3）。没有它，LLM 会退化成普通聊天机器人；
+   有它，LLM 是"纪律严明的 wiki 维护者"。
 
 ### 四个核心操作——为什么是四个
 
-| 操作 | 输入 | 输出 | 价值 |
-| --- | --- | --- | --- |
-| **ingest** | `raw/` 新文件 | 摘要页 + 交叉引用 + log 条目 | 把原始资料变成可查询的结构 |
-| **query** | 自然语言问题 | 综合答案（带引用）+ 可选归档 | 复用 + 复利：好答案不回聊天记录 |
-| **lint** | 整个 wiki | 报告矛盾 / 孤儿 / 过期 | 防止知识库腐烂 |
-| **migrate** | 含 §八 的 wiki | legacy 现场 + stdout migration plan + agent 修复后的最新 spec 兼容 wiki（不落盘中间文件） | spec 演进时不破坏老 wiki 沉淀 |
-
-每个操作都**双向回报**：ingest 让 query 更好用；query 让 wiki 更厚；lint 让 ingest
-不会越积越乱；migrate 让长跑 1-2 年的 wiki 在 spec 演进时不掉队。**单独跑任一个都亏**——
-这就是"复利"的本质。migrate 与其他三个不同——它是**周期触发**而非每次 wiki 操作触发
-（spec 升版本时才跑），但缺了它老 wiki 会**腐烂在格式层**而不是内容层，更难察觉。
-
-### 为什么不用云端
-
-`yzr-outline-wiki` 走云端 MCP（Outline Wiki），适合团队协作、外部分享、
-权限管理。本 skill 走**本地文件**（git 为可选 opt-in），原因：
-
-- **隐私**——研究 / 读书 / 个人思考不需要上云
-- **可移植**——纯 Markdown + 文件，不绑任何平台
-- **无外部依赖**——不需要 OAuth / API key / 网络
-- **版本控制可选**——git（setup 时 `--git` 启用）提供 history / diff；不启用也不影响
-  ingest / query / lint（详见 [`wiki-spec.md` §7](references/wiki-spec.md)）
-
-> **立场**：wiki **不依赖 git 即可工作**——默认落盘为纯目录树，git 仅在 setup 时
-> 用户显式 opt-in（`--git`）才启用。
-
-两套 skill **不冲突**：本地研究沉淀 → 云端分享，方向是单向的。
+ingest / query / lint / migrate 四个操作各自**双向回报**：ingest 让 query 更好用；
+query 让 wiki 更厚；lint 让 ingest 不会越积越乱；migrate 让长跑 1-2 年的 wiki 在
+spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的本质。migrate 与其他三个
+不同——它是**周期触发**而非每次 wiki 操作触发（spec 升版本时才跑），但缺了它老 wiki
+会**腐烂在格式层**而不是内容层，更难察觉。四者的输入 / 输出见「输入 / 输出 · 操作产物」。
 
 ## 执行原则 / 边界
 
@@ -209,7 +163,8 @@ metadata:
    **为什么是这 5 个**见 [wiki-spec.md §9](references/wiki-spec.md)（OKF 字段齐全性 × lint
    一致性的最小交集；少于 5 字段会让"抓腐烂"判定失效）。
    **例外**：
-   - `wiki/index.md` / `wiki/log.md` = **4 字段必填**（省 `description`）
+   - `wiki/index.md` = **6 键必填**（5 必填 + `okf_version`）/ `wiki/log.md` = **5 键必填**
+     （均省 `description`）
    - `MEMORY/MEMORY.md` / `wiki/tags.md` = **无 frontmatter**（索引片段 + tag 白名单）
    - `MEMORY/*.md` = **仅 `title` 必填**（其余 5 字段全 optional——MEMORY 是 agent
      私有记忆，frontmatter 是可选 decoration）；`type` 若取扩到 7 类（5 内容页 + `memory` /
@@ -224,11 +179,8 @@ metadata:
 9. **`MEMORY/` 是 LLM agent 的私有记忆**——遇到踩坑、发现用户偏好、跨 ingest 关联
    时主动追加；frontmatter **仅 `title` 必填**（其余 5 字段全 optional，与 wiki 内容页
    的 5 必填规则解耦——spec §5.2），**不在 index.md 强制列出**，**但每条
-   必须在 `MEMORY/MEMORY.md` 索引列一行**——AGENTS.md 顶部 `@MEMORY/MEMORY.md` `@import`
-   自动加载全文，**不**需要单独同步 AGENTS.md。lint `memory-not-indexed` 兜底漏列。
-   MEMORY 沉淀只改 `MEMORY.md` 这一份，AGENTS.md `@import` 单行引用同步指向全文，
-   **无**双写漂移，索引走 `@import` 不占 L1 词数。详见 spec §5 +
-   [`wiki-spec.md`](references/wiki-spec.md#5-memory) + §四层架构第 3 点
+   必须在 `MEMORY/MEMORY.md` 索引列一行**（lint `memory-not-indexed` 兜底漏列）。
+   MEMORY 沉淀只改 `MEMORY.md` 这一份、无副本漂移。写入流程见工作流 §4。
 10. **LLM 修改已审核页必须清 `reviewed` 戳**——任何对页面正文的 LLM 修改（ingest 重摄取 /
    query 归档 / refine / 任何 Edit/Write）让戳失效；**必须删 `reviewed` + `reviewed_at` 两字段**
    回到默认未审核态，由人重新审。`lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 存在且
@@ -253,7 +205,7 @@ metadata:
    再按需 `Read scripts/SCRIPTS.md` 取完整契约（`@import` 展开后即见），按"调用约定"显式执行，
    **不**自动遍历 `scripts/`；改脚本只改 `SCRIPTS.md` 这一份。`scripts/` 不走 §9 5 必填、
    不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。
-   `agents-md-template.md`「Wiki-local scripts」段自包含同样规则。
+   `agents-md-template.md`「scripts/ —— 本 wiki 仓的自维护脚本目录」段自包含同样规则。
 
 13. **交互语言风格——对用户不用黑话，严谨精确**——本 skill 是给 LLM 读的纪律，但它的
    服务对象是用户。所有面向用户的输出（ingest 汇报 / query 答案 / lint 报告 / migrate 说明 /
@@ -274,12 +226,9 @@ metadata:
 
 ### 边界
 
-- **不**编辑 `raw/` 下任何文件——LLM 只读；用户可改，改后由 ingest 重新消化
-  **两处写权限例外**：`raw/external/` 顶层（**扁平布局**）下 LLM 可创建 symlink +
-  写 `.symlink-anchor.toml` 的 `[[entry]]` 块（首次接入 + 漂移刷新；spec §13.3；target 仓内
-  文件的角色切分见 §13.3——开发协作放行、wiki 维护操作仍只读）；`raw/discussions/` 用户 + LLM
-  双方可写草稿层（spec §15）。**这两处例外不得外推到 raw/ 其他子树**（papers / articles /
-  clippings 等仍只读）——滑坡防线见 wiki-spec §15.4
+- **不**编辑 `raw/` 下任何文件——LLM 只读（两处写权限例外：`raw/external/` symlink 接入 +
+  `raw/discussions/` 协作草稿；完整规则见核心原则 §1 + spec §13.3/§15，**不得外推**到
+  papers / articles / clippings 等其他子树——滑坡防线见 spec §15.4）
 - **不**删除 `wiki/` 下的页面——用 `archived: true` 标记 + 从 index 移除；想真删直接删文件（启用 git 时用 `git rm`，未启用时用普通 `rm`）
 - **不**绕过 `AGENTS.md` 自创约定——若 AGENTS.md 没说的，**先问用户**再写
 - **不**在 query 时偷偷归档——必须先展示答案 + 询问用户
@@ -288,7 +237,6 @@ metadata:
   时适用；未启用 git 时没有"未提交改动"概念（lint 自动跳过此项）
 - **不**对 wiki 内文件用 Read 之外的工具做"自动"修改——所有修改走 Edit / Write 并
   走 schema 约定
-- **不**在 LLM 修改页面后保留 `reviewed: true` 戳——戳即过期，回到默认未审核（详见核心原则 §10）
 - **不**忽略 `scripts/SCRIPTS.md` 索引直接遍历 `scripts/` 跑脚本——必须先 `Read` 索引定位工具
   - 按段中调用约定执行（详见核心原则 §12）
 
@@ -404,8 +352,10 @@ SKILL 不动。
 
 **触发**："把这篇摄取到 wiki" / `raw/` 有新文件 / 跑 `ingest_diff.py` 发现未摄取项。
 
-**流程摘要**（agent 驱动；详细 7 步 + 批处理 + 外部代码仓 5 步见
-[`references/ingest-workflow.md`](references/ingest-workflow.md)）：
+**流程摘要**（agent 驱动；详细 7 步 + 批处理见
+[`references/ingest-workflow.md`](references/ingest-workflow.md)；外部代码仓 5 步接入 /
+漂移刷新 / 跨主机重建见 [wiki-spec §13.3](references/wiki-spec.md#133-责任切分用户--llm-共有) 与
+[`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)）：
 
 1. 跑 `scripts/ingest_diff.py <wiki-root>`（日常加 `--check-stale`）找出未摄取/待重摄文件清单
 2. **单篇对一下要点**——仅交互式单篇或少量场景：确认主题方向 / 重点交叉的 entity / 用户判断要保留
@@ -471,9 +421,9 @@ git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描
 - 跨 ingest 关联（两 source 页指向同一论文不同章节）
 - lint 报告的 recurring pattern（每次 lint 都报某 type 缺字段）
 
-**流程摘要**（agent 主动；完整 8 步 + frontmatter 字段 + 索引同步规则 +
-完整/短条目判定见 [`references/migrate-workflow.md`](references/migrate-workflow.md)
-MEMORY 节——该文件含 MEMORY 写入细节；或仓库根 `MEMORY/MEMORY.md` 索引自身的写法）：
+**流程摘要**（agent 主动；本节 7 步即完整流程，frontmatter 字段 / 索引同步 / 完整 vs
+短条目判定的权威定义在 [spec §5](references/wiki-spec.md#5-memory) + §5.2 + 仓库根
+`MEMORY/MEMORY.md` 索引自身的写法）：
 
 1. 决定是否值得写——能否让未来 agent 工作更顺？
 2. 判别条目形式：**完整**（含 why+how 上下文）→ 走 3-6；**短**（纯 reminder）→ 直跳 5
@@ -508,8 +458,9 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
 **fixtures 一致性检查**——`--check-version` 自动调 `scripts/check_wiki_fixtures.py`
-扫 wiki 仓 9 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
-MEMORY/MEMORY.md / MEMORY/*.md 条目 / SCRIPTS.md / .symlink-anchor.toml），finding 并入
+扫 wiki 仓 10 类约定文件（AGENTS.md §八 / .gitignore / index.md / log.md / tags.md /
+MEMORY/MEMORY.md / MEMORY/*.md 条目 / SCRIPTS.md / .symlink-anchor.toml /
+wiki_metadata.toml），finding 并入
 `migration plan`（stdout JSON 输出）的 `fixtures_actions[]`（与 legacy `actions[]` 平行）。检查项数同
 `metadata.fixtures_check_count`（结构探测 + 骨架字段比对两类，breakdown 见
 [`references/lint-checklist.md`](references/lint-checklist.md)；其中 `agents-md-template-sync`
@@ -520,8 +471,3 @@ MEMORY/，详见 wiki-spec §10.1）。**简要流程** + 详细步骤 + 字段�
 ## 参考样例
 
 5 个完整样例（setup / ingest / query / lint / migrate）见 [`references/examples.md`](references/examples.md)——按需 Read。
-
-## 与其他 skill 的边界
-
-`yzr-outline-wiki` 走云端 Outline——团队协作、外部分享。
-`design-doc-edit` 走单篇 Markdown 写作。
