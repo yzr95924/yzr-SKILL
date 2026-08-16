@@ -102,7 +102,7 @@ Query 是 wiki 的"消费侧"——把多份资料综合成答案，**好答案�
 
 ### Step 5：归档 query 答案
 
-使用 `page-templates.md#comparison` 或 `#synthesis` 模板。
+使用 [`page-templates.md`](page-templates.md) §二 的 comparison / synthesis 模板。
 
 - `comparison` 页：focus 在 "A vs B"，frontmatter `compared: [<path-a>, <path-b>]`
 - `synthesis` 页：focus 在 "跨多个 source 的综合洞察"，frontmatter `threads: [<主题>...]`
@@ -110,14 +110,15 @@ Query 是 wiki 的"消费侧"——把多份资料综合成答案，**好答案�
   `[^n]` 逐段溯源**（写法见 [page-templates.md §二.5](page-templates.md#5-synthesis综合页)），
   让每个论点都能不重读 raw 就回溯到具体 source——这是 synthesis 区别于 source 摘要的关键
 - 同步 `index.md`（加 comparison / synthesis 类别条目）
-- 追加 `log.md`：`## [YYYY-MM-DD HH:MM] query | <title>`（lint 也接受 `YYYY-MM-DD`；写完若 > 50 条按 §4.1 截断保最近 50）
+- 追加 `log.md`：`## [YYYY-MM-DD HH:MM] query | <title>`（lint 也接受 `YYYY-MM-DD`；写完若 > 50 条按 wiki-spec §4.1 截断保最近 50）
 
 ### Step 6：若启用 git，建议 commit（同 ingest）；裸目录树 wiki 跳过此步
 
-## 四、Query 答案格式参考（指向 SKILL.md §参考样例段样例三）
+## 四、Query 答案格式参考（指向 examples.md 样例三）
 
-> 三种典型 answer 形式（直接回答 / 对比 / synthesis）已在 SKILL.md §参考样例段样例三
-> 「query 一个跨实体问题」用综合 markdown 展示。本节不重抄。
+> 三种典型 answer 形式（直接回答 / 对比 / synthesis）已在
+> [`examples.md`](examples.md) 样例三「query 一个跨实体问题」用综合 markdown 展示。
+> 本节不重抄。
 
 ## 五、Query 的边界
 

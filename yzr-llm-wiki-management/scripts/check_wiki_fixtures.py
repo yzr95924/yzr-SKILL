@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """check_wiki_fixtures.py — fixtures 一致性检查（升级时专用）
 
-按 wiki-spec §三 + lint-checklist §五的 fixture 视角，校验一个已存在 wiki 的"约定文件"
-（AGENTS.md / CLAUDE.md / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
-MEMORY/MEMORY.md / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml）是否满足
-当前 wiki spec 的结构要求。本脚本只校验**结构性字节合规**；语义合并（frontmatter 字段
-升级 / index 重复条目 / 多 MEMORY 条目归并等）由 lint-checklist §五 + LLM agent 走
-migration plan 时的语义合并规则处理——本脚本不替代。
+按 wiki-spec（§3/§4/§5/§6/§9.1/§10/§13/§14 各节）的 fixture 视角，校验一个已存在 wiki 的
+"约定文件"（AGENTS.md §八 / .gitignore / wiki/index.md / wiki/log.md / wiki/tags.md /
+MEMORY/MEMORY.md / MEMORY/*.md 条目 / scripts/SCRIPTS.md / raw/external/.symlink-anchor.toml /
+wiki_metadata.toml）是否满足当前 wiki spec 的结构要求。本脚本只校验**结构性字节合规**；
+语义合并（frontmatter 字段升级 / index 重复条目 / 多 MEMORY 条目归并等）由
+migrate-workflow.md §六 + LLM agent 走 migration plan 时处理——本脚本不替代。
 
 用法:
   python3 check_wiki_fixtures.py [<WIKI_ROOT>] [--json] [--target-spec <semver>]
@@ -23,8 +23,9 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 - 该脚本不写文件，也不产出 migration plan（那是 lint_wiki.py --check-version
   `--apply` 以 stdout JSON 输出并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
 - 20 条 check（13 条结构探测 + 7 条骨架字段比对）；
-  下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架比对读
-  references/canonical/ + references/fixtures/gitignore.txt 作 SSOT（改 fixtures → check 自动跟随）。
+  下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架信号硬编码在
+  SKELETON_SPECS（与 references/canonical/ 一致，改 canonical 时手工同步描述符）；
+  唯独 .gitignore 走 references/fixtures/gitignore.txt 自动跟随。
 - AGENTS.md 走**模板渲染比对**（0.26.0+ `agents-md-template-sync`）：从 wiki §八 提取
   主题/创建日期/CLI 版本三变量 + wiki 自钉 spec 版本，渲染 references/agents-md-template.md
   后字节比对——一次性覆盖"旧版本残留 + 本地改动"全部漂移，取代 0.25.0- 的两条存在性检查
@@ -38,7 +39,7 @@ import difflib
 import json
 import os
 import re
-import subprocess  # noqa: F401 — 仅在 _git_inside_work_tree / _git_field 里用
+import subprocess  # _git_inside_work_tree / _git_field 使用
 import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -55,73 +56,73 @@ CHECK_REGISTRY = [
     {
         "id": "agents-version-is-current",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §10 + lint-checklist.md §三.1",
+        "rule_ref": "wiki-spec.md §10",
         "desc": "AGENTS.md §八 Wiki Spec 版本行需与 --target-spec 一致",
     },
     {
         "id": "agents-md-template-sync",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §10.1 + lint-checklist.md §二.14",
+        "rule_ref": "wiki-spec.md §10.1",
         "desc": "AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（§八 四变量替换后）；定制纪律应沉淀到 MEMORY/",
     },
     {
         "id": "gitignore-external-track-toml",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §13.4 + lint-checklist.md §三.3",
+        "rule_ref": "wiki-spec.md §13.4",
         "desc": ".gitignore 含 `raw/external/*` 排除 + `!raw/external/.symlink-anchor.toml` 跟踪；老 `**/.symlink-anchor.json` 残留即报错",
     },
     {
         "id": "symlink-anchor-toml-schema",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §13.2 + lint-checklist.md §三.3",
+        "rule_ref": "wiki-spec.md §13.2",
         "desc": "raw/external/.symlink-anchor.toml（若存在）：合法 TOML + [[entry]] 数组 + 每 entry 必填 4 字段 + git 仓时三扩展字段",
     },
     {
         "id": "symlink-anchor-toml-symlink-matches",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §13.1 + lint-checklist.md §三.3",
+        "rule_ref": "wiki-spec.md §13.1",
         "desc": "anchor 每个 [[entry]].symlink 对应 external/ 顶层同名 symlink；anchor 无对应 symlink / orphan symlink 一并检查",
     },
     {
         "id": "symlink-anchor-flat-not-legacy",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §13.6 + lint-checklist.md §三.3",
+        "rule_ref": "wiki-spec.md §13.6",
         "desc": "raw/external/ 不存在 <source-name>/ 子目录（0.17.0+ 扁平布局）",
     },
     {
         "id": "index-md-categories-stable",
         "severity": "warn",
-        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.4",
+        "rule_ref": "wiki-spec.md §3",
         "desc": "wiki/index.md 含 5 类别标题 (Entities / Concepts / Sources / Comparisons / Syntheses)",
     },
     {
         "id": "memory-index-no-frontmatter",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §5 + lint-checklist.md §三.5",
+        "rule_ref": "wiki-spec.md §5",
         "desc": "MEMORY/MEMORY.md（索引）不带 YAML frontmatter（其 ## 索引 段条目由 AGENTS.md 顶部 @MEMORY/MEMORY.md @import 加载）",
     },
     {
         "id": "memory-entries-indexed",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §三.5",
+        "rule_ref": "wiki-spec.md §5.1",
         "desc": "MEMORY/*.md（除 MEMORY.md）每条都在 MEMORY/MEMORY.md 索引中列出",
     },
     {
         "id": "log-md-format-strict",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §4 + lint-checklist.md §三.6",
+        "rule_ref": "wiki-spec.md §4",
         "desc": "wiki/log.md 每行匹配 `^## [YYYY-MM-DD HH:MM] (ingest|query|lint|setup) | .+$`（HH:MM 可选；老 wikis date-only 仍合法，宽容解析）",
     },
     {
         "id": "scripts-md-no-frontmatter",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §14 + lint-checklist.md §三.7",
+        "rule_ref": "wiki-spec.md §14",
         "desc": "scripts/SCRIPTS.md 不带 YAML frontmatter",
     },
     {
         "id": "tags-md-no-frontmatter",
         "severity": "error",
-        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.8",
+        "rule_ref": "wiki-spec.md §9.1",
         "desc": "wiki/tags.md 不带 YAML frontmatter",
     },
     {
@@ -256,7 +257,7 @@ def _parse_anchor_minimal(anchor_path: Path) -> Optional[List[Dict[str, str]]]:
         m = re.match(r"^([a-z_]+)\s*=\s*([0-9]+|true|false)\s*$", stripped)
         if m:
             continue
-        # 未知行 lenilent 跳过——返回上层按"无有效 entry"判定
+        # 未知行 silent 跳过——返回上层按"无有效 entry"判定
 
     if current is not None:
         entries.append(current)
@@ -308,7 +309,7 @@ def _git_field(target_path: Path, args: List[str]) -> Optional[str]:
 
 
 def check_agents_version(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#1: AGENTS.md §八 spec 行与 --target-spec 一致"""
+    """AGENTS.md §八 spec 行与 --target-spec 一致"""
     target_spec = info.get("target_spec") or None
     out = {  # type: Dict[str, object]
         "passed": True,
@@ -365,13 +366,14 @@ def _extract_agents_row(text: str, row_re: "re.Pattern[str]") -> Optional[str]:
 
 
 def check_agents_md_template_sync(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#12: AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（0.26.0+）。
+    """AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（0.26.0+）。
 
     per-wiki 变量只有 4 个（主题 / 创建日期 / CLI 版本 / Wiki Spec 版本，全在 H1 + §八），
     正文 §一~§七 + §九 跨 wiki 逐字相同——故用"提取变量 → 渲染模板 → 字节比对"一次覆盖
     旧版本残留 + 本地改动全部漂移，取代 0.25.0- 的两条存在性检查（has-at-imports /
-    top-read-directive）。{{WIKI_SPEC_VERSION}} 用 wiki 自钉版本替换，与 check#1
-    （版本行对齐 target）保持正交——本 check 只管"正文与模板同步"，不管版本新旧。
+    top-read-directive）。{{WIKI_SPEC_VERSION}} 用 wiki 自钉版本替换，与
+    `agents-version-is-current`（版本行对齐 target）保持正交——本 check 只管"正文与模板同步"，
+    不管版本新旧。
     修复路径：plan 的 fixtures-fix-agents-md-resync（全量重渲染；本地定制逐条与用户
     裁定搬 MEMORY/ 或丢弃）。
     """
@@ -421,7 +423,7 @@ def check_agents_md_template_sync(wiki_root: Path, info: Dict[str, str]) -> Dict
 
 
 def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#2: .gitignore 含 raw/external/* 排除 + !raw/external/.symlink-anchor.toml 跟踪"""
+    """.gitignore 含 raw/external/* 排除 + !raw/external/.symlink-anchor.toml 跟踪"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -448,7 +450,7 @@ def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dic
         out["passed"] = False  # type: ignore
         out["actual"] = "残留旧 `!raw/external/**/.symlink-anchor.json` 跟踪规则（0.17.0+ 退役）"
         out["expected"] = "!raw/external/.symlink-anchor.toml"
-        out["rule_ref"] = "wiki-spec.md §13.6 迁移 + lint-checklist.md §三.3"
+        out["rule_ref"] = "wiki-spec.md §13.6 迁移"
         return out
     if not has_exclude:
         out["passed"] = False  # type: ignore
@@ -464,7 +466,7 @@ def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dic
 
 
 def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#3: .symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 仓时三扩展字段"""
+    """.symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 仓时三扩展字段"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -516,7 +518,7 @@ def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> D
 
 
 def check_symlink_anchor_toml_symlink_matches(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#4: anchor entry ↔ external/ 顶层 symlink 双向匹配"""
+    """anchor entry ↔ external/ 顶层 symlink 双向匹配"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -558,7 +560,7 @@ def check_symlink_anchor_toml_symlink_matches(wiki_root: Path, info: Dict[str, s
 
 
 def check_symlink_anchor_flat(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#5: external/ 不存在 <source-name>/ 子目录（0.17.0+ 扁平）"""
+    """external/ 不存在 <source-name>/ 子目录（0.17.0+ 扁平）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -597,7 +599,7 @@ def check_symlink_anchor_flat(wiki_root: Path, info: Dict[str, str]) -> Dict[str
 
 
 def check_index_md_categories(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#6: wiki/index.md 含 5 类别标题（顺序可调）"""
+    """wiki/index.md 含 5 类别标题（顺序可调）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "warn",
@@ -626,7 +628,7 @@ def check_index_md_categories(wiki_root: Path, info: Dict[str, str]) -> Dict[str
 
 
 def check_memory_index_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#7: MEMORY/MEMORY.md 不带 YAML frontmatter"""
+    """MEMORY/MEMORY.md 不带 YAML frontmatter"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -647,7 +649,7 @@ def check_memory_index_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> 
 
 
 def check_memory_entries_indexed(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#8: MEMORY/*.md 每条在 MEMORY.md 索引列出"""
+    """MEMORY/*.md 每条在 MEMORY.md 索引列出"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -687,7 +689,7 @@ def check_memory_entries_indexed(wiki_root: Path, info: Dict[str, str]) -> Dict[
 
 
 def check_log_md_format(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#9: wiki/log.md 每行匹配严格格式（仅 ## 一级 heading 行）"""
+    """wiki/log.md 每行匹配严格格式（仅 ## 一级 heading 行）"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -702,8 +704,9 @@ def check_log_md_format(wiki_root: Path, info: Dict[str, str]) -> Dict[str, obje
     for i, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue
-        # 仅检查 ## 一级 heading 行；其它行（续段落 / 描述）允许
-        if line.lstrip().startswith("#"):
+        # 仅检查 ## 一级 heading 行（与 lint_wiki.py check_log_format 同口径；
+        # spec §4 条目正则即以 ## 起头）；其它行（续段落 / 描述）允许
+        if line.lstrip().startswith("## "):
             if not LOG_LINE_RE.match(line):
                 bad_lines.append(i)
     if bad_lines:
@@ -736,14 +739,14 @@ def _check_no_frontmatter(file_path: Path) -> Dict[str, object]:
 
 
 def check_scripts_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#10: scripts/SCRIPTS.md 不带 YAML frontmatter"""
+    """scripts/SCRIPTS.md 不带 YAML frontmatter"""
     result = _check_no_frontmatter(wiki_root / "scripts" / "SCRIPTS.md")
     result["file"] = "scripts/SCRIPTS.md"
     return result
 
 
 def check_tags_md_no_frontmatter(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#11: wiki/tags.md 不带 YAML frontmatter"""
+    """wiki/tags.md 不带 YAML frontmatter"""
     result = _check_no_frontmatter(wiki_root / "wiki" / "tags.md")
     result["file"] = "wiki/tags.md"
     return result
@@ -757,7 +760,7 @@ WIKI_METADATA_KEY_RE = re.compile(r"^[ \t]*([a-z_]+)[ \t]*=", re.MULTILINE)
 
 
 def check_wiki_metadata_reads_satisfied(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """check#13: wiki_metadata.toml 含 SKILL scan 读取的 6 字段（读取契约自洽）。
+    """wiki_metadata.toml 含 SKILL scan 读取的 6 字段（读取契约自洽）。
 
     CLI `wiki add` 必落盘 wiki_metadata.toml；缺失即产物不完整 → fail（不 skip）。
     复用 minimal TOML key=value 风格解析，不引入 tomli。
@@ -779,23 +782,18 @@ def check_wiki_metadata_reads_satisfied(wiki_root: Path, info: Dict[str, str]) -
 
 
 # ============================================================================
-# 骨架字段级比对——读 references/canonical/ + references/fixtures/
-# 让 fixtures/canonical 作 SSOT：改 fixtures → check 自动跟随。纯骨架件
-# （.gitignore/tags.md/SCRIPTS.md/MEMORY.md）全字段骨架比对；成长件
+# 骨架字段级比对——gitignore 读 references/fixtures/（canonical 无 .gitignore）；
+# 其余骨架信号（frontmatter 键 / H1 / 说明块 / ## 标题）硬编码在 SKELETON_SPECS
+# 描述符里（与 canonical/*.md 一致），改 canonical 时手工同步描述符。
+# 纯骨架件（.gitignore/tags.md/SCRIPTS.md/MEMORY.md）全字段骨架比对；成长件
 # （index.md/log.md）只比结构必填（frontmatter 键 + H1 + 说明块），不动成长内容。
-# 只有 index.md.txt/log.md.txt 带占位符，故其余文件 canonical==fixtures 字节相同——
-# 骨架提取统一读 canonical；唯独 .gitignore（canonical 无）走 fixtures。
+# 只有 index.md.txt/log.md.txt 带占位符，故其余文件 canonical==fixtures 字节相同。
 # ============================================================================
 
 
 def _fixtures_dir() -> Path:
     """references/fixtures/（带占位符模板；canonical 无 .gitignore，gitignore 走此）。"""
     return Path(__file__).resolve().parent.parent / "references" / "fixtures"
-
-
-def _canonical_dir() -> Path:
-    """references/canonical/（渲染后字面量金标准）。"""
-    return Path(__file__).resolve().parent.parent / "references" / "canonical"
 
 
 def _load_fixture_text(name: str) -> Optional[str]:
@@ -903,7 +901,7 @@ SKELETON_SPECS = [
         "id": "gitignore-init-rules-complete",
         "severity": "warn",
         "wiki_path": ".gitignore",
-        "rule_ref": "wiki-spec.md §6 + lint-checklist.md §三.3",
+        "rule_ref": "wiki-spec.md §6",
         "desc": ".gitignore 含 OS/编辑器 + Obsidian + 临时文件 段（各 ≥1 规则；external 段由 gitignore-external-track-toml 单独查）",
         "signals": {"gitignore_section_structure": True},
     },
@@ -911,7 +909,7 @@ SKELETON_SPECS = [
         "id": "index-md-frontmatter-complete",
         "severity": "error",
         "wiki_path": "wiki/index.md",
-        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.4",
+        "rule_ref": "wiki-spec.md §3",
         "desc": "wiki/index.md frontmatter 含 6 必填键（title/type/okf_version/tags/created/updated）",
         "signals": {"frontmatter_keys": ["title", "type", "okf_version", "tags", "created", "updated"]},
     },
@@ -927,7 +925,7 @@ SKELETON_SPECS = [
         "id": "log-md-frontmatter-complete",
         "severity": "error",
         "wiki_path": "wiki/log.md",
-        "rule_ref": "wiki-spec.md §4 + lint-checklist.md §三.6",
+        "rule_ref": "wiki-spec.md §4",
         "desc": "wiki/log.md frontmatter 含 5 必填键（title/type/tags/created/updated）",
         "signals": {"frontmatter_keys": ["title", "type", "tags", "created", "updated"]},
     },
@@ -935,7 +933,7 @@ SKELETON_SPECS = [
         "id": "memory-index-skeleton",
         "severity": "warn",
         "wiki_path": "MEMORY/MEMORY.md",
-        "rule_ref": "wiki-spec.md §5.1 + lint-checklist.md §三.5",
+        "rule_ref": "wiki-spec.md §5.1",
         "desc": "MEMORY/MEMORY.md 含 H1（# MEMORY）+ 说明块 + ## 索引",
         "signals": {"h1": "# MEMORY", "blockquote": True, "section_headings": ["## 索引"]},
     },
@@ -943,7 +941,7 @@ SKELETON_SPECS = [
         "id": "scripts-md-skeleton",
         "severity": "warn",
         "wiki_path": "scripts/SCRIPTS.md",
-        "rule_ref": "wiki-spec.md §14 + lint-checklist.md §三.7",
+        "rule_ref": "wiki-spec.md §14",
         "desc": "scripts/SCRIPTS.md 含 H1（# Scripts）+ 说明块 + ## 索引",
         "signals": {"h1": "# Scripts", "blockquote": True, "section_headings": ["## 索引"]},
     },
@@ -951,7 +949,7 @@ SKELETON_SPECS = [
         "id": "tags-md-skeleton",
         "severity": "warn",
         "wiki_path": "wiki/tags.md",
-        "rule_ref": "wiki-spec.md §3 + lint-checklist.md §三.8",
+        "rule_ref": "wiki-spec.md §9.1",
         "desc": "wiki/tags.md 含 H1（# Tags）+ 说明块（无 ## 索引——tags 直接 bullet 列表）",
         "signals": {"h1": "# Tags", "blockquote": True},
     },

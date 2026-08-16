@@ -104,7 +104,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **不**修改 `raw/` 下任何文件（即便用户要求）——延续 SKILL.md 核心原则 §1 的 LLM 只读纪律
 - **不**删除 wiki 内容（即便 raw 已不存在 source 页）——用 `archived: true` 替代
 - **不**对 MEMORY 索引做"自动补行"以外的改动——MEMORY.md 是 LLM 私有记忆清单
-- **不**改 `wiki/log.md` / `wiki/index.md` frontmatter（4 字段 reserved，迁移不触及）
+- **不**改 `wiki/log.md` / `wiki/index.md` frontmatter（index 6 键 / log 5 键 reserved，迁移不触及）
 - **不**在迁移过程中调用 ingest / query / lint（保持职责单一）
 - **冲突页绝不自动覆盖**（已在 step 3 / step 5 双重保险）
 - **不**给迁移追加 log 条目——迁移是脚本运行，不是 wiki 操作事件
@@ -180,7 +180,7 @@ canonical `fixtures/gitignore.txt` 已移除该行，老 wiki 留着也无害。
 
 ## 完整样例
 
-见 SKILL.md §参考样例段（`examples.md` 已下沉到那里）。
+见 [`examples.md`](examples.md)（SKILL.md §参考样例 指向它）。
 
 ---
 

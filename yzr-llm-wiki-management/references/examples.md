@@ -59,7 +59,7 @@
    <Concept B> 强调 <特点 2>（来源 sources/<source-b>.md）..."
 4. 询问用户："这段对比适合归档为 wiki/comparisons/<concept-a>-vs-<concept-b>.md 吗？"
 5. 用户同意后：
-   - 用 references/page-templates.md#comparison 模板
+   - 用 references/page-templates.md §二 comparison 模板
    - 写 wiki/comparisons/<concept-a>-vs-<concept-b>.md
    - 更新 index.md
    - 追加 log.md：## [2026-06-24 15:10] query | <Concept A> vs <Concept B>
@@ -78,7 +78,7 @@
      `[NOTES] raw-immutable-skipped: 未启用 git（无 .git/）` 提示）
    - 3 个页面缺 updated 字段
    - 1 个失效引用：concepts/transformer.md 链到 sources/bigtable.md 但后者不存在
-   - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist §二.7](../lint-checklist.md#7-过期摘要)），建议复查
+   - 5 个 source 页 updated 超过 stale 阈值（阈值见 [lint-checklist.md §二.7](lint-checklist.md#7-过期摘要)），建议复查
    - 1 个孤儿页：concepts/<orphan-concept>.md 没有任何 inbound link
    - 1 个 `contested-page`：sources/<entity-v2>.md 与 sources/<entity-v1>.md 对某核心属性
      说法冲突、已双向标注 `contested: true`——需与用户裁定后移除标记
@@ -106,8 +106,8 @@
      skill_spec   : 0.7.0
      comparison   : older
      needs_migration: true
-     [LEGACY] 共 12 处老格式现场
-       - confidence-field (12) → wiki-spec-changelog.md#附录-b-0-7-0
+     [LEGACY] 共 12 处老格式现场（示意输出）
+       - confidence-field (12) → 搜 wiki-spec-changelog.md 中 0.7.0 行
            wiki/sources/<legacy-page>.md  [CONFLICT] ← 同时有 reviewed，需人工裁定
            wiki/sources/<another-legacy>.md
            ...

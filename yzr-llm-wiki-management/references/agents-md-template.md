@@ -4,7 +4,8 @@
 > 必须在每次操作前先读这份文件；任何对 wiki 的写入都必须符合这里规定的边界。
 >
 > **本文件（`AGENTS.md`）是本 wiki 纪律的单一真源（SSOT）**——工具无关。由 workspace CLI 在初始化时按
-> [`wiki-spec.md`](wiki-spec.md) §2 拷贝生成；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改
+> `yzr-llm-wiki-management` skill 仓 `references/wiki-spec.md` §2 拷贝生成（spec 随 skill
+> 分发，不在本 wiki 内）；后续可由用户编辑，**但**任何与本 skill 的核心原则冲突的修改
 > 都视为"非标准配置"，skill 行为不再保证一致。**本 wiki 特有的纪律 / 偏好请沉淀到 `MEMORY/`**
 > （由下方 `@import` 加载，会话常驻），不要写进本文件——spec 升级时本文件按 skill 最新模板
 > **全量重渲染**（wiki-spec §10.1），本地修改一律不保留。
@@ -244,7 +245,9 @@ type: <entity|concept|source|comparison|synthesis>
 tags: [<标签>]
 created: YYYY-MM-DD HH:MM
 updated: YYYY-MM-DD HH:MM
-sources: [<raw 相对路径数组>]  # source / synthesis 必填；entity / concept 可选
+sources: [<路径数组>]  # 必填：source 页 = raw/ 路径（最外层 <wiki>/ 相对，如 raw/articles/x.pdf）；
+                        # synthesis 页 = wiki 内页路径（内容根 wiki/ 相对，如 concepts/x.md）
+                        # 两类基准刻意区分（wiki-spec §9）；entity / concept 可选
 ---
 ```
 
