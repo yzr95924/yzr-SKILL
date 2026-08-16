@@ -22,10 +22,12 @@ standalone（不依赖 lint_wiki.py）；自身合法 TOML 解析，不依赖 to
 设计权衡:
 - 该脚本不写文件，也不产出 migration plan（那是 lint_wiki.py --check-version
   `--apply` 以 stdout JSON 输出并 call 它的活）；standalone 调用方只能看到 stdout/JSON 报告。
-- 20 条 check（13 条结构探测 + 7 条骨架字段比对）；
+- 21 条 check（13 条结构探测 + 7 条骨架字段比对 + 1 条模板自检 `template-no-outbound-refs`）；
   下一个 wiki spec 升级只需新增 register 条目 / SKELETON_SPECS 描述符。骨架信号硬编码在
   SKELETON_SPECS（与 references/canonical/ 一致，改 canonical 时手工同步描述符）；
   唯独 .gitignore 走 references/fixtures/gitignore.txt 自动跟随。
+- `template-no-outbound-refs`（0.33.0+）：模板零出边引用是架构不变量（纪律正文唯一维护点 =
+  模板；spec / SKILL.md / page-templates.md 单向指入模板），由该 check 机械强制。
 - AGENTS.md 走**模板渲染比对**（0.26.0+ `agents-md-template-sync`）：从 wiki §八 提取
   主题/创建日期/CLI 版本三变量 + wiki 自钉 spec 版本，渲染 references/agents-md-template.md
   后字节比对——一次性覆盖"旧版本残留 + 本地改动"全部漂移，取代 0.25.0- 的两条存在性检查
@@ -64,6 +66,12 @@ CHECK_REGISTRY = [
         "severity": "error",
         "rule_ref": "wiki-spec.md §10.1",
         "desc": "AGENTS.md 与 references/agents-md-template.md 渲染稿字节一致（§八 四变量替换后）；定制纪律应沉淀到 MEMORY/",
+    },
+    {
+        "id": "template-no-outbound-refs",
+        "severity": "error",
+        "rule_ref": "wiki-spec.md §2（纪律正文唯一副本 canonical）",
+        "desc": "模板零出边引用——不得含 wiki-spec/page-templates/lint-checklist/SKILL.md/references/yzr-llm-wiki-management/阿拉伯数字 §节号（wiki 侧跨仓读不到 skill，指针全是死引用）",
     },
     {
         "id": "gitignore-external-track-toml",
@@ -419,6 +427,60 @@ def check_agents_md_template_sync(wiki_root: Path, info: Dict[str, str]) -> Dict
         out["passed"] = False  # type: ignore
         out["expected"] = "AGENTS.md 与渲染模板字节一致（定制纪律沉淀到 MEMORY/，不进本文件）"
         out["actual"] = f"{len(changed)} 行与模板渲染稿不一致（首处: {preview}）" if preview else "与模板渲染稿不一致"
+    return out
+
+
+# 模板零出边引用（0.33.0+ 架构不变量：纪律正文唯一维护点 = 模板，模板是引用图汇点）。
+# 任何指向 skill 仓文件 / 阿拉伯数字 §节号的引用都会被本 check 报 error——wiki 侧 agent
+# 跨仓解析不了这些指针（模板自己都写着"模板与配套工具随 skill 分发，不在本 wiki 内"），
+# 对运行时读者是死指针；改纪律只改模板对应段，spec / SKILL.md / page-templates.md 单向指入模板。
+TEMPLATE_OUTBOUND_PATTERNS = (
+    "wiki-spec.md",
+    "page-templates.md",
+    "lint-checklist.md",
+    "SKILL.md",
+    "references/",
+    "yzr-llm-wiki-management",
+    "OKF",
+)
+TEMPLATE_OUTBOUND_SECTION_RE = re.compile(r"§[0-9]")
+
+
+def _scan_template_outbound_refs(text):
+    """扫模板文本中的出边引用，返回 ["<行号>:<模式>", ...]（空 = 干净）。
+
+    独立成函数便于测试——检测逻辑直接喂合成文本；check 函数做文件 IO + 报告。
+    """
+    hits = []  # type: List[str]
+    for ln_no, ln in enumerate(text.splitlines(), 1):
+        for pat in TEMPLATE_OUTBOUND_PATTERNS:
+            if pat in ln:
+                hits.append(f"{ln_no}:{pat}")
+        if TEMPLATE_OUTBOUND_SECTION_RE.search(ln):
+            hits.append(f"{ln_no}:§节号引用")
+    return hits
+
+
+def check_template_no_outbound_refs(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
+    """references/agents-md-template.md 不含任何指向 skill 仓的出边引用（0.33.0+）。
+
+    模板随 init 拷贝进每个 wiki 成为 AGENTS.md——wiki 侧 agent 读不到 skill 仓，模板内
+    一切 `wiki-spec.md` / `page-templates.md` / `lint-checklist.md` / `SKILL.md` /
+    `references/` / 阿拉伯数字 §节号 引用都是死指针（零白名单，含 provenance 声明也不得
+    携带——0.33.0 起全部改写为自包含措辞）。skill 仓内文件 → 模板 单向引用由本 check
+    机械强制；对每个 wiki 报告同一结果（模板是全局文件），违反时 error 逼 skill 侧修复。
+    """
+    out = {"passed": True, "severity": "error", "file": "references/agents-md-template.md"}  # type: Dict[str, object]
+    template = _read_text(Path(__file__).resolve().parent.parent / "references" / "agents-md-template.md")
+    if template is None:
+        out["passed"] = None
+        out["skipped"] = "references/agents-md-template.md 未找到（无法模板自检）"
+        return out
+    hits = _scan_template_outbound_refs(template)
+    if hits:
+        out["passed"] = False
+        out["expected"] = "模板不含任何指向 skill 仓的引用（自包含措辞；spec / SKILL.md 单向指入模板）"
+        out["actual"] = "出边引用: " + "; ".join(hits[:8])
     return out
 
 
@@ -1000,6 +1062,7 @@ CHECK_REGISTRY.extend(
 CHECK_FUNCTIONS = [
     ("agents-version-is-current", check_agents_version),
     ("agents-md-template-sync", check_agents_md_template_sync),
+    ("template-no-outbound-refs", check_template_no_outbound_refs),
     ("gitignore-external-track-toml", check_gitignore_external_track),
     ("symlink-anchor-toml-schema", check_symlink_anchor_toml_schema),
     ("symlink-anchor-toml-symlink-matches", check_symlink_anchor_toml_symlink_matches),
