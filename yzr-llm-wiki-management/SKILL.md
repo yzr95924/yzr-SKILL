@@ -225,10 +225,11 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
    不参与 `lint_wiki.py` 扫描、不复制 skill 自带脚本（版本漂移风险）。
    `agents-md-template.md`「scripts/ —— 本 wiki 仓的自维护脚本目录」段承载同一规则（canonical 副本 = 模板）。
 
-13. **yzr 个人工作习惯**（语言风格 / 遇阻退后一步 / 表达先归纳后落笔）——**canonical 副本 =
-    [`agents-md-template.md`](references/agents-md-template.md) §九**（纪律正文唯一维护点，
-    改习惯只改那一处；每个 wiki 的 AGENTS.md 随模板渲染自动带出同一段）。触发本 skill 的
-    会话对用户输出前先 `Read` 该段一次——这些习惯适用于一切面向用户的输出。
+13. **yzr 个人工作习惯**——**canonical 副本 =
+    [`agents-md-template.md`](references/agents-md-template.md) §九**（纪律正文唯一维护点；
+    习惯清单以该节为准，此处不枚举——增改习惯只改模板，不动本文件、不升
+    `wiki_spec_version`，老 wiki 由 `agents-md-template-sync` 字节比对独立探测后重渲染）。
+    触发本 skill 的会话对用户输出前先 `Read` 该段一次——这些习惯适用于一切面向用户的输出。
 
 ### 边界
 
