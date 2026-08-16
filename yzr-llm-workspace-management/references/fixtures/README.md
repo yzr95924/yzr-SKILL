@@ -16,7 +16,7 @@ workspace CLI init 时落盘的 `<workspace>/MEMORY/MEMORY.md` 的**字面量金
   `../scripts/check_workspace_fixtures.py` 的模板渲染字节比对（`agents-md-template-sync` /
   `claude-md-template-sync`，0.7.0+；模板在 `../workspace-agents-md-template.md` +
   `../workspace-claude-md-template.md`），与 wiki 的 `agents-md-template.md` / `claude-md-template.md` 同（占位符模板不进 fixtures）
-- `workspace.toml` / `workspace_models.toml` / `.gitignore`——TOML / gitignore，schema 在 spec
+- `workspace.toml` / CLI 内部配置 toml / `.gitignore`——TOML / gitignore，schema 在 spec
   §2 / §3 / §10，不走 markdown fixture
 
 ## 用法
