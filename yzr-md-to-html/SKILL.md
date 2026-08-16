@@ -22,43 +22,24 @@ metadata:
 语法高亮（Pygments），并**按需**自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件
 里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。
 
-> 依赖：Python ≥ 3.7；Python 包清单（单一来源）见 `scripts/md_to_html.py` 的 `DEPENDENCIES`
-> 常量——直接跑脚本即可，缺包时脚本报错并给出 `pip install` 命令。无需 pandoc、无需 Node。
+## 何时不使用
 
-## 何时使用 / 不使用
+"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**与**擦边负例**：
 
-### 使用
-
-- 输入是**本地 `.md` 文件 / 目录**、产物是**本地自包含 `.html` 文件**的**单向转换**——这是本 skill 的硬边界
-- 用户给一份本地 `.md`（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想要一个能直接打开看的 HTML
-- 文档含代码块 / 公式 / 流程图，希望它们在产物里被正确渲染
-- 想批量把一个目录下的 `.md` 全转成 HTML
-
-### 不使用
-
-- **从零写网页 / 前端页面** → 没有现成 .md 输入、直接制作 HTML 页面用基础工具即可
-- **文档站 / 静态站点生成与部署发布**（要托管上线的在线网页，mkdocs / docsify 类需求）→ 本 skill 产物是本地文件，不生成站点、不做部署
-- **上传到 Outline Wiki** → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
-- **PDF → Markdown** → 本 skill 不做
-- **Markdown → PDF / 其它格式** → 本 skill 只输出 HTML
-- **HTML → Markdown**（反向）→ 本 skill 不做
-- 想要实时预览 / 在线编辑器 → 本 skill 是一次性导出，不是编辑器
+- **出路**：上传到 Outline Wiki → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
+- **擦边负例**："转成 html 后上传分享"仍属本 skill（转换 + 上传两段，上传走「上传产物」节）；
+  但"搭文档站 / 部署上线"不是——本 skill 产物是本地文件，不生成站点、不做部署；"PDF /
+  网页 → Markdown"反向转换同样不是（本 skill 只输出 HTML）
 
 ## 输入 / 输出
 
-| 字段 | 必选 | 说明 |
-| --- | --- | --- |
-| 输入路径 | ✓ | 一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`） |
-| `-o` / `--output` | ✗ | 文件输入：输出 `.html` 路径（默认同名 `.html`）；目录输入：输出目录（默认就地生成） |
-| `--title` | ✗ | `<title>` 与浏览器标签名；默认取首个 `#` 一级标题，再退回文件名 |
-| `--template` | ✗ | 自定义 Jinja2 HTML 模板路径，覆盖默认主题（可用变量见下） |
-| `--style` | ✗ | 自定义 CSS 路径，覆盖默认深色主题 |
-| `--no-toc` | ✗ | 关闭侧边栏目录 |
-| `--lang` | ✗ | `<html lang>`，默认 `zh-CN` |
+- **输入**：一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`）
+- **输出**：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联；KaTeX / Mermaid 按需走 CDN）
+- **参数与默认值以 `python3 scripts/md_to_html.py --help` 为单一来源**（argparse 定义，此处不
+  重抄）：文件输入默认生成同名 `.html`；目录输入默认就地生成，`--title` 默认取首个 `#`
+  一级标题再退回文件名
 
-输出：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联；KaTeX / Mermaid 按需走 CDN）。
-
-**自定义模板可用变量**（`--template` 传入的 Jinja2 模板里用）：
+**自定义模板可用变量**（`--template` 传入的 Jinja2 模板里用，不在 `--help` 范围内）：
 `{{ content }}`（正文 HTML）、`{{ toc }}`（目录 HTML）、`{{ styles }}`（默认主题 CSS）、
 `{{ pygments_css }}`（代码高亮 CSS）、`{{ title }}`、`{{ lang }}`，
 以及布尔开关 `{{ has_math }}` / `{{ has_mermaid }}` / `{{ has_toc }}`（控制是否挂对应 CDN / 侧边栏）。
@@ -118,6 +99,6 @@ python3 yzr-md-to-html/scripts/md_to_html.py notes/
 
 ## 前置条件
 
-- Python ≥ 3.7
+- Python ≥ 3.7，无需 pandoc、无需 Node
 - Python 依赖清单的**单一来源**：`scripts/md_to_html.py` 的 `DEPENDENCIES` 常量
 - 直接跑脚本即可；缺包时脚本报错并列出 `pip install` 命令（不抛裸 ImportError 栈）

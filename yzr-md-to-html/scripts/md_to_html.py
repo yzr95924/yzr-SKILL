@@ -142,7 +142,7 @@ def convert_file(
     return out
 
 
-def convert_dir(src_dir: Path, out_dir: Path, template: Path, style: Path, lang: str) -> int:
+def convert_dir(src_dir: Path, out_dir: Path, template: Path, style: Path, lang: str, want_toc: bool) -> int:
     files = sorted(src_dir.rglob("*.md"))
     if not files:
         sys.exit(f"目录下没有 .md 文件: {src_dir}")
@@ -150,7 +150,7 @@ def convert_dir(src_dir: Path, out_dir: Path, template: Path, style: Path, lang:
     count = 0
     for f in files:
         rel = f.relative_to(src_dir).with_suffix(".html")
-        convert_file(f, out_dir / rel, None, template, style, True, lang)
+        convert_file(f, out_dir / rel, None, template, style, want_toc, lang)
         count += 1
     return count
 
@@ -181,14 +181,14 @@ def main(argv=None) -> None:
 
     if src.is_dir():
         out_dir = Path(args.output) if args.output else src
-        n = convert_dir(src, out_dir, template, style, args.lang)
+        n = convert_dir(src, out_dir, template, style, args.lang, not args.no_toc)
         print(f"已批量转换 {n} 个文件 → {out_dir}/")
     else:
         out = Path(args.output) if args.output else src.with_suffix(".html")
         convert_file(src, out, args.title, template, style, not args.no_toc, args.lang)
         print(f"已生成: {out}")
         source_text = src.read_text(encoding="utf-8")
-        if "$" in source_text or "mermaid" in source_text:
+        if MATH_HINT in source_text or MERMAID_RE.search(source_text):
             print("（含公式 / Mermaid，首次打开需联网加载 CDN）")
 
 
