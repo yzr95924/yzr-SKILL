@@ -11,7 +11,7 @@
         "产出 SKILL.md 的 frontmatter 含 name / description，description 描述具体触发场景且写\"主动\"",
         "`python -m scripts.quick_validate <skill-dir> --tier default` 对产出无 WARN（额外路由节 INFO 可接受）",
         "产出 SKILL.md 引用了 assets/skill-template.md 骨架对应的规范节名，而不是自创节名",
-        "产出 SKILL.md 正文 ≤ 2000 词（中文按 1 词 ≈ 1.5–2 字折算，用字符数 / 1.7 估算）",
+        "产出 SKILL.md 正文 ≤ 2000 词（中文按 1 词 ≈ 1.5–2 字折算，用字符数 / 1.7 估算；阈值口径 SSOT 见 references/skill-writing-principles.md「精简原则」软目标——改阈值需同步本条）",
         "产出正文无\"通用背景铺垫\"常识段（如 \"X is a common file format\" / 大段文件格式科普）",
         "产出正文无同义多语言示例堆叠（同一操作并列 python + js + go 实现）"
       ]

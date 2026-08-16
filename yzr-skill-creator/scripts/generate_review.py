@@ -114,7 +114,7 @@ def build_run(root: Path, run_dir: Path) -> Optional[dict]:
     # Try eval_metadata.json — search up the tree so the standard layout
     # `<iter>/eval-N/{config}/run-N/` can find metadata at `<iter>/eval-N/eval_metadata.json`
     search_roots = [run_dir, run_dir.parent, run_dir.parent.parent, run_dir.parent.parent.parent]
-    for candidate in [root / "eval_metadata.json" for root in search_roots if root]:
+    for candidate in [sr / "eval_metadata.json" for sr in search_roots if sr]:
         if candidate.exists():
             try:
                 metadata = json.loads(candidate.read_text())
@@ -154,10 +154,10 @@ def build_run(root: Path, run_dir: Path) -> Optional[dict]:
 
     # Load grading if present — same upward search as eval_metadata.json
     grading = None
-    for root in [run_dir, run_dir.parent, run_dir.parent.parent, run_dir.parent.parent.parent]:
-        if not root:
+    for search_root in [run_dir, run_dir.parent, run_dir.parent.parent, run_dir.parent.parent.parent]:
+        if not search_root:
             continue
-        candidate = root / "grading.json"
+        candidate = search_root / "grading.json"
         if candidate.exists():
             try:
                 grading = json.loads(candidate.read_text())
@@ -304,6 +304,10 @@ def generate_html(
         embedded["benchmark"] = benchmark
 
     data_json = json.dumps(embedded)
+    # Escape "</" so no output content (e.g. an .html eval output) can close
+    # the injected <script> tag and break the page. "\/" is a legal escape in
+    # JSON strings, so the replacement is transparent to JSON.parse.
+    data_json = data_json.replace("</", "<\\/")
 
     return template.replace("/*__EMBEDDED_DATA__*/", f"const EMBEDDED_DATA = {data_json};")
 
