@@ -31,6 +31,7 @@ import select
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -268,36 +269,71 @@ def run_eval(
     removed = cleanup_stale_eval_skills()
     if removed:
         print(f"Cleaned {removed} stale eval-skill dir(s) from prior run.", file=sys.stderr)
+
+    # The real skill is usually vendored under ~/.claude/skills/ and would
+    # shadow the per-query eval clone in the subprocess's available_skills
+    # list: the model triggers the real skill, detection sees no
+    # `_eval_skill_*` tool call, and recall silently collapses to 0%. Claude
+    # Code discovers ANY directory under ~/.claude/skills/ regardless of its
+    # name (a `.hidden`-suffixed rename is still listed), so the vendored
+    # copy must be MOVED OUT of the skills dir for the duration of the eval,
+    # then restored in `finally`.
+    real_skill_dir = EVAL_SKILLS_DIR / skill_name
+    hidden_path = None
+    if real_skill_dir.exists():
+        import shutil
+
+        hidden_path = Path(tempfile.mkdtemp(prefix="_skill_eval_hide_")) / skill_name
+        try:
+            shutil.move(str(real_skill_dir), str(hidden_path))
+            print(
+                f"Moved vendored skill {skill_name} out of ~/.claude/skills for the duration of the eval.",
+                file=sys.stderr,
+            )
+        except OSError as e:
+            hidden_path = None
+            print(
+                f"Warning: could not hide vendored skill {skill_name} ({e}); eval may measure "
+                f"0% recall if the model triggers the real skill instead.",
+                file=sys.stderr,
+            )
+
     results = []
 
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        future_to_info = {}
-        for item in eval_set:
-            for run_idx in range(runs_per_query):
-                future = executor.submit(
-                    run_single_query,
-                    item["query"],
-                    skill_name,
-                    description,
-                    timeout,
-                    str(project_root),
-                    model,
-                )
-                future_to_info[future] = (item, run_idx)
+    try:
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            future_to_info = {}
+            for item in eval_set:
+                for run_idx in range(runs_per_query):
+                    future = executor.submit(
+                        run_single_query,
+                        item["query"],
+                        skill_name,
+                        description,
+                        timeout,
+                        str(project_root),
+                        model,
+                    )
+                    future_to_info[future] = (item, run_idx)
 
-        query_triggers: Dict[str, List[bool]] = {}
-        query_items: Dict[str, dict] = {}
-        for future in as_completed(future_to_info):
-            item, _ = future_to_info[future]
-            query = item["query"]
-            query_items[query] = item
-            if query not in query_triggers:
-                query_triggers[query] = []
-            try:
-                query_triggers[query].append(future.result())
-            except Exception as e:
-                print(f"Warning: query failed: {e}", file=sys.stderr)
-                query_triggers[query].append(False)
+            query_triggers: Dict[str, List[bool]] = {}
+            query_items: Dict[str, dict] = {}
+            for future in as_completed(future_to_info):
+                item, _ = future_to_info[future]
+                query = item["query"]
+                query_items[query] = item
+                if query not in query_triggers:
+                    query_triggers[query] = []
+                try:
+                    query_triggers[query].append(future.result())
+                except Exception as e:
+                    print(f"Warning: query failed: {e}", file=sys.stderr)
+                    query_triggers[query].append(False)
+
+    finally:
+        if hidden_path is not None and os.path.lexists(str(hidden_path)):
+            shutil.move(str(hidden_path), str(real_skill_dir))
+            print(f"Restored vendored skill {skill_name}.", file=sys.stderr)
 
     for query, triggers in query_triggers.items():
         item = query_items[query]

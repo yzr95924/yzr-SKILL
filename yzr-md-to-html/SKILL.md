@@ -1,20 +1,19 @@
 ---
 name: yzr-md-to-html
 description: |
-  当用户给一份本地 Markdown（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想转成一个
-  自包含、双击即可在浏览器浏览的 HTML 文件时使用本 skill。默认套深色阅读主题（GitHub-dark
-  风格，纯深色），自带侧边栏目录 TOC 与离线代码语法高亮（Pygments），并按需自动启用数学公式
-  （KaTeX）与 Mermaid 图表——只有源文件里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通
-  文档零额外网络请求。支持 `--template` 传入自定义 HTML 模板覆盖默认主题。产物若要上传分享：
-  仅当 agent 已配置 `agent-html-drop` MCP 服务时才考虑经它上传，当前不提供其他上传方式。
+  当用户想把一份本地 Markdown 文件 / 目录（README / 技术文档 / 笔记 / 论文草稿）转换成
+  自包含、双击即可在浏览器打开的本地 HTML 文件时使用本 skill：默认深色阅读主题 + 侧边栏目录
+  TOC + 离线代码高亮，公式 / Mermaid 按需挂 CDN，支持 `--template` 自定义模板。
   触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接
-  看的网页" / "把 notes/ 目录下的笔记批量转成 html" / "转成 html 后用 agent-html-drop 上传
-  分享"。
-  不适用：上传到 Outline Wiki（走 yzr-outline-wiki）、PDF 转 Markdown、HTML 反向转
-  Markdown、实时预览编辑器。
+  打开看的网页" / "把 notes/ 目录下的 .md 批量转成 html" / "转成 html 后用 agent-html-drop
+  上传分享"。只要用户明确要"本地 .md → 自包含 HTML 文件"的单向转换——即使没提 skill 名，
+  也务必使用本 skill。
+  不适用：从零写网页 / 前端页面（走基础工具）、文档站 / 静态站点生成与部署发布（要托管上线
+  的在线网页）、Markdown → PDF 或其它格式、HTML → Markdown 反向、实时预览 / 在线编辑器、
+  上传到 Outline Wiki（走 yzr-outline-wiki）。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-04
+  modify time: 2026-08-16
   category: document-conversion
 ---
 
@@ -30,14 +29,18 @@ metadata:
 
 ### 使用
 
+- 输入是**本地 `.md` 文件 / 目录**、产物是**本地自包含 `.html` 文件**的**单向转换**——这是本 skill 的硬边界
 - 用户给一份本地 `.md`（README / 技术文档 / 笔记 / 设计文档 / 论文草稿），想要一个能直接打开看的 HTML
 - 文档含代码块 / 公式 / 流程图，希望它们在产物里被正确渲染
 - 想批量把一个目录下的 `.md` 全转成 HTML
 
 ### 不使用
 
+- **从零写网页 / 前端页面** → 没有现成 .md 输入、直接制作 HTML 页面用基础工具即可
+- **文档站 / 静态站点生成与部署发布**（要托管上线的在线网页，mkdocs / docsify 类需求）→ 本 skill 产物是本地文件，不生成站点、不做部署
 - **上传到 Outline Wiki** → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
 - **PDF → Markdown** → 本 skill 不做
+- **Markdown → PDF / 其它格式** → 本 skill 只输出 HTML
 - **HTML → Markdown**（反向）→ 本 skill 不做
 - 想要实时预览 / 在线编辑器 → 本 skill 是一次性导出，不是编辑器
 
