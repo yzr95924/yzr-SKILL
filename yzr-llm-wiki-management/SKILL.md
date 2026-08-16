@@ -203,8 +203,7 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
    强制列出**。MEMORY 沉淀只改 `MEMORY.md` 这一份、无副本漂移。写入流程见工作流 §4。
 10. **LLM 修改已审核页必须清 `reviewed` 戳——每次编辑后跑 `wiki_write.py touch`**
     （自动 `updated`=现在 + 删 `reviewed` / `reviewed_at`，见 §设计决策「机械 vs 判断」）；
-    `lint_wiki.py` 用 `reviewed-stale`（`reviewed: true` 但 `updated > reviewed_at`，
-    内容在审核后又变了）兜底。完整生命周期规则见
+    `lint_wiki.py` 用 `reviewed-stale` 兜底。完整生命周期规则见
     [`agents-md-template.md`](references/agents-md-template.md) §二「认知质量信号」（纪律 canonical 副本）。
 
 11. **tag 白名单在 `wiki/tags.md`**（详
@@ -277,10 +276,16 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 > LLM 压力下会被以各种合理化借口绕开——三件套只堵一类：**已被合理化的违反**。
 > 未被合理化的违反（直接忽略规则）= 缺 §反模式 清单本身，与三件套无关。
 
-#### Rationalization Table（仅占位 — Iron Law baseline 后替换为真实 transcript）
+#### Rationalization Table
+
+> **baseline 实跑记录（2026-08-16，0.33.0 审计）**：3 次 RED 运行——① 带纪律 ingest
+> 任务：全程合规零借口；② 无纪律 ingest 任务（Iron Law 创建场景）：仍合规（模型自带该
+> 规范知识）；③ 带纪律 + 用户施压任务（"随便记一下 / 赶时间"）：产出真实借口一条（下表
+> 第 1 行）+ 一处静默遗漏（frontmatter 缺必填 `tags` 字段，无借口直接漏掉）。
 
 | 常见借口 | 为什么是错的 | 应改做什么 |
 | --- | --- | --- |
+| "剪藏只有一句话，按'克制建页'原则和你说的小事轻办，一个资料页够了"（2026-08-16 实跑 transcript） | 用户的"随便 / 赶时间"是态度不是豁免——写 wiki 页即触发 5 必填 / 建页阈值 / log 纪律；"轻办"是拿用户情绪当省略纪律的挡箭牌（同轮还静默漏了必填 `tags` 字段） | 流程不缩水；"克制建页"判断如实执行但**向用户说明**（"本文只有一个中心主题，暂不建概念页，出现第二篇同主题再补"），字段与 log 纪律照走 |
 | "用户没明说要我做这一步" | 本 skill 的纪律点（log / lint / reviewed 戳 / 等）触发条件是**事**而非**人**——写了 wiki 页就是触发 lint，写了 source 就是清 reviewed 戳——用户没说 = 沉默 ≠ 豁免 | 先按 §执行原则走完纪律，再决定是否省略；省略要写明理由进 log 条目 |
 | "这次是单页 ingest，跳过 entity/concept 同步更快" | 知识孤岛 = wiki 复利亏空——单页也一样要 cross-link；"更快"是把当前 case 凌驾于复利结构之上 | 哪怕只挂 1 个 entity 页也要同步；交叉引用是 wiki 的 ROI 核心 |
 | "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
@@ -288,9 +293,9 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 | "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 失去 commit 锚点 + 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
 | "这个 wiki 没 git，不写 log 也行" | log.md 记的是**操作语义**（ingest/query/lint）+ 近期活动速览（orient ritual 读它避免重复工作）——这是 git diff 不直接体现的；完整文件历史才靠 git | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
 
-> **占位声明**：上表 6 条是基于本 skill §反模式 / §边界 段"反推"出的 LLM 嫌疑借口，**未**经过
-> 实跑 baseline transcript 验证。Red Flags 同样如此。下次 Iron Law 跑出真实借口后，**只替换 /
-> 不追加**——保持"只收录 agent 实际说过的"原则（预写 = 噪声 + 信号干扰）。
+> **表内条目两类**：第 1 行 = 实跑 transcript 逐字摘录；其余 6 条 = 从 §反模式 / §边界
+> 反推的**嫌疑清单**（多次 baseline 未复现）——保留为未来实跑验证 / 替换的候补。保持
+> "只收录 agent 实际说过的"原则：实跑复现即替换 / 未复现不新增（预写 = 噪声 + 信号干扰）。
 
 #### 违反字面 = 违反精神
 
@@ -306,6 +311,7 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 
 念头出现 ≠ 已违反；念头 = 警告 = 重读 §核心原则 / §边界 / §反模式 三段。
 
+- "用户说'随便记一下 / 赶时间 / 别太正式'——纪律可以打折了"（2026-08-16 实跑观察）
 - "我觉得这一步对当前 case 不必要"
 - "用户没明说要我做这步"
 - "这样更快 / 更省 token / 更高效"
