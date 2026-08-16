@@ -1,8 +1,8 @@
 ---
 name: my-skill-name
 description: |
-  当用户<场景>时使用本 skill——<干什么 + 关键能力>（≤ 1024 字符，
-  上限见 scripts/utils.py::DESCRIPTION_MAX_CHARS）。
+  当用户<场景>时使用本 skill——<干什么 + 关键能力>（长度上限见
+  scripts/utils.py::DESCRIPTION_MAX_CHARS）。
   触发：<"用户原话" / 场景描述，主动句式；把没显式提 skill 名但显然需要的
   情形也列进去，防 agent 少触发>
   不适用：<负例 + 出路（走 X / 直接用基础工具），出路可选>
@@ -40,8 +40,9 @@ references/skill-template-guide.md「变体」。参考资料型 skill 可省略
 ## 工作流 / 步骤
 
 <按顺序的操作步骤。多入口 skill 可在「何时不使用」之前加一个路由节（如
-「四个入口」）。单步超过下放阈值（见 references/skill-writing-principles.md
-「正文超长根因诊断」）= 下放到 references/xxx-workflow.md，正文留路标>
+「四个入口」，判据见 references/skill-template-guide.md「变体」）。单步超过下放阈值
+（见 references/skill-writing-principles.md「正文超长根因诊断」）= 下放到
+references/xxx-workflow.md，正文留路标>
 
 ## 参考样例
 
