@@ -23,10 +23,13 @@ metadata:
 （显式忽略 `agents-version-is-current`），故 CLI 仓 CI 不红——红的是「用户手跑探测器看到 fail」的
 体验，隐蔽性强。
 
-**How to apply:** bump 流程——① my_SKILL 改 frontmatter + `lint_wiki.py` + 两 changelog 行，commit +
-push → ② CLI 仓改 `llmw/__init__.py` 两常量 + `git submodule update --remote my_SKILL` 推进指针 →
+**How to apply:** bump 流程——① my_SKILL 改 frontmatter + `lint_wiki.py`，commit + push
+（版本演进叙事写进 commit message，spec 仓已无 changelog 文件）→ ② CLI 仓改
+`llmw/__init__.py` 两常量 + `git submodule update --remote my_SKILL` 推进指针 →
 ③ 两边同窗口 push（CLI 有 pre-push hook 校验 my_SKILL 已是 origin 最新才放行）。CLI 仓
 `git@github.com:yzr95924/llm_workspace_cli.git`，submodule 路径 `my_SKILL`，track `master`。
 patch/minor 选型：非破坏性（新 check 在现有产物 pass / prose 不改字节）→ patch；引入字节级出生形态
-变更 → 按 wiki/workspace-spec-changelog 既有惯例 minor/breaking。关联
+变更 → minor/breaking。breaking 的迁移指令必须落
+`yzr-llm-wiki-management/references/migrate-workflow.md` §六（wiki 侧唯一迁移依据 SSOT）。
+关联
 [[wiki-workspace-spec-type-coupling]]（另一条跨 spec/跨仓 耦合）+ [[memory-synced-to-skill-source]]。

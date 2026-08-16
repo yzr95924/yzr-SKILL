@@ -4,10 +4,5 @@
 #               与这些 .md）。改一个字符就破坏 detector，必须原样保留——lint 结果无意义。
 # fixtures/*.txt : 同上，CLI 落盘骨架的字节金标准（.gitignore / index.md / log.md ...）。
 #                  README.md 是作者文档，仍参与 lint（不在本忽略范围）。
-# *-spec-changelog.md : spec 演进日志，单个表格 cell 是一段超长叙事（含 `## [date] <op> | <title>`
-#                       格式串里的 `|`、`<placeholder>` 角括号 metavariable、密集 inline code）。
-#                       GFM 渲染正确，但 markdownlint 对 `|`/`<...>` 的朴素解析产生 MD056/MD033/MD038
-#                       假阳性 + 零渲染影响的 cosmetic 噪音——属归档叙事，不进 lint gate。
 **/references/canonical/**
 **/references/fixtures/*.txt
-**/*-spec-changelog.md

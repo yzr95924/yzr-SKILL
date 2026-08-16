@@ -75,8 +75,8 @@ metadata:
 - **lint** → `log` 中报告：raw/ 是否被改、孤儿页、断裂交叉引用、过期摘要、缺
   frontmatter、log.md 格式
 - **migrate** → 跑 `scripts/lint_wiki.py --check-version` 输出 spec 版本 + legacy 现场
-  报告；`--apply` 把 migration plan 以 JSON 输出到 stdout（不落盘）供 agent 按 `wiki-spec.md`
-  附录 B 走 Edit/Write 修复；详见 §5 Migrate
+  报告；`--apply` 把 migration plan 以 JSON 输出到 stdout（不落盘）供 agent 按
+  `references/migrate-workflow.md` 走 Edit/Write 修复；详见 §5 Migrate
 
 ## 设计决策
 
@@ -85,7 +85,8 @@ metadata:
 > **一个写操作进脚本（`wiki_write.py`），当且仅当：(1) 输出字节是输入的纯函数**
 > （不读正文、无权衡、无用户偏好）；**(2) lint 已有对应检查能验证产物**（round-trip
 > 可测：脚本产物必须 lint-clean）。**两条缺一 → 留 agent/md。迁移期一律 agent**
-> （迁移 = 格式未定之时，脚本只认识当前形态）。完整论证见 changelog 0.31.0。
+> （迁移 = 格式未定之时，脚本只认识当前形态）。完整论证见 git log
+> （`git log --follow -- yzr-llm-wiki-management/SKILL.md`，0.31.0 提交）。
 
 - **已固化**（五子命令都满足两条）：log 追加+截断 / index 条目增删 / touch `updated`+清
   reviewed 戳 / new 脚手架（5 必填 frontmatter + H1，slug 校验 + 拒覆盖）/
@@ -461,14 +462,16 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 - **脚本**（`scripts/lint_wiki.py --check-version`，**含**自动调 `check_wiki_fixtures.py`
   扫约定文件）= 探测器，只扫不修，输出报告 / `--apply` 时 stdout 输出 migration plan
-- **agent** = 修复者，按 stdout 返回的 migration plan + [`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)
+- **agent** = 修复者，按 stdout 返回的 migration plan（actions[] 自带
+  remove/add_or_modify/to_action）
   用 Edit/Write 改
   frontmatter / 移文件 / 补索引 / 同步 AGENTS.md 到模板（全量重渲染，wiki-spec §10.1）；
   走 plan.fixtures_actions[] 修约定文件；
   语义合并按 [`references/migrate-workflow.md` §六](references/migrate-workflow.md#六语义合并规则) 走
 - **迁移期不走 `wiki_write.py`**——迁移 = 格式流动期，机械写命令只认识当前形态
   （准入规则例外，见 §设计决策「机械 vs 判断」）
-- **[`wiki-spec-changelog.md`](references/wiki-spec-changelog.md)** = SSOT（迁移依据每行写在那边）；fixtures-check 的语义合并
+- **迁移依据 SSOT** = plan actions[] + migrate-workflow.md §六（语义合并）——
+  不另设历史档案；fixtures-check 的语义合并
   走 migrate-workflow.md §六（与 §三 字节合规分离）
 - **不**追加 log 条目（迁移是脚本运行，不是 wiki 操作事件）
 
