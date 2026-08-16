@@ -44,7 +44,7 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
         lines.append(f"  [OK] AGENTS.md 存在（{agents.stat().st_size} 字节）")
         if has_claude:
             lines.append(f"  [OK] CLAUDE.md 并存（{claude_md.stat().st_size} 字节）")
-            lines.append("  [路径 2] 已有 AGENTS.md（+CLAUDE.md）→ 规范化 + 合并存 CLAUDE.md，冲突让用户裁定")
+            lines.append("  [路径 2] 已有 AGENTS.md（+CLAUDE.md）→ 规范化 + 合并并存 CLAUDE.md，冲突让用户裁定")
         else:
             lines.append("  [路径 2] 已有 AGENTS.md（纯，无 CLAUDE.md）→ 规范化（去品牌残留 / 改记忆段为 @import）")
     elif has_claude:

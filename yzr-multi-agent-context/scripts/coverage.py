@@ -26,8 +26,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import yaml
-
 # Bootstrap sys.path：保持 `python3 -m scripts.coverage` 与 `python3 scripts/coverage.py` 一致。
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -133,7 +131,7 @@ def _extract_preamble(text: str) -> str:
 def check_memory_sync(root: Path) -> List[str]:
     r"""校验 R2 记忆 `@import` 收口的几何（R2：AGENTS.md 顶部强制 Read 指令 + @MEMORY/MEMORY.md 单行）。
 
-    检查三件事：
+    检查四件事：
     1. `MEMORY/MEMORY.md` 存在——L2 索引的真源在此，缺则 R2 引用会指向空气。
     2. AGENTS.md 有且仅有一行 `@MEMORY/MEMORY.md`——多行（说明重复挂）或缺失（说明走的是旧方案 /
        已改为内联）都算违反。
@@ -214,6 +212,10 @@ def parse_memory_frontmatter(text: str) -> Tuple[Optional[dict], Optional[str]]:
     if end is None:
         return None, "frontmatter 未闭合（缺第二个 ---）"
     yaml_block = "\n".join(lines[1:end])
+    try:
+        import yaml
+    except ImportError:
+        return None, "缺 PyYAML 依赖——请先安装: pip install --user --break-system-packages pyyaml"
     try:
         meta = yaml.safe_load(yaml_block)
     except yaml.YAMLError as e:
@@ -301,10 +303,18 @@ def overlap_coeff(a: frozenset, b: frozenset) -> float:
 
 def coverage(root: Path, threshold: float, min_tokens: int) -> Tuple[List[str], int, int]:
     """返回 (报告行, flag 数, 评估行数)。"""
-    src = root / ".migration-backup" / "CLAUDE.md.original"
+    # 路径 1 快照 CLAUDE.md.original；路径 2（纯 AGENTS.md 规范化）快照 AGENTS.md.original——
+    # 两个候选都要找，命中哪个比对哪个（Step 1 只快照实际存在的源）。
+    backup = root / ".migration-backup"
+    src = backup / "CLAUDE.md.original"
+    if not src.exists():
+        src = backup / "AGENTS.md.original"
     lines = []
     if not src.exists():
-        lines.append(f"[硬错误] 找不到源文件 {src}——Step 1 应先快照原 CLAUDE.md 到此处。")
+        lines.append(
+            f"[硬错误] 找不到 Step 1 快照源（CLAUDE.md.original / AGENTS.md.original 均缺）——"
+            f"应先快照原文件到 {backup}。"
+        )
         return lines, -1, 0
 
     targets = collect_targets(root)

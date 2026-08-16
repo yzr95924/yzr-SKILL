@@ -10,7 +10,7 @@
 | 层 | 文件 | 加载时机 | 内容特征 | 预算 |
 |----|------|---------|---------|------|
 | L1 常驻层 | `AGENTS.md` | 两类 agent 每次 session 必加载：原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md` 的 | 项目身份 / 规约 / 命令 / 高层结构 / 协作摘要 | 正文 ≤1500 词 |
-| L2 记忆层 | `MEMORY/MEMORY.md`（索引） + `MEMORY/<slug>.md`（正文） | 索引经 AGENTS.md 顶部强制 Read 指令 + `@MEMORY/MEMORY.md` 一行引入；正文按需 `Read` | 跨会话”为什么”、设计决策、踩坑记录 | 索引行数不限（只存 `MEMORY.md`，AGENTS.md 单行引用不计入 L1） |
+| L2 记忆层 | `MEMORY/MEMORY.md`（索引） + `MEMORY/<slug>.md`（正文） | 索引经 AGENTS.md 顶部强制 Read 指令 + `@MEMORY/MEMORY.md` 一行引入；正文按需 `Read` | 跨会话“为什么”、设计决策、踩坑记录 | 索引行数不限（只存 `MEMORY.md`，AGENTS.md 单行引用不计入 L1） |
 
 > 只有这两层。本 skill **不生成任何 agent 专属的触发式 rule 文件**（如部分 agent 的自家触发式 rule 目录）——
 > 那类机制官方多未文档化，且 `AGENTS.md` 主路径已让读它的 agent 兼容；触发式拆分交给用户在目标
@@ -91,5 +91,5 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 **L1 词数控制**：正文总词数守 L1 预算（§两层定义），记忆索引段只占 1 行（`@MEMORY/MEMORY.md`），
 **不**计入 L1 词数预算——索引真实数据走 `MEMORY/MEMORY.md`，AGENTS.md 这段本质是引用 + fallback，不是内容。
-如果 L1 内容超出 L1 预算，说明描述太详细——把”为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
+如果 L1 内容超出 L1 预算，说明描述太详细——把“为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
 L1 只保留摘要。索引本身无条数上限——索引只活在 `MEMORY/MEMORY.md`，AGENTS.md 只引用不计数。
