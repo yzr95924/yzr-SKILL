@@ -100,8 +100,9 @@ Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_
   | B. `## Reference`（H2） | bazel | 少数 |
   | C. 无 Reference 段，直接进 `# 平台A` / `# 平台B` | Token 获取方式子平台分块（`# 阿里云百炼` / `# GLM`） | 少数 |
 
-- **新建时建议**：优先选 A（与多数存量一致）；选 B 略偏紧凑；选 C
-  仅在"文档本身就是平台对比清单"时合理
+- **新建时建议**：选 B（`## Reference`）——OKF 块已占正文首块，Reference 不再用
+  `#` / H1（避免与 title 语义重复；与 `style_checklist.md` §1 一致）；A / C 是
+  OKF 之前的存量历史形态，仅维护旧文档时遵从原文体
 - 同一篇文档内**不要混用** A/B/C
 
 **H1 内允许嵌套其他 mark**：
@@ -425,8 +426,8 @@ OKF 标准载体是 `---...---` YAML frontmatter。但 Outline 的 MCP
   - `comparison`——多对象横向对比
   - `synthesis`——跨来源综合
 - **Outline 专属扩展**：
-  - `design-doc`——设计文档（`design-doc-edit` 的产出）
-  - `paper-note`——论文笔记（`gemini-paper-summary` 推上来的）
+  - `design-doc`——设计文档（`yzr-sys-design-doc` 的产出）
+  - `paper-note`——论文笔记（上游论文摘要工具推上来的）
   - `runbook`——操作手册 / SOP / 故障处理
   - `reference`——速查 / API / 配置清单
   - `guide`——教程 / how-to

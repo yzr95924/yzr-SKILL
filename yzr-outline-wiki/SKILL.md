@@ -14,7 +14,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  last_modified: 2026-08-14
+  modify time: 2026-08-16
 ---
 
 # Outline Wiki
@@ -26,37 +26,18 @@ metadata:
 控制上传格式——使 Outline 文档可被 agent 读回理解。
 
 本 skill 是 outline-wiki 家族中唯一的**操作** skill（搜 / 读 / 写全合一）；
-MCP server 接入与鉴权在 agent 配置文件中维护（见 §接入）。2026-08-14 由
-`yzr-outline-wiki-search`（搜 / 读）与 `yzr-outline-wiki-upload`（写 / 编辑）合并
-而来——两 skill 此前各经数月实战使用（隐式验证），合并仅做结构整合与去重，
-坑位知识（REST 旁路 / attachment 3 步 / OKF 载体）逐条保留。
+MCP server 接入与鉴权在 agent 配置文件中维护（见 §接入）。
 
-## 何时使用 / 不使用
+## 何时不使用
 
-### 使用
+"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**：
 
-- 用户在对话中提到"搜 outline / 找 outline 文档 / 在 outline 工作区搜一下"
-- 用户给出文档 ID，要求"读这篇文档 / 取这篇 markdown / 打开这篇 outline"
-- 需要按关键词全文搜索匹配文档列表
-- 需要拿到某篇文档的 Markdown 原文 + 元数据（创建时间 / 作者 / Collection 等）
-- 用户说"创建 / 写 / 编辑 / 改 / 更新 / 推 / 上传 / publish / 同步 / 拷贝一篇
-  文档到 outline"
-- 用户说"outline 文档含图 / 把图传到 outline / 给 outline 文档插图"
-- 用户说"@某人 / 评论 / 移动 / 删除 / 归档 / 整理 outline 文档"
-- 用户说"管理 outline collection / 新建 collection / 改 collection 描述"
-- 跑 gemini-paper-summary / 类似上游工具后，要把生成的本地 markdown + figures
-  **推到 outline**——本 skill 是必经之路（attachment 3 步 + Markdown 替换）
-
-### 不使用
-
-- **配置 outline MCP / 鉴权**（MCP 未注册 / 401 / 403）——见 §接入：
-  在 agent 配置文件中维护 MCP server，改完重启会话生效
-- 用户使用其他 wiki / 知识库产品（Notion / Confluence / Obsidian / GitHub Wiki）
-- 分享、导出、权限调整（官方 MCP 文档未列、server 通常也未暴露）——
-  走 Outline Wiki 自身 UI 或直接调 REST API
-- 需要**彩色高亮**等 Markdown 表达不出来的富文本特性
-  （`create_document` / `update_document` 不接收原始 ProseMirror 节点）——
-  走 UI 或直接调 REST API 并附 `proseMirrorDoc` 参数
+- **配置 outline MCP / 鉴权**（MCP 未注册 / 401 / 403）→ 见 §接入：在 agent 配置文件中
+  维护 MCP server，改完重启会话生效
+- **分享 / 导出 / 权限调整**（官方 MCP 未列、server 通常未暴露）→ 走 Outline 自身 UI
+  或 REST API
+- **彩色高亮等 Markdown 表达不出的富文本**（`create_document` / `update_document` 不接收
+  原始 ProseMirror 节点）→ 走 UI，或 REST API 附 `proseMirrorDoc` 参数
 
 ## 输入 / 输出
 
@@ -103,29 +84,19 @@ middlebox 占位返回空 200，真正的 MCP 只在 HTTPS 443 透到上游。
 
 ## 设计决策（按 ProseMirror JSON 的"投影"写 Markdown）
 
-> Outline 后端持久化的是 **ProseMirror 节点树**，MCP 工具的 `create_document` /
-> `update_document` 只接受 Markdown 字符串作为输入。因此：
->
-> - **写之前**先想清楚这条 Markdown 会被解析成哪个 ProseMirror 节点
-> - **不要**使用 Markdown 表面能写、但 ProseMirror schema 不接受的语法
-> - **不要**使用 Markdown 表面写不出来、必须靠 UI 才能表达的语法（如指定
->   highlight 颜色）；这类需求走 [`references/doc_style.md`](references/doc_style.md)
->   "进阶"路径
-
-详细 Markdown ↔ ProseMirror 节点映射表见
-[`references/doc_style.md`](references/doc_style.md)。本 SKILL.md 只列风格速查
-表 + 关键反模式，**完整的 §1-§13 映射 + 图片附件上传流程 + @mention 语法 +
-彩色高亮写不出来**都在 references 里。
+Outline 持久化的是 **ProseMirror 节点树**，MCP 只收 Markdown 字符串——写每条 Markdown
+前先想它会被解析成哪个节点；schema 不接受的语法不要用，Markdown 表达不出的（如彩色
+高亮）走「进阶」。完整原则、§1-§13 映射表、图片附件上传流程、@mention 语法均在
+[`references/doc_style.md`](references/doc_style.md)，本文件只列风格速查 + 关键反模式。
 
 ## OKF 上传格式（agent 可读基线）
 
-> **为什么**：推到 Outline 的文档要能被 agent **读回理解**——本 skill 读回
-> markdown body、外部 OKF 消费端解析、检索分块都依赖一个可机读的元数据头 +
-> 可预测的正文结构。OKF = Open Knowledge Format（"markdown + frontmatter、
-> 人 / agent 都能读"），权威实现是
-> [`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)；
-> 本仓库 `yzr-llm-wiki-management` SKILL.md 落地了 v0.1
-> 子集，本 skill 沿用**同一定义**，只为 Outline 做载体适配。
+> **为什么**：推到 Outline 的文档要能被 agent **读回理解**——OKF（Open Knowledge Format，
+> "markdown + frontmatter"）元数据头 + 可预测正文结构是读回 / 检索 / 分块的前提。完整
+> 定义、字段表、type 枚举、载体选型实测与最小骨架示例见
+> [`references/doc_style.md` → OKF agent 可读基线](references/doc_style.md#okf-agent-可读基线上传格式控制)；
+> 本仓库 `yzr-llm-wiki-management` 落地了 v0.1 子集，本 skill 沿用**同一定义**，只为
+> Outline 做载体适配。
 
 **Outline 侧载体（SSOT 在 doc_style.md）**：OKF 标准用 `---...---` frontmatter，
 但 Outline 的 MCP 往返实测**不支持**（`---` 被吃掉、YAML 泄漏成可见正文），
@@ -133,25 +104,6 @@ middlebox 占位返回空 200，真正的 MCP 只在 HTTPS 443 透到上游。
 Outline 原生字段承载不进块。**硬门槛只有 `type` 非空**——其余字段消费端
 一律容忍，能填都填（`description` / `tags` / `created` / `updated`）；
 `okf_version`（单篇无 bundle）与 `title` 不放本块；`x-outline` 为可选溯源块。
-载体选型实测细节、完整字段表、`type` 枚举与改写时如何 patch yaml 块，见
-[`references/doc_style.md` → OKF agent 可读基线](references/doc_style.md#okf-agent-可读基线上传格式控制)。
-
-**正文首块最小骨架**（title 走 Outline 字段，不进块）：
-
-````markdown
-```yaml
-type: paper-note
-description: 一句话摘要；agent 索引摘要从它来
-tags: [llm, architecture]
-created: 2026-07-01
-updated: 2026-07-01
-x-outline:
-  collection: 论文笔记
-  source-skill: gemini-paper-summary
-```
-
-## 正文第一节
-````
 
 **正文结构纪律**：yaml 块是正文第一个块（前面无任何内容）；标题从 `##` 起、
 不跳级、同级不重名（agent 用标题做分块锚点）；一篇一主题；链接用 Outline
@@ -299,6 +251,9 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 ### 反模式（写之前先看）
 
+> 与 doc_style.md「反模式」节双写：本表是常驻闸门摘要，完整版在 doc_style——
+> 新增条目两边同步。
+
 - 正文首块不是 OKF ```yaml 元数据块，或块内缺非空 `type`（agent 读回被跳过；硬门槛说明见 §OKF 上传格式）
 - 把 OKF `title` 重复写进 yaml 块（title 已由 Outline 字段承载）
 - 在 yaml 块写 `okf_version`（标准只在 bundle 根 `index.md` 声明，单篇文档不该有）
@@ -350,12 +305,6 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 - **不**处理非 Outline Wiki 的知识库
 - **不**在 MCP 未启用时尝试操作（先按 §接入 配置并重启会话）
-- **不**支持分享 / 导出 / 权限调整（官方 MCP 文档未列、server 通常也未
-  暴露）—— 走 Outline UI 或 REST API
-- **不**支持彩色高亮（Markdown 写不出来，`create_document` /
-  `update_document` 不接收原始 ProseMirror 节点）—— 走 Outline UI 或 REST API
-  时附 `proseMirrorDoc` 参数
-- **不**绕过 `tools/list` 凭"印象"调用工具
 - **不**在 server 端生成 / 撤销 API Key（那是 Outline Wiki 用户在
   **Settings → API** 中的操作）
 
@@ -526,11 +475,10 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 
 按以下顺序定位：
 
-1. **fetch 只返元数据、读不到正文** — 部分 MCP 客户端（如 Claude Code，
-   2026-07-01 实测）只呈现首个 content block，正文被丢弃——这是**客户端侧**
-   问题，**不是**文档空 / ID 错 / 鉴权问题，别往那些方向排查。拿正文走下方
-   REST 旁路；或 `list_documents(query)` 的 `context` 拿正文片段（短文档接近
-   全文，长文档会截）
+1. **fetch 只返元数据、读不到正文** — 客户端只呈现首个 content block（客户端侧问题，
+   别往文档空 / ID 错 / 鉴权方向排查；机制与实测见「能力清单 · Read」）——正文走下方
+   REST 旁路；或 `list_documents(query)` 的 `context` 拿正文片段（短文档接近全文，
+   长文档会截）
 2. **认证失败（401 / 403）** — key 过期 / 被撤销：重新生成 API key 并更新
    MCP 配置（§接入），改完重启会话生效
 3. **MCP 未启用 / 连接被拒** — 按 §接入 排查（MCP toggle / endpoint 协议）
@@ -608,9 +556,9 @@ curl -sS -X POST "<base>/api/documents.info" \
 > create 工具的 schema 不要求 collection_id（例如允许按 Collection 名称引用），
 > 则按实际 schema 调用。
 
-### 样例四：从 gemini-paper-summary 推图到 outline
+### 样例四：从上游生成工具推图到 outline（以论文摘要产出为例）
 
-**用户指令**："把 gemini-paper-summary 生成的 `~/out/<slug>/summary.md` + `figures/*.png`
+**用户指令**："把上游论文摘要工具生成的 `~/out/<slug>/summary.md` + `figures/*.png`
 推到 outline 工作区"
 
 **执行**：
