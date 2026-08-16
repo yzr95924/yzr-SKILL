@@ -4,10 +4,9 @@
 > 必须在每次跨 wiki 操作前先读这份文件；任何对 workspace 根级文件的写入都必须符合
 > 这里规定的边界。
 >
-> **本文件（`AGENTS.md`）是本 workspace 纪律的单一真源（SSOT）**——工具无关。由 workspace CLI 在初始化时
-> 按 `yzr-llm-workspace-management` skill 仓 `references/workspace-spec.md` §4 拷贝生成（spec 随 skill
-> 分发，不在本 workspace 内）；后续可由用户编辑，**但**任何与本 skill 的核心原则
-> 冲突的修改都视为"非标准配置"，skill 行为不再保证一致。
+> **本文件（`AGENTS.md`）是本 workspace 纪律的单一真源（SSOT）**——工具无关。由 workspace CLI 在初始化时按
+> 本 skill 的官方模板拷贝生成（模板与配套工具随 skill 分发，不在本 workspace 内）；后续可由用户编辑，**但**
+> 任何与本 skill 的核心原则冲突的修改都视为"非标准配置"，skill 行为不再保证一致。
 >
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具
 > **必须**读取（不是"按需"）——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
@@ -18,9 +17,9 @@
 > 多终端 / 跨项目都能用。（薄壳 `CLAUDE.md` 仅服务于经薄壳加载的 agent，无独立纪律。）
 >
 > **作用域（scope）声明**：本文件（`AGENTS.md` + 同目录 `CLAUDE.md` 薄壳）**仅约束跨 wiki
-> 工作**——即 agent cwd 在 workspace 根目录或外部 cwd 下调用 `yzr-llm-workspace-management`
-> 的场景。**当 agent cwd 落到本 workspace 下某个 `<wiki>/` 子目录内、改跑
-> `yzr-llm-wiki-management` 时，本文件不应被加载**——该目录的纪律由 `<wiki>/AGENTS.md`
+> 工作**——即 agent cwd 在 workspace 根目录或外部 cwd 下调用本 skill（跨 wiki 维护工作流）
+> 的场景。**当 agent cwd 落到本 workspace 下某个 `<wiki>/` 子目录内、改跑单 wiki 维护时，
+> 本文件不应被加载**——该目录的纪律由 `<wiki>/AGENTS.md`
 > 接管，特别要警惕 MEMORY scope 边界（workspace `MEMORY/` = 跨 wiki；`<wiki>/MEMORY/` =
 > 单 wiki）与 ingest / log 写入归属（wiki 内写 `<wiki>/wiki/` + `<wiki>/wiki/log.md`，
 > 而非 workspace 级 `INDEX.md` / `STATS.md`）。不同 agent 的 `@AGENTS.md` 级联行为各异
@@ -29,13 +28,6 @@
 > `<wiki>/AGENTS.md` 的单 wiki 纪律冲突。
 
 @MEMORY/MEMORY.md
-
-<!-- 本段（§一归属表 / §二跨 wiki 约定 / §三查询纪律 / §四 lint / §五 Memory）与
-     `yzr-llm-workspace-management/SKILL.md` 的"文件归属"/三层职责/Memory 工作流、以及
-     `references/workspace-spec.md` §1（ownership）/ §9（MEMORY）是**重抄的精简版**——
-     本文件是 workspace CLI 拷给目标仓的 AGENTS.md 模板（target 跨仓无法回引 SKILL/spec），
-     必须自包含。SSOT：归属 → workspace-spec §1；MEMORY 纪律 → workspace-spec §9 + SKILL.md §5。
-     本模板与 SSOT 措辞故意对齐；改 SSOT 时同步改本模板，否则目标 workspace 与本 skill 行为脱节。 -->
 
 ## 一、本 workspace 的边界
 
@@ -48,21 +40,19 @@
 | `.gitignore` | workspace CLI | 排除承载密钥 / 凭据的 CLI 配置等敏感文件（清单见探测器 `gitignore-skeleton`） |
 | `AGENTS.md` | **用户**（CLI init 时拷 SSOT 模板） | workspace 纪律 SSOT（工具无关）；skill 只读（迁移例外见 §六） |
 | `CLAUDE.md`（薄壳） | **用户**（CLI init 时拷薄壳模板） | `@AGENTS.md`，仅供经薄壳自动加载的 agent（迁移例外同 §六） |
-| `INDEX.md` / `STATS.md` | yzr-llm-workspace-management skill | workspace 入口文档 + 结构化统计 |
-| `LINT.md` | yzr-llm-workspace-management skill | 最近一次 workspace lint 报告（快照） |
-| `cross_queries/` | yzr-llm-workspace-management skill | 跨 wiki 综合答案归档 |
-| `MEMORY/` | yzr-llm-workspace-management skill | 跨 wiki agent 私有记忆 |
-| `<wiki-name>/` | workspace CLI + yzr-llm-wiki-management | 每个 wiki 是独立子仓 |
+| `INDEX.md` / `STATS.md` | 跨 wiki 维护 agent（本 skill） | workspace 入口文档 + 结构化统计 |
+| `LINT.md` | 跨 wiki 维护 agent（本 skill） | 最近一次 workspace lint 报告（快照） |
+| `cross_queries/` | 跨 wiki 维护 agent（本 skill） | 跨 wiki 综合答案归档 |
+| `MEMORY/` | CLI init 建骨架 + 跨 wiki 维护 agent（本 skill） | 跨 wiki agent 私有记忆 |
+| `<wiki-name>/` | workspace CLI + 单 wiki 维护（纪律见各 `<wiki>/AGENTS.md`） | 每个 wiki 是独立子仓 |
 
 ### 三层职责切分（与各 wiki 的 AGENTS.md 区分）
 
 - **workspace CLI**：管 `workspace.toml` + CLI 内部配置（模型注册表等 `*.toml`）/ `.gitignore` + 每个 wiki 子仓元数据；
   不写 INDEX/STATS/LINT/MEMORY/cross_queries
-- **yzr-llm-workspace-management（本 skill）**：管 INDEX/STATS/LINT/MEMORY/cross_queries + 跨 wiki 编排；
+- **跨 wiki 维护（本 skill）**：管 INDEX/STATS/LINT/MEMORY/cross_queries + 跨 wiki 编排；
   不写 workspace.toml / CLI 内部配置 / .gitignore / AGENTS.md / CLAUDE.md（迁移例外见 §六）
-- **yzr-llm-wiki-management**：管各 wiki 的 ingest / query / lint + `<wiki>/MEMORY/`
-
-完整不变量与权威定义见 `yzr-llm-workspace-management` skill 仓 `references/workspace-spec.md`（随 skill 分发）。
+- **单 wiki 维护**：管各 wiki 的 ingest / query / lint + `<wiki>/MEMORY/`（纪律见各 `<wiki>/AGENTS.md`）
 
 ## 二、跨 wiki 约定
 
@@ -74,9 +64,8 @@
 [huawei_storage wiki 的 storage-architecture](../huawei_storage_wiki/wiki/concepts/storage-architecture.md)
 ```
 
-**不用 wikilink，不用绝对路径**。xref 由 yzr-llm-workspace-management 的 link 工作流
-（SKILL.md §3 link）统一维护，禁止各 wiki
-互相对对方 source 页做交叉写入（除非用户明确要求）。
+**不用 wikilink，不用绝对路径**。xref 由跨 wiki 维护 agent 的 link 工作流统一维护，
+禁止各 wiki 互相对对方 source 页做交叉写入（除非用户明确要求）。
 
 ### topic 重叠处理
 
@@ -88,15 +77,14 @@
 
 ### wiki 命名
 
-新 wiki 命名见 skill 仓 `workspace-spec.md` §15：推荐纯 kebab-case（如 `llm-inference-opt`）；
-CLI 允许 `[a-z0-9_-]{1,64}`，但**推荐避免下划线**以保持与 skill 名风格一致。
+新 wiki 命名**推荐**纯 kebab-case（如 `llm-inference-opt`）；CLI 允许
+`[a-z0-9_-]{1,64}`，但推荐避免下划线。
 
 ## 三、查询 / 综合纪律
 
 ### query 4 模式判定
 
-参考 `yzr-llm-workspace-management` SKILL.md §2 query
-的 4 模式（route / synthesis / compare / local）判定规则。**空 INDEX.md 时**：
+跨 wiki 综合查询按 4 模式判定（route / synthesis / compare / local）。**空 INDEX.md 时**：
 
 - 用户说"扫描 / 刷新 INDEX" → **scan**（先建 INDEX，再回答）
 - 用户说"总结 / 综合所有 wiki" → **scan + synthesis**（先建 INDEX，再路由）
@@ -108,11 +96,10 @@ CLI 允许 `[a-z0-9_-]{1,64}`，但**推荐避免下划线**以保持与 skill �
 
 ## 四、lint 纪律
 
-`yzr-llm-workspace-management` skill 的 lint 工作流（详见
-SKILL.md §4 lint）：
+跨 wiki 维护的 lint 工作流：
 
 - **workspace 级** deterministic 检查（跨 wiki 重复实体 / 失效链接 / 未注册 wiki 子目录）+ 半定性检查（主题重叠 / tag 体系）
-- **单 wiki 级** lint 走 `yzr-llm-wiki-management`，本 skill **不重复**
+- **单 wiki 级** lint 由各 `<wiki>/AGENTS.md` 定义的单 wiki 维护工作流覆盖，跨 wiki 维护**不重复**
 
 最近一次 lint 报告落 `<workspace>/LINT.md`（快照，每次 lint 覆盖）。
 
@@ -134,7 +121,7 @@ SKILL.md §4 lint）：
 - 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
 - 一次性观察 → 直接 chat，不写 MEMORY
 
-**条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` / wiki 侧 MEMORY 同步）：
+**条目形式按事实颗粒度选**：
 
 - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
   建 `MEMORY/<slug>.md`（frontmatter 5 必填 + 推荐 `wikis` 数组 + 推荐 `description`）+ 索引行
@@ -148,8 +135,7 @@ frontmatter 5 必填（`title` / `type` / `created` / `updated` / `tags`，**仅
 推荐 `wikis` 字段（涉及 wiki 名数组）与 `description`——指 `MEMORY/<slug>.md` 经验条目
 （`MEMORY.md` 索引本身无 frontmatter，被本文件 `@MEMORY/MEMORY.md` import 会话常驻）。
 **写每条经验后必须同步追加 `MEMORY.md` 索引一行**（按"条目形式"选完整或短格式），
-否则下次会话读不到。详见
-skill 仓 `workspace-spec.md` §9。
+否则下次会话读不到。
 
 ## 六、当前配置
 
@@ -159,8 +145,7 @@ skill 仓 `workspace-spec.md` §9。
 > 不写进本文件——否则升级重渲染时丢失。
 >
 > **迁移例外**：spec 升级时，agent 经用户确认可全量重渲染本文件 + 薄壳 `CLAUDE.md`、
-> 补 `.gitignore` 骨架、bump `workspace.toml` 的 `templates_version` 单字段
-> （流程见 skill 仓 workspace-spec §17 / SKILL.md §6 Migrate）；本地定制先逐条与用户裁定
+> 补 `.gitignore` 骨架、bump `workspace.toml` 的 `templates_version` 单字段；本地定制先逐条与用户裁定
 > 搬 `MEMORY/` 或丢弃。
 
 | 字段 | 值 |

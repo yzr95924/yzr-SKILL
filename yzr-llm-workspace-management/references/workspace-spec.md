@@ -171,7 +171,9 @@
   - CLI 自身版本号
 - 这 4 个值是 AGENTS.md 的**机读变量**——承载位置（H1 + 「当前配置」表，随模板定）是探测器的读取契约，
   用于 §17.1 模板渲染字节比对；具体渲染方式不限
-- 模板顶部说明块的"本文件 ... 按 workspace-spec.md §4 拷贝生成"反向引用，CLI **不得修改**
+- 模板顶部说明块的自述（"由 workspace CLI 在初始化时按本 skill 的官方模板拷贝生成"）为
+  **自包含措辞**——模板是引用图汇点，**零出边**（不指向任何 skill 仓文件；由
+  `template-no-outbound-refs` check 强制，见 §17.3），CLI **不得修改**
 - **不带 frontmatter**——AGENTS.md 是 plain markdown；与 wiki-spec §2 的 `<wiki>/AGENTS.md` 一致
 
 ### CLAUDE.md（薄壳）
@@ -376,18 +378,22 @@
 >   （由 `yzr-llm-wiki-management` 维护）
 > - ❌ **不**写跨 wiki 综合答案本身——归 `<workspace>/cross_queries/`
 > - ❌ **不**写一次性观察——直接 chat，不写 MEMORY
+>
+> **纪律正文唯一副本（canonical）**：MEMORY 的"何时写 / 不写 / 条目形式 / 判别尺度"纪律正文
+> 唯一维护点在 [`workspace-agents-md-template.md`](workspace-agents-md-template.md) §五——模板随
+> init 拷进 workspace（workspace 侧读者可达），故它就是副本宿主。本节只保留**机制契约**
+> （路径 / frontmatter 字段 / lint 语义 / CLI init 行为）；凡与模板重复的逐字纪律句以
+> 「纪律正文见模板 §五」指针代替。**改纪律只改模板 §五 + bump `workspace_spec_version`**。
+> 引用方向**单向**：spec / SKILL.md → 模板；模板**不**含任何指向 skill 仓的引用
+> （由 `template-no-outbound-refs` check 机械强制）。
 
 - 路径：`<workspace-root>/MEMORY/`
 - 目录名 `MEMORY` **大写**，区别于小写 `raw` / `wiki` / `cross_queries` 等目录
 - **MEMORY 不在 `INDEX.md` 中强制列出**——它是 agent 私有入口，不需要 workspace 单一入口约束
-- **条目形式按事实颗粒度选**（与仓库根 `MEMORY/` / wiki-spec §5 MEMORY/ 同步）：
-  - **完整条目**：含上下文 / 解决步骤 / 未来如何避免 → 建 `MEMORY/<slug>.md`（走 §9.2 规则），
-    索引行 `- <slug> — 一句话摘要 → [正文](<slug>.md)`
-  - **短条目**：一句话提醒 / 单一偏好 / 无需解释"为什么" → 索引行直接 `- 一句话事实`，
-    不单独建 `.md` 文件
-  - 判别尺度：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
-  - 短条目与完整条目可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底
-    "有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
+- **条目形式按事实颗粒度选**——完整 / 短两条写法的纪律正文见
+  [模板 §五](workspace-agents-md-template.md)（**canonical 副本**）；本节只留机制事实：
+  短条目与完整条目可在同一 `MEMORY/MEMORY.md` 共存；lint `memory-not-indexed` 只兜底
+  "有 .md 但未索引"，不强制反向（短条目无 .md，不进该检查）
 - 命名约束：详见 §15
 
 ### §9.1 MEMORY/MEMORY.md（索引）
@@ -408,7 +414,7 @@
   口径分裂）+ `## 索引` 段。索引行两种格式共存：
   - **完整条目**：`- <slug> — <一句话摘要> → [正文](<slug>.md)`（指向 §9.2 的 `MEMORY/<slug>.md`）
   - **短条目**：`- <一句话事实>`（无链接，对应无 `.md` 文件的索引行 reminder）
-  - 判别尺度见 §9 总段「条目形式按事实颗粒度选」
+  - 判别尺度见[模板 §五](workspace-agents-md-template.md)「条目形式按事实颗粒度选」（canonical 副本）
 - lint `memory-not-indexed` 兜底——`MEMORY/*.md`（排除 `MEMORY.md`）未在索引列出时报该项；
   短条目无 `.md` 不进该检查
 - **内容来源 / 字面量**：[`references/fixtures/memory-index.txt`](fixtures/memory-index.txt)
@@ -439,22 +445,14 @@
   - LLM agent **必须**创建（user 不写）
   - **必须**在 `MEMORY/MEMORY.md` 索引列出一行（skill 写 memory 时同步追加；
     lint `memory-not-indexed` 兜底漏列——severity = info，不阻断但提示）
-  - 短条目无对应 `.md` 文件，frontmatter 5 必填仅约束完整条目；判别尺度见 §9 总段
+  - 短条目无对应 `.md` 文件，frontmatter 5 必填仅约束完整条目；判别尺度见
+    [模板 §五](workspace-agents-md-template.md)（canonical 副本）
 
 ### §9.3 何时写 / 不写
 
-**写**（按 [`SKILL.md` §5 memory](../SKILL.md) 触发）：
-
-- 跨 wiki 的关联（"X 类主题放 A wiki，Y 类放 B wiki"）
-- 用户对 workspace 组织的偏好（"我更喜欢按时间线而非主题分 wiki"）
-- workspace-wide lint 模式（"最近 N 次 lint 总是报某类问题"）
-- 跨 wiki 综合经验（"这类问题需要先 scan 再答"）
-
-**不写**：
-
-- 单 wiki 的踩坑 → 归 `<wiki>/MEMORY/`
-- 跨 wiki 综合答案本身 → 归 `<workspace>/cross_queries/`
-- 一次性观察 → 直接 chat，不写 MEMORY
+**写**（按 [`SKILL.md` §5 memory](../SKILL.md) 触发）——何时写 / 不写的完整清单
+（跨 wiki 关联 / 用户偏好 / lint 模式 / 综合经验 vs 单 wiki 观察 / 综合答案 / 一次性观察）
+见[模板 §五](workspace-agents-md-template.md)（**canonical 副本**），本节不重复正文。
 
 ### §9.4 创建时机
 
@@ -645,10 +643,11 @@ MEMORY/MEMORY.md / workspace.toml `templates_version`）会有意识地保留旧
 
 ### §17.3 检测与修复流程
 
-探测器 `scripts/check_workspace_fixtures.py`（7 条 check：
+探测器 `scripts/check_workspace_fixtures.py`（8 条 check：
 `agents-version-is-current` / `agents-md-template-sync` / `claude-md-template-sync` /
 `gitignore-skeleton` / `memory-index-skeleton` / `workspace-toml-templates-version-sync`（warn，
-不阻断）/ `workspace-toml-reads-satisfied`（SKILL 读取契约自洽，error）；退出码 0 全过 / 1 有 error / 2 运行错误；`--json` 机器可读）。修复由 agent 按
+不阻断）/ `workspace-toml-reads-satisfied`（SKILL 读取契约自洽，error）/ `template-no-outbound-refs`
+（skill 仓模板零出边自检，error）；退出码 0 全过 / 1 有 error / 2 运行错误；`--json` 机器可读）。修复由 agent 按
 报告 `fix` 动作走 SKILL.md §6——**不落 plan 文件**（修复面恒定 ≤ 4 个结构文件，报告即
 清单；检测幂等，中断重跑即可），零中间产物。
 
