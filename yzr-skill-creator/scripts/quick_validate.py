@@ -78,6 +78,22 @@ def check_body_structure(skill_path, tier="default"):
 
     canonical_norms = {norm for norm, _, _ in canonical}
     extras = [h for h in headings if normalize_heading(h) not in canonical_norms]
+    if tier == "meta":
+        # meta 型允许在第一个规范节前放路由节（见 utils.py::CANONICAL_BODY_SECTIONS
+        # 注释），路由节不报 INFO；规范节之后的额外节仍报。从 enumerate(headings)
+        # 构建，避免 headings.index() 在重复额外节名下取错位置。
+        first_canonical_idx = next(
+            (i for i, h in enumerate(headings) if normalize_heading(h) in canonical_norms),
+            None,
+        )
+        if first_canonical_idx is not None:
+            extras = [
+                h
+                for i, h in enumerate(headings)
+                if normalize_heading(h) not in canonical_norms and i > first_canonical_idx
+            ]
+        else:
+            extras = []
     if extras:
         findings.append(
             (

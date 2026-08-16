@@ -281,8 +281,6 @@ def run_eval(
     real_skill_dir = EVAL_SKILLS_DIR / skill_name
     hidden_path = None
     if real_skill_dir.exists():
-        import shutil
-
         hidden_path = Path(tempfile.mkdtemp(prefix="_skill_eval_hide_")) / skill_name
         try:
             shutil.move(str(real_skill_dir), str(hidden_path))

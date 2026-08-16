@@ -261,6 +261,13 @@ def generate_benchmark(benchmark_dir: Path, skill_name: str = "", skill_path: st
     # Determine eval IDs from results
     eval_ids = sorted(set(r["eval_id"] for config in results.values() for r in config))
 
+    # Highest run number actually present, per configuration (max across configs) —
+    # computed, not hardcoded, so the metadata stays truthful under partial runs.
+    runs_per_configuration = max(
+        (r["run_number"] for config in results.values() for r in config),
+        default=0,
+    )
+
     benchmark = {
         "metadata": {
             "skill_name": skill_name or "<skill-name>",
@@ -269,7 +276,7 @@ def generate_benchmark(benchmark_dir: Path, skill_name: str = "", skill_path: st
             "analyzer_model": "<model-name>",
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "evals_run": eval_ids,
-            "runs_per_configuration": 3,
+            "runs_per_configuration": runs_per_configuration,
         },
         "runs": runs,
         "run_summary": run_summary,

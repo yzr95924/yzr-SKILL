@@ -175,8 +175,8 @@ Output from the executor agent. Located at `<run-dir>/outputs/metrics.json`.
 
 Wall clock timing for a run. Located at `<run-dir>/timing.json`.
 
-**How to capture:** When a subagent task completes, the task notification includes `total_tokens` and `duration_ms`.
-Save these immediately — they are not persisted anywhere else and cannot be recovered after the fact.
+**How to capture:** The capture window and why timing must be saved immediately are described in
+`eval-pipeline.md`「第 3 步」— this file only defines the fields (why 归流程文档，schema 文档只描述字段)。
 
 ```json
 {
