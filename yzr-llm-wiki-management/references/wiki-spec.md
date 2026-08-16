@@ -922,14 +922,8 @@ discussions/ 的可写性靠三道脚本契约兜底，**不**靠自觉：
 ### §15.4 滑坡防线（反模式）
 
 discussions/ 是 raw/ 总纪律的第二处例外——纪律型 skill 最怕"同层双语义"被合理化外扩。
-本节是给 LLM 的红线：
-
-- **不**把 discussions/ 的可写性外推到 raw/ 其他子树——"discussions/ 能改，papers/ 我也
-  能改"是典型滑坡；papers / articles / clippings 等仍只读
-- **不**把 §13.3 的 target 开发协作角色切分外推为"raw/ 我也能改"——target 在 wiki 仓外，
-  与 raw/ 子树无关
-- **不**用 discussions/ 规避 provenance——绕过 §15.3 直接把草稿内容塞进 wiki 页却不走
-  ingest 纪律（漏 log / 漏 index / 漏清 reviewed 戳）即违反
+三条红线（可写性不外推 / target 开发协作切分不外推 / 不用 discussions/ 规避 provenance）
+的纪律正文见模板「raw/discussions/」段「滑坡防线」条（canonical 副本），本节不重抄。
 
 ---
 
