@@ -13,6 +13,11 @@
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`、`@scripts/SCRIPTS.md`），
 > 都用 Read 工具**必须**读取（不是"按需"）——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，
 > 否则漏上下文。
+>
+> **`SSOT 反指` 块约定**：文中各段 `> **SSOT 反指**` 块表示该段规则的权威定义在 skill 仓
+> 指定位置（`wiki-spec.md` / `page-templates.md` 等）；本文件是 wiki 仓自带模板，拷贝后
+> 跨仓引不到 skill 仓，故每段内容必须自包含、措辞与 SSOT 故意一致——**改 SSOT 时必须
+> 同步改对应段**（由 `agents-md-template-sync` fixtures 检查强制）。
 
 @MEMORY/MEMORY.md
 
@@ -83,17 +88,14 @@
     **禁止**以"开发协作"为借口在 wiki 维护操作中顺手改 target
   - LLM **不**编辑 `raw/external/` 之外的 `raw/` 子树（articles / papers / assets /
     clippings 等仍"LLM 只读"；`discussions/` 是另一处写权限例外——见下节）
-- `.gitignore` 配置：在 §0 已排好 `raw/external/*` 但保留 `.symlink-anchor.toml`——
+- `.gitignore` 配置：在 `wiki-spec.md` §6 已排好 `raw/external/*` 但保留 `.symlink-anchor.toml`——
   跨机器 clone 时通过 anchor 立即知道"这本来指着哪"；anchor 的
   `remote_url` + `commit` + `branch` 三字段让新主机 LLM 可重建（详见 spec §13.5
   - `references/external-repo-rebuild.md`）
 
 #### `raw/discussions/` —— 协作草稿层（用户 + LLM 双方可写）
 
-> **本段 SSOT 反指**：discussions/ 子树契约 / 脚本豁免 / 归档路径 / 滑坡防线的权威定义在
-> `wiki-spec.md` §15；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
-> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时
-> 同步改本段。
+> **SSOT 反指**：本段权威定义在 `wiki-spec.md` §15，改 SSOT 时同步改本段。
 
 - 路径：`<wiki-root>/raw/discussions/`（协作草稿层；存在时适用本节纪律，详见 spec §15）
 - 用途：用户 + LLM 协作的临时草稿——讨论稿、设计草稿、待整理笔记。**不是**"用户掌控的
@@ -132,10 +134,7 @@
 
 ### `log.md` —— 近期活动速览（滚动窗口）
 
-> **本段 SSOT 反指**：log.md 条目格式 / lint 校验的权威定义在 `page-templates.md` §7
-> 「`log.md`/log」与 `lint-checklist.md` §二.10；本文件是 wiki 仓自带模板（workspace CLI init 时
-> 拷贝到目标 wiki 根，跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
-> 改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `page-templates.md` §7「`log.md`/log」+ `lint-checklist.md` §二.10，改 SSOT 时同步改本段。
 
 - 路径：`<wiki-root>/wiki/log.md`
 - 纪律：
@@ -163,12 +162,9 @@
 - 性质：LLM agent 在 ingest / query / lint 过程中沉淀的**经验、踩坑、用户偏好**——
   不是 wiki 内容、不是操作时间线，而是 agent 私有记忆；对应 SKILL §四层架构第 3 层
 
-> **本段 SSOT 反指**：MEMORY 条目形式（完整 vs 短）的权威定义在仓库根
-> `MEMORY/MEMORY.md`「规则」段；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标
-> wiki 根，跨仓引不到 SKILL.md / 仓库根 MEMORY.md），必须自包含。与 SSOT 措辞故意保持一致，
-> 改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `wiki-spec.md` §5.2，改 SSOT 时同步改本段。
 
-- **条目形式按事实颗粒度选**（与项目根 `CLAUDE.md` 同步）：
+- **条目形式按事实颗粒度选**：
   - **完整条目**——需要解释"为什么这么做"或"将来怎么用"（含上下文 / 解决步骤 / 未来如何避免）→
     建 `MEMORY/<slug>.md`（frontmatter **仅 `title` 必填** + 其余字段 optional + 正文） +
     索引行 `- <slug> — 一句话 → [正文](<slug>.md)`
@@ -181,7 +177,7 @@
     ——`type` / `created` / `updated` / `tags` / `description` 全 optional；与 wiki 内容页
     5 必填规则解耦（MEMORY 是 agent 私有记忆，不走 wiki 用户面 5 必填）
   - **`MEMORY/MEMORY.md` 是索引、无 frontmatter**——由本文件 `@MEMORY/MEMORY.md` `@import`
-    加载（详见顶部「L2 索引 `@import` 收口」段）。写每条时**只改 `MEMORY/MEMORY.md`**
+    加载（详见顶部「关键」段）。写每条时**只改 `MEMORY/MEMORY.md`**
     这一份，`@import` 引用自动同步指向全文。条目正文按需 `Read MEMORY/<slug>.md`
   - 索引走 `@import` 不占 L1 词数——MEMORY 沉淀只改 `MEMORY.md`、AGENTS.md 同步单行引用，
     **无**双写漂移（无需条数护栏）
@@ -191,10 +187,7 @@
 
 ### `scripts/` —— 本 wiki 仓的自维护脚本目录
 
-> **本段 SSOT 反指**：`scripts/` 目录契约 / SCRIPTS.md 索引 / 4 要素 / 6 条纪律的权威定义在
-> `wiki-spec.md` §14；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
-> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
-> 改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `wiki-spec.md` §14，改 SSOT 时同步改本段。
 
 - 路径：`<wiki-root>/scripts/`
 - 性质：**用户 + LLM agent 共有**的项目级脚本目录——放置项目专属的 ingest 扩展（批量 PDF prep、
@@ -202,7 +195,7 @@
   ingest 前清洗等）。**不**放置 yzr-llm-wiki-management skill 自带脚本（那些 SSOT 在
   `yzr-llm-wiki-management/scripts/`）
 - 索引文件：`scripts/SCRIPTS.md`（无 frontmatter，与 `MEMORY/MEMORY.md` 同形态）。
-  由本文件顶部 `@scripts/SCRIPTS.md` `@import` 加载全文（详见顶部「L2 索引 `@import` 收口」段）。
+  由本文件顶部 `@scripts/SCRIPTS.md` `@import` 加载全文（详见顶部「关键」段）。
   完整契约（每脚本一段：使用场景 / 调用约定 / 作用 / 前置依赖）由 `@import` 自动可见；
   不自动展开 `@import` 的 agent 必须手动 `Read scripts/SCRIPTS.md` 取分节
 - 纪律：
@@ -217,13 +210,9 @@
   ——这些脚本版本由 skill 仓管，**不**复制进 `scripts/`（避免版本漂移）
 - 完整契约与设计动机见 `wiki-spec.md` §14
 
-## 二、页面类型与 frontmatter 约定
+## 二、页面类型、frontmatter 与操作阈值
 
-> **本段 SSOT 反指**：页面类型分类 + 字段全集 + 5 必填字段语义 + 生命周期规则的权威定义在
-> `page-templates.md` §一与 §二（以及 `wiki-spec.md` §9 的字段全集）；
-> 本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
-> 跨仓引不到 SKILL.md / references/），必须自包含。与 SSOT 措辞故意保持一致，
-> 改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `page-templates.md` §一与 §二 + `wiki-spec.md` §9，改 SSOT 时同步改本段。
 >
 > 本表是 setup 后在 wiki 内的速查（顺序与该处保持字母序一致：comparison → concept →
 > entity → source → synthesis）。
@@ -254,9 +243,7 @@ sources: [<路径数组>]  # 必填：source 页 = raw/ 路径（最外层 <wiki
 
 ### Tag Taxonomy（防 tag 漂移）
 
-> **本段 SSOT 反指**：tag 白名单规则的权威定义在 `wiki-spec.md` §9.1「tag 白名单来源」；
-> 本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，跨仓引不到 SKILL.md），必须自包含。
-> 与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `wiki-spec.md` §9.1「tag 白名单来源」，改 SSOT 时同步改本段。
 
 `tags` 字段是 wiki 索引和过滤的入口；不约束会随 ingest 漂移成噪声。本 wiki 的 tag
 白名单放在 [`wiki/tags.md`](wiki/tags.md)；本 wiki 创建时由
@@ -309,7 +296,7 @@ workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分
 | `contested` | `true`（仅在为 true 时写） | 本页含**尚未裁定**的矛盾主张——搭配 `contradictions` 指向对端 |
 | `contradictions` | wiki 页路径数组 | 与本页主张冲突的页面（**双向标注**：A 标 B，B 也标 A） |
 
-`lint_wiki.py`（§二 13）会把 `contested: true` / 非对称 `contradictions` 拎出来供复审，
+`lint_wiki.py`（`lint-checklist.md` §二.13）会把 `contested: true` / 非对称 `contradictions` 拎出来供复审，
 未审核页面会标 `pending-review`（info，新常态）。**核心理念**：单源弱断言一旦写进 wiki
 不加标注，时间一长会被当成"既成事实"——这是比断链更隐蔽的腐烂，这些字段让它显性化。
 
@@ -318,9 +305,7 @@ workspace CLI 生成空白 wiki/tags.md，由 LLM 与用户共同确认主题分
 由人重新审。`lint_wiki.py` 用 `reviewed-stale` 兜底：`reviewed: true` 存在且
 `updated > reviewed_at` 时给 warn，把漏清戳的页面拎出来。
 
-> **本段 SSOT 反指**：reviewed 戳生命周期的权威定义在仓库 `page-templates.md` §一
-> 「生命周期规则」；本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，
-> 跨仓引不到 SKILL.md），必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 `page-templates.md` §一「生命周期规则」，改 SSOT 时同步改本段。
 
 ### 矛盾处理 Update Policy（ingest 遇到"新资料与已有页冲突"时）
 
@@ -332,7 +317,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
    （不同评测条件）不算矛盾，加注明即可；确属矛盾进入第 3 步
 3. **显式记录两种说法**——在页面正文写出 A 说 X（来源 + 日期）、B 说 Y（来源 + 日期），
    不要"和稀泥"挑一个；双方 frontmatter 都设 `contested: true` + `contradictions` 互指
-4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（§二 13）；与用户一起裁定后，
+4. **等 lint 复审**——下次 lint 会把 `contested` 页拎出来（`lint-checklist.md` §二.13）；与用户一起裁定后，
    移除 `contested`（如该页已审核，按"生命周期规则"判断是否需重新审）
 
 ### Index 扩容（防 index.md 翻不到底）
@@ -387,7 +372,7 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 - 本文件是 schema，**不是 wiki 内容**——不要往里塞 wiki 主题相关的笔记
 - 改本文件 = 改 skill 行为 = 大事；先和用户确认
 - **spec 升级时本文件按 skill 最新模板全量重渲染**（`agents-md-template-sync` fixtures
-  检查强制）——本地定制先沉淀到 `MEMORY/` 再升级，否则重渲染时丢失；§八 四行变量
+  检查强制；本地定制先沉淀 `MEMORY/`，详见顶部说明）——§八 四行变量
   （主题 / 创建日期 / CLI 版本 / Wiki Spec 版本）是仅有的 per-wiki 内容，升级时保留
 - 若 wiki 启用 git，每次改建议 commit 并加清晰的 commit message；未启用 git 跳过此步
 
@@ -401,11 +386,13 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
 | Wiki Spec 版本 | {{WIKI_SPEC_VERSION}} |
 | CLI 版本 | {{CLI_VERSION}} |
 
-## 九、交互语言风格（对用户不用黑话，严谨精确）
+## 九、yzr 个人工作习惯
 
-> **本段 SSOT 反指**：交互语言风格的权威定义在 SKILL.md §执行原则/边界 核心原则 §13；
-> 本文件是 wiki 仓自带模板（workspace CLI init 时拷贝到目标 wiki 根，跨仓引不到 SKILL.md），
-> 必须自包含。与 SSOT 措辞故意保持一致，改 SSOT 时同步改本段。
+> **SSOT 反指**：本段权威定义在 SKILL.md §执行原则/边界 核心原则 §13，改 SSOT 时同步改本段。
+
+本节约定 yzr 的个人工作习惯——agent 与 yzr 协作时必须遵守，当前含三类：
+
+### 语言风格（对用户不用黑话，严谨精确）
 
 对用户说话（汇报 / 回答 / 报告 / 提问 / 对话回复）遵守两条：
 
@@ -418,3 +405,25 @@ ingest 时新资料与已有页主张冲突，**不要静默覆盖**，按以下
   "5 个页面缺 `updated`"，不说"一些页面"）；区分事实与推断（"wiki 记载 X（来源：...）"
   vs "我推测 Y"，没依据的不写进 wiki 正文）；报告按三段——**做了什么 / 没做什么
   （及原因）/ 需要你决定什么**。
+
+### 遇阻退后一步
+
+同一思路连续两次未果 / 修改面越滚越大 / 开始想绕过纪律（"先跑通再说"）——任一信号
+出现即停下来，退后一步按三步走：
+
+- **回头看**——倒查当前路径上最早的可疑决策点（误解需求 / 选错文件 / 选错抽象），
+  优先修上游，不在下游硬补。
+- **第一性原理重审**——剥掉现有实现的惯性，回到"目标是什么、真正的约束是什么"；
+  答案与当前做法冲突时，向用户说明后换路，不硬撞。
+- **举一反三**——顺手查同类：同模式的其他文件 / 配置 / 页面是否有同样缺陷；汇报
+  按"类"报（"同类问题还有 3 处：…"），不只报当前这个点。
+
+### 表达先归纳后落笔
+
+把需求 / 素材写成文字（纪律 / 文档 / 汇报）时，先归纳再落笔，**不**把输入清单
+逐项复述成结构：
+
+- **先合并同义**——输入给的几个关键词 / 要求先查语义重叠，重叠的并为一条；一条
+  意思全文只说一次，标题 / 导语不重复正文已有的词。
+- **每句过删除测试**——写完逐句问"删掉这句读者损失什么"，没损失就删；对纪律类
+  文字冗余 = 稀释，每个多余词都在分摊读者注意力。
