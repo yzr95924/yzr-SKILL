@@ -1,8 +1,10 @@
 # Migrate（升级 wiki spec）详细流程
 
 > 本文件从 `SKILL.md` §5 Migrate 整段下沉而来——主 SKILL.md 留 pointer 即可，
-> 详细流程按需 Read 本文件。SSOT 是 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)
-> （迁移依据每行写在那边），本文件是 agent 视角的执行流。
+> 详细流程按需 Read 本文件。**迁移依据的唯一 SSOT = lint plan 的 `actions[]`
+> （自带 `remove` / `add_or_modify` / `to_action`）+ 本文件 §六 语义合并规则**——
+> 今后任何 breaking 变更的迁移指令必须落本文件 §六，不再另设历史档案；
+> 版本演进叙事看 git log。
 
 ## 触发
 
@@ -22,11 +24,12 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 - **脚本**（`scripts/lint_wiki.py --check-version`）= 探测器。只扫不修，输出报告 / `--apply`
   时把 migration plan 以 JSON 输出到 stdout，**不**改任何 wiki 内容 / **不**落盘
 - **agent**（本节定义）= 修复者。按 stdout 返回的 migration plan（`--apply --json` 的
-  `report.migration_plan`）+ [`wiki-spec-changelog.md`](wiki-spec-changelog.md) 用
-  Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
+  `report.migration_plan`）+ [`migrate-workflow.md`](migrate-workflow.md)（§六 语义合并
+  规则）用 Edit/Write 改 frontmatter / 移文件 / 补索引 / 改 AGENTS.md §八
 - **迁移期不走 `wiki_write.py`**——迁移 = 格式流动期，机械写命令只认识当前形态
   （准入规则例外，见 SKILL.md §设计决策「机械 vs 判断」）
-- **[`wiki-spec-changelog.md`](wiki-spec-changelog.md)** = SSOT。每行写明"老 wiki 迁移"的依据；agent 与脚本都引用
+- **迁移依据 SSOT** = plan `actions[]`（`remove` / `add_or_modify` / `to_action` 自含）
+  与 本文件 §六（语义合并规则）——不另设历史档案；agent 与脚本都引用
 - **不**追加 log 条目——迁移是脚本运行，不是 wiki 操作事件（与 `--migrate-confidence` 一致）
 
 ## 流程（agent 驱动，与 SKILL.md §1-§4 风格一致）
@@ -41,12 +44,14 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
    - 解析 `<wiki-root>/AGENTS.md` §八 "Wiki Spec 版本"——拿到 `current_spec`
    - 与 SKILL 仓 `metadata.wiki_spec_version`（`scripts/lint_wiki.py` 顶部常量
      `CURRENT_WIKI_SPEC`）比对：相等 / 老 / 新
-   - 扫已知 legacy 现场：老字段（`confidence`）+ 其它受 spec 演进影响的内容（详见
-     [`wiki-spec-changelog.md`](wiki-spec-changelog.md)）
+   - 扫已知 legacy 现场：老字段（`confidence`）+ 其它受 spec 演进影响的内容（legacy
+     pattern 清单见 `scripts/lint_wiki.py` 的 `LEGACY_PATTERN_KEYS`，修复语义由
+     plan `actions[]` 的 `to_action` / `remove` / `add_or_modify` 字段自含）
      - 退役 `type` 值（`type: memory`）
    - 标记冲突页（同时含老字段与新字段）→ `conflicts[]`，**agent 不覆盖**
 3. **dry-run 报告**（默认必走）：
-   - 按 legacy pattern 分组列"哪些文件需改、依据 wiki-spec-changelog.md 哪行"
+   - 按 legacy pattern 分组列"哪些文件需改、依据 plan.actions[] 的 rule_ref 与
+     remove/add 字段"
    - 冲突页单独标红，**绝不自动覆盖**——等用户裁定
    - 询问用户：应用全部 / 部分应用 / 仅看清单
 4. **生成 plan**（用户同意应用时）—— **不落盘**，stdout 输出：
@@ -115,7 +120,7 @@ reformat"；或 `lint_wiki.py` 报告 `legacy-confidence-field` 等迁移期 war
 
 ## fixtures 字段更新清单
 
-> **本节回答"升级时每个约定文件要对齐什么"**——集中一处，避免散落在 SKILL.md / spec 附录 B。
+> **本节回答"升级时每个约定文件要对齐什么"**——集中一处，避免散落在 SKILL.md / spec 各处。
 > 权威信号清单是 `scripts/check_wiki_fixtures.py` 的 `SKELETON_SPECS` + `CHECK_REGISTRY`（数 = SKILL.md `metadata.fixtures_check_count`）；
 > 本节只做 agent 视角的分类与指路，**不重抄字段名**（否则三处漂移）。
 

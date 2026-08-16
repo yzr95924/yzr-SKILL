@@ -61,7 +61,6 @@
 - [§14 scripts/——本 wiki 仓扩展脚本目录](#14-scripts本-wiki-仓扩展脚本目录)
 - [§15 raw/discussions/——协作草稿层](#15-rawdiscussions协作草稿层可选)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
-- [附录 B：版本历史](wiki-spec-changelog.md)
 
 ## §1 目录结构
 
@@ -776,8 +775,8 @@ raw/external/*
 
 `raw/external/` 采用扁平 + 单 TOML anchor 形态（§13.1）。非扁平布局 / JSON anchor 等
 结构差异由 `lint_wiki.py --check-version --apply` **手工**迁移（差异大、自动迁移易出错）；
-步骤见 [`migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)（§6.3），
-演进背景见 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)。
+步骤见 [`migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)（§6.3）；
+版本演进历史见 git log（`git log --follow -- yzr-llm-wiki-management/references/wiki-spec.md`）。
 
 ---
 
@@ -954,9 +953,3 @@ CLI 在生成完成后，可执行以下验证：
    SKILL 的 frontmatter 解析器正确解析（MEMORY.md 无 frontmatter，不在此列）
 4. **结构自检**：5 个内容页子目录 + `MEMORY/` 全部存在；MEMORY 目录含 MEMORY.md
 5. **lint 跑通**：生成的 wiki 仓跑 `scripts/lint_wiki.py` 应返回 exit code 0
-
-## 附录 B：版本历史
-
-完整 spec 演进日志（每版的 spec / SKILL / lint / agents-md 同步范围）已
-拆出到 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)——CLI 不读，agent 追"为什么
-这条规则存在"时按需 Read。

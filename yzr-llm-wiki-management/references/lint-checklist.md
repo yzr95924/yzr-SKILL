@@ -51,7 +51,7 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --severity
 
 ```bash
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --json
-# 加 --apply 输出 migration plan（stdout JSON，不落盘）供 agent 按 wiki-spec-changelog.md 走 Edit/Write 修复
+# 加 --apply 输出 migration plan（stdout JSON，不落盘）供 agent 按 [`migrate-workflow.md`](migrate-workflow.md) 走 Edit/Write 修复
 python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-version --apply --json
 ```
 
@@ -59,7 +59,8 @@ python3 yzr-llm-wiki-management/scripts/lint_wiki.py "$LLM_WIKI_ROOT" --check-ve
 plan（含 `actions[]` / `skipped_conflicts[]` / `agent_rules[]` / `fixtures_actions[]`）；
 标记冲突页 → agent 跳过 + 转人工；**互斥模式**，不写 log 条目。
 完整 agent 修复路径见 [SKILL.md §5 Migrate](../SKILL.md#5-migrate升级-wiki-spec)；
-规则 SSOT 见 [`wiki-spec-changelog.md`](wiki-spec-changelog.md)。
+迁移依据 SSOT = plan `actions[]`（remove/add_or_modify/to_action 自含）+
+[`migrate-workflow.md` §六](migrate-workflow.md#六语义合并规则)。
 
 ## 二、Deterministic 检查清单（脚本执行）
 

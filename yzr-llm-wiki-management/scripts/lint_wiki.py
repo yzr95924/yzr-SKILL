@@ -18,9 +18,9 @@ lint_wiki.py — deterministic 健康检查
   已被 `--check-version --apply` 覆盖；保留仅供旧用法兼容。
 --check-version 扫描当前 wiki 的 spec 版本（解析 CLAUDE.md §八 "Wiki Spec 版本"），
   与 SKILL 仓 metadata.wiki_spec_version 比对，列出老格式 legacy 现场。默认仅打印报告
-  （不动任何文件）；加 `--apply` 把 migration plan 以 JSON 输出到 **stdout**（agent 直接
-  消费，**不落盘**——升级全程 wiki 根无任何中间文件残留）供按 wiki-spec-changelog.md 规则
-  用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
+   （不动任何文件）；加 `--apply` 把 migration plan 以 JSON 输出到 **stdout**（agent 直接
+   消费，**不落盘**——升级全程 wiki 根无任何中间文件残留）供按 references/migrate-workflow.md
+   用 Edit/Write 修复；加 `--json` 输出机器可读 JSON。互斥模式。
 
 退出码：
 - 0 = 全部指定严重性级别内无 finding / --check-version 报告完成（无论是否需迁移）
@@ -113,7 +113,7 @@ def _is_absolute_path(p: str) -> bool:
 
 # Wiki spec 当前版本（与 SKILL.md metadata.wiki_spec_version 同步）。
 # SSOT 仍是 SKILL.md；这里硬编码 + SKILL 仓升版本时同步改。
-# 详见 references/wiki-spec.md §10「版本钉死」+ references/wiki-spec-changelog.md。
+# 详见 references/wiki-spec.md §10「版本钉死」。
 # 模块加载时 `_assert_spec_version_sync()` 会自动对照 SKILL.md frontmatter；
 # 失同步时打印 warning 到 stderr（不中断——vendored 副本布局不同时静默跳过）。
 CURRENT_WIKI_SPEC = "0.34.0"
@@ -149,22 +149,23 @@ def _assert_spec_version_sync() -> None:
         sys.stderr.write(
             f"[lint_wiki] WARNING: CURRENT_WIKI_SPEC ({CURRENT_WIKI_SPEC}) "
             f"!= SKILL.md metadata.wiki_spec_version ({declared}). "
-            f"升 wiki spec 版本时需同步改脚本常量（SSOT 见 references/wiki-spec-changelog.md）。\n"
+            f"升 wiki spec 版本时需同步改脚本常量（SSOT = SKILL.md metadata，"
+            f"见 references/wiki-spec.md §10「版本钉死」）。\n"
         )
 
 
 _assert_spec_version_sync()
 
 # 已知 legacy pattern 的"pattern key"——为后续扩展预留，每个 key 是一类迁移动作。
-# rule_ref 指向 wiki-spec-changelog.md 的对应版本行（changelog 是单表无锚点，
-# agent 修复时在 changelog 中按版本号搜索该行）。
+# rule_ref 是迁移依据的溯源指针；修复语义自含于 plan actions 的 remove/add_or_modify/to_action
+# 字段 + references/migrate-workflow.md §六（语义合并规则）——不另设历史档案。
 LEGACY_PATTERN_KEYS = {
-    "confidence-field": "wiki-spec-changelog.md（搜 0.7.0 行）",
+    "confidence-field": "migrate-workflow.md §6.1",
     # 0.19.0 反转：MEMORY/*.md 上 `type: memory` / `type: memory-entry` 重新合法（spec §5.2）；
     # 本规则仅对 wiki 5 类内容页误用 reserved `type: memory` 报错。
-    "type-memory-value": "wiki-spec-changelog.md（搜 0.19.0 行）",
-    "claudemd-tag-section": "wiki-spec-changelog.md（搜 0.8.0 行）",
-    "claudemd-not-thinshell": "wiki-spec-changelog.md（搜 0.11.0 行）",
+    "type-memory-value": "migrate-workflow.md §6.1 + wiki-spec.md §5.2",
+    "claudemd-tag-section": "migrate-workflow.md step 5（action 自带 to_action）",
+    "claudemd-not-thinshell": "migrate-workflow.md step 5（action 自带 to_action）+ agents-md-template.md",
 }
 
 # 严重性等级
@@ -1633,7 +1634,7 @@ def _migrate_confidence_in_text(text: str, conf_value: str, today: str) -> str:
 # ---------------------------------------------------------------------------
 # --check-version：扫描 wiki 的 spec 版本 + 老格式 legacy 现场
 # 设计见 yzr-llm-wiki-management/docs/superpowers/specs/<date>-migrate-design.md
-# 职责：纯探测（不动 wiki 内容）；agent 拿到 plan 后按 wiki-spec-changelog.md 走 Edit/Write 修复。
+# 职责：纯探测（不动 wiki 内容）；agent 拿到 plan 后按 references/migrate-workflow.md 走 Edit/Write 修复。
 # ---------------------------------------------------------------------------
 
 # CLAUDE.md §八 表格行匹配：
@@ -1897,7 +1898,7 @@ def build_migration_plan(
     """把 detect_legacy_patterns 的发现 + fixtures-check 的发现组织成 agent 可执行的 plan。
 
     每个 action 含 file / type / rule_ref / 具体 remove & add_or_modify；
-    agent 按 wiki-spec-changelog.md 引用 rule_ref 走 Edit/Write。
+    agent 按 references/migrate-workflow.md 引用 rule_ref 走 Edit/Write。
     fixtures-fix-* 类动作落进 `fixtures_actions[]`，与 legacy pattern 的 actions[] 平行——
     agent 走 plan 时两套都得跑（fixtures 修复优先于内容页 frontmatter 修复）。
     """
@@ -2158,7 +2159,7 @@ def build_migration_plan(
         "to_version": CURRENT_WIKI_SPEC,
         "skill_path": "yzr-llm-wiki-management/SKILL.md",
         "spec_doc": "yzr-llm-wiki-management/references/wiki-spec.md",
-        "rule_doc": "yzr-llm-wiki-management/references/wiki-spec-changelog.md",
+        "rule_doc": "yzr-llm-wiki-management/references/migrate-workflow.md",
         "actions": actions,
         "fixtures_actions": fixtures_actions,
         "skipped_conflicts": legacy.get("conflicts", []),  # type: ignore

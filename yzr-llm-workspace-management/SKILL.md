@@ -286,7 +286,7 @@ spec §17.2）。**MEMORY 跨边界混淆**：本 skill **禁止**写
 动作的 drift 报告；修复面恒定 ≤ 4 个结构文件、不落 plan 文件、零中间产物——机制见
 [spec §17.3](references/workspace-spec.md#173-检测与修复流程)）；agent（本节）= **修复者**，
 按报告 `fix` 动作执行，所有权开口严格按 [spec §17.2](references/workspace-spec.md#172-迁移例外所有权开口)；
-迁移依据 SSOT = [`workspace-spec-changelog.md`](references/workspace-spec-changelog.md)。
+迁移依据 SSOT = 报告 `fix` 动作（`to_action` 自含）+ [spec §17](references/workspace-spec.md#17-升级迁移skill-维护)。
 **不**写 INDEX.md / STATS.md / LINT.md——迁移不是 scan / lint 事件。
 
 **流程**：
@@ -299,7 +299,7 @@ spec §17.2）。**MEMORY 跨边界混淆**：本 skill **禁止**写
 
    `--json` 供程序化消费；退出码 0 全过 / 1 有 error / 2 运行错误（check 清单见
    [spec §17.3](references/workspace-spec.md#173-检测与修复流程)）
-2. **dry-run 报告**（默认必走）：按 finding 分组列"哪些文件需改、依据 changelog 哪行"；
+2. **dry-run 报告**（默认必走）：按 finding 分组列"哪些文件需改、依据报告 fix.to_action"；
    询问用户：应用全部 / 部分应用 / 仅看清单
 3. **执行修复**（用户确认后，按 `fix.type` 逐项落，具体动作以报告 `fix.to_action` 为准）：
    - `workspace-fix-agents-md-resync`——提取 §六 4 变量（无「当前配置」表时 fallback H1 +

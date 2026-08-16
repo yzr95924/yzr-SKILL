@@ -48,7 +48,6 @@
 - [§16 不在本 spec 范围内](#16-不在本-spec-范围内)
 - [§17 升级迁移（skill 维护）](#17-升级迁移skill-维护)
 - [附录 A：CLI 实现自检建议](#附录-acli-实现自检建议)
-- [附录 B：版本历史](#附录-b版本历史)
 
 ## §1 目录结构
 
@@ -673,8 +672,5 @@ CLI 在生成完成后，可执行以下验证：
    **不存在**（CLI 不会创建它们；skill 在首次 `scan` 时按 §5–§8 约定建）；但 `<workspace>/MEMORY/`
    **存在**且含 `MEMORY.md` 索引、无 `*.md` 经验条目（CLI init 按 §9 建骨架）
 
-## 附录 B：版本历史
-
-完整 spec 演进日志（每版的 spec / SKILL / 模板同步范围）已
-拆出到 [`workspace-spec-changelog.md`](workspace-spec-changelog.md)——CLI 不读，agent 追"为什么
-这条规则存在"时按需 Read。
+> 版本演进历史见 git log（`git log --follow -- yzr-llm-workspace-management/references/workspace-spec.md`）——
+> CLI 不读，agent 追"为什么这条规则存在"时按需看提交信息。
