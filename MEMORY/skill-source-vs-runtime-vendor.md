@@ -8,21 +8,21 @@ metadata:
 # SKILL 代码仓源 vs 运行时 vendor 副本
 
 **Why:** 本仓库是 SKILL 的代码仓（AGENTS.md / CLAUDE.md 顶层定义"个人自定义 AI skills 合集"）。
-仓库内每个 SKILL 目录（`yzr-outline-wiki/` / `yzr-skill-creator/` /
-`yzr-llm-wiki-management/`）是**单一事实源（SSOT）**。运行时 agent 通过 `~/.claude/skills/` 加载 SKILL，
+仓库内每个 SKILL 目录（`yzr-outline-wiki/` / `yzr-skill-creator/`）是**单一事实源（SSOT）**。
+运行时 agent 通过 `~/.claude/skills/` 加载 SKILL，
 而 `~/.claude/skills/` 实际是**软链**到 `~/.agents/skills/`，`.agents/skills/` 是 `npx skills add`
 install 出来的**真实目录（vendored 副本）**——和代码仓源是两份**独立**的副本，不是同步链接。
 
-**典型结构**（yzr-llm-wiki-management 为例）：
+**典型结构**（yzr-outline-wiki 为例）：
 
 ```text
-/home/zryang/my_SKILL/yzr-llm-wiki-management/                 # ← 代码仓源（SSOT，编辑这里）
-/home/zryang/my_SKILL/.agents/skills/yzr-llm-wiki-management/  # ← vendored 副本（npx install）
-/home/zryang/my_SKILL/.claude/skills/yzr-llm-wiki-management   # ← 软链 → 上面那个
+/home/zryang/my_SKILL/yzr-outline-wiki/                 # ← 代码仓源（SSOT，编辑这里）
+/home/zryang/my_SKILL/.agents/skills/yzr-outline-wiki/  # ← vendored 副本（npx install）
+/home/zryang/my_SKILL/.claude/skills/yzr-outline-wiki   # ← 软链 → 上面那个
 ```
 
-- `ls -la .claude/skills/yzr-llm-wiki-management` → `lrwxrwxrwx ... -> ../../.agents/skills/yzr-llm-wiki-management`
-- `file .agents/skills/yzr-llm-wiki-management` → `directory`（不是软链，是真目录）
+- `ls -la .claude/skills/yzr-outline-wiki` → `lrwxrwxrwx ... -> ../../.agents/skills/yzr-outline-wiki`
+- `file .agents/skills/yzr-outline-wiki` → `directory`（不是软链，是真目录）
 
 **How to apply:**
 
@@ -46,17 +46,17 @@ install 出来的**真实目录（vendored 副本）**——和代码仓源是�
 
 ```bash
 # 1) 确认软链/真目录结构
-ls -la .claude/skills/yzr-llm-wiki-management
-file .agents/skills/yzr-llm-wiki-management
+ls -la .claude/skills/yzr-outline-wiki
+file .agents/skills/yzr-outline-wiki
 
 # 2) 比对源 vs 当前 vendor
-diff -q yzr-llm-wiki-management/SKILL.md .claude/skills/yzr-llm-wiki-management/SKILL.md
-diff -q yzr-llm-wiki-management/assets/prompt-template.md .claude/skills/yzr-llm-wiki-management/assets/prompt-template.md
+diff -q yzr-outline-wiki/SKILL.md .claude/skills/yzr-outline-wiki/SKILL.md
+diff -q yzr-outline-wiki/assets/prompt-template.md .claude/skills/yzr-outline-wiki/assets/prompt-template.md
 
 # 3) 同步源到 vendor（单向）
-rsync -a --delete yzr-llm-wiki-management/ .claude/skills/yzr-llm-wiki-management/
+rsync -a --delete yzr-outline-wiki/ .claude/skills/yzr-outline-wiki/
 # 注意：--delete 会清掉 vendor 独有的文件，先 dry-run 一次
-rsync -a --delete --dry-run yzr-llm-wiki-management/ .claude/skills/yzr-llm-wiki-management/
+rsync -a --delete --dry-run yzr-outline-wiki/ .claude/skills/yzr-outline-wiki/
 ```
 
 **关联：** [[memory-synced-to-skill-source]]——影响 SKILL 输出的"为什么"记忆必须同步到

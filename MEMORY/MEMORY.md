@@ -38,24 +38,6 @@ npx 分发包只含 SKILL 目录，影响行为的规则必须落 SKILL 源；ME
 
 新踩的坑/经验先进 SKILL 后 MEMORY；判定"另一台机器 npx 装的用户能自己解决吗"，不能则必须进 SKILL。 → [正文](experience-affecting-skill-distribution-goes-to-skill-not-memory.md)
 
-### wiki-spec ↔ workspace-spec type enum 耦合
-
-workspace-spec §13 type 表"复用 wiki-spec §9"——改 wiki-spec type enum（如 0.6.0 删 type:memory）时必须同步查
-workspace-spec §13 / §9.1，否则"复用"引用悬空。 → [正文](wiki-workspace-spec-type-coupling.md)
-
-### spec 版本号 bump 是 my_SKILL ↔ CLI 三方原子操作
-
-workspace/wiki `*_spec_version` bump 必须同窗口对齐三处：my_SKILL frontmatter + `lint_wiki.py` `CURRENT_WIKI_SPEC`
-/ CLI `llmw/__init__.py` `WORKSPACE_SPEC_VERSION`+`WIKI_SPEC_VERSION` / CLI submodule 指针——`agents-version-is-current`
-check 耦合 CLI 写的 AGENTS.md 版本 vs SKILL frontmatter，my_SKILL 单独 bump 破 fresh-init 探测器 pass
-（CLI `fixtures-smoke` gate 免疫故 CI 不红，隐蔽）。 → [正文](spec-version-bump-3way-atomic-cli.md)
-
-### wiki/workspace 纪律文件 AGENTS.md SSOT + CLAUDE.md 薄壳（0.11.0/0.4.0）
-
-套用 yzr-multi-agent-context 方法：纪律 SSOT 从 `<root>/CLAUDE.md` 改 `AGENTS.md`（工具无关）+ `CLAUDE.md` 薄壳；
-@import 归 AGENTS.md、版本在 AGENTS.md；lint 优先 AGENTS.md fallback CLAUDE.md + `claudemd-to-agents-md-split` 迁移。
-两 spec 对称，改 SSOT 引用同步两 skill + 模板 + canonical/fixtures。 → [正文](wiki-spec-0-11-agents-md-ssot.md)
-
 ### yzr-skill-creator 审计/归档记录不要每次都写
 
 按入口 4（原则校验）跑完检查后**直接交付结果 + 修复**就行——不要每次都把
