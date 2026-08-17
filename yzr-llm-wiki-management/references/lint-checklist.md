@@ -243,6 +243,15 @@ plan（含 `actions[]` / `skipped_conflicts[]` / `agent_rules[]` / `fixtures_act
 - `raw/articles/` 是否有大量未摄取文件（跑 `ingest_diff.py` 即可知）
 - **严重性：info**——堆积太久会让 ingest 时信息过载
 
+### 22. 漂移点引用
+
+- 正文引用上游可变、且无机制能感知其变化的事实——按
+  [ingest-workflow.md §七](ingest-workflow.md#七正文引用的稳定性漂移点规避)
+  五类扫描（位置引用 / 瞬态数值 / 版本绑定 / 完整枚举 / 归属信息）
+- 典型命中：`foo.py:812` 式行号、裸"最新 / 目前"、无"截至"日期的数值快照
+- 命中 → 建议按该节改写规则修（锚点 / 快照 / 退到 `sources:` 字段），不回退 schema
+- **严重性：info**——写作质量项，agent 判断，不阻断
+
 ## 四、报告格式
 
 脚本 + agent 一起输出统一格式，每条带：**严重性** + **类别** + **文件:行** + **描述**。
