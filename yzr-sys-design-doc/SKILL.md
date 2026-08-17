@@ -31,7 +31,7 @@ metadata:
 
 - **边界辨析**：PRD 讲"做什么 / 为什么做"，本 skill 讲"技术上怎么做"——用户要 PRD 时不
   适用；API 参考文档是从代码生成的参考，不是设计决策记录
-- **出路**：事后沉淀 / 归档进 wiki → 走 `yzr-llm-wiki-management` / `yzr-outline-wiki`
+- **出路**：事后沉淀 / 归档进 Outline wiki → 走 `yzr-outline-wiki`
 - **擦边负例**：用户只要代码实现、没要文档 → 直接写代码，不主动加文档
 
 ## 输入 / 输出
@@ -135,4 +135,3 @@ metadata:
 
 - 产物是本地 `.md` 文件；要发布到 Outline wiki 时由 `yzr-outline-wiki` 消费本地文件，
   本 skill 不调它、不写"编排对方步骤"。
-- 要沉淀进本地个人 wiki 时由 `yzr-llm-wiki-management` 的 ingest 流程消费。
