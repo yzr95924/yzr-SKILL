@@ -198,6 +198,9 @@ spec §17.2）。**MEMORY 跨边界混淆**：本 skill **禁止**写
 - 答案涉及**多 wiki** → 归档到 `<workspace>/cross_queries/<slug>.md`（本 skill 直接写，
   格式见 [spec §7](references/workspace-spec.md#7-cross_queriesskill-维护可选)）
 
+归档正文引用上游易变事实时过感知测试（漂移点规避）——规则 SSOT 见
+`yzr-llm-wiki-management` 的 `references/ingest-workflow.md` §七「正文引用的稳定性」。
+
 ### 3. Link（跨 wiki 交叉引用）
 
 **触发**："wiki A 里的 entity X 在 wiki B 也存在，加链接" / "扫一下跨 wiki 重复 entity"。
