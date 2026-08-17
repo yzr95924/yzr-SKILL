@@ -607,7 +607,7 @@ CLI 生成的产物必须满足以上规则；否则后续 lint 会立即报错�
 > `.symlink-anchor.toml` 接入。
 
 外部代码仓（如 Linux kernel、Ray 源码）作为原始语料纳入 wiki 时，**不**做仓库内嵌
-拷贝（避免占用空间 + 失去 commit 锚点），而是走 **symlink + 锚定元数据**：
+拷贝（避免占用空间），而是走 **symlink + 锚定元数据**：
 
 ### §13.1 路径约定
 
@@ -629,7 +629,7 @@ CLI 生成的产物必须满足以上规则；否则后续 lint 会立即报错�
 - 同一 target 的多个 subpath：直接创建多个 symlink（每个 symlink 一行 entry），
   无需 `subpath` 字段间接表达
 
-### §13.2 `.symlink-anchor.toml` Schema（必填 + git 仓扩展字段）
+### §13.2 `.symlink-anchor.toml` Schema（必填 + git 身份字段可选）
 
 **顶层 `schema_version`（可选，推荐）**：`schema_version = 1`——为未来 schema 演进留口子。
 
@@ -644,9 +644,8 @@ symlink = "linux-kernel"           # 对应 raw/external/linux-kernel symlink
 target = "~/src/linux-kernel"      # 推荐 ~/... home-relative
 captured_at = "2026-07-07"         # 接入当天
 kind = "external-repo"             # 当前唯一支持的 kind
-remote_url = "https://github.com/torvalds/linux.git"  # git 仓必填
-commit = "f1f2f3f4f5f6"            # git 仓必填，完整 SHA
-branch = "master"                  # git 仓必填
+remote_url = "https://github.com/torvalds/linux.git"  # git 身份字段（可选）
+branch = "master"                  # git 身份字段（可选）
 
 # ray 仓
 [[entry]]
@@ -655,7 +654,6 @@ target = "~/src/ray"
 captured_at = "2026-07-05"
 kind = "external-repo"
 remote_url = "https://github.com/ray-project/ray.git"
-commit = "a1b2c3d4e5f6"
 branch = "master"
 
 # notes 字段可选
@@ -676,21 +674,21 @@ notes = "个人 TIL 仓库，按需重 ingest"
 | `captured_at` | date `YYYY-MM-DD` | 是 | 用户接入当天；用于提示"target 路径多久前定锚" |
 | `kind` | enum | 是 | 当前仅支持 `"external-repo"`；预留给以后扩展（`"snapshot"` 等） |
 
-**git 仓扩展字段**（当 `target` 指向 git 仓时**强制**——见 §13.5）：
+**git 身份字段（可选，推荐）**（当 `target` 指向 git 仓时——跨机器重建软链接用）：
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `remote_url` | string | git 仓时必填 | `git -C <target> remote get-url origin` 输出；用于跨主机重建时 `git clone` |
-| `commit` | string（完整 SHA） | git 仓时必填 | `git -C <target> rev-parse HEAD` 输出；用于 `git checkout` 到具体版本 |
-| `branch` | string | git 仓时必填 | `git -C <target> rev-parse --abbrev-ref HEAD` 输出；辅助识别漂移 |
+| `remote_url` | string | 可选（推荐） | `git -C <target> remote get-url origin` 输出；用于跨主机重建时 `git clone` |
+| `branch` | string | 可选（推荐） | `git -C <target> rev-parse --abbrev-ref HEAD` 输出；辅助重建时选分支 |
 
-**可选字段**（任何场景都不强制）：`tag`（如果 `commit` 是某个 tag 而非分支头）、
-`notes`（自由文本，记录接入原因）。
+**不**记 `commit`。
+
+**可选字段**（任何场景都不强制）：`notes`（自由文本，记录接入原因）。
 
 > **为什么 target 字段允许 `~/...` 而不是硬要求绝对路径**：`target` 字段
 > 进 git，但**不**必须是机器相关绝对路径——推荐写 `~/src/<name>` 形式
 > 让同 home 布局的多机共享同一 anchor；`~/...` 跨 home 布局失效时降级到
-> `remote_url` / `commit` / `branch` 三字段重建（详见 `external-repo-rebuild.md`）。
+> `remote_url` + `branch` 重建（详见 `external-repo-rebuild.md`）。
 > lint 端用 `Path(target).expanduser()` 统一展开，**不**关心 anchor 写哪种形式。
 >
 > **为什么选 TOML 而不是 JSON**：① 支持 `# ...` 注释——LLM / 用户
@@ -705,15 +703,15 @@ notes = "个人 TIL 仓库，按需重 ingest"
 - 决定**接入哪些**外部代码仓（意图层面）
 - symlink target 的存活——target 被删除 / 改名 / 移动后 anchor 仍记录
   旧路径，lint 报 `external-target-dead` 让用户感知
-- 更新 anchor 的时机：当用户主动 `git pull` / 切换 commit / 重命名分支后，
-  LLM 会在 lint 报 `external-git-anchor-stale`，用户确认后由 LLM 重写 anchor
+- 感知内容是否过期——外部仓活跃演进时，wiki 摘要是否重 ingest 由用户判断
+  （anchor **不**记 commit，无自动漂移检测）
 
 **LLM agent 责任**（首次接入 + 漂移刷新）：
 
 - **创建 symlink + 追加 entry**——当用户说"把 X 仓纳入 wiki"时，LLM 主导：
   1. 与用户确认 symlink 名（如 `linux-kernel`）+ target 路径
   2. 验证 target 是 git 仓（`git -C <target> rev-parse --is-inside-work-tree`）
-  3. 读 `remote_url` / `commit` / `branch` 三个值（git 命令）
+  3. 读 `remote_url` / `branch` 两个值（git 命令）
   4. `mkdir -p raw/external && ln -s <target> raw/external/<symlink>`（**扁平**，
      不要在 `external/<source-name>/` 下再开子目录）
   5. **读**现有 `.symlink-anchor.toml`（如有）；**追加**新 `[[entry]]` 块；
@@ -723,9 +721,9 @@ notes = "个人 TIL 仓库，按需重 ingest"
   librarian 角色下 target 仓内文件只读（外部仓是用户所有；不在仓内跑 `git pull` 之类）。
   **用户明确要求的开发协作**（修 bug / 重构 / 仓内 git 操作）**不**属 wiki 操作、**不**受
   raw/ 只读约束——target 在 wiki 仓外、有其自身 git、由用户全权处置。代码改动后的 wiki
-  同步走**既有通道**（lint 报 `external-git-anchor-stale` → 用户确认 → 刷新 anchor +
-  受影响 source 页重 ingest），**不**为此加新机制。**禁止**以"开发协作"为借口在 wiki
-  维护操作中顺手改 target——角色切分是放行真·开发任务，不是给 librarian 开后门
+  同步走**既有通道**（用户确认 → 受影响 source 页重 ingest），**不**为此加新机制。
+  **禁止**以"开发协作"为借口在 wiki 维护操作中顺手改 target——角色切分是放行真·开发任务，
+  不是给 librarian 开后门
 - **不**编辑 `raw/external/` 之外的 `raw/` 子树（articles / papers / assets /
   clippings 等仍走"LLM 只读"纪律；`discussions/` 是另一处写权限例外——见 §15）
 - lint 报 `external-anchor-missing` / `external-anchor-corrupt` /
@@ -757,21 +755,21 @@ raw/external/*
 > `!` 否定号让 anchor 文件被跟踪。跨机器 / 跨 home 布局的重建协议详见
 > [`references/external-repo-rebuild.md`](external-repo-rebuild.md)。
 
-### §13.5 git 仓锚定要求（lint 强制）
+### §13.5 git 身份字段（可选）
 
-当某个 entry 的 `target` 字段经 `Path(target).expanduser()` 展开后**在 git 仓内**
-（`git -C <expanded-target> rev-parse --is-inside-work-tree` 返回 `true`）时：
+anchor 的 `remote_url` / `branch` 是**可选**的 git 身份字段——记录"接入意图"（这本来
+指向哪个远端、哪个分支），供跨主机重建软链接时 `git clone`。**不**记 `commit`。
 
-- 该 entry **必须**含 `remote_url` / `commit` / `branch` 三字段（缺一即
-  `external-git-anchor-incomplete`，lint 报 **error**）
-- lint 跑 `git -C <expanded-target> remote get-url origin` / `rev-parse HEAD` /
-  `rev-parse --abbrev-ref HEAD`，与 anchor 同名字段对比，**任一不一致**即
-  报 `external-git-anchor-stale`（**warn** 级，提醒用户刷新 anchor）
-- `target` 不在 git 仓内（如手动下载的源码包、未初始化的目录）时，三字段
-  全部可选，lint 跳过 git 校验
+- lint **不**校验 git 身份字段
+- `target` 不在 git 仓内（如手动下载的源码包、未初始化的目录）时，身份字段
+  可整块省略；在 git 仓内时推荐记 `remote_url` + `branch`（重建靠它们）
+- anchor 中遗留的旧字段（如 `commit`）解析时忽略、不报错
+- "摘要是否过期"不做自动检测——由用户判断（用户知道自己的仓库何时有大改动，
+  届时说"重新整理一下 X"即可）
 
 > 重建协议详见 [`references/external-repo-rebuild.md`](external-repo-rebuild.md)——
-> git 三字段是跨机器 clone 后还原"接入瞬间 commit"的唯一信息源，缺一即不可重建。
+> `remote_url` + `branch` 是跨机器 clone 后还原"接入意图"的身份信息；不还原到
+> 精确 commit（wiki 跟随活跃仓的 live 状态，而非某个历史快照）。
 
 ### §13.6 anchor 结构迁移（手工）
 

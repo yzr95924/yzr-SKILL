@@ -240,7 +240,7 @@ anchor 从「每仓一份 `<source-name>/.symlink-anchor.json`（JSON object）�
      人工决定改名 / 合并 / 跳过
    - 不冲突 → `mv <source-name>/<name> <name>`（移 symlink 到 `external/` 顶层）
 4. 构造 `[[entry]]` 块（含 `symlink` + `target` + `captured_at` + `kind='external-repo'` +
-   git 仓时 `remote_url`/`commit`/`branch` 三扩展字段），追加写到
+   git 仓时可选 `remote_url`/`branch` 身份字段），追加写到
    `raw/external/.symlink-anchor.toml` 末尾（按 symlink 名字典序排版，便于 git diff）
 5. `rm -rf raw/external/<source-name>/` 删整个子目录
 

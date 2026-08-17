@@ -266,7 +266,7 @@ plan（含 `actions[]` / `skipped_conflicts[]` / `agent_rules[]` / `fixtures_act
 
 （external symlink ↔ anchor 关联的 finding 全家：`external-anchor-missing` /
 `external-anchor-corrupt` / `external-source-name-invalid` / `external-symlink-missing` /
-`external-anchor-orphan` / `external-target-drift` / `external-git-anchor-stale`——
+`external-anchor-orphan` / `external-target-drift`——
 spec §13 相关，详见 lint_wiki.py `check_external_symlinks` docstring。）
 
 ## 五、Semantic-merge 规则

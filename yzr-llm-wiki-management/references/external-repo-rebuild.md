@@ -15,14 +15,15 @@ anchor 文件**进 git** 是这一机制的根：
 
 - symlink 本身是机器相关的——即使是 `~/src/linux-kernel` 在新机器也要重建
   （home-relative 仅指同 home 布局的逻辑路径，跟机器绑定的文件系统不是一回事）
-- 但 anchor 的 `remote_url` / `commit` / `branch` 三字段是**跨主机稳定**的——
-  任何机器上的 LLM 读 anchor 都可还原"接入瞬间"的精确状态
+- anchor 的 `remote_url` / `branch` 身份字段是**跨主机稳定**的——
+  任何机器上的 LLM 读 anchor 都可还原"接入意图"（远端 + 分支）
 - anchor 的 `target` 字段（推荐 `~/...` 形式，兼容绝对路径）——同 home
   布局的新机器直接可用；跨 home 布局的机器 LLM 重写。这正是
   `.symlink-anchor.toml` 与 symlink 解耦的价值：**anchor 描述意图、
   symlink 描述当前主机的具体绑定**
 - anchor 是单文件 `[[entry]]` 数组——多仓共用一份 anchor，跨主机重建
   也是扫这一个文件
+- **不**记 `commit`——wiki 跟随活跃仓的 live 状态而非历史快照
 
 ## 重建触发
 
@@ -43,8 +44,8 @@ anchor 文件**进 git** 是这一机制的根：
 test -f raw/external/.symlink-anchor.toml && echo "anchor 存在"
 ```
 
-每个 entry 必须含 `remote_url` / `commit` / `branch` 三个 git 扩展字段（spec §13.5）；
-若缺一个，跑 `lint_wiki.py` 会报 `external-git-anchor-incomplete`，需要先在**原机器**补齐再 push。
+每个 entry 的 `remote_url` / `branch` 身份字段（spec §13.2）是重建的凭据；
+若缺了它们，跨 home 布局时只能与用户确认远端与分支（字段可选）。
 
 ### Step 2 — 决定目标路径
 
@@ -64,7 +65,7 @@ TARGET_ANCHOR="~/src/${SYMLINK_NAME}"   # 写回 anchor 的 target 字段
 ```bash
 git clone "$remote_url" "$TARGET_ABS"
 cd "$TARGET_ABS"
-git checkout "$commit"  # 切到 anchor 记录的精确 commit
+git checkout "$branch"  # 切到 anchor 记录的分支（缺 branch 时默认远端默认分支）
 ```
 
 ### Step 4 — 创建 symlink + 更新 anchor（**扁平布局**）
@@ -77,7 +78,7 @@ ln -s "$TARGET_ABS" "raw/external/${SYMLINK_NAME}"
 
 最后**用 `~/...` 形式覆盖 anchor entry 的 `target` 字段**（推荐形式；老
 anchor 写绝对路径也兼容）。anchor 是 TOML 单文件，**只改本 entry 的 target**，
-不要触碰其他 entry + 不改 `remote_url` / `commit` / `branch` 三字段：
+不要触碰其他 entry + 不改 `remote_url` / `branch` 身份字段：
 
 ```bash
 # 用 tomli_w（py3.7+）或 tomli_w 不可用时的 stdlib 替代——最小 helper：
@@ -101,7 +102,7 @@ PY
 > **为什么不直接 `tomllib.dump` 全量重写**：保留 entry 顺序、注释、字段顺序，
 > 跨机器 diff 干净——只动需要改的那一行，其他行 byte-identical。
 
-`remote_url` / `commit` / `branch` 三个字段**保持原值不动**——它们是接入意图，不是机器状态。
+`remote_url` / `branch` 身份字段**保持原值不动**——它们是接入意图，不是机器状态。
 
 ### Step 5 — 验证
 
@@ -109,7 +110,7 @@ PY
 # symlink 是否能解析到 target
 readlink -f "raw/external/${SYMLINK_NAME}"
 
-# lint 跑通（不应再报 external-target-dead / external-git-anchor-stale / external-symlink-missing）
+# lint 跑通（不应再报 external-target-dead / external-symlink-missing）
 # 注意 lint 端会做 Path(target).expanduser()，所以 '~/src/...' 形式 + 同 home 布局下不报 dead
 python3 ../path/to/scripts/lint_wiki.py .
 ```
@@ -120,8 +121,9 @@ python3 ../path/to/scripts/lint_wiki.py .
   spec §13.3；LLM 在**原机器**跑 5 步接入（读现有 anchor → 追加 `[[entry]]` 块）
 - **跨主机重建**（在新机器复现）：本文件；LLM 在**新机器**跑 5 步重建
   （每个 anchor entry 各自 Step 3-4 一遍）
-- **漂移刷新**（用户日常 `git pull` 触发）：spec §13.5；LLM 重读 git 三字段后
-  Edit 对应 `[[entry]]` 的 git 扩展字段，**target 字段不动**
+- **漂移刷新**（用户日常 `git pull` 触发）：**不做**自动漂移检测——
+  `remote_url` / `branch` 身份字段极少变化，无需刷新；"摘要是否过期"由用户判断，
+  需要时重 ingest 对应 source 页（`target` 字段不动）
 
 ## 反模式
 
@@ -135,8 +137,6 @@ python3 ../path/to/scripts/lint_wiki.py .
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
 | `git clone` 失败：remote not found | `remote_url` 拼错 / 已删除 / 私有 repo 缺凭据 | 检查 remote_url；私有 repo 配 SSH key 或 token |
-| `git checkout <commit>` 失败：object not found | remote 已 force-push / commit 被 rebase 改写 | 询问用户：保留 anchor commit（指向 dangling commit）还是选新 commit？ |
 | `readlink -f` 显示 anchor 路径不存在 | symlink 写错 / target 未建好 | 检查 step 3 4 路径字面量 |
-| `lint_wiki.py` 报 `external-git-anchor-stale` | clone 下来后又跑了 `git pull` / 切了分支 | 重跑本文件 step 4，更新 `target` 字段；若接受新 commit 则按漂移刷新走 |
 | `lint_wiki.py` 报 `external-symlink-missing` | anchor entry 有但 symlink 未建（Step 4 漏跑 / 失败） | 回到 Step 4 补建 symlink |
-| 找不到 `git` CLI | 新机器没装 git | 装 git 后重跑；这是 lint `external-git-anchor-incomplete` 报错的子信号 |
+| 找不到 `git` CLI | 新机器没装 git | 装 git 后重跑；`git clone` 依赖 git CLI |

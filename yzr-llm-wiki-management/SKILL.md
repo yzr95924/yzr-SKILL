@@ -13,8 +13,8 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  modify time: 2026-08-16
-  wiki_spec_version: 0.35.0
+  modify time: 2026-08-17
+  wiki_spec_version: 0.36.0
   fixtures_check_count: 21
 ---
 
@@ -259,9 +259,8 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 - 把 yzr-llm-wiki-management skill 自带脚本（lint_wiki.py / ingest_diff.py / log_format.py /
   wiki_write.py / check_wiki_fixtures.py）
   复制进 `<wiki-root>/scripts/`——SSOT 在 skill 仓；本 wiki 自维护脚本必须同时更新 `SCRIPTS.md` 索引段
-- 把外部代码仓接入走 `cp -r` 内嵌到 `raw/` 而非 `raw/external/` symlink——失去
-  commit 锚点 + 占用空间 + 违反 spec §13 纪律
-- 修改 anchor 的 `remote_url` / `commit` / `branch` 三字段——这三字段是接入意图，
+- 把外部代码仓接入走 `cp -r` 内嵌到 `raw/` 而非 `raw/external/` symlink——占用空间 + 违反 spec §13 纪律
+- 修改 anchor 的 `remote_url` / `branch` 字段——这两个字段是接入意图，
   不是机器状态（详见 [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)）
 - 绕过 anchor 直接 `ln -s`——没有对应 `[[entry]]` 的 symlink = lint 报
   `external-anchor-orphan`
@@ -295,7 +294,7 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 | "这次是单页 ingest，跳过 entity/concept 同步更快" | 知识孤岛 = wiki 复利亏空——单页也一样要 cross-link；"更快"是把当前 case 凌驾于复利结构之上 | 哪怕只挂 1 个 entity 页也要同步；交叉引用是 wiki 的 ROI 核心 |
 | "我把 source `cp` 进 raw/ 比走 `Write` + 创建 page 更直接" | raw/ 不可变 + raw/external/ 例外是 symlink 不是 cp——`cp` 进 raw/ 触发 `raw-external-anchor-mismatch` 一连串 finding | 用 `Edit/Write` 写 wiki/sources/`<slug>`.md；raw 是用户私有 |
 | "`reviewed: true` 是一周前人标的，我没改多少内容，留着就行" | `reviewed: true` 是"这一刻内容背书"快照，**任何** LLM 对正文的修改都让它失效（包括 typos / 字段补全）——留戳 = 假装审过 | 任何 Edit/Write 后**必须**删 `reviewed` + `reviewed_at` 两字段，回到默认未审核态 |
-| "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 失去 commit 锚点 + 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
+| "外部代码仓我 cp -r 进 raw/ 也算接入，symlink 没必要" | cp -r 占用 wiki 仓磁盘 + 违反 spec §13——"也算"是把"接入意图"和"接入手段"混淆 | 走 `ln -s` 创建 symlink + 写 `.symlink-anchor.toml` 的 `[[entry]]` 块 |
 | "这个 wiki 没 git，不写 log 也行" | log.md 记的是**操作语义**（ingest/query/lint）+ 近期活动速览（orient ritual 读它避免重复工作）——这是 git diff 不直接体现的；完整文件历史才靠 git | 任何 wiki 改动**必须**追加 log 条目（哪怕 wiki 无 git） |
 
 > **表内条目两类**：第 1 行 = 实跑 transcript 逐字摘录；其余 6 条 = 从 §反模式 / §边界
@@ -393,7 +392,7 @@ index 更新 / N 条 log。5 步流程 + 为什么批处理 + log 标题前缀 `
 （`raw/` 总纪律的**写权限例外之一**——LLM 主导接入；另一处例外是 `raw/discussions/`
 协作草稿，见 [wiki-spec §15](references/wiki-spec.md#15-rawdiscussions协作草稿层可选)）。
 5 步接入（确认 symlink/target → LLM 验证 → 读
-git 扩展字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描）+ 漂移刷新 + 跨主机
+git 身份字段 → 创建 symlink + 写 anchor → 后续 `ingest_diff` 扫描）+ 漂移刷新 + 跨主机
 重建见 [`references/external-repo-rebuild.md`](references/external-repo-rebuild.md)。
 
 ### 2. Query（跨页综合）

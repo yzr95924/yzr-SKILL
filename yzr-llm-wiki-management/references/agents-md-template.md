@@ -43,8 +43,7 @@
 
 - 路径：`<wiki-root>/raw/external/`
 - 用途：把本地已有的外部代码仓（Linux kernel、Ray 源码、TensorFlow、NumPy 等）
-  作语料纳入 wiki；**不**内嵌拷贝（占空间 + 失去 commit 锚点），走 symlink +
-  锚定元数据
+  作语料纳入 wiki；**不**内嵌拷贝（占空间），走 symlink + 锚定元数据
 - **扁平布局**——symlink + anchor 直接在 `raw/external/` 顶层，不要开
   `<source-name>/` 子目录；anchor 单文件记录所有外部仓：
 
@@ -52,7 +51,7 @@
   raw/external/
   ├── .symlink-anchor.toml         # TOML: schema_version=1 + [[entry]] 数组
   │                                 # 每 entry: symlink / target / captured_at /
-  │                                 # kind='external-repo' 必填 + git 扩展字段
+  │                                 # kind='external-repo' 必填 + git 身份字段（可选）
   ├── linux-kernel                  # symlink → ~/src/linux-kernel
   └── ray                          # symlink → ~/src/ray
   ```
@@ -62,9 +61,8 @@
     同名 symlink）+ `target`（**推荐 `~/src/<name>` home-relative 形式**；
     也接受绝对路径，lint 端 `Path(target).expanduser()` 统一展开判定）+
     `captured_at`（接入当天）+ `kind: "external-repo"`
-  - **git 仓扩展字段**（当 entry.target 在 git 仓内时强制）：
-    `remote_url` / `commit`（完整 SHA）/ `branch` 三字段必填；缺一即 lint 报
-    `external-git-anchor-incomplete`；漂移时 lint 报 `external-git-anchor-stale`
+  - **git 身份字段（可选）**：target 在 git 仓内时推荐记 `remote_url` + `branch`
+    ——跨机器重建软链接时用；不记 commit
   - **扁平布局**：所有外部仓的 symlink 直接在 `external/` 顶层，不开 `<source-name>/`
     子目录；后者会被 lint 报 `external-source-name-invalid`（error，需用户确认后改为扁平布局）
   - 没有 anchor 文件 = lint 报 `external-anchor-missing`（error）
@@ -79,14 +77,14 @@
     migrate）中 target 只读（librarian 角色，不在仓内跑 `git pull` 之类）；**用户明确要求
     的开发协作**（修 bug / 重构 / 仓内 git 操作）**不**属 wiki 操作、**不**受 raw/ 只读约束
     ——target 在 wiki 仓外、有其自身 git、由用户全权处置。代码改动后的 wiki 同步走**既有通道**
-    （lint 报 `external-git-anchor-stale` → 用户确认 → 刷新 anchor + 受影响 source 页重 ingest）。
+    （用户确认 → 受影响 source 页重 ingest）。
     **禁止**以"开发协作"为借口在 wiki 维护操作中顺手改 target
   - LLM **不**编辑 `raw/external/` 之外的 `raw/` 子树（articles / papers / assets /
     clippings 等仍"LLM 只读"；`discussions/` 是另一处写权限例外——见下节）
 - `.gitignore` 配置：已排好 `raw/external/*` 排除但保留 `.symlink-anchor.toml`——
   跨机器 clone 时通过 anchor 立即知道"这本来指着哪"；anchor 的
-  `remote_url` + `commit` + `branch` 三字段让新主机 LLM 可重建（重建 = 按 anchor 重建
-  symlink → 校验三字段 → 重 ingest 受影响 source 页）
+  `remote_url` + `branch` 让新主机 LLM 可重建（重建 = 按 anchor 重建
+  symlink → 重 ingest 受影响 source 页）
 
 #### `raw/discussions/` —— 协作草稿层（用户 + LLM 双方可写）
 
