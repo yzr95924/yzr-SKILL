@@ -110,7 +110,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ## 高层结构
 
-入库文件（22 个）：
+入库文件（19 个）：
 
 ```text
 .
@@ -122,9 +122,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── yzr-multi-agent-context/       # CLAUDE.md → AGENTS.md 单源 + CLAUDE.md 薄壳改造（元 skill）
-├── yzr-llm-wiki-management/     # 本地单 wiki 维护（yzr-llm-workspace-management 的内层）
-├── yzr-llm-workspace-management/# 多 wiki workspace 编排（INDEX/STATS/MEMORY/ + 跨 wiki
-│                                # Q&A / lint）
 ├── yzr-outline-wiki/           # Outline Wiki 搜 / 读 / 写 / 编辑（MCP 操作；含 references/
 │                               # doc_style + style_checklist；MCP 接入见其 §接入 小节）
 ├── yzr-coding-review/           # 交互式代码 review（合理性审视 + 重构场景 catalog；
