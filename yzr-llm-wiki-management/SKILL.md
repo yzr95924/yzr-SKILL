@@ -14,7 +14,7 @@ metadata:
   author: Zuoru YANG
   category: knowledge-base
   modify time: 2026-08-16
-  wiki_spec_version: 0.34.0
+  wiki_spec_version: 0.35.0
   fixtures_check_count: 21
 ---
 
@@ -176,7 +176,8 @@ spec 演进时不掉队。**单独跑任一个都亏**——这就是"复利"的
 2. **wiki/ 由 LLM 撰写**——用户从不手写 wiki 页面（编辑 AGENTS.md 除外，那是 schema）
 3. **AGENTS.md 是 schema 不是文档**——它承载 wiki 的纪律配置，不往里塞内容（完整纪律见
    [`agents-md-template.md`](references/agents-md-template.md) §七「本文件本身的纪律」）。
-   **写新纪律先判归属**：过在场 / 状态 / 人格三测试（wiki 属性）→ 写模板；干活方法 /
+   **写新纪律先判归属**：过在场 / 状态 / 人格三测试（wiki 属性；「做错」限定为状态
+   不合法 / 腐烂，写作质量类方法不算）→ 写模板；干活方法 /
    工具 / 路由 → 留本文件——判据 SSOT 见 [wiki-spec.md §2](references/wiki-spec.md#2-agentsmdssot--claudemd薄壳)
 4. **每次写入必更 log.md——追加一律走 `wiki_write.py log`**（格式 + 满
    `LOG_RETENTION_LIMIT` 自动截断由脚本保证，见 §设计决策「机械 vs 判断」）；lint
