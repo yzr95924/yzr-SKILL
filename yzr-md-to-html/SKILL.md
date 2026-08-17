@@ -24,9 +24,8 @@ metadata:
 
 ## 何时不使用
 
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**与**擦边负例**：
+"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**：
 
-- **出路**：上传到 Outline Wiki → 走 `yzr-outline-wiki`（产物形态是 wiki 文档，不是本地 HTML）
 - **擦边负例**："转成 html 后上传分享"仍属本 skill（转换 + 上传两段，上传走「上传产物」节）；
   但"搭文档站 / 部署上线"不是——本 skill 产物是本地文件，不生成站点、不做部署；"PDF /
   网页 → Markdown"反向转换同样不是（本 skill 只输出 HTML）
