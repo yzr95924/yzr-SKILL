@@ -41,7 +41,6 @@ import difflib
 import json
 import os
 import re
-import subprocess  # _git_inside_work_tree / _git_field 使用
 import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
@@ -83,7 +82,7 @@ CHECK_REGISTRY = [
         "id": "symlink-anchor-toml-schema",
         "severity": "error",
         "rule_ref": "wiki-spec.md §13.2",
-        "desc": "raw/external/.symlink-anchor.toml（若存在）：合法 TOML + [[entry]] 数组 + 每 entry 必填 4 字段 + git 仓时三扩展字段",
+        "desc": "raw/external/.symlink-anchor.toml（若存在）：合法 TOML + [[entry]] 数组 + 每 entry 必填 4 字段 + git 身份字段可选",
     },
     {
         "id": "symlink-anchor-toml-symlink-matches",
@@ -276,38 +275,6 @@ def _parse_anchor_minimal(anchor_path: Path) -> Optional[List[Dict[str, str]]]:
         if all(e.get(k) for k in ("symlink", "target", "captured_at")) and e.get("kind") == "external-repo"
     ]
     return valid if valid else None
-
-
-def _git_inside_work_tree(target_path: Path) -> bool:
-    """target 是否在 git 仓内——失败返 False；不抛异常。"""
-    try:
-        out = subprocess.run(  # noqa: UP021
-            ["git", "-C", str(target_path), "rev-parse", "--is-inside-work-tree"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,  # noqa: UP022
-            timeout=5,
-        )
-        return out.returncode == 0 and out.stdout.strip() == "true"
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-
-def _git_field(target_path: Path, args: List[str]) -> Optional[str]:
-    """跑 git -C <target> <args>，返 stdout.strip() 或 None。"""
-    try:
-        out = subprocess.run(  # noqa: UP021
-            ["git", "-C", str(target_path)] + args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,  # noqa: UP022
-            timeout=5,
-        )
-        if out.returncode != 0:
-            return None
-        return out.stdout.strip()
-    except (OSError, subprocess.TimeoutExpired):
-        return None
 
 
 # ============================================================================
@@ -528,7 +495,7 @@ def check_gitignore_external_track(wiki_root: Path, info: Dict[str, str]) -> Dic
 
 
 def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> Dict[str, object]:
-    """.symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 仓时三扩展字段"""
+    """.symlink-anchor.toml（若存在）合法 + 必填字段齐 + git 身份字段可选"""
     out = {  # type: Dict[str, object]
         "passed": True,
         "severity": "error",
@@ -550,7 +517,6 @@ def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> D
         return out
 
     bad_entries = []  # type: List[str]
-    missing_git = []  # type: List[str]
     for entry in entries:
         sym = entry.get("symlink", "<no-symlink>")
         target = entry.get("target", "")
@@ -560,21 +526,10 @@ def check_symlink_anchor_toml_schema(wiki_root: Path, info: Dict[str, str]) -> D
             bad_entries.append(f"{sym}: 不合 kebab-case")
         if not target:
             bad_entries.append(f"{sym}: target 字段空")
-        # git 仓时三字段必填
-        expanded = Path(os.path.expanduser(target))
-        if _git_inside_work_tree(expanded):
-            for fld in ("remote_url", "commit", "branch"):
-                if not entry.get(fld):
-                    missing_git.append(f"{sym}: 缺 {fld}")
     if bad_entries:
         out["passed"] = False  # type: ignore
         out["actual"] = "; ".join(bad_entries)
         out["expected"] = "每 entry symlink 合 `^[a-z0-9][a-z0-9-]*$` + target 非空"
-        return out
-    if missing_git:
-        out["passed"] = False  # type: ignore
-        out["actual"] = "; ".join(missing_git)
-        out["expected"] = "git 仓时 entry 必含 remote_url/commit/branch 三字段"
         return out
     return out
 
