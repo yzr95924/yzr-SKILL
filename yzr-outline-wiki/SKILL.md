@@ -94,9 +94,7 @@ Outline 持久化的是 **ProseMirror 节点树**，MCP 只收 Markdown 字符�
 > **为什么**：推到 Outline 的文档要能被 agent **读回理解**——OKF（Open Knowledge Format，
 > "markdown + frontmatter"）元数据头 + 可预测正文结构是读回 / 检索 / 分块的前提。完整
 > 定义、字段表、type 枚举、载体选型实测与最小骨架示例见
-> [`references/doc_style.md` → OKF agent 可读基线](references/doc_style.md#okf-agent-可读基线上传格式控制)；
-> `yzr-llm-wiki-management` 落地了 v0.1 子集，本 skill 沿用**同一定义**，只为
-> Outline 做载体适配。
+> [`references/doc_style.md` → OKF agent 可读基线](references/doc_style.md#okf-agent-可读基线上传格式控制)。
 
 **Outline 侧载体（SSOT 在 doc_style.md）**：OKF 标准用 `---...---` frontmatter，
 但 Outline 的 MCP 往返实测**不支持**（`---` 被吃掉、YAML 泄漏成可见正文），
@@ -582,5 +580,3 @@ curl -sS -X POST "<base>/api/documents.info" \
   可读基线（上传格式控制）+ 进阶
 - [`references/style_checklist.md`](references/style_checklist.md) — 写前必跑的
   风格 checklist（§0 OKF 元数据 + §1-§9 风格）
-- `yzr-llm-wiki-management` SKILL.md — OKF v0.1 子集的仓库（源在 llm_workspace_cli 仓）
-  锚点（本 skill 的 OKF 上传格式沿用同一定义）

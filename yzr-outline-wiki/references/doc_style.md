@@ -364,8 +364,7 @@ server 暴露的工具集，不同 self-hosted 部署可能略有差异。
 > [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 > （"markdown + frontmatter、人 / agent 都能读"）。权威实现见
 > [`llm-wiki-compiler`](https://github.com/atomicstrata/llm-wiki-compiler)（OKF
-> 生产端 + 消费端）；`yzr-llm-wiki-management` SKILL.md
-> 落地了 v0.1 子集，**Outline 侧沿用同一定义**，只为 Outline 的硬约束做载体适配。
+> 生产端 + 消费端）。
 
 ### 载体选型（实测，2026-07-01）
 
