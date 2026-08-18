@@ -11,7 +11,6 @@ skill-name/
 ├── SKILL.md（必选，YAML frontmatter + Markdown 说明文档）
 │   ├── YAML frontmatter（name、description 必需）
 │   └── Markdown 说明正文
-├── CHANGELOG.md（一般不需要——版本演进史默认进 git commit message；仅非 git 分发时用，SKILL.md / references 正文不内联版本史）
 └── 捆绑资源（可选）
     ├── scripts/    - 用于确定性 / 重复性任务的可执行脚本（Python / Bash 等）
     ├── references/ - 按需加载到上下文的文档（heavy reference 必备）
@@ -19,9 +18,7 @@ skill-name/
     └── eval/       - 用于对当前 skill 的评估
 ```
 
-需要考虑 `SKILL.md` 的大小：保持简短（正文长度权威上限见
-`references/skill-writing-principles.md`「正文写作原则」），详细文档挪到 `references/`；
-跨文件用链接引用，不内联。版本演进史不内联进 SKILL.md / references 正文——默认写 git commit message，一般无需
+版本演进史不内联进 SKILL.md / references 正文——默认写 git commit message，一般无需
 `CHANGELOG.md`（仅非 git 分发时用；原则见 `references/skill-writing-principles.md`「时间性信息不内联」）。
 
 ## progressive disclosure（三级加载）

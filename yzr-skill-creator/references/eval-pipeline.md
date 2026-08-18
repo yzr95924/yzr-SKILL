@@ -9,12 +9,8 @@
 workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个迭代内每个测试用例
 单独成目录（`eval-0/`、`eval-1/` 等）。目录边做边建，不要一次建完。
 
-子运行目录按 baseline 类型分流：
-
-- **创建新 skill**：`without_skill/outputs/`——完全不带 skill 的 baseline
-- **改进现有 skill**：`old_skill/outputs/`——用快照后的旧版（`cp -r` 快照命令见「第 1 步」）
-
-`grading.json` 落在 `outputs/` 同级（grader 产物，见「第 3 步」）。
+子运行目录按 baseline 类型分流（创建 `without_skill/outputs/` / 改进 `old_skill/outputs/`，
+细节见「第 1 步」Baseline 配置）；`grading.json` 落在 `outputs/` 同级（grader 产物，见「第 3 步」）。
 
 ## 第 1 步：在同一轮并行启动 with-skill 与 baseline
 

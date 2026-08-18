@@ -18,7 +18,7 @@ agent 才真正会想查阅 skill。"读文件 X" 这种一句话查询，不管
 
 ## 查询写作指南
 
-生成 20 条评估查询：should-trigger 与 should-not-trigger 混合（8–10 / 8–10），存为 JSON：
+生成约 20 条评估查询，should-trigger 与 should-not-trigger 各半（边界用例可微调），存为 JSON：
 
 ```json
 [

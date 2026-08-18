@@ -67,6 +67,7 @@ GFM 表格，紧凑分隔行每表都触发属误报）；`canonical/` + `fixtur
 JSON 能解析），**不**证明计分 / 选择逻辑正确——2026-08-18 的 pass 判定 bug（漏 `== should_trigger`）
 就是 canary 全绿下漏出来的。重建 / 大改脚本时用打桩冒烟跑全分支（should-trigger 命中 / 未命中 ×
 should-not-trigger 命中 / 未命中四格），秒级成本，不依赖实跑；实跑中看到反直觉的统计行立即停查。
+四格冒烟已沉淀为 `yzr-skill-creator/scripts/smoke_test_scoring.py`（stub claude，手动跑，exit 0/1）。
 
 ### 「何时不使用」节已废除，6 个 skill 待整改
 
