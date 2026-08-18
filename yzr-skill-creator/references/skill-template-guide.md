@@ -18,9 +18,6 @@ skill-name/
     └── eval/       - 用于对当前 skill 的评估
 ```
 
-版本演进史不内联进 SKILL.md / references 正文——默认写 git commit message，一般无需
-`CHANGELOG.md`（仅非 git 分发时用；原则见 `references/skill-writing-principles.md`「时间性信息不内联」）。
-
 ## progressive disclosure（三级加载）
 
 1. **元数据**（`name` + `description`）：始终在上下文中
@@ -71,10 +68,11 @@ SKILL.md 正文的规范 H2 节名、顺序、各类型的可省略规则——�
 快速审计用 `python -m scripts.quick_validate <skill-dir> --tier <type>`）。
 可直接 `cp` 填充的骨架在 `assets/skill-template.md`。
 
-边界内容按语义归位，不单设"何时不用"节：路由层负例（该不该用这个 skill）是
-selection 信息，全部进 description 的「不适用」槽——正文不重抄（重抄 = 口径漂移 +
-description 优化后悄悄过期）；执行期边界（做本职工作时遇到毗邻情形怎么处理，含转交
-去向）归「执行原则 / 边界」；流程内分流归「工作流 / 步骤」。
+边界内容按语义归位：路由层负例（该不该用这个 skill）全部进
+description 的「不适用」槽，不进正文（重抄 = 口径漂移 +
+description 优化后悄悄过期）；执行期边界（做本职工作时遇到毗邻情形怎么处理——
+范围纪律、能力边界）归「执行原则 / 边界」；流程内分流归「工作流 / 步骤」。
+跨 skill 去向不写——agent 扫 description 网络自行路由，手写指针 = N×N 耦合 + 漂移。
 
 ### 变体（各类型的骨架适配）
 
