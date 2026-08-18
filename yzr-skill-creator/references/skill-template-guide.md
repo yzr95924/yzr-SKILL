@@ -74,6 +74,11 @@ SKILL.md 正文的规范 H2 节名、顺序、各类型的可省略规则——�
 快速审计用 `python -m scripts.quick_validate <skill-dir> --tier <type>`）。
 可直接 `cp` 填充的骨架在 `assets/skill-template.md`。
 
+边界内容按语义归位，不单设"何时不用"节：路由层负例（该不该用这个 skill）是
+selection 信息，全部进 description 的「不适用」槽——正文不重抄（重抄 = 口径漂移 +
+description 优化后悄悄过期）；执行期边界（做本职工作时遇到毗邻情形怎么处理，含转交
+去向）归「执行原则 / 边界」；流程内分流归「工作流 / 步骤」。
+
 ### 变体（各类型的骨架适配）
 
 - **参考资料型**（只聚合信息、不改变 agent 行为）：可省略「执行原则 / 边界」与

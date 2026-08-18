@@ -22,7 +22,6 @@ DESCRIPTION_MAX_CHARS = 1024
 # Empty exempt set = required for every tier. 参考样例 / 参考文件 are recommended
 # for all tiers, so they exempt every tier (missing them = INFO, not WARN).
 CANONICAL_BODY_SECTIONS = (
-    ("## 何时不使用", frozenset()),
     ("## 输入 / 输出", frozenset()),
     ("## 执行原则 / 边界", frozenset({"reference"})),
     ("## 工作流 / 步骤", frozenset({"reference"})),
