@@ -425,7 +425,7 @@ OKF 标准载体是 `---...---` YAML frontmatter。但 Outline 的 MCP
   - `comparison`——多对象横向对比
   - `synthesis`——跨来源综合
 - **Outline 专属扩展**：
-  - `design-doc`——设计文档（`yzr-sys-design-doc` 的产出）
+  - `design-doc`——设计文档
   - `paper-note`——论文笔记（上游论文摘要工具推上来的）
   - `runbook`——操作手册 / SOP / 故障处理
   - `reference`——速查 / API / 配置清单
