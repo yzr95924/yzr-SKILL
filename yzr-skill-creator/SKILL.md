@@ -6,9 +6,10 @@ description: |
   description、或拿写作原则审计 skill 合规性（只报告、不改写）。
   触发："我想 / 帮我 做一个 X 的 skill" / "从零做一个 skill 处理 X" / "把 XX 流程沉淀成
   skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 修改 / 评估 / 迭代 XX skill
-  （修改含单点编辑：修 typo 等）、给 XX skill 增加 / 扩展功能；用户反馈触发
+  （修改含单点编辑：修 typo 等）、给 XX skill 增加 / 扩展功能；检查 / 审查 XX skill
+  全文（内容体检、合规审查）；用户反馈触发
   不准或行为不对；想跑评估。
-  不适用：单步问询；问 skill 机制原理；排查 / 调试 skill 问题但不改 skill 内容；
+  不适用：单步问询；问 skill 机制原理；排查 / 调试 skill 的脚本 / 代码问题但不改 skill 内容；
   写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事。
 metadata:
   author: Zuoru YANG
