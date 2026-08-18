@@ -5,7 +5,8 @@ description: |
   通过 eval-and-iterate（with-skill vs baseline）改进现有 skill、独立优化某个 skill 的触发
   description、或拿写作原则审计 skill 合规性（只报告、不改写）。
   触发："我想 / 帮我 做一个 X 的 skill" / "从零做一个 skill 处理 X" / "把 XX 流程沉淀成
-  skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 评估 / 迭代 XX skill；用户反馈触发
+  skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 修改 / 评估 / 迭代 XX skill
+  （修改含单点编辑：改措辞 / 修 typo / 删指称）；用户反馈触发
   不准或行为不对；想跑评估；只想动 frontmatter description——用户说"优化描述"是泛指
   （含正文措辞）时也触发。
   不适用：单步问询 / 写普通代码 / 改普通文档 / 不涉及 skill
@@ -26,7 +27,11 @@ metadata:
    skill"）。介入：访谈边界 → 起草 SKILL.md（骨架从 `assets/skill-template.md` 拷贝）→
    RED 演练 → eval 验证 → viewer 评审。
 2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 XX 这个 skill"）。介入：快照旧版 → with-skill vs baseline 同轮并行 → 读 transcript 找"模型
-   在哪里挣扎"→ 改 → 重跑验证。
+   在哪里挣扎"→ 改 → 重跑验证。**修改（单点编辑：改措辞 / 修 typo / 删指称）分级介入**：
+   判别尺度 = 改的是说法（怎么表达）还是规矩（怎么做决定 / 执行）——说法 = 单点，规矩 =
+   行为性。单点修改直接做：对照 `references/skill-writing-principles.md` 写作原则自查 +
+   跑 `quick_validate.py` / markdownlint，汇报里声明分类 + 一句理由；行为性修改**先问
+   用户是否跑 eval 循环**——不点头不跑、不静默降级。
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description /
    触发准确率，不动 skill 正文（"帮我优化 XX 的描述，让它该触发时触发"）。**这是独立
    入口，不需要先创建或改进那个 skill**；脚本 `optimize_description.py`
