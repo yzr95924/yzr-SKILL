@@ -6,14 +6,13 @@ description: |
   description、或拿写作原则审计 skill 合规性（只报告、不改写）。
   触发："我想 / 帮我 做一个 X 的 skill" / "从零做一个 skill 处理 X" / "把 XX 流程沉淀成
   skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 修改 / 评估 / 迭代 XX skill
-  （修改含单点编辑：改措辞 / 修 typo / 删指称）；用户反馈触发
-  不准或行为不对；想跑评估；只想动 frontmatter description——用户说"优化描述"是泛指
-  （含正文措辞）时也触发。
+  （修改含单点编辑：修 typo 等）；用户反馈触发
+  不准或行为不对；想跑评估；只想动 frontmatter description 时也触发。
   不适用：单步问询 / 写普通代码 / 改普通文档 / 不涉及 skill
   生命周期的事。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-16
+  modify time: 2026-08-18
 ---
 # yzr skill creator
 
@@ -34,23 +33,24 @@ metadata:
    用户是否跑 eval 循环**——不点头不跑、不静默降级。
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description /
    触发准确率，不动 skill 正文（"帮我优化 XX 的描述，让它该触发时触发"）。**这是独立
-   入口，不需要先创建或改进那个 skill**；脚本 `optimize_description.py`
-   原生支持指向任意 skill 目录，详见「工作流 / 步骤」下对应小节
+   入口，不需要先创建或改进那个 skill**，详见「工作流 / 步骤」下对应小节
 4. **校验某个 skill 的写作原则（独立入口）** —— 不动手改，拿写作原则当 checklist
    审计某个已有 skill 符合多少、违反哪些（"帮我检查 XX skill 写得规不规范 / 有没有
    散弹式散落、口径冲突"）。**只报告、不改写**；要修让用户点头再动。详见
    「工作流 / 步骤」下对应小节
 
+## 何时不使用
+
+单步问询 / 写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事——不进本 skill。
+
 ## 输入 / 输出
 
-四个入口的输入 / 输出对照：
-
-| 入口 | 用户输入 | skill 交付 |
-| --- | --- | --- |
-| 1. 创建 | 一句中文意图 + 必要边界 / 样例澄清 | 起草好的 `<skill-name>/SKILL.md` + 骨架，可选的 `eval/evals.json` |
-| 2. 改进 | skill 路径 + 诉求（"评估 + 迭代" / "按反馈改写"） | 改写后的 SKILL.md + `<skill-name>-workspace/iteration-N/` 评估产物 + benchmark/viewer |
-| 3. 描述优化 | 任意 skill 路径 + 一组 trigger 评估查询（配比见 `references/trigger-eval-guide.md`） | 新 `description` 候选 + before/after 触发准确率（按 `DEFAULT_HOLDOUT_RATIO` 拆分） |
-| 4. 原则校验 | 任意 skill 路径 | 审计报告（每条原则 pass/fail + 证据 + 建议修法），不动手改 |
+| 入口 | skill 交付 |
+| --- | --- |
+| 1. 创建 | 起草好的 `<skill-name>/SKILL.md` + 骨架，可选的 `eval/evals.json` |
+| 2. 改进 | 改写后的 SKILL.md + `<skill-name>-workspace/iteration-N/` 评估产物 + benchmark/viewer |
+| 3. 描述优化 | 新 `description` 候选 + before/after 触发准确率（按 `DEFAULT_HOLDOUT_RATIO` 拆分） |
+| 4. 原则校验 | 审计报告（每条原则 pass/fail + 证据 + 建议修法），不动手改 |
 
 ## 执行原则 / 边界
 
@@ -66,9 +66,7 @@ metadata:
 - **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader
   会偏向自己刚写的版本（grader 盲评约定见 `references/agents/grader.md`）
 - **指标单一来源**：脚本里有 `CONST = value` 的，prose 用 `` `CONST` `` 引用，禁止写字面量
-  ——本 skill 自身在 `scripts/utils.py::DESCRIPTION_MAX_CHARS`、
-  `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` 带头遵守（原则见
-  `references/skill-writing-principles.md`）
+  （原则见 `references/skill-writing-principles.md`；本 skill 常量清单见「参考文件」）
 - **与用户沟通**：skill 使用者编程背景差异大——术语（eval / holdout / baseline 等）先给
   一句人话解释
 
@@ -76,18 +74,17 @@ metadata:
 
 创建 / 改进一个 skill 的主要流程如下（入口 3、4 是独立入口，见本节尾部两个小节）：
 
-1. 明确你希望这个 skill 做什么，以及大致如何实现
-2. **不带 skill 跑典型 prompt 观察失败（RED 阶段）**——细节与原则见
-   「创建一个 skill · baseline 演练（RED 阶段）」（典型 prompt 条数在该节，此处不重抄）；**纯参考资料型 skill 可跳过**
-3. 起草一份 skill（改进场景下是编辑现有 skill）——**针对 RED transcript 观察到的具体违规做最小封堵**，不预堵"可能存在的"漏洞
-4. 设计几个测试 prompt，让能访问该 skill 的 agent 在这些 prompt 上跑一遍
-5. 协助用户对结果进行定性和定量两方面的评估（细节见「运行与评估测试用例」）
-6. 根据用户对结果的反馈（以及定量基准中暴露出的明显缺陷）改写 skill
-7. 重复上述过程，直到满意为止
-8. **收敛后扩量再验证（防过拟合的最后一道闸）**：初轮几个 prompt 反复迭代收敛后，把测试集扩到 5–10 条（覆盖更广的意图类别 + 相邻负例），再跑一轮完整评估——小样本收敛 ≠ 大样本成立，扩量能暴露"过拟合到少数 case"的残留问题
+1. 明确这个 skill 要做什么、大致如何实现
+2. **RED 阶段**——不带 skill 跑典型 prompt 观察失败（细节与条数见
+   「创建一个 skill · baseline 演练（RED 阶段）」，此处不重抄）；**纯参考资料型 skill 可跳过**
+3. 起草 skill（改进场景 = 编辑现有版）——**针对 RED 观察到的具体违规做最小封堵**，
+   不预堵"可能存在的"漏洞
+4. 设计几个测试 prompt 让 agent 跑一遍（细节见「测试用例」）
+5. 协助用户定性 + 定量评估结果（细节见「运行与评估测试用例」）→ 按反馈改写 → 重复直到满意
+6. **收敛后扩量再验证（防过拟合最后一道闸）**：测试集扩到 5–10 条（覆盖更广意图类别 +
+   相邻负例）再跑一轮完整评估——小样本收敛 ≠ 大样本成立
 
-使用时判断用户处于流程哪一阶段再介入：从零做 → 澄清需求、起草初稿、编测试用例、设计评估、
-反复迭代；已有草稿 → 直接进评估 / 迭代。用户说"不跑评估，直接头脑风暴"时照做。
+用户说「不跑评估，直接头脑风暴」时照做。
 
 ### 创建一个 skill
 
@@ -121,15 +118,9 @@ metadata:
 
 #### 起草 SKILL.md
 
-基于用户访谈的结果，填充以下组件。YAML frontmatter 的字段描述：要求精简、明确，
-不要过于冗长，也不要过于模糊：
-
-1. `name`：skill 的名字
-2. `description`：按 `assets/skill-template.md` 的 frontmatter 占位符填——格式三组件
-   （场景一句 + 触发： + 不适用：）与写法原则的 SSOT 在
-   `references/skill-writing-principles.md`「description 优化原则」，不在此重抄
-3. `allowed-tools`：限制使用的工具，可选字段，如果没有，则置空
-4. `metadata`：用户自定义字段，当前主要是作者（Zuoru YANG）、最后修改时间、skill 分类标签等信息
+基于用户访谈的结果，按 `assets/skill-template.md` 的 frontmatter 占位符填充——
+`description` 的三组件格式（场景一句 + 触发： + 不适用：）与写法原则的 SSOT 在
+`references/skill-writing-principles.md`「description 优化原则」，不在此重抄。
 
 后面为 skill 的正文——**骨架从 `assets/skill-template.md` 拷贝**，逐节填充（规范节名 / 顺序 /
 各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
@@ -147,8 +138,9 @@ SKILL.md 格式统一靠的就是这份骨架。
 
 #### 测试用例
 
-写完 skill 草稿后，设计几个测试 prompt（条数与「baseline 演练（RED 阶段）」同量级）——真实用户实际会说的话
-跟用户确认：这是我准备跑的几个测试用例，你看这样 OK 吗？要不要再补几个？然后跑起来
+写完 skill 草稿后，设计几个测试 prompt（条数与「baseline 演练（RED 阶段）」同量级，
+用真实用户会说的话）——先跟用户确认："这是我准备跑的几个测试用例，你看这样 OK 吗？
+要不要再补几个？"再跑起来
 
 测试用例存到 `eval/evals.json`（结构见 `references/schemas.md`）。先不写断言，只写
 prompt，等下一步再起草断言。
@@ -157,16 +149,11 @@ prompt，等下一步再起草断言。
 
 本节是连续流程，不要中途停下来。
 
-- workspace 在 `<skill-name>-workspace/`（与 skill 目录同级），按
-  `iteration-N/eval-<N>/{with_skill|without_skill|old_skill}/outputs/` 嵌套（后两者是
-  baseline 角色）；目录边做边建
 - with-skill 与 baseline 在**同一轮**并行启动（不要串行）；baseline 类型：
   - 入口 1（创建）→ `without_skill/`
-  - 入口 2（改进）→ `old_skill/`（编辑前先 `cp -r` 快照旧版到 `skill-snapshot/`）
-
-5 步细节（启动 + 起草断言 + 采时序 + 评分聚合 + 读反馈、viewer 口径、
-`eval_metadata.json` / `timing.json` / `grading.json` schema、`aggregate_benchmark.py` /
-`generate_review.py` 用法）见 `references/eval-pipeline.md`。
+  - 入口 2（改进）→ `old_skill/`（编辑前先快照旧版）
+- workspace 布局 / 嵌套、5 步细节（启动 / 起草断言 / 采时序 / 评分聚合 / 读反馈）、
+  schema 与命令见 `references/eval-pipeline.md`
 
 ### 改进 skill
 
@@ -204,7 +191,7 @@ prompt，等下一步再起草断言。
 > （`optimize_description.py` 运行时也读这一节）。
 
 直接优化某个已有 skill 的 description，提升触发准确率。`--skill-path` 原生支持
-任意 skill 目录——刚创建/改进完想顺手优化也一样走这套流程。
+任意 skill 目录。
 
 #### 第 1 步：生成触发评估查询
 
@@ -268,42 +255,11 @@ JSON 结果走 stdout。
 #### 审查深度标准（入口 4 默认口径）
 
 > 用户要求"最严 / 仔细审查"时按此执行；日常原则校验也建议照此深度——只跑速查表机械
-> 检查会漏掉"某段是 agent 常识冗余 / 单 case 疤痕组织"这类判断题。
-
-- **全量范围**：`SKILL.md` + `references/` + `scripts/` + `assets/` + `eval/` 每个文件逐行读，
-  无抽样；`references/canonical/` 与 `fixtures/*.txt` 是字节金标准，不碰内容，只审自包含注释
-  （"与哪份 SSOT 重复 + 理由"）是否齐全
-- **逐段精读判据**：每段过「精简与粒度约束」删除测试（"删掉这句，称职 agent 会做错吗？"）+
-  等价三问；审计速查表（`references/skill-writing-principles.md`）逐条判——description 组与正文组都要过，
-  不只跑程序化项；**精简结论须列出"考虑过删但保留"的边缘段 + 一句保留理由**（删除测试为何
-  通过），不能只给"全过"汇总——否则"全过"不可验证。**保留理由必须是删除测试的正面答案**：
-  "删掉它，agent 会在哪个具体场景做错？"——禁止用"合理分工 / 与详述不冲突 / 不违规"这类
-   合规性措辞当保留理由（合规 ≠ 必要；不违规 ≠ 该留）。**默认值 = 删**：对每个块（无论新旧
-   体裁）先假设删、找不到保留理由就砍——删除测试必须**存量回测**（含 ASCII 图 / 表格等"结构
-   重工"产物，分层图 / 归属表 / 边界节承载同一信息时只留一份），禁止只对有重复嫌疑的块跑测试
-   （增量审计会把旧结构默认放行）；"作者刻意设计的"不构成保留理由。**正确性以验证证据为准**（速查表
-  Iron Law 证据行）：审计者不凭精读断言建议对错，无 baseline / eval 证据的纪律型 / 模式型
-  内容按"未经验证"报，不主观判"对 / 错"
-- **脚本逐行标准**：死代码 / 冗余 import / 参数遮蔽 / 未转义注入（`</script>` 类）/ 字面量
-  重抄常量 / 应计算却硬编码的值
-- **报告分级**：fail 按 P1 真实 bug / P2 代码质量 / P3 口径散落分级，每条附
-  `文件:行` 证据 + 修法；**P4 观察项必须给"保留 vs 砍"的明确建议**——保留者附删除测试
-  正面理由，建议砍者直接进修复清单，不允许"观察项 = 默认不动"的死档；pass 项计数汇总
-  （要展开逐条列出时再说）
-- **修复流**：逐项等用户确认 → 修（只动仓库源，不手拷 vendored）→ quick_validate +
-  markdownlint + ruff 验证 → commit + push（用户经 npx 同步 vendored）→ git 确认
-
-## 参考样例
-
-> 入口判断 + 介入路径已在「四个入口」逐条给出——此处只留一个最典型的映射做直观示例：
->
-> 用户："这个 upload-skill 在上传大文档时总吞换行，你帮我改进一下"
->
-> → 入口 2（改进）：快照旧版 → with-skill vs baseline → 看 transcript 找"模型在哪里挣扎" → 改 → 重跑验证
+> 检查会漏掉"某段是 agent 常识冗余 / 单 case 疤痕组织"这类判断题。全量范围 / 逐段
+> 精读判据 / 脚本逐行标准 / 报告分级 / 修复流的细则见
+> `references/skill-writing-principles.md`「审查深度标准」。
 
 ## 参考文件
-
-`references/agents/` 目录包含专用子 agent 的指令。需要启动相关子 agent 时读取。
 
 - `references/agents/grader.md` —— 如何对照输出评估断言
 - `references/agents/benchmark-analyzer.md` —— 如何分析 benchmark 聚合结果（评估流程第 4 步）
@@ -325,3 +281,4 @@ JSON 结果走 stdout。
 
 - `scripts/utils.py::CANONICAL_BODY_SECTIONS` —— 正文规范节名 / 顺序 / 豁免（节名列表唯一真源）
 - `scripts/utils.py::DESCRIPTION_MAX_CHARS` —— description 长度硬上限
+- `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` —— 触发评估集训练 / 保留测试拆分比例
