@@ -16,13 +16,6 @@ metadata:
 
 一句话总述：这个 skill 让 agent 能干什么、产出什么。
 
-## 何时不使用
-
-<"何时使用"全部在 frontmatter description——正文不重抄（重抄 = 口径漂移 + description
-优化后悄悄过期）。本节只列擦边负例（与本 skill 共享关键词 / 概念、但需求不同、
-关键词匹配会误触发的场景）。跨 skill 去向不写——agent 扫 description 网络或问用户
-自行路由>
-
 ## 输入 / 输出
 
 | 方向 | 内容 |
@@ -39,7 +32,7 @@ references/skill-template-guide.md「变体」。参考资料型 skill 可省略
 
 ## 工作流 / 步骤
 
-<按顺序的操作步骤。多入口 skill 可在「何时不使用」之前加一个路由节（如
+<按顺序的操作步骤。多入口 skill 可在第一个规范节之前加一个路由节（如
 「四个入口」，判据见 references/skill-template-guide.md「变体」）。单步超过下放阈值
 （见 references/skill-writing-principles.md「正文超长根因诊断」）= 下放到
 references/xxx-workflow.md，正文留路标>
