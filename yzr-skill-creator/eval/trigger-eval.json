@@ -21,5 +21,6 @@
   {"query": "我想给 Obsidian 装个新插件，帮我在 community plugins 里搜一下", "should_trigger": false},
   {"query": "帮我扫一下 yzr-outline-wiki 有没有 typo，顺手改了", "should_trigger": true},
   {"query": "这个 yzr-md-to-html skill 是干什么用的？给我讲讲", "should_trigger": false},
-  {"query": "帮我看看 yzr-skill-creator 的 scripts/ 有没有 bug", "should_trigger": false}
+  {"query": "帮我看看 yzr-skill-creator 的 scripts/ 有没有 bug", "should_trigger": false},
+  {"query": "检查 yzr-md-to-html 这个 SKILL 的全部内容，看看有没有问题", "should_trigger": true}
 ]
