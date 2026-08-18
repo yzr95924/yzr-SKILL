@@ -267,7 +267,7 @@ checklist——按顺序勾选一遍能避免 90% 的风格漂移。
 ### 论文笔记 / 设计文档：关键架构图 / 示意图默认必须
 
 仓库内 `论文笔记` Collection、`数据结构与算法 → 索引类` 这类**以展示系统
-/ 算法设计为核心**的文档（也包括 `yzr-sys-design-doc` 的产出），**关键架构图
+/ 算法设计为核心**的文档，**关键架构图
 / 示意图是默认要求**——而不是可选项。判定标准与完整操作流程见
 [`references/style_checklist.md`](references/style_checklist.md) §9。
 
