@@ -1,9 +1,5 @@
 # SKILL 写作骨架与模板
 
-> 通用 SKILL 写作骨架（**目录布局 / 三级加载 / 输出格式模板**）——与具体
-> skill 类型无关。agent 本应知道"skeleton 是什么"，但具体格式约定（目录 /
-> progressive disclosure / 模板）放此处一次，SKILL.md 自身不再重抄以减少 token。
-
 ## 目录布局
 
 ```text
@@ -39,29 +35,7 @@ cloud-deploy/
     └── azure.md
 ```
 
-## 写作模式模板
-
-### 定义输出格式
-
-```markdown
-## Report structure
-ALWAYS use this exact template:
-# [Title]
-## Executive summary
-## Key findings
-## Recommendations
-```
-
-### 示例模式
-
-```markdown
-## Commit message format
-**Example 1:**
-Input: Added user authentication with JWT tokens
-Output: feat（auth）: implement JWT-based authentication
-```
-
-### 正文骨架（canonical 节）
+## 正文骨架（canonical 节）
 
 SKILL.md 正文的规范 H2 节名、顺序、各类型的可省略规则——唯一真源在
 `scripts/utils.py::CANONICAL_BODY_SECTIONS`（**prose 不重抄节名列表**，改常量一处生效；
@@ -74,7 +48,7 @@ description 优化后悄悄过期）；执行期边界（做本职工作时遇�
 范围纪律、能力边界）归「执行原则 / 边界」；流程内分流归「工作流 / 步骤」。
 跨 skill 去向不写——agent 扫 description 网络自行路由，手写指针 = N×N 耦合 + 漂移。
 
-### 变体（各类型的骨架适配）
+## 变体（各类型的骨架适配）
 
 - **参考资料型**（只聚合信息、不改变 agent 行为）：可省略「执行原则 / 边界」与
   「工作流 / 步骤」两节——把"行为约束 / 步骤"留给真正的配方型 skill
@@ -89,7 +63,6 @@ description 优化后悄悄过期）；执行期边界（做本职工作时遇�
   一条 bullet（"立场 + 为什么"）；机械型 skill（转换 / 提取 / 管线）**不加**——写不出
   有内容的视角节 = 该加的是别的东西或什么都不加
 
-### 何时去读本文件
+## 何时去读本文件
 
-新 skill 起草 `/ audit 现有 skill` 时，需要通用骨架 / 模板就 `Read` 本文件；yzr-skill-creator 的 SKILL.md
-不再重复"骨架 / 模板"内容（避免"通用背景铺垫"冗余段，省 token）。
+新 skill 起草 / audit 现有 skill、需要通用骨架 / 变体规则时 `Read` 本文件。

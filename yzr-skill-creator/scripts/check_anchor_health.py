@@ -50,12 +50,6 @@ Exit code: 0 = clean; 1 = at least one issue; 2 = setup error
 
 Manual rules this script encodes (fallback when the script is unavailable)
 -------------------------------------------------------------------------
-- Path base is the directory of the CONTAINING file, not the skill root:
-  SKILL.md (at skill root) references `references/foo.md`; a doc inside
-  references/ references a sibling as `b.md`, NOT `../b.md` (that resolves
-  to `<skill>/b.md` — dead link). Referencing the skill root from
-  references/ is `../scripts/foo.py` (legal).
-- Most common mistake: `references/` docs writing `../X.md` for a sibling.
 - GitHub-style heading slug: lowercase + strip punctuation + spaces to `-`;
   full-width punctuation `：` / `、` / `（` / `）` is REMOVED, not converted.
 - Code-fence "teaching example" paths (sources/foo.md inside a fence) are
