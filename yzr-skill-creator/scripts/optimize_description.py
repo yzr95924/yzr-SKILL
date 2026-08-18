@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
-"""Optimize a skill description via an eval + improve loop.
+"""Optimize a skill description via a routing-judge eval + improve loop.
 
 Single entry point for yzr-skill-creator's「描述优化」独立入口. The loop:
   1. split the eval set into train / holdout (DEFAULT_HOLDOUT_RATIO)
-  2. eval: for each query, run `claude -p` against a per-query skill clone
-     (`_eval_skill_<uuid>` under ~/.claude/skills/) and detect triggering from
-     stream events — 触发是概率事件, so each query is probed `runs_per_query`
-     times and pass = trigger_rate >= trigger_threshold
-  3. improve: feed failures + previous attempts + the「description 优化原则」
+  2. eval: for each query, one text-only `claude -p` call acts as the routing
+     judge — it sees the available skills list (name + description) and picks
+     which skill (if any) it would load. The candidate description stands in
+     for the target skill. 触发是概率事件, so each query is probed
+     `runs_per_query` times and pass = trigger_rate >= trigger_threshold
+  3. canary: control queries against a synthetic skill with a bulletproof
+     description run before the eval set — a canary failure means the judge
+     channel is broken (model error / CLI error / parse error), and the run
+     aborts instead of producing numbers from a broken channel
+  4. improve: feed failures + previous attempts + the「description 优化原则」
      section of references/skill-writing-principles.md to `claude -p`, get a
      new description back
-  4. repeat until all train queries pass or max_iterations; pick the best
+  5. repeat until all train queries pass or max_iterations; pick the best
      iteration by test score (train score if no holdout)
+
+All judge / improve calls run `claude -p` in a neutral cwd (temp dir) with no
+tools, so project context (AGENTS.md / MCP servers) cannot bias the result.
+The skills list is parsed in-process from ~/.claude/skills — nothing is cloned,
+moved, or written to the skills directory.
 
 Output: results JSON on stdout (machine-readable, agent applies
 `best_description`); a compact human summary on stderr. `--results-dir` saves
 results.json + per-round improvement transcripts under logs/. There is no HTML
 report — the summary is meant to be relayed by the agent in chat.
 
-`--single-round`: one eval + one improvement without the loop (covers the
-old standalone improve_description.py use — pass an eval set you already have).
+`--single-round`: one eval + one improvement without the loop.
 """
 
 import argparse
@@ -27,357 +36,53 @@ import json
 import os
 import random
 import re
-import select
-import shutil
 import subprocess
 import sys
 import tempfile
 import time
-import uuid
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Bootstrap sys.path so `from scripts.X import Y` works under both
 # `python3 scripts/optimize_description.py` (standalone) and
-# `python3 -m scripts.optimize_description` (from yzr-skill-creator/). Resolves B1.
+# `python3 -m scripts.optimize_description` (from yzr-skill-creator/).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.utils import DESCRIPTION_MAX_CHARS, parse_skill_md
 
-# SSOT for the train/test split ratio. Prose references this constant instead of
-# writing the literal 0.4 so future tweaks don't drift docs vs. code.
+# SSOT for the train/test split ratio. Prose references this constant instead
+# of writing the literal so future tweaks don't drift docs vs. code.
 DEFAULT_HOLDOUT_RATIO = 0.4
 
-# Match any per-query eval clone, not just the one assigned to the current
-# query. With ProcessPoolExecutor(10), all in-flight clones coexist in
-# ~/.claude/skills/ with identical descriptions, and the model picks one
-# arbitrarily — crediting only the specific `clean_name` would register most
-# real triggers as misses (recall ~6%). 8 hex chars matches
-# `uuid.uuid4().hex[:8]` in run_single_query.
-EVAL_SKILL_PATTERN = re.compile(r"_eval_skill_[a-f0-9]{8}")
+# Judge candidates are collected from here so the eval list mirrors what a real
+# agent sees. The target skill is identified by its own frontmatter name.
+SKILLS_DIR = Path.home() / ".claude" / "skills"
 
-# Where test skills are placed so the `claude -p` harness auto-discovers them
-# into the available_skills list of each spawned subprocess. Tests use a unique
-# `_eval_skill_<uuid>` name so multiple in-flight queries never collide, and
-# each cleans up its own dir in `finally`.
-EVAL_SKILLS_DIR = Path.home() / ".claude" / "skills"
+# Canary: a synthetic skill whose description contains a unique token, plus
+# control queries with known outcomes. A canary failure = broken judge channel
+# (model / CLI / parsing), not a bad description — abort loudly.
+CANARY_SKILL = {
+    "name": "_canary_skill",
+    "description": "当用户提到「量子香蕉」时使用本 skill。触发：量子香蕉。不适用：其它一切。",
+}
+CANARY_QUERIES = [
+    {"query": "帮我处理一下量子香蕉的排序问题", "should_trigger": True},
+    {"query": "帮我写个 Python 脚本把两个 JSON 合并一下", "should_trigger": False},
+]
 
-
-def find_project_root() -> Path:
-    """Find the project root by walking up from cwd looking for .claude/.
-
-    Mimics how Claude Code discovers its project root, so the command file
-    we create ends up where claude -p will look for it.
-    """
-    current = Path.cwd()
-    for parent in [current, *current.parents]:
-        if (parent / ".claude").is_dir():
-            return parent
-    return current
-
-
-def cleanup_stale_eval_skills() -> int:
-    """Remove `_eval_skill_*` dirs from prior runs that crashed mid-cleanup.
-
-    Called once at the start of the eval so a previous interrupted run
-    doesn't pollute available_skills. Returns count removed.
-    """
-    if not EVAL_SKILLS_DIR.is_dir():
-        return 0
-    removed = 0
-    for entry in EVAL_SKILLS_DIR.iterdir():
-        if entry.is_dir() and entry.name.startswith("_eval_skill_"):
-            shutil.rmtree(entry, ignore_errors=True)
-            removed += 1
-    return removed
-
-
-def run_single_query(
-    query: str,
-    skill_name: str,
-    skill_description: str,
-    timeout: int,
-    project_root: str,
-    model: Optional[str] = None,
-) -> bool:
-    """Run a single query and return whether the skill was triggered.
-
-    Writes a SKILL.md clone under ~/.claude/skills/ so it appears in the
-    spawned `claude -p` subprocess's available_skills list, then runs the raw
-    query. Uses --include-partial-messages to detect triggering early from
-    stream events (content_block_start) rather than waiting for the full
-    assistant message, which only arrives after tool execution.
-    """
-    unique_id = uuid.uuid4().hex[:8]
-    # Per-query unique name; never matches a real skill so the harness can
-    # auto-discover it under ~/.claude/skills/. Original code wrote to
-    # .claude/commands/ (a slash-command registry, not a skills registry) so
-    # testing config / meta skills consistently measured 0% trigger for a
-    # harness reason rather than a description reason.
-    clean_name = f"_eval_skill_{unique_id}"
-    skill_dir = EVAL_SKILLS_DIR / clean_name
-    skill_md = skill_dir / "SKILL.md"
-
-    try:
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        # YAML block scalar keeps multi-line / quoted descriptions safe
-        indented_desc = "\n  ".join(skill_description.split("\n"))
-        skill_md.write_text(
-            f"---\n"
-            f"name: {clean_name}\n"
-            f"description: |\n"
-            f"  {indented_desc}\n"
-            f"---\n\n"
-            f"# {clean_name}\n\n"
-            f"Eval-injected skill for trigger testing.\n"
-        )
-
-        cmd = [
-            "claude",
-            "-p",
-            query,
-            "--output-format",
-            "stream-json",
-            "--verbose",
-            "--include-partial-messages",
-        ]
-        if model:
-            cmd.extend(["--model", model])
-
-        # Remove CLAUDECODE env var to allow nesting claude -p inside a
-        # Claude Code session. The guard is for interactive terminal conflicts;
-        # programmatic subprocess usage is safe.
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            cwd=project_root,
-            env=env,
-        )
-
-        triggered = False
-        start_time = time.time()
-        buffer = ""
-        # Track state for stream event detection
-        pending_tool_name = None
-        accumulated_json = ""
-
-        try:
-            while time.time() - start_time < timeout:
-                if process.poll() is not None:
-                    remaining = process.stdout.read()
-                    if remaining:
-                        buffer += remaining.decode("utf-8", errors="replace")
-                    break
-
-                ready, _, _ = select.select([process.stdout], [], [], 1.0)
-                if not ready:
-                    continue
-
-                chunk = os.read(process.stdout.fileno(), 8192)
-                if not chunk:
-                    break
-                buffer += chunk.decode("utf-8", errors="replace")
-
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    # Early detection via stream events
-                    if event.get("type") == "stream_event":
-                        se = event.get("event", {})
-                        se_type = se.get("type", "")
-
-                        if se_type == "content_block_start":
-                            cb = se.get("content_block", {})
-                            if cb.get("type") == "tool_use":
-                                tool_name = cb.get("name", "")
-                                if tool_name in ("Skill", "Read"):
-                                    pending_tool_name = tool_name
-                                    accumulated_json = ""
-                                else:
-                                    return False
-
-                        elif se_type == "content_block_delta" and pending_tool_name:
-                            delta = se.get("delta", {})
-                            if delta.get("type") == "input_json_delta":
-                                accumulated_json += delta.get("partial_json", "")
-                                if EVAL_SKILL_PATTERN.search(accumulated_json):
-                                    return True
-
-                        elif se_type in ("content_block_stop", "message_stop"):
-                            if pending_tool_name:
-                                return bool(EVAL_SKILL_PATTERN.search(accumulated_json))
-                            if se_type == "message_stop":
-                                return False
-
-                    # Fallback: full assistant message
-                    elif event.get("type") == "assistant":
-                        message = event.get("message", {})
-                        for content_item in message.get("content", []):
-                            if content_item.get("type") != "tool_use":
-                                continue
-                            tool_name = content_item.get("name", "")
-                            tool_input = content_item.get("input", {})
-                            if tool_name == "Skill" and EVAL_SKILL_PATTERN.search(tool_input.get("skill", "")):
-                                triggered = True
-                            elif tool_name == "Read" and EVAL_SKILL_PATTERN.search(tool_input.get("file_path", "")):
-                                triggered = True
-                            return triggered
-
-                    elif event.get("type") == "result":
-                        return triggered
-        finally:
-            # Clean up process on any exit path (return, exception, timeout)
-            if process.poll() is None:
-                process.kill()
-                process.wait()
-
-        return triggered
-    finally:
-        # rmtree the whole skill_dir so the SKILL.md AND any side files drop
-        # together; ignore_errors handles "already gone" races from a prior
-        # partial cleanup.
-        if skill_dir.exists():
-            shutil.rmtree(skill_dir, ignore_errors=True)
-
-
-def run_eval(
-    eval_set: List[dict],
-    skill_name: str,
-    description: str,
-    num_workers: int,
-    timeout: int,
-    project_root: Path,
-    runs_per_query: int = 1,
-    trigger_threshold: float = 0.5,
-    model: Optional[str] = None,
-) -> dict:
-    """Run the full eval set and return results."""
-    # Sweep any _eval_skill_* leftovers from a previous interrupted run so
-    # they don't pollute this run's available_skills list.
-    removed = cleanup_stale_eval_skills()
-    if removed:
-        print(f"Cleaned {removed} stale eval-skill dir(s) from prior run.", file=sys.stderr)
-
-    # The real skill is usually vendored under ~/.claude/skills/ and would
-    # shadow the per-query eval clone in the subprocess's available_skills
-    # list: the model triggers the real skill, detection sees no
-    # `_eval_skill_*` tool call, and recall silently collapses to 0%. Claude
-    # Code discovers ANY directory under ~/.claude/skills/ regardless of its
-    # name (a `.hidden`-suffixed rename is still listed), so the vendored
-    # copy must be MOVED OUT of the skills dir for the duration of the eval,
-    # then restored in `finally`.
-    real_skill_dir = EVAL_SKILLS_DIR / skill_name
-    hidden_path = None
-    if real_skill_dir.exists():
-        hidden_path = Path(tempfile.mkdtemp(prefix="_skill_eval_hide_")) / skill_name
-        try:
-            shutil.move(str(real_skill_dir), str(hidden_path))
-            print(
-                f"Moved vendored skill {skill_name} out of ~/.claude/skills for the duration of the eval.",
-                file=sys.stderr,
-            )
-        except OSError as e:
-            hidden_path = None
-            print(
-                f"Warning: could not hide vendored skill {skill_name} ({e}); eval may measure "
-                f"0% recall if the model triggers the real skill instead.",
-                file=sys.stderr,
-            )
-
-    results = []
-
-    try:
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            future_to_info = {}
-            for item in eval_set:
-                for run_idx in range(runs_per_query):
-                    future = executor.submit(
-                        run_single_query,
-                        item["query"],
-                        skill_name,
-                        description,
-                        timeout,
-                        str(project_root),
-                        model,
-                    )
-                    future_to_info[future] = (item, run_idx)
-
-            query_triggers: Dict[str, List[bool]] = {}
-            query_items: Dict[str, dict] = {}
-            for future in as_completed(future_to_info):
-                item, _ = future_to_info[future]
-                query = item["query"]
-                query_items[query] = item
-                if query not in query_triggers:
-                    query_triggers[query] = []
-                try:
-                    query_triggers[query].append(future.result())
-                except Exception as e:
-                    print(f"Warning: query failed: {e}", file=sys.stderr)
-                    query_triggers[query].append(False)
-
-    finally:
-        if hidden_path is not None and os.path.lexists(str(hidden_path)):
-            shutil.move(str(hidden_path), str(real_skill_dir))
-            print(f"Restored vendored skill {skill_name}.", file=sys.stderr)
-
-    for query, triggers in query_triggers.items():
-        item = query_items[query]
-        trigger_rate = sum(triggers) / len(triggers)
-        should_trigger = item["should_trigger"]
-        if should_trigger:
-            did_pass = trigger_rate >= trigger_threshold
-        else:
-            did_pass = trigger_rate < trigger_threshold
-        results.append(
-            {
-                "query": query,
-                "should_trigger": should_trigger,
-                "trigger_rate": trigger_rate,
-                "triggers": sum(triggers),
-                "runs": len(triggers),
-                "pass": did_pass,
-            }
-        )
-
-    passed = sum(1 for r in results if r["pass"])
-    total = len(results)
-
-    return {
-        "skill_name": skill_name,
-        "description": description,
-        "results": results,
-        "summary": {
-            "total": total,
-            "passed": passed,
-            "failed": total - passed,
-        },
-    }
+_JUDGE_PATTERN = re.compile(r'"skill"\s*:\s*(?:"([^"]*)"|null)')
 
 
 def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
     """Run `claude -p` with the prompt on stdin and return the text response.
 
-    Prompt goes over stdin (not argv) because it embeds the full SKILL.md
-    body and can easily exceed comfortable argv length.
+    Prompt goes over stdin (not argv) because it can embed full skill content.
+    Runs in the temp dir so project context cannot bias the answer.
     """
     cmd = ["claude", "-p", "--output-format", "text"]
     if model:
         cmd.extend(["--model", model])
 
-    # Same CLAUDECODE-strip pattern as run_single_query above.
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
     result = subprocess.run(
@@ -387,6 +92,7 @@ def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
         stderr=subprocess.PIPE,
         universal_newlines=True,
         env=env,
+        cwd=tempfile.gettempdir(),
         timeout=timeout,
     )
     if result.returncode != 0:
@@ -394,16 +100,119 @@ def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
     return result.stdout
 
 
+def collect_skills(skill_name: str, candidate_description: str) -> List[Dict[str, str]]:
+    """Collect real skills from SKILLS_DIR; the target skill uses the candidate description."""
+    if not SKILLS_DIR.is_dir():
+        raise RuntimeError(f"skills dir not found: {SKILLS_DIR}")
+    skills: List[Dict[str, str]] = []
+    for entry in sorted(SKILLS_DIR.iterdir()):
+        if not (entry / "SKILL.md").is_file():
+            continue
+        try:
+            name, desc, _ = parse_skill_md(entry)
+        except (ValueError, OSError):
+            continue
+        if not name or not desc:
+            continue
+        if name == skill_name:
+            desc = candidate_description
+        skills.append({"name": name, "description": desc})
+    if not skills:
+        raise RuntimeError(f"no skills found under {SKILLS_DIR}")
+    return skills
+
+
+def _judge_prompt(query: str, skills: List[Dict[str, str]]) -> str:
+    lines = []
+    for i, s in enumerate(skills, 1):
+        lines.append(f"{i}. {s['name']}:\n   {s['description']}")
+    return (
+        "You are the routing layer of an AI coding agent. Below is the list of "
+        "available skills (name + description) and a user query. Decide whether you "
+        "would load one of these skills to handle the query.\n"
+        "Answer with a JSON object only, no other text:\n"
+        '{"skill": "<name>"} or {"skill": null}\n\n'
+        "Available skills:\n" + "\n".join(lines) + "\n\nUser query: " + query + "\n\nJSON:"
+    )
+
+
+def judge_query(
+    query: str,
+    skills: List[Dict[str, str]],
+    target_name: str,
+    model: Optional[str],
+    timeout: int,
+) -> bool:
+    """One routing-judge call: return whether the target skill was chosen."""
+    text = _call_claude(_judge_prompt(query, skills), model, timeout)
+    match = _JUDGE_PATTERN.search(text)
+    if not match:
+        raise RuntimeError(f"judge returned unparseable response for query: {query[:60]!r}\nresponse: {text[:200]!r}")
+    chosen = match.group(1)
+    return chosen == target_name
+
+
+def run_canary(model: Optional[str], timeout: int) -> None:
+    """Verify the judge channel with a synthetic skill; abort on failure."""
+    for q in CANARY_QUERIES:
+        got = judge_query(q["query"], [CANARY_SKILL], CANARY_SKILL["name"], model, timeout)
+        if got != q["should_trigger"]:
+            raise RuntimeError(
+                f"canary failed: query={q['query']!r} expected_trigger={q['should_trigger']} "
+                f"got={got} — judge channel is broken, aborting instead of producing numbers"
+            )
+
+
+def run_eval(
+    eval_set: List[dict],
+    skill_name: str,
+    description: str,
+    timeout: int,
+    runs_per_query: int = 1,
+    trigger_threshold: float = 0.5,
+    model: Optional[str] = None,
+) -> dict:
+    """Run the full eval set through the routing judge and return results."""
+    skills = collect_skills(skill_name, description)
+    results = []
+    for item in eval_set:
+        query = item["query"]
+        should_trigger = bool(item["should_trigger"])
+        triggers = 0
+        for _ in range(runs_per_query):
+            try:
+                if judge_query(query, skills, skill_name, model, timeout):
+                    triggers += 1
+            except RuntimeError:
+                raise
+        passed = (triggers / runs_per_query) >= trigger_threshold
+        results.append(
+            {
+                "query": query,
+                "should_trigger": should_trigger,
+                "triggers": triggers,
+                "runs": runs_per_query,
+                "pass": passed,
+            }
+        )
+    passed_count = sum(1 for r in results if r["pass"])
+    return {
+        "results": results,
+        "summary": {
+            "passed": passed_count,
+            "failed": len(results) - passed_count,
+            "total": len(results),
+        },
+    }
+
+
 def _load_description_principles() -> str:
     """Read description-optimization principles from references/skill-writing-principles.md.
 
-    The principles live in a single SSOT markdown file so they can be extended without
-    touching code. Extracts the section under the `## description 优化原则` header (up to
-    the next `## ` header) and injects it into the improvement prompt.
-
-    Raises if the file or section is missing — the file ships with the skill, so its
-    absence means a broken install, not a state to paper over with a hardcoded fallback
-    (a fallback would re-duplicate the principles this refactor exists to consolidate).
+    The principles live in a single SSOT markdown file so they can be extended
+    without touching code. Extracts the section under the `## description 优化
+    原则` header (up to the next `## ` header) and injects it into the
+    improvement prompt.
     """
     path = Path(__file__).resolve().parent.parent / "references" / "skill-writing-principles.md"
     text = path.read_text(encoding="utf-8")
@@ -435,7 +244,6 @@ def improve_description(
     failed_triggers = [r for r in eval_results["results"] if r["should_trigger"] and not r["pass"]]
     false_triggers = [r for r in eval_results["results"] if not r["should_trigger"] and not r["pass"]]
 
-    # Build scores summary
     train_score = f"{eval_results['summary']['passed']}/{eval_results['summary']['total']}"
     if test_results:
         test_score = f"{test_results['summary']['passed']}/{test_results['summary']['total']}"
@@ -505,10 +313,6 @@ Please respond with only the new description text in <new_description> tags, not
     if match:
         description = match.group(1).strip().strip('"')
     else:
-        # Defensive fallback for when the model forgot the closing tag —
-        # without this, a literal `<new_description>` token leaked into the
-        # rewritten description (observed 2026-07-12 in yzr-skill-creator
-        # iter 3 because the close was missing).
         cleaned = re.sub(r"^\s*<new_description>\s*", "", text)
         cleaned = re.sub(r"\s*</new_description>\s*$", "", cleaned)
         description = cleaned.strip().strip('"')
@@ -522,11 +326,6 @@ Please respond with only the new description text in <new_description> tags, not
         "over_limit": len(description) > DESCRIPTION_MAX_CHARS,
     }
 
-    # Safety net: the injected principles state the char hard limit, but if
-    # the model blew past it anyway, make one fresh single-turn call that
-    # quotes the too-long version and asks for a shorter rewrite. (The old
-    # SDK path did this as a true multi-turn; `claude -p` is one-shot, so we
-    # inline the prior output into the new prompt instead.)
     if len(description) > DESCRIPTION_MAX_CHARS:
         shorten_prompt = (
             f"{prompt}\n\n"
@@ -543,7 +342,6 @@ Please respond with only the new description text in <new_description> tags, not
         if match:
             shortened = match.group(1).strip().strip('"')
         else:
-            # Same defensive strip as the primary site (model missed close tag).
             cleaned = re.sub(r"^\s*<new_description>\s*", "", shorten_text)
             cleaned = re.sub(r"\s*</new_description>\s*$", "", cleaned)
             shortened = cleaned.strip().strip('"')
@@ -568,19 +366,15 @@ def split_eval_set(eval_set: List[dict], holdout: float, seed: int = 42) -> Tupl
     """Split eval set into train and test sets, stratified by should_trigger."""
     random.seed(seed)
 
-    # Separate by should_trigger
     trigger = [e for e in eval_set if e["should_trigger"]]
     no_trigger = [e for e in eval_set if not e["should_trigger"]]
 
-    # Shuffle each group
     random.shuffle(trigger)
     random.shuffle(no_trigger)
 
-    # Calculate split points
     n_trigger_test = max(1, int(len(trigger) * holdout))
     n_no_trigger_test = max(1, int(len(no_trigger) * holdout))
 
-    # Split
     test_set = trigger[:n_trigger_test] + no_trigger[:n_no_trigger_test]
     train_set = trigger[n_trigger_test:] + no_trigger[n_no_trigger_test:]
 
@@ -618,7 +412,6 @@ def run_optimize_loop(
     eval_set: List[dict],
     skill_path: Path,
     description_override: Optional[str],
-    num_workers: int,
     timeout: int,
     max_iterations: int,
     runs_per_query: int,
@@ -629,11 +422,9 @@ def run_optimize_loop(
     log_dir: Optional[Path] = None,
 ) -> dict:
     """Run the eval + improve loop; return the results dict for results.json."""
-    project_root = find_project_root()
     name, original_description, content = parse_skill_md(skill_path)
     current_description = description_override or original_description
 
-    # Split into train/test if holdout > 0
     if holdout > 0:
         train_set, test_set = split_eval_set(eval_set, holdout)
         if verbose:
@@ -652,23 +443,21 @@ def run_optimize_loop(
             print(f"Description: {current_description}", file=sys.stderr)
             print(f"{'=' * 60}", file=sys.stderr)
 
-        # Evaluate train + test together in one batch for parallelism
+        run_canary(model, timeout)
+
         all_queries = train_set + test_set
         t0 = time.time()
         all_results = run_eval(
             eval_set=all_queries,
             skill_name=name,
             description=current_description,
-            num_workers=num_workers,
             timeout=timeout,
-            project_root=project_root,
             runs_per_query=runs_per_query,
             trigger_threshold=trigger_threshold,
             model=model,
         )
         eval_elapsed = time.time() - t0
 
-        # Split results back into train/test by matching queries
         train_queries_set = {q["query"] for q in train_set}
         train_result_list = [r for r in all_results["results"] if r["query"] in train_queries_set]
         test_result_list = [r for r in all_results["results"] if r["query"] not in train_queries_set]
@@ -719,12 +508,10 @@ def run_optimize_loop(
                 print(f"\nMax iterations reached ({max_iterations}).", file=sys.stderr)
             break
 
-        # Improve the description based on train results
         if verbose:
             print("\nImproving description...", file=sys.stderr)
 
         t0 = time.time()
-        # Strip test scores from history so improvement model can't see them
         blinded_history = [{k: v for k, v in h.items() if not k.startswith("test_")} for h in history]
         new_description = improve_description(
             skill_name=name,
@@ -743,7 +530,6 @@ def run_optimize_loop(
 
         current_description = new_description
 
-    # Find the best iteration by TEST score (or train if no test set)
     if test_set:
         best = max(history, key=lambda h: h["test_passed"] or 0)
         best_score = f"{best['test_passed']}/{best['test_total']}"
@@ -795,8 +581,7 @@ def main():
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--description", default=None, help="Override starting description")
     parser.add_argument("--single-round", action="store_true", help="One eval + one improvement, no loop")
-    parser.add_argument("--num-workers", type=int, default=10, help="Number of parallel workers")
-    parser.add_argument("--timeout", type=int, default=30, help="Timeout per query in seconds")
+    parser.add_argument("--timeout", type=int, default=120, help="Timeout per claude -p call in seconds")
     parser.add_argument(
         "--max-iterations", type=int, default=5, help="Max improvement iterations (ignored with --single-round)"
     )
@@ -838,23 +623,18 @@ def main():
     if args.single_round:
         if args.verbose:
             print(f"Single round — evaluating: {description}", file=sys.stderr)
+        run_canary(args.model, args.timeout)
         eval_output = run_eval(
             eval_set=eval_set,
             skill_name=name,
             description=description,
-            num_workers=args.num_workers,
             timeout=args.timeout,
-            project_root=find_project_root(),
             runs_per_query=args.runs_per_query,
             trigger_threshold=args.trigger_threshold,
             model=args.model,
         )
         if args.verbose:
-            _print_eval_stats(
-                "Eval",
-                eval_output["results"],
-                0,
-            )
+            _print_eval_stats("Eval", eval_output["results"], 0)
         new_description = improve_description(
             skill_name=name,
             skill_content=content,
@@ -877,7 +657,6 @@ def main():
             eval_set=eval_set,
             skill_path=skill_path,
             description_override=args.description,
-            num_workers=args.num_workers,
             timeout=args.timeout,
             max_iterations=args.max_iterations,
             runs_per_query=args.runs_per_query,

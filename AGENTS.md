@@ -134,10 +134,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # （执行期活文档，进度/问题/设计变更循环）
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
-    ├── scripts/           # quick_validate / optimize_description / generate_review …
-    ├── references/        # schemas.md（evals/history 等 JSON 结构）+ agents/{grader,
-    │                      # comparator,analyzer}.md
-    └── assets/eval_review.html  # 描述优化的查询评审页模板
+    ├── scripts/           # quick_validate / optimize_description / check_* …
+    ├── references/        # schemas.md（evals.json / grading.json JSON 结构）+ agents/grader.md
+    └── assets/skill-template.md   # 可拷贝的 SKILL.md 正文骨架
 ```
 
 `.gitignore` 覆盖、不入库的部分（详见根目录 `.gitignore`）：
@@ -173,10 +172,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
 | `scripts/check_anchor_health.py` | 跨文件 link anchor 漂移检查（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
 | `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环，`--single-round` 单轮）；输出 results.json + 终端摘要，无 HTML 报告 |
-| `scripts/aggregate_benchmark.py` / `generate_review.py` | 行为评估（with-skill vs baseline）的聚合与 viewer（入口 1/2 用；`scripts/viewer.html` 定性输出 + benchmark 数据，供用户反馈评估结果） |
 
-`references/agents/{grader,comparator,analyzer}.md` 定义了三个子 agent 指令；
-`references/schemas.md` 给出 `evals.json` / `grading.json` 等字段约定。
+`references/agents/grader.md` 定义了评分子 agent 指令；
+`references/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。
 
 ### 跨 skill 协作约定
 

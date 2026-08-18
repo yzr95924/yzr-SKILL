@@ -33,11 +33,9 @@ or incomplete); the output appears to meet the assertion by coincidence.
 2. **逐条判定**：对每条 expectation 按 Grading Criteria 判 PASS/FAIL，引用具体证据（引文或描述）。
 3. **提取并核验隐含声明**：从输出里提取事实 / 过程 / 质量声明逐一核验，无法核验的标注出来——抓预定义断言
    之外的漏网问题。
-4. **读附属文件**：`{outputs_dir}/user_notes.md`（若有，记录 executor 的不确定点 / 问题）、
-   `{outputs_dir}/metrics.json` 与 `{outputs_dir}/../timing.json`（若有，并入输出）。
-5. **批判 evals 本身**：只有明显缺口才提——弱断言（错误输出也会过，如只查文件名不查内容）、重要结果无断言
+4. **批判 evals 本身**：只有明显缺口才提——弱断言（错误输出也会过，如只查文件名不查内容）、重要结果无断言
    覆盖、断言无法从输出核验。标准：eval 作者会说"good catch"级别的建议，不是逐条 nitpick。
-6. **写结果**：存到 `{outputs_dir}/../grading.json`。
+5. **写结果**：存到 `{outputs_dir}/../grading.json`。
 
 ## Output Format
 
@@ -50,8 +48,6 @@ or incomplete); the output appears to meet the assertion by coincidence.
     {"text": "expectation 原文", "passed": true, "evidence": "引用 transcript/输出中的证据"}
   ],
   "summary": {"passed": 0, "failed": 0, "total": 0, "pass_rate": 0.0},
-  "execution_metrics": {},
-  "timing": {},
   "claims": [{"claim": "...", "type": "factual|process|quality", "verified": true, "evidence": "..."}],
   "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": []},
   "eval_feedback": {"suggestions": [{"assertion": "...", "reason": "..."}], "overall": "..."}

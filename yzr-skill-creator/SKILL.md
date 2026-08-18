@@ -52,7 +52,7 @@ metadata:
 | 入口 | skill 交付 |
 | --- | --- |
 | 1. 创建 | 起草好的 `<skill-name>/SKILL.md` + 骨架，可选的 `eval/evals.json` |
-| 2. 改进 | 改写后的 SKILL.md + `<skill-name>-workspace/iteration-N/` 评估产物 + benchmark/viewer |
+| 2. 改进 | 改写后的 SKILL.md + `<skill-name>-workspace/iteration-N/` 评估产物（outputs + grading.json） |
 | 3. 描述优化 | 新 `description` 候选 + before/after 触发准确率（按 `DEFAULT_HOLDOUT_RATIO` 拆分） |
 | 4. 原则校验 | 审计报告（每条原则 pass/fail + 证据 + 建议修法），不动手改 |
 
@@ -156,8 +156,8 @@ prompt，等下一步再起草断言。
 - with-skill 与 baseline 在**同一轮**并行启动（不要串行）；baseline 类型：
   - 入口 1（创建）→ `without_skill/`
   - 入口 2（改进）→ `old_skill/`（编辑前先快照旧版）
-- workspace 布局 / 嵌套、5 步细节（启动 / 起草断言 / 采时序 / 评分聚合 / 读反馈）、
-  schema 与命令见 `references/eval-pipeline.md`
+- workspace 布局、并行启动 / 起草断言 / 评分 / 对话展示的细节与命令见
+  `references/eval-pipeline.md`
 
 ### 改进 skill
 
@@ -169,8 +169,7 @@ prompt，等下一步再起草断言。
 
 完成改进后：(1) 应用改动 → (2) 跑新 `iteration-<N+1>/`（**含** baseline，baseline
 取值：创建场景始终 `without_skill`；改进场景：用户最初版本 or 上一轮迭代，由你判）→
-(3) `--previous-workspace` 启动 reviewer → (4) 等用户评审完 → (5) 读 `feedback.json`
-继续循环。
+(3) 在对话里展示本轮对比（含上一轮对比）、请用户反馈 → (4) 按反馈继续循环。
 
 #### 堵 loophole（REFACTOR 阶段）
 
@@ -204,8 +203,9 @@ prompt，等下一步再起草断言。
 
 #### 第 2 步：与用户过一遍
 
-用 `assets/eval_review.html` 模板把评估集呈现给用户审阅（占位符替换与下载反馈的
-机械步骤见 `references/trigger-eval-guide.md`）。
+把评估集在对话里呈现给用户审阅（should-trigger / should-not-trigger 分组列出，
+请用户确认或增删改），确认后存为 JSON——查询写作指南见
+`references/trigger-eval-guide.md`。
 
 #### 第 3 步：运行优化循环
 
@@ -223,7 +223,8 @@ python -m scripts.optimize_description \
 `--model` 可选：省略时 `claude -p` 用本机 claude CLI 的默认模型（不强绑定具体模型）；
 要指定时传 `--model <id>`。跑的过程中定期 tail 输出，告知用户当前在第几轮、分数长什么样。
 脚本自动把评估集按 `DEFAULT_HOLDOUT_RATIO` 拆训练 / 保留测试（SSOT 在
-`scripts/optimize_description.py`）。结束时会打印 before/after 摘要（stderr），
+`scripts/optimize_description.py`），每轮评估前跑 canary 对照查询（canary 失败 =
+测量通道异常，脚本中止报错而非产数字）。结束时会打印 before/after 摘要（stderr），
 JSON 结果走 stdout。
 
 #### 第 4 步：应用结果
@@ -266,20 +267,18 @@ JSON 结果走 stdout。
 ## 参考文件
 
 - `references/agents/grader.md` —— 如何对照输出评估断言
-- `references/agents/benchmark-analyzer.md` —— 如何分析 benchmark 聚合结果（评估流程第 4 步）
 
 `references/` 补充文档:
 
-- `references/schemas.md` —— evals.json、grading.json 等的 JSON 结构
-- `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅页步骤
+- `references/schemas.md` —— evals.json、grading.json 的 JSON 结构
+- `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅流程
 - `references/skill-template-guide.md` —— 通用写作骨架 / 模板 / 变体规则
 - `references/skill-writing-principles.md` —— description + 正文写作原则 + 末尾审计速查表（SSOT）
-- `references/eval-pipeline.md` —— 评估测试用例的机械细节（workspace 布局 / schema / 命令）
+- `references/eval-pipeline.md` —— 行为评估的机械细节（workspace 布局 / 并行启动 / 评分 / 对话展示）
 
 `assets/`:
 
 - `assets/skill-template.md` —— 可拷贝的 SKILL.md 正文骨架（起草新 skill 时用）
-- `assets/eval_review.html` —— 描述优化第 2 步的查询评审页模板
 
 `scripts/` 常量 SSOT:
 
