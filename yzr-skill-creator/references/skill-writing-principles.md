@@ -186,6 +186,7 @@
 | 正文描述一致性 | 核心原则关键词 grep 全部 `.md` + 手工语义对照（图 / 表 / 散文 / 列表承载同一信息） | ≥ 2 次且无 self-aware 注释 = 重抄嫌疑，读段对比确认；跨体裁同语义 ≥ 2 处 = 重抄 |
 | 机械操作脚本化 | 语义检查：工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律，逐条过准入规则两问（纯函数？lint 可验证？） | 零判断字节操作靠 md 纪律维持且无脚本承托 → 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；迁移路径上的写操作硬编码进脚本 → 报"迁移期例外" |
 | 依赖单向 | `python -m scripts.check_skill_dependencies <repo-root>` | 互提候选对 → 人工判方向，双向依赖 = 违规 |
+| 跨 skill 指称 | `python -m scripts.check_skill_dependencies <repo-root>`（看 `one_way` 输出） | 单向提及逐条归因——唯一豁免 = 真实功能依赖（A 离开 B 无法执行，显式保留）；其余（路由指针 / 功能指称 / 题材点名 / 引文）一律模糊化（XX）或删。基线期望零提及 |
 | 相对路径禁止 | `grep -rEn '\]\(\.\./\.\./[a-z]'` | 出现即违规，改纯文本 |
 | 链接基准 | `python -m scripts.check_anchor_health --repo-root`（`--json` / `--include-templates`） | 有输出即修；code fence 教学示例豁免 |
 | Iron Law 证据 | `grep -nE "迭代\|baseline\|transcript\|RED\|GREEN\|REFACTOR"` | 纪律 / 模式型无命中 = 按"未经验证"标注 |
@@ -193,4 +194,4 @@
 | 反合理化三件套 | `grep -nE "NEVER\|ALWAYS\|必须\|禁止\|不能\|不得"` + `grep -nE "Rationalization\|合理化\|Red ?Flag\|红旗\|违反字面"` | 纪律型：前者命中而三件套缺任一 = 不合规 |
 | 精简 | `wc -w`（中文按 1 词 ≈ 1.5–2 字折算） | 超软目标 = WARN 偏臃肿；超 5000 词硬限 = 违规 |
 | 精简（常识铺垫） | `grep -nE "(PDF (Portable\|is a\|are a)\|is a common file format)"` | 命中 = "通用背景铺垫"类冗余段 |
-| 版本史 | `grep -cnE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?'` | 单文件 ≥ 10 处 = 内联嫌疑；区分自身演进（违规）vs 外部依赖约束（合法） |
+| 版本史 | `grep -n 'v\?[0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\s*\(起\|开始\|之后\|以来\|废止\|引入\|新增\|删除\)'` | 规范文档（SKILL.md / references）命中即嫌疑（无阈值）：自身演进史 = 违规，叙事归 commit message；无时间动词的版本约束（"Python ≥ 3.7"）合法；原则文档自身定义引语（如"0.6.0 起删了 X"）豁免 |
