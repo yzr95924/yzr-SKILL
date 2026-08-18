@@ -5,7 +5,7 @@ description: |
   scripts/utils.py::DESCRIPTION_MAX_CHARS）。
   触发：<"用户原话" / 场景描述，主动句式；把没显式提 skill 名但显然需要的
   情形也列进去，防 agent 少触发>
-  不适用：<负例 + 出路（走 X / 直接用基础工具），出路可选>
+  不适用：<负例>
   完整原则见 references/skill-writing-principles.md「description 优化原则」。
 metadata:
   author: 你的名字
@@ -19,9 +19,9 @@ metadata:
 ## 何时不使用
 
 <"何时使用"全部在 frontmatter description——正文不重抄（重抄 = 口径漂移 + description
-优化后悄悄过期）。本节只列两类：擦边负例（与本 skill 共享关键词 / 概念、但需求不同、
-关键词匹配会误触发的场景）与误触发出路（不该用本 skill 时，转哪个 skill / 用什么
-基础工具直接答）>
+优化后悄悄过期）。本节只列擦边负例（与本 skill 共享关键词 / 概念、但需求不同、
+关键词匹配会误触发的场景）。跨 skill 去向不写——agent 扫 description 网络或问用户
+自行路由>
 
 ## 输入 / 输出
 

@@ -8,7 +8,7 @@ description: |
   skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 评估 / 迭代 XX skill；用户反馈触发
   不准或行为不对；想跑评估；只想动 frontmatter description——用户说"优化描述"是泛指
   （含正文措辞）时也触发。
-  不适用：单步问询 / 写普通代码 / 改普通文档（走 yzr-writing-review 等）/ 不涉及 skill
+  不适用：单步问询 / 写普通代码 / 改普通文档 / 不涉及 skill
   生命周期的事。
 metadata:
   author: Zuoru YANG
@@ -36,12 +36,6 @@ metadata:
    审计某个已有 skill 符合多少、违反哪些（"帮我检查 XX skill 写得规不规范 / 有没有
    散弹式散落、口径冲突"）。**只报告、不改写**；要修让用户点头再动。详见
    「工作流 / 步骤」下对应小节
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**：读 / 改
-既有文档走对应专用 skill（`yzr-writing-review` 审改文档）；
-目标产物不是 skill（已存在的脚本 / docx / 一段 prose）时直接用基础工具。
 
 ## 输入 / 输出
 

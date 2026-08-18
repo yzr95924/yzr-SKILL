@@ -9,7 +9,7 @@ description: |
   润色类（"润色 / 改写 / 精简 / 压缩 / 太长了 / polish / rewrite / condense / shorten /
   make it less verbose"）与档位词（"lite / full / ultra"）同样触发本 skill。
   不适用：翻译、事实核查（只指出存疑不验证）、从零写作、内容意图变更（加观点 / 改结论）、
-  代码 review（走 yzr-coding-review）。
+  代码 review。
 metadata:
   author: Zuoru YANG
   category: writing
@@ -20,14 +20,11 @@ metadata:
 
 ## 何时不使用
 
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**与**擦边负例**：
+"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**：
 
 - **擦边负例**：发现"事实存疑" → 只指出位置让用户人工核对，不展开验证（事实核查不是本
   skill 职责）；用户要求"加观点 / 改结论" → 那是内容意图变更，先确认意图，不在 review 里
-  自行判定
-- **误触发出路**：目标产物不是"审"而是"写 / 译 / 修"（从零写作 / 翻译）→ 直接用基础工具；
-  代码 review → 走 yzr-coding-review；只是润色（用户已点名改法）→ 直接进「改写承接」，
-  不套 review 流程
+  自行判定；只是润色（用户已点名改法）→ 直接进「改写承接」，不套 review 流程
 
 ## 输入 / 输出
 

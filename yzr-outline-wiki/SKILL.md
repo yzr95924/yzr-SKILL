@@ -30,7 +30,7 @@ MCP server 接入与鉴权在 agent 配置文件中维护（见 §接入）。
 
 ## 何时不使用
 
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**出路**：
+"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**（MCP 不暴露、需转 Outline 自身 UI / REST API 的操作）：
 
 - **配置 outline MCP / 鉴权**（MCP 未注册 / 401 / 403）→ 见 §接入：在 agent 配置文件中
   维护 MCP server，改完重启会话生效

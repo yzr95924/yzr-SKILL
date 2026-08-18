@@ -73,7 +73,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 ## 何时不使用
 
-> 触发场景 / 不适用已在 frontmatter description 给出。本节只补 description 没说的边界细节与出路：
+> 触发场景 / 不适用已在 frontmatter description 给出。本节只补 description 没说的边界细节：
 
 - **迁移权限**（`.claude/settings.local.json`）或 **MCP 配置**——工具专属且敏感，本 skill 不碰
 - **改 `scripts/` / `references/`**——只动上下文文件（CLAUDE.md / AGENTS.md / MEMORY）
