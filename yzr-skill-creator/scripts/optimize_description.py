@@ -3,11 +3,13 @@
 
 Single entry point for yzr-skill-creator's「描述优化」独立入口. The loop:
   1. split the eval set into train / holdout (DEFAULT_HOLDOUT_RATIO)
-  2. eval: for each query, one text-only `claude -p` call acts as the routing
-     judge — it sees the available skills list (name + description) and picks
-     which skill (if any) it would load. The candidate description stands in
-     for the target skill. 触发是概率事件, so each query is probed
-     `runs_per_query` times and pass = trigger_rate >= trigger_threshold
+2. eval: for each query, one text-only `claude -p` call acts as the routing
+      judge — it sees the available skills list (name + description) and picks
+      which skill (if any) it would load. The candidate description stands in
+      for the target skill. 触发是概率事件, so each query is probed
+      `runs_per_query` times and pass = trigger rate agrees with the query's
+      `should_trigger` label (rate >= threshold for should-trigger, rate < threshold
+      for should-not-trigger)
   3. canary: control queries against a synthetic skill with a bulletproof
      description run before the eval set — a canary failure means the judge
      channel is broken (model error / CLI error / parse error), and the run
@@ -27,8 +29,6 @@ Output: results JSON on stdout (machine-readable, agent applies
 `best_description`); a compact human summary on stderr. `--results-dir` saves
 results.json + per-round improvement transcripts under logs/. There is no HTML
 report — the summary is meant to be relayed by the agent in chat.
-
-`--single-round`: one eval + one improvement without the loop.
 """
 
 import argparse
@@ -180,12 +180,9 @@ def run_eval(
         should_trigger = bool(item["should_trigger"])
         triggers = 0
         for _ in range(runs_per_query):
-            try:
-                if judge_query(query, skills, skill_name, model, timeout):
-                    triggers += 1
-            except RuntimeError:
-                raise
-        passed = (triggers / runs_per_query) >= trigger_threshold
+            if judge_query(query, skills, skill_name, model, timeout):
+                triggers += 1
+        passed = (triggers / runs_per_query >= trigger_threshold) == should_trigger
         results.append(
             {
                 "query": query,
@@ -236,7 +233,6 @@ def improve_description(
     eval_results: dict,
     history: List[dict],
     model: Optional[str],
-    test_results: Optional[dict] = None,
     log_dir: Optional[Path] = None,
     iteration: Optional[int] = None,
 ) -> str:
@@ -245,11 +241,7 @@ def improve_description(
     false_triggers = [r for r in eval_results["results"] if not r["should_trigger"] and not r["pass"]]
 
     train_score = f"{eval_results['summary']['passed']}/{eval_results['summary']['total']}"
-    if test_results:
-        test_score = f"{test_results['summary']['passed']}/{test_results['summary']['total']}"
-        scores_summary = f"Train: {train_score}, Test: {test_score}"
-    else:
-        scores_summary = f"Train: {train_score}"
+    scores_summary = f"Train: {train_score}"
 
     prompt = f"""You are optimizing a skill description for a Claude Code skill called "{skill_name}". A "skill" is sort of like a prompt, but with progressive disclosure -- there's a title and description that Claude sees when deciding whether to use the skill, and then if it does use the skill, it reads the .md file which has lots more details and potentially links to other resources in the skill folder like helper files and scripts and additional documentation or examples.
 
@@ -381,7 +373,7 @@ def split_eval_set(eval_set: List[dict], holdout: float, seed: int = 42) -> Tupl
     return train_set, test_set
 
 
-def _print_eval_stats(label: str, results: List[dict], elapsed: float) -> None:
+def _print_eval_stats(label: str, results: List[dict], elapsed: Optional[float] = None) -> None:
     """Compact per-split stats + per-query status, for human (stderr) output."""
     pos = [r for r in results if r["should_trigger"]]
     neg = [r for r in results if not r["should_trigger"]]
@@ -395,8 +387,9 @@ def _print_eval_stats(label: str, results: List[dict], elapsed: float) -> None:
     precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
     accuracy = (tp + tn) / total if total > 0 else 0.0
+    time_str = f" ({elapsed:.1f}s)" if elapsed is not None else ""
     print(
-        f"{label}: {tp + tn}/{total} correct, precision={precision:.0%} recall={recall:.0%} accuracy={accuracy:.0%} ({elapsed:.1f}s)",
+        f"{label}: {tp + tn}/{total} correct, precision={precision:.0%} recall={recall:.0%} accuracy={accuracy:.0%}{time_str}",
         file=sys.stderr,
     )
     for r in results:
@@ -494,7 +487,7 @@ def run_optimize_loop(
         if verbose:
             _print_eval_stats("Train", train_results["results"], eval_elapsed)
             if test_summary:
-                _print_eval_stats("Test ", test_results["results"], 0)
+                _print_eval_stats("Test ", test_results["results"])
 
         if train_summary["failed"] == 0:
             exit_reason = f"all_passed (iteration {iteration})"
@@ -531,7 +524,7 @@ def run_optimize_loop(
         current_description = new_description
 
     if test_set:
-        best = max(history, key=lambda h: h["test_passed"] or 0)
+        best = max(history, key=lambda h: (h["test_passed"] or 0, h["train_passed"]))
         best_score = f"{best['test_passed']}/{best['test_total']}"
     else:
         best = max(history, key=lambda h: h["train_passed"])
@@ -580,11 +573,8 @@ def main():
     parser.add_argument("--eval-set", required=True, help="Path to eval set JSON file")
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--description", default=None, help="Override starting description")
-    parser.add_argument("--single-round", action="store_true", help="One eval + one improvement, no loop")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per claude -p call in seconds")
-    parser.add_argument(
-        "--max-iterations", type=int, default=5, help="Max improvement iterations (ignored with --single-round)"
-    )
+    parser.add_argument("--max-iterations", type=int, default=5, help="Max improvement iterations")
     parser.add_argument("--runs-per-query", type=int, default=3, help="Number of runs per query")
     parser.add_argument("--trigger-threshold", type=float, default=0.5, help="Trigger rate threshold")
     parser.add_argument(
@@ -603,14 +593,15 @@ def main():
     args = parser.parse_args()
 
     eval_set = json.loads(Path(args.eval_set).read_text())
+    for i, item in enumerate(eval_set):
+        if not isinstance(item, dict) or "query" not in item or "should_trigger" not in item:
+            print(f"Error: eval set item {i} missing 'query' / 'should_trigger': {item!r}", file=sys.stderr)
+            sys.exit(1)
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():
         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
         sys.exit(1)
-
-    name, original_description, content = parse_skill_md(skill_path)
-    description = args.description or original_description
 
     results_dir = None
     log_dir = None
@@ -620,53 +611,20 @@ def main():
         results_dir.mkdir(parents=True, exist_ok=True)
         log_dir = results_dir / "logs"
 
-    if args.single_round:
-        if args.verbose:
-            print(f"Single round — evaluating: {description}", file=sys.stderr)
-        run_canary(args.model, args.timeout)
-        eval_output = run_eval(
-            eval_set=eval_set,
-            skill_name=name,
-            description=description,
-            timeout=args.timeout,
-            runs_per_query=args.runs_per_query,
-            trigger_threshold=args.trigger_threshold,
-            model=args.model,
-        )
-        if args.verbose:
-            _print_eval_stats("Eval", eval_output["results"], 0)
-        new_description = improve_description(
-            skill_name=name,
-            skill_content=content,
-            current_description=description,
-            eval_results=eval_output,
-            history=[],
-            model=args.model,
-            log_dir=log_dir,
-            iteration=1,
-        )
-        output = {
-            "mode": "single_round",
-            "original_description": description,
-            "description": new_description,
-        }
-        if args.verbose:
-            print(f"Improved: {new_description}", file=sys.stderr)
-    else:
-        output = run_optimize_loop(
-            eval_set=eval_set,
-            skill_path=skill_path,
-            description_override=args.description,
-            timeout=args.timeout,
-            max_iterations=args.max_iterations,
-            runs_per_query=args.runs_per_query,
-            trigger_threshold=args.trigger_threshold,
-            holdout=args.holdout,
-            model=args.model,
-            verbose=args.verbose,
-            log_dir=log_dir,
-        )
-        _print_final_summary(output)
+    output = run_optimize_loop(
+        eval_set=eval_set,
+        skill_path=skill_path,
+        description_override=args.description,
+        timeout=args.timeout,
+        max_iterations=args.max_iterations,
+        runs_per_query=args.runs_per_query,
+        trigger_threshold=args.trigger_threshold,
+        holdout=args.holdout,
+        model=args.model,
+        verbose=args.verbose,
+        log_dir=log_dir,
+    )
+    _print_final_summary(output)
 
     print(json.dumps(output, indent=2))
     if results_dir:
