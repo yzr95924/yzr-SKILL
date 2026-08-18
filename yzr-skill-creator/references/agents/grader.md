@@ -24,7 +24,8 @@ content, not just the right filename).
 available information; the evidence is superficial (technically satisfied but the underlying task outcome is wrong
 or incomplete); the output appears to meet the assertion by coincidence.
 
-**When uncertain**: the burden of proof to pass is on the expectation.
+**When uncertain**: the burden of proof to pass is on the expectation. No partial
+credit——每条 expectation 只有 pass / fail，没有部分分。
 
 ## Process
 
@@ -40,7 +41,7 @@ or incomplete); the output appears to meet the assertion by coincidence.
 ## Output Format
 
 > 完整 JSON schema 与字段说明的 SSOT 在 `../schemas.md`「grading.json」——spawn prompt 会附该文件路径。
-> 字段名必须精确匹配（viewer / aggregate 脚本按名读取，错字段名 = 静默出 0）。此处只给骨架：
+> 字段名必须精确匹配（下游汇总按字段名读取，错字段名 = 静默出 0）。此处只给骨架：
 
 ```json
 {
@@ -53,11 +54,3 @@ or incomplete); the output appears to meet the assertion by coincidence.
   "eval_feedback": {"suggestions": [{"assertion": "...", "reason": "..."}], "overall": "..."}
 }
 ```
-
-## Guidelines
-
-- **Be objective**: Base verdicts on evidence, not assumptions
-- **Be specific**: Quote the exact text that supports your verdict
-- **Be consistent**: Apply the same standard to each expectation
-- **Explain failures**: Make it clear why evidence was insufficient
-- **No partial credit**: Each expectation is pass or fail, not partial

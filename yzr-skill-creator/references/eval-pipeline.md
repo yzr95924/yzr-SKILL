@@ -60,8 +60,7 @@ Execute this task:
 2. **汇总展示**：读全部 `grading.json` + 关键输出，在对话里给用户对比——
    每个用例的 with_skill vs baseline 通过情况 + 值得看的输出差异，请用户反馈。
 3. **迭代循环**：按用户反馈（以及对比暴露出的明显缺陷）改写 skill → 跑新
-   `iteration-<N+1>/`（**含** baseline，baseline 取值：创建场景始终
-   `without_skill`；改进场景：用户最初版本 or 上一轮迭代，由你判）。
+   `iteration-<N+1>/`（baseline 取值规则见 SKILL.md「迭代循环」）。
 
 ## 何时去读本文件
 

@@ -25,7 +25,7 @@ metadata:
 
 1. **创建新 skill** —— 从零做一个 skill（"帮我做一个关于 X 的 skill" / "把这段流程沉淀成
    skill"）。介入：访谈边界 → 起草 SKILL.md（骨架从 `assets/skill-template.md` 拷贝）→
-   RED 演练 → eval 验证 → viewer 评审。
+   RED 演练 → eval 验证。
 2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 XX 这个 skill"）。
    **修改（含增加 / 扩展功能）分级介入**——改动面 = 整个 skill 文件夹（SKILL.md /
    references/ / scripts/ / assets/ / eval/），不只 SKILL.md。判别尺度 = 改的是说法
@@ -132,9 +132,7 @@ SKILL.md 格式统一靠的就是这份骨架。
 `python -m scripts.quick_validate <skill-dir>`（frontmatter 合法性 + 正文结构 + description
 格式标记；WARN 级提示不阻断）。
 
-#### 写作骨架指南
-
-通用骨架 / 写作模式模板见 `references/skill-template-guide.md`；写作风格与语言原则见
+通用骨架 / 变体规则见 `references/skill-template-guide.md`；写作风格与语言原则见
 `references/skill-writing-principles.md`「正文写作原则」——不在此重抄 agent 通识。
 
 #### 测试用例
@@ -187,7 +185,7 @@ prompt，等下一步再起草断言。
 
 ### 描述优化（独立入口）
 
-> 优化原则见 `references/skill-writing-principles.md#description-优化原则`
+> 优化原则见 `references/skill-writing-principles.md`「description 优化原则」
 > （`optimize_description.py` 运行时也读这一节）。
 
 直接优化某个已有 skill 的 description，提升触发准确率。`--skill-path` 原生支持
@@ -201,8 +199,7 @@ prompt，等下一步再起草断言。
 #### 第 2 步：与用户过一遍
 
 把评估集在对话里呈现给用户审阅（should-trigger / should-not-trigger 分组列出，
-请用户确认或增删改），确认后存为 JSON——查询写作指南见
-`references/trigger-eval-guide.md`。
+请用户确认或增删改），确认后存为 JSON。
 
 #### 第 3 步：运行优化循环
 
@@ -263,13 +260,12 @@ JSON 结果走 stdout。
 
 ## 参考文件
 
-- `references/agents/grader.md` —— 如何对照输出评估断言
-
 `references/` 补充文档:
 
+- `references/agents/grader.md` —— 如何对照输出评估断言（spawn grader 子 agent 时读）
 - `references/schemas.md` —— evals.json、grading.json 的 JSON 结构
 - `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅流程
-- `references/skill-template-guide.md` —— 通用写作骨架 / 模板 / 变体规则
+- `references/skill-template-guide.md` —— 通用写作骨架 / 变体规则
 - `references/skill-writing-principles.md` —— description + 正文写作原则 + 末尾审计速查表（SSOT）
 - `references/eval-pipeline.md` —— 行为评估的机械细节（workspace 布局 / 并行启动 / 评分 / 对话展示）
 
