@@ -25,12 +25,14 @@ metadata:
 1. **创建新 skill** —— 从零做一个 skill（"帮我做一个关于 X 的 skill" / "把这段流程沉淀成
    skill"）。介入：访谈边界 → 起草 SKILL.md（骨架从 `assets/skill-template.md` 拷贝）→
    RED 演练 → eval 验证 → viewer 评审。
-2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 XX 这个 skill"）。介入：快照旧版 → with-skill vs baseline 同轮并行 → 读 transcript 找"模型
-   在哪里挣扎"→ 改 → 重跑验证。**修改（单点编辑：改措辞 / 修 typo / 删指称）分级介入**：
-   判别尺度 = 改的是说法（怎么表达）还是规矩（怎么做决定 / 执行）——说法 = 单点，规矩 =
-   行为性。单点修改直接做：对照 `references/skill-writing-principles.md` 写作原则自查 +
-   跑 `quick_validate.py` / markdownlint，汇报里声明分类 + 一句理由；行为性修改**先问
-   用户是否跑 eval 循环**——不点头不跑、不静默降级。
+2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 XX 这个 skill"）。
+   **修改（单点编辑：改措辞 / 修 typo / 删指称）分级介入**：判别尺度 = 改的是说法
+   （怎么表达）还是规矩（怎么做决定 / 执行）——说法 = 单点，规矩 = 行为性。单点修改
+   直接做：对照 `references/skill-writing-principles.md` 写作原则自查 +
+   跑 `quick_validate.py` / markdownlint，汇报里声明分类 + 一句理由；行为性修改
+   **先问用户是否跑 eval 循环**——不点头不跑、不静默降级。行为性（评估 + 迭代）介入：
+   快照旧版 → with-skill vs baseline 同轮并行 → 读 transcript 找"模型在哪里挣扎"→
+   改 → 重跑验证。
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description /
    触发准确率，不动 skill 正文（"帮我优化 XX 的描述，让它该触发时触发"）。**这是独立
    入口，不需要先创建或改进那个 skill**，详见「工作流 / 步骤」下对应小节
@@ -58,7 +60,7 @@ metadata:
 
 - **元 skill 的"元"特征**：本 skill 的产物是"让 agent 在某类任务上更靠谱"的载体，不是用户最终要的文件；写每段 prose 前先问"下游 agent 读到这里会怎么想"
 - **过拟合红线**：用户给的反馈只覆盖少数 prompt；要让 skill 在一百万次调用里都成立，必须从反馈归纳"意图类别"而非把 case 逐条抄进 SKILL.md
-- **必须跑评估**：写完不跑 eval = 在赌运气（哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）；改进时先 `cp -r` 旧版到 workspace 做 baseline，否则"是否更好"无法量化
+- **必须跑评估**（行为性改动；单点编辑豁免——见入口 2 分级介入）：写完不跑 eval = 在赌运气（哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）；改进时先 `cp -r` 旧版到 workspace 做 baseline，否则"是否更好"无法量化
 - **用户说"优化描述"是泛指**：默认包括 frontmatter `description` + 标题 + 章节 +
   when-to-use 措辞 + 操作步骤，不默认专指 frontmatter；用户要细分会用精确措辞
   （"只改 frontmatter" / "只动 description 字段"）。维度分清：frontmatter 只决定
