@@ -85,7 +85,8 @@ LLM 用 catalog 重构场景卡 + 合理性审视卡片补齐设计层问题;每
 
 ### Step 6: 报告形态
 
-开头先给一段**整体理解**(口径同 Step 5 第 1 步,不超过一段),再按 `references/report-template.md` 两档输出;严重度查 `references/severity-rubric.md`;末尾问用户要不要细化 / 跳过 / 改判 / 切对话逐条过。
+开头先给一段**整体理解**(口径同 Step 5 第 1 步,不超过一段),再按 `references/report-template.md`
+两档输出;严重度查 `references/severity-rubric.md`;末尾问用户要不要细化 / 跳过 / 改判 / 切对话逐条过。
 
 ## 参考样例
 
