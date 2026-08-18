@@ -60,3 +60,10 @@ npx install 派生的，注定被覆盖；不要读 / diff / 补 vendor。回答
 GFM 表格，紧凑分隔行每表都触发属误报）；`canonical/` + `fixtures/*.txt`（字节金标准，改了破坏 detector）
 在 `.markdownlintignore` 排除。
 判回归只看有无 **新错误类别**（如新出现 MD013/MD041），不计 lint 计数绝对值。
+
+### 脚本重建 / 大改的验收必须含行为冒烟
+
+静态检查（ruff / quick_validate / markdownlint）+ canary 只证明测量通道活着（`claude -p` 能调通、
+JSON 能解析），**不**证明计分 / 选择逻辑正确——2026-08-18 的 pass 判定 bug（漏 `== should_trigger`）
+就是 canary 全绿下漏出来的。重建 / 大改脚本时用打桩冒烟跑全分支（should-trigger 命中 / 未命中 ×
+should-not-trigger 命中 / 未命中四格），秒级成本，不依赖实跑；实跑中看到反直觉的统计行立即停查。

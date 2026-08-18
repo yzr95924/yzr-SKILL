@@ -171,7 +171,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构校验（`--tier <default\|reference\|meta>`；结构问题 WARN 不 fail） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
 | `scripts/check_anchor_health.py` | 跨文件 link anchor 漂移检查（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
-| `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环，`--single-round` 单轮）；输出 results.json + 终端摘要，无 HTML 报告 |
+| `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告 |
 
 `references/agents/grader.md` 定义了评分子 agent 指令；
 `references/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。

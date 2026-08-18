@@ -210,14 +210,15 @@ prompt，等下一步再起草断言。
 #### 第 3 步：运行优化循环
 
 告诉用户：这一步会花一些时间，我会在后台跑优化循环，并定期检查进度。
-把评估集存到 workspace，然后后台运行:
+把评估集存到 workspace，然后后台运行（用 `setsid` + 重定向 + `< /dev/null` 脱离进程组，
+否则 agent shell 工具超时会连坐杀掉跑到一半的循环）:
 
 ```bash
-python -m scripts.optimize_description \
+setsid python3 -m scripts.optimize_description \
   --eval-set <path-to-trigger-eval.json> \
   --skill-path <path-to-skill> \
-  --max-iterations 5 \
-  --verbose
+  --max-iterations 5 --verbose \
+  > /tmp/desc-eval-results.json 2> /tmp/desc-eval.log < /dev/null &
 ```
 
 `--model` 可选：省略时 `claude -p` 用本机 claude CLI 的默认模型（不强绑定具体模型）；
@@ -229,8 +230,9 @@ JSON 结果走 stdout。
 
 #### 第 4 步：应用结果
 
-从 JSON 输出取 `best_description`，更新到 skill 的 SKILL.md frontmatter。
-向用户展示 before/after，并汇报分数
+从 JSON 输出取 `best_description`，向用户展示 before/after 并汇报分数；
+**用户确认后**才更新到 skill 的 SKILL.md frontmatter（触发措辞属行为性改动，不先斩后奏）。
+若 `best_description` 与原版相同，无动作，直接汇报。
 
 ### 原则校验（独立入口）
 
