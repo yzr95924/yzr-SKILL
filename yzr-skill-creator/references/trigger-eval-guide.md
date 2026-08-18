@@ -1,7 +1,7 @@
 # 描述优化的评估查询指南
 
 > 本文件承载「描述优化」独立入口第 1–2 步的机械细节与写作指南：触发原理、查询写作、
-> 审阅页占位符步骤。SKILL.md 主文件只留指针，避免把写作指南抬进正文。
+> 审阅流程。SKILL.md 主文件只留指针，避免把写作指南抬进正文。
 
 ## skill 触发的原理（写评估查询前先读）
 
@@ -44,18 +44,11 @@ agent 才真正会想查阅 skill。"读文件 X" 这种一句话查询，不管
 （"写个 fibonacci 函数"作为 PDF skill 的负样本太容易，什么都没测到）——负样本要真正
 有迷惑性。
 
-## 第 2 步的审阅页机械步骤
+## 第 2 步：与用户过一遍
 
-用 `assets/eval_review.html` 模板把评估集呈现给用户审阅：
-
-1. 读取模板，替换占位符：
-   - `__EVAL_DATA_PLACEHOLDER__` → 评估项的 JSON 数组（**不要**加引号包起来——这是 JS 变量赋值）
-   - `__SKILL_NAME_PLACEHOLDER__` → skill 的名字
-   - `__SKILL_DESCRIPTION_PLACEHOLDER__` → skill 当前的描述
-2. 写入临时文件（`/tmp/eval_review_<skill-name>.html`）并打开
-3. 用户可编辑查询、切换 should-trigger、增删条目，然后点"Export Eval Set"
-4. 文件下载到 `~/Downloads/eval_set.json`——下载文件夹里检查最新的那份
-   （可能有 `eval_set (1).json` 等多版本）
+把评估集呈现给用户审阅：在对话里列出全部查询（should-trigger / should-not-trigger
+分组），请用户确认或提出增删改。用户确认后把评估集存为 JSON（结构见上节），进入
+第 3 步。
 
 ## 何时去读本文件
 

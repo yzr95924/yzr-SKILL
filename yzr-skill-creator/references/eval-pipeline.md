@@ -1,8 +1,7 @@
 # 评估测试用例的执行细节
 
 > 本文件承载 yzr-skill-creator「运行与评估测试用例」章节的机械细节——workspace 布局、
-> 子 agent prompt 模板、JSON schema、命令清单。SKILL.md 主文件只列原则性指针，
-> 避免把"目录约定 + 命令清单 + json 模板"塞进 SKILL.md 抬 token。
+> 子 agent prompt 模板、JSON 约定。SKILL.md 主文件只列原则性指针。
 
 ## 工作区布局
 
@@ -10,28 +9,21 @@
 workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个迭代内每个测试用例
 单独成目录（`eval-0/`、`eval-1/` 等）。目录边做边建，不要一次建完。
 
-子运行目录按 baseline 类型分流，**每个配置下还要有一层 `run-N/`**（多次重复运行的
-编号，单轮就 `run-1/`）——`aggregate_benchmark.py` 只认 `eval-*/<config>/run-N/grading.json`
-这一层，缺了 `run-N/` 会聚合出全 0 的空 benchmark：
+子运行目录按 baseline 类型分流：
 
-- **创建新 skill**：`without_skill/run-1/outputs/`——完全不带 skill 的 baseline
-- **改进现有 skill**：`old_skill/run-1/outputs/`——用快照后的旧版（`cp -r` 快照命令见「第 1 步」）
+- **创建新 skill**：`without_skill/outputs/`——完全不带 skill 的 baseline
+- **改进现有 skill**：`old_skill/outputs/`——用快照后的旧版（`cp -r` 快照命令见「第 1 步」）
 
-`grading.json` / `timing.json` 同样落在 `run-N/` 下（与 `outputs/` 同级）。
-
-> **不要**混用 `/skill-test` 或其它评估框架：它们有各自的目录约定，会让本 skill 的
-> `iteration-N/eval-N/{with_skill|baseline}` benchmark 数据无法跨迭代对比。
+`grading.json` 落在 `outputs/` 同级（grader 产物，见「第 3 步」）。
 
 ## 第 1 步：在同一轮并行启动 with-skill 与 baseline
 
 对每个测试用例，在**同一轮**启动两个子 agent——一个带 skill、一个不带。
 **重要**：不要先启动 with-skill、再串行启动 baseline；并发启动让它们大致同时完成。
 
-> **没有子 agent 的环境（降级路径）**：无法并行启动子 agent 时，改为**串行**执行——
-> 对每个测试用例，自己读该 skill 的 SKILL.md 并按其指令完成任务（**跳过 baseline**：
-> 你写的 skill 你自己跑，独立性的损失由人工评审环节补偿）。定性评估照常进行，
-> **跳过定量 benchmark**（没有 baseline 对比就没有意义）。迭代循环照旧——改进 →
-> 重跑测试用例 → 问用户反馈，只是中间没有 viewer，直接在对话里展示输出。
+**没有子 agent 的环境（降级路径）**：改为**串行**执行——对每个测试用例，自己读该
+skill 的 SKILL.md 并按其指令完成任务（**跳过 baseline**：你写的 skill 你自己跑，
+独立性的损失由人工评审环节补偿），评估结果直接在对话里展示。
 
 **With-skill prompt 模板：**
 
@@ -51,122 +43,29 @@ Execute this task:
 - **改进现有 skill**：用旧版——编辑前先快照 skill（`cp -r <skill-path> <workspace>/skill-snapshot/`），
   然后让 baseline 子 agent 指向那份快照，输出存到 `old_skill/outputs/`
 
-### `eval_metadata.json` 模板
-
-为每个测试用例写一个（断言可以先留空）：
-
-```json
-{
-  "eval_id": 0,
-  "eval_name": "descriptive-name-here",
-  "prompt": "The user's task prompt",
-  "assertions": []
-}
-```
-
-- 取一个**描述性**名字（不要只是 "eval-0"）；目录名也用这个
-- 新 eval 目录的元数据**不**从上一迭代继承——本迭代用了新 prompt / 改过 prompt
-  时必须新建
-
 ## 第 2 步：在运行进行中起草断言
 
 不要只是等运行结束——边跑边起草定量断言。如果 `eval/evals.json` 已有断言，
 审视一遍并向用户解释它们检查什么。
 
-好的断言应当：**客观可验证**、**名字描述性**（在 benchmark viewer 里一目了然），
-让瞥一眼结果的人立刻明白每个断言在检查什么。偏主观的 skill（写作风格、设计质量）
-更适合定性评估，不要给需要人为判断的事强行套断言。
+好的断言应当：**客观可验证**、**名字描述性**，让瞥一眼结果的人立刻明白每个断言在
+检查什么。偏主观的 skill（写作风格、设计质量）更适合定性评估，不要给需要人为判断的
+事强行套断言。
 
-断言定稿后，更新 `eval_metadata.json` 和 `eval/evals.json`。
+断言定稿后，更新 `eval/evals.json`。
 
-## 第 3 步：跑完时采集时序数据
-
-每个子 agent 任务结束时，会收到一个通知，其中含 `total_tokens` 和 `duration_ms`。
-**立即**（不等批量）存到该运行目录下的 `timing.json`（最小字段；完整字段见
-`references/schemas.md`「timing.json」）：
-
-```json
-{
-  "total_tokens": 84852,
-  "duration_ms": 23332,
-  "total_duration_seconds": 23.3
-}
-```
-
-> 这是采集这份数据的**唯一机会**——它从任务通知里来，不会持久化到别处。
-
-## 第 4 步：评分 + 聚合 + 启动 viewer
+## 第 3 步：评分 + 对话展示
 
 1. **为每次运行打分**：启动 grader 子 agent（或内联打分），它读
    `references/agents/grader.md`，逐条核对断言与输出。评分存到
-   `<run>/grading.json`。
-   - spawn grader 的 prompt 里附 `<skill-creator>/references/schemas.md` 的 grading.json 节路径——
-     agents/grader.md 只含 JSON 骨架，完整 schema 与字段说明以 schemas.md 为准
-   - `grading.json` 的 `expectations` 数组**必须**用字段 `text` / `passed` / `evidence`
-     （不要 `name` / `met` / `details` 变体）——viewer 依赖这些确切字段名
-   - 可编程检查的断言写脚本跑，不要肉眼判断——脚本更快、可跨迭代复用
-
-2. **聚合成 benchmark**：
-
-```bash
-python -m scripts.aggregate_benchmark <workspace>/iteration-N --skill-name <name>
-```
-
-生成 `benchmark.json` + `benchmark.md`：含每种配置的 `pass_rate` / `time` / `tokens`，
-及均值 ± 标准差与差值。**`with_skill` 必须在它对应 baseline 之前**。
-手动生成时参 `references/schemas.md` 的精确 schema。
-
-- **分析基准**：读 `references/agents/benchmark-analyzer.md`。
-  关注点：无论是否使用 skill 都始终通过的断言（= 用例没鉴别力）、高方差 eval、
-  时间 / Token 取舍等。聚合统计常掩盖模式。
-
-- **启动 viewer**（同时展示定性输出 + 定量数据）：
-
-```bash
-nohup python <skill-creator-path>/scripts/generate_review.py \
-  <workspace>/iteration-N \
-  --skill-name "my-skill" \
-  --benchmark <workspace>/iteration-N/benchmark.json \
-  > /dev/null 2>&1 &
-VIEWER_PID=$!
-```
-
-第 2 轮及之后的迭代，再传 `--previous-workspace <workspace>/iteration-<N-1>`。
-`webbrowser.open()` 不可用或无显示器时，改用 `--static <output_path>` 生成独立 HTML。
-
-- **告知用户**："我已经在浏览器里打开结果界面——两个 tab，Outputs 让你逐个查看每个
-   测试用例并留反馈，'Benchmark' 显示定量对比。看完了告诉我一声。"
-
-用户点"Submit All Reviews"后，反馈会作为 `feedback.json` 文件下载；拷到 workspace
-目录，供下一迭代使用。**用 `scripts/generate_review.py` 生成 viewer，不要自己写 HTML**。
-
-## 第 5 步：读取反馈
-
-用户告知"看完了"时读 `feedback.json`：
-
-```json
-{
-  "reviews": [
-    {"run_id": "eval-0-with_skill", "feedback": "the chart is missing axis labels", "timestamp": "..."},
-    {"run_id": "eval-1-with_skill", "feedback": "", "timestamp": "..."},
-    {"run_id": "eval-2-with_skill", "feedback": "perfect, love this", "timestamp": "..."}
-  ],
-  "status": "complete"
-}
-```
-
-空反馈 = 用户觉得该 eval 没问题——把精力集中在有具体意见的测试用例上。
-viewer 用完后杀掉：
-
-```bash
-kill $VIEWER_PID 2>/dev/null
-```
-
-## Viewer 输出口径
-
-**Outputs tab** 逐个测试用例展示（Prompt / Output / Previous Output / Formal Grades / Feedback，第 2 轮起带
-上一轮对比）；**Benchmark tab** 展示各配置的通过率 / 时序 / Token / 单 eval 拆解。用户点"Submit All
-Reviews"把反馈存到 `feedback.json`。看 viewer 的是用户——agent 只需告知"两个 tab"即可。
+   `<run>/grading.json`（字段约定见 `references/schemas.md`「grading.json」——
+   `expectations` 数组用字段 `text` / `passed` / `evidence`）。
+   可编程检查的断言写脚本跑，不要肉眼判断——脚本更快、可跨迭代复用。
+2. **汇总展示**：读全部 `grading.json` + 关键输出，在对话里给用户对比——
+   每个用例的 with_skill vs baseline 通过情况 + 值得看的输出差异，请用户反馈。
+3. **迭代循环**：按用户反馈（以及对比暴露出的明显缺陷）改写 skill → 跑新
+   `iteration-<N+1>/`（**含** baseline，baseline 取值：创建场景始终
+   `without_skill`；改进场景：用户最初版本 or 上一轮迭代，由你判）。
 
 ## 何时去读本文件
 

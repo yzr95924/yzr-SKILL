@@ -1,0 +1,22 @@
+[
+  {"query": "我想把咱们 QA 团队每天的手工回归检查流程沉淀成一个 skill，以后新人也能直接用", "should_trigger": true},
+  {"query": "帮我从零做一个 skill，处理代码仓库的 commit message 规范化", "should_trigger": true},
+  {"query": "这个 yzr-writing-review 的 description 好像老是该触发的时候不触发，帮我优化一下", "should_trigger": true},
+  {"query": "yzr-md-to-html 这个 skill 的正文有点长，agent 读起来不聚焦，帮我瘦身", "should_trigger": true},
+  {"query": "帮我改一下 yzr-skill-creator 里 quick_validate.py 的输出格式，现在太啰嗦了", "should_trigger": true},
+  {"query": "给 yzr-multi-agent-context 加个新功能：支持检测 CLAUDE.md 里的硬编码路径", "should_trigger": true},
+  {"query": "用户反馈说 yzr-coding-review 有时候该触发不触发，行为不太对，帮我看看", "should_trigger": true},
+  {"query": "帮我评估一下 yzr-sys-design-doc 这个 skill 到底有没有用，值不值得维护", "should_trigger": true},
+  {"query": "上次审计完 yzr-skill-creator 的写作原则符合度，发现几个违反项，帮我修一下", "should_trigger": true},
+  {"query": "以后能不能让 agent 每次检查 wiki 页面断链都走同一套流程？我想把它固化下来", "should_trigger": true},
+  {"query": "帮我改一下 AGENTS.md 里关于提交纪律的措辞，现在写得有点绕", "should_trigger": false},
+  {"query": "这个 skill 是怎么触发加载的？解释一下 available_skills 的机制", "should_trigger": false},
+  {"query": "写个 Python 脚本把 /tmp 下的几个 json 合并一下", "should_trigger": false},
+  {"query": "帮我看看 yzr-writing-review 的 SKILL.md 第 40 行写了什么", "should_trigger": false},
+  {"query": "你说我该不该给项目装个 linter？帮我权衡一下", "should_trigger": false},
+  {"query": "我这套英语学习计划里想加个新的听说 skill，帮我排一下每日安排", "should_trigger": false},
+  {"query": "帮我起草一份给新员工的 onboarding 文档", "should_trigger": false},
+  {"query": "把我们产品发布 checklist 整理成一张 Excel 表格", "should_trigger": false},
+  {"query": "这个 skill 改坏了，帮我看下 git log 找哪个 commit 引入的问题", "should_trigger": false},
+  {"query": "我想给 Obsidian 装个新插件，帮我在 community plugins 里搜一下", "should_trigger": false}
+]
