@@ -25,8 +25,7 @@ metadata:
 1. **创建新 skill** —— 从零做一个 skill（"帮我做一个关于 X 的 skill" / "把这段流程沉淀成
    skill"）。介入：访谈边界 → 起草 SKILL.md（骨架从 `assets/skill-template.md` 拷贝）→
    RED 演练 → eval 验证 → viewer 评审。
-2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 yzr-outline-wiki 这
-   个 skill"）。介入：快照旧版 → with-skill vs baseline 同轮并行 → 读 transcript 找"模型
+2. **改进现有 skill** —— 已有一个 skill，想评估 + 迭代优化它（"改进 XX 这个 skill"）。介入：快照旧版 → with-skill vs baseline 同轮并行 → 读 transcript 找"模型
    在哪里挣扎"→ 改 → 重跑验证。
 3. **优化某个 skill 的描述（独立入口）** —— 只想优化某个已有 skill 的 description /
    触发准确率，不动 skill 正文（"帮我优化 XX 的描述，让它该触发时触发"）。**这是独立
@@ -293,7 +292,7 @@ JSON 结果走 stdout。
 
 > 入口判断 + 介入路径已在「四个入口」逐条给出——此处只留一个最典型的映射做直观示例：
 >
-> 用户："这个 yzr-outline-wiki skill 在上传大文档时总吞换行，你帮我改进一下"
+> 用户："这个 upload-skill 在上传大文档时总吞换行，你帮我改进一下"
 >
 > → 入口 2（改进）：快照旧版 → with-skill vs baseline → 看 transcript 找"模型在哪里挣扎" → 改 → 重跑验证
 

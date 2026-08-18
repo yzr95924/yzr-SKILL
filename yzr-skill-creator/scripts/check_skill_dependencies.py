@@ -7,8 +7,8 @@ A skill "mentions" another when the other skill's frontmatter `name` appears
 anywhere in its SKILL.md (the description counts too — division-of-labor
 handoffs often live there). Two skills that mention each other are flagged as
 a *candidate* pair. Whether a pair is a real dependency cycle or benign
-division of labor (e.g. the yzr-outline-wiki / yzr-llm-* split handing
-work off to each other) is a semantic call this script does NOT make — it only
+division of labor between two sibling skills is a semantic call this script
+does NOT make — it only
 narrows the search to candidate pairs and prints the evidence lines, so a
 human can judge direction.
 
@@ -20,6 +20,9 @@ High recall, human precision.
 
 Usage:
     python3 check_skill_dependencies.py [<repo-root>] [--json]
+
+Output: mutual-mention pairs (candidates for real cycles) + one-directional
+mentions (info only — every mention must justify itself; exit code unaffected).
 
 Exit code: 0 = no mutual-mention pairs; 1 = at least one pair found.
 """
@@ -107,6 +110,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         (a, b) for i, a in enumerate(names) for b in names[i + 1 :] if b in edges[a] and a in edges[b]
     ]
 
+    # One-directional mentions (edges not part of any mutual pair) — info only.
+    mutual_set = {frozenset((a, b)) for a, b in pairs}
+    one_way: List[Tuple[str, str]] = [(a, b) for a in names for b in edges[a] if frozenset((a, b)) not in mutual_set]
+
     if args.json:
         payload = {
             "repo_root": str(repo_root),
@@ -120,6 +127,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 }
                 for a, b in pairs
             ],
+            "one_way": [{"a": a, "b": b, "a_mentions_b": find_mentions(texts[a], b)} for a, b in one_way],
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
@@ -139,6 +147,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"  [{b} -> {a}]")
                 for lineno, line in find_mentions(texts[b], a):
                     print(f"    {by_name[b].name}/SKILL.md:{lineno}: {line}")
+                print("")
+
+        if one_way:
+            print(
+                f"\n{len(one_way)} one-directional mention(s) (info — every mention must justify "
+                "itself: real functional dependency = keep explicit; anything else = blur to XX "
+                "or delete; baseline expectation is zero):\n"
+            )
+            for a, b in one_way:
+                print(f"  [{a} -> {b}]")
+                for lineno, line in find_mentions(texts[a], b):
+                    print(f"    {by_name[a].name}/SKILL.md:{lineno}: {line}")
                 print("")
 
     return 1 if pairs else 0
