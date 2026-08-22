@@ -13,7 +13,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: project-config
-  modify time: 2026-08-16
+  modify time: 2026-08-22
 ---
 
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
@@ -71,19 +71,6 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或按顶部强制 Read 指令读——Step 1 段落分层决策树见
 [`references/layering.md`](references/layering.md)。
 
-## 何时不使用
-
-> 触发场景 / 不适用已在 frontmatter description 给出。本节只补 description 没说的边界细节：
-
-- **迁移权限**（`.claude/settings.local.json`）或 **MCP 配置**——工具专属且敏感，本 skill 不碰
-- **改 `scripts/` / `references/`**——只动上下文文件（CLAUDE.md / AGENTS.md / MEMORY）
-- **删掉 `CLAUDE.md`**——本 skill 保留薄壳共存；彻底删需用户显式确认
-- **迁向不读 `AGENTS.md` 的 agent**——主路径对任何读 `AGENTS.md` 的 agent 都成立；只有目标 agent 完全
-  不读 `AGENTS.md`（只认自家专属格式）才不适用——先手动转成 `AGENTS.md` / `CLAUDE.md` 再来
-- **生成 agent 专属触发式 rule 文件**（如 `.qoder/rules/`）——官方多未文档化，交给用户在目标 agent IDE 配置
-- **裸项目从零生成**（既无 `CLAUDE.md` 又无 `AGENTS.md`）——本 skill 只归约**已有**的 agent 上下文；
-  裸项目先用 agent 自带的 `/init` 生成初始上下文，再来归约
-
 ## 输入 / 输出
 
 ### 输入
@@ -121,8 +108,11 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 ## 执行原则 / 边界
 
-> 使用边界（不碰权限 / MCP / `scripts` / `references`、不删 `CLAUDE.md`、不生成 agent
-> 专属 rule 文件）已在「何时使用 / 不使用」给出，此处不重抄。
+- **只动上下文文件**（`CLAUDE.md` / `AGENTS.md` / `MEMORY/`）——不碰迁移权限
+  （如 `.claude/settings.local.json`）、MCP 配置、`scripts/` / `references/`
+- **不删 `CLAUDE.md`**——本 skill 保留薄壳共存；彻底删需用户显式确认
+- **不生成 agent 专属触发式 rule 文件**（如 `.qoder/rules/`）——官方多未文档化，交给用户在
+  目标 agent IDE 配置
 
 ### 改写规则 R1–R6（摘要）
 

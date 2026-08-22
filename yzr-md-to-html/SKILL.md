@@ -13,7 +13,7 @@ description: |
   上传到 Outline Wiki。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-16
+  modify time: 2026-08-22
   category: document-conversion
 ---
 
@@ -21,14 +21,6 @@ metadata:
 **深色阅读主题**（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC、离线代码
 语法高亮（Pygments），并**按需**自动启用数学公式（KaTeX）与 Mermaid 图表——只有源文件
 里真出现 `$` 或 mermaid 代码块才会挂对应 CDN，普通文档零额外网络请求。
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**：
-
-- **擦边负例**："转成 html 后上传分享"仍属本 skill（转换 + 上传两段，上传走「上传产物」节）；
-  但"搭文档站 / 部署上线"不是——本 skill 产物是本地文件，不生成站点、不做部署；"PDF /
-  网页 → Markdown"反向转换同样不是（本 skill 只输出 HTML）
 
 ## 输入 / 输出
 
