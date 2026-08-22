@@ -81,6 +81,10 @@
 - **正文应覆盖（骨架 SSOT 在脚本常量）**：规范 H2 节名、顺序、各类型可省略规则见
   `scripts/utils.py::CANONICAL_BODY_SECTIONS`——此处与其它 prose 一律不重抄节名列表。可 `cp` 填充的
   骨架见 `assets/skill-template.md`；各类型适配见 `references/skill-template-guide.md`「变体」。
+- **selection 归 description，正文不设「何时不使用」节**：路由层负例（该不该用本 skill）全部
+  进 frontmatter description 的「不适用」槽——正文是触发后才加载的，承载不了 selection 信息；
+  执行期边界（做本职工作时遇到毗邻情形怎么处理）归「执行原则 / 边界」，流程内分流归
+  「工作流 / 步骤」（归位口径见 `references/skill-template-guide.md`「正文骨架」末段）。
 - **引用深度硬上限（one level deep）**：所有 reference 必须从 SKILL.md 直接挂；`references/a.md →
   references/b.md` 作**加载链**（"不读 b 就无法执行 a 的步骤"）**禁止**——agent 嵌套引用时用
   `head -100` 预览会丢信息。**例外**：CLI 字面拷贝模板；**SSOT 路标**——a.md 写"权威定义在 `b.md`
@@ -219,6 +223,7 @@
 | agent 中立 | `grep -ni "claude \?code\|qoder\|cursor\|windsurf\|codex"` | 命中逐处复核：特有机制点名 OK，可泛化却写死 → 改泛指 |
 | 指标单一来源 | `grep -nE "\b<阈值/版本裸数字>\b"` | 命中改常量名引用（除非数字另有出处） |
 | 正文描述一致性 | 核心原则关键词 grep 全部 `.md` + 手工语义对照（图 / 表 / 散文 / 列表承载同一信息） | ≥ 2 次且无 self-aware 注释 = 重抄嫌疑，读段对比确认；跨体裁同语义 ≥ 2 处 = 重抄 |
+| 何时不使用节 | `grep -n "^## 何时不使用" <skill-dir>/SKILL.md` | 命中即报——selection 信息归 description「不适用」槽，按「结构与加载」selection 条迁移 |
 | 机械操作脚本化 | 语义检查：工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律，逐条过准入规则两问（纯函数？lint 可验证？） | 零判断字节操作靠 md 纪律维持且无脚本承托 → 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；迁移路径上的写操作硬编码进脚本 → 报"迁移期例外" |
 | 依赖单向 | `python -m scripts.check_skill_dependencies <repo-root>` | 互提候选对 → 人工判方向，双向依赖 = 违规 |
 | 跨 skill 指称 | `python -m scripts.check_skill_dependencies <repo-root>`（看 `one_way` 输出） | 判定口径见正文「跨 skill 指称」原则——逐条归因，命中即报 |

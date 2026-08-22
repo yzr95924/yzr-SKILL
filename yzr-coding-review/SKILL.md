@@ -12,17 +12,10 @@ description: |
 metadata:
   author: Zuoru YANG
   category: code-quality
-  modify time: 2026-08-17
+  modify time: 2026-08-22
 ---
 
 # yzr-coding-review
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**：
-
-- **擦边负例**：review 中发现安全漏洞 / 明显 bug / 严重性能瓶颈信号 → 只指出"建议另行专项处理"，
-  不展开——本 skill 是设计层审视，不接安全审计 / bug 修复 / 性能调优执行
 
 ## 输入 / 输出
 

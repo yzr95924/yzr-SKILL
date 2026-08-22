@@ -14,7 +14,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: knowledge-base
-  modify time: 2026-08-16
+  modify time: 2026-08-22
 ---
 
 # Outline Wiki
@@ -27,17 +27,6 @@ metadata:
 
 本 skill 是 outline-wiki 家族中唯一的**操作** skill（搜 / 读 / 写全合一）；
 MCP server 接入与鉴权在 agent 配置文件中维护（见 §接入）。
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**（MCP 不暴露、需转 Outline 自身 UI / REST API 的操作）：
-
-- **配置 outline MCP / 鉴权**（MCP 未注册 / 401 / 403）→ 见 §接入：在 agent 配置文件中
-  维护 MCP server，改完重启会话生效
-- **分享 / 导出 / 权限调整**（官方 MCP 未列、server 通常未暴露）→ 走 Outline 自身 UI
-  或 REST API
-- **彩色高亮等 Markdown 表达不出的富文本**（`create_document` / `update_document` 不接收
-  原始 ProseMirror 节点）→ 走 UI，或 REST API 附 `proseMirrorDoc` 参数
 
 ## 输入 / 输出
 

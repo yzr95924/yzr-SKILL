@@ -68,12 +68,3 @@ JSON 能解析），**不**证明计分 / 选择逻辑正确——2026-08-18 的
 就是 canary 全绿下漏出来的。重建 / 大改脚本时用打桩冒烟跑全分支（should-trigger 命中 / 未命中 ×
 should-not-trigger 命中 / 未命中四格），秒级成本，不依赖实跑；实跑中看到反直觉的统计行立即停查。
 四格冒烟已沉淀为 `yzr-skill-creator/scripts/smoke_test_scoring.py`（stub claude，手动跑，exit 0/1）。
-
-### 「何时不使用」节已废除，6 个 skill 待整改
-
-selection vs implementation 框架（官方 best-practices 文档 + 上游 skill-creator 确认）：
-"何时不用"是 selection 信息，归 description 的「不适用」槽，正文不单设节——yzr-skill-creator
-已删节 + schema/template 同步。其余 6 个 skill（coding-review / md-to-html / multi-agent-context /
-outline-wiki / sys-design-doc / writing-review）的 `## 何时不使用` 仍是"额外 H2 节"（quick_validate
-INFO），各自下次被触碰时迁移：与 description 重复的条目删、真执行边界挪「执行原则 / 边界」、
-流程分流挪「工作流 / 步骤」。

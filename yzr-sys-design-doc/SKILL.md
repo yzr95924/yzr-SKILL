@@ -9,11 +9,12 @@ description: |
   （独立 tasks 文件，供执行 agent 按任务实施、反馈进度与设计变更，形成设计—执行循环迭代）。
   触发："帮我写个设计文档" / "下周评审要用的系统设计" / "把这个功能的技术方案整理成文档" /
   "write a design doc for X"。
-  不适用：产品需求文档（PRD）、API 参考文档、README、事后沉淀进 wiki 的文档。
+  不适用：产品需求文档（PRD）、API 参考文档、README、事后沉淀进 wiki 的文档；用户只要
+  代码实现、没要文档（不主动加文档）。
 metadata:
   author: Zuoru YANG
   category: doc-writing
-  modify time: 2026-08-16
+  modify time: 2026-08-22
 ---
 
 # yzr-sys-design-doc
@@ -23,15 +24,6 @@ metadata:
 章节结构、每节"写什么"与节内分工以 `assets/` 模板文件为准；跨节原则的"为什么"以本文件
 执行原则为 SSOT，模板不重复（唯一例外：`assets/template-tasks.md` 要脱离本 skill 给执行者
 单读，纪律段故意自包含）。SKILL.md 承载执行原则、档位路由、工作流与质量自检。
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**边界辨析**
-与**擦边负例**：
-
-- **边界辨析**：PRD 讲"做什么 / 为什么做"，本 skill 讲"技术上怎么做"——用户要 PRD 时不
-  适用；API 参考文档是从代码生成的参考，不是设计决策记录
-- **擦边负例**：用户只要代码实现、没要文档 → 直接写代码，不主动加文档
 
 ## 输入 / 输出
 

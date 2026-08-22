@@ -13,18 +13,10 @@ description: |
 metadata:
   author: Zuoru YANG
   category: writing
-  modify time: 2026-08-17
+  modify time: 2026-08-22
 ---
 
 # yzr-writing-review
-
-## 何时不使用
-
-"何时使用 / 不适用"已在 frontmatter description，正文不重抄。本节只补**擦边负例**：
-
-- **擦边负例**：发现"事实存疑" → 只指出位置让用户人工核对，不展开验证（事实核查不是本
-  skill 职责）；用户要求"加观点 / 改结论" → 那是内容意图变更，先确认意图，不在 review 里
-  自行判定；只是润色（用户已点名改法）→ 直接进「改写承接」，不套 review 流程
 
 ## 输入 / 输出
 
