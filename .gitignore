@@ -1,6 +1,7 @@
 # 外部工具生成的锁文件 / 配置
 package-lock.json
 skills-lock.json
+node_modules/
 
 # agent 本地配置（用户级，不入库）
 # - .claude     Claude Code 项目级（含 settings.local.json 等含 token）

@@ -15,12 +15,12 @@
     {
       "id": 2,
       "prompt": "我这份设计文档 docs/architecture.md 里有 KaTeX 数学公式和 mermaid 流程图，导出成能直接打开看的 HTML",
-      "expected_output": "调用脚本转换，产物自动按需挂 KaTeX + Mermaid CDN，并提醒首次打开需联网加载",
+      "expected_output": "调用脚本转换，产物公式按需挂 KaTeX CDN、mermaid 默认转 ASCII 离线渲染（无需联网）；提醒含公式需联网加载 KaTeX",
       "files": [],
       "expectations": [
         "调用 scripts/md_to_html.py 转换",
-        "提到产物会自动挂 KaTeX + Mermaid CDN（按需）",
-        "提醒首次打开需联网加载 CDN"
+        "提到 mermaid 默认转 ASCII 离线渲染（不挂 Mermaid CDN）",
+        "提醒首次打开需联网加载 KaTeX CDN（公式部分）"
       ]
     },
     {

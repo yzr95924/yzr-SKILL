@@ -14,6 +14,8 @@
   --blockquote: #8b949e;
   --blockquote-border: #30363d;
   --table-header-bg: #161b22;
+  /* 强调色（加粗文字）；链接蓝之外的新色相，与纯深色灰蓝系协调 */
+  --attention: #e3b341;
 }
 
 * { box-sizing: border-box; }
@@ -23,7 +25,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", "Noto Sans CJK SC", Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.7;
@@ -62,6 +64,7 @@ body {
   max-width: 880px;
   margin: 0 auto;
   padding: 44px 32px 140px;
+  overflow-wrap: break-word;
 }
 
 /* 排版 */
@@ -72,8 +75,8 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 0.6em;
   font-weight: 600;
 }
-h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+h1 { font-size: 2em; border-bottom: 1px solid rgba(88, 166, 255, 0.4); padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid rgba(88, 166, 255, 0.4); padding-bottom: 0.3em; }
 h3 { font-size: 1.25em; }
 h4 { font-size: 1.05em; }
 /* toc permalink ¶ */
@@ -82,6 +85,9 @@ h4 { font-size: 1.05em; }
 
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* 加粗用强调色：CJK 字体多无真粗体（伪粗体不可见），颜色补足强调通道；
+   链接内的加粗会被琥珀覆盖（罕见组合，接受） */
+strong, b { color: var(--attention); }
 p { margin: 0.8em 0; }
 ul, ol { padding-left: 1.6em; }
 li { margin: 0.3em 0; }
@@ -89,11 +95,13 @@ hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
 
 /* 代码 */
 code, kbd, samp {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    "Sarasa Mono SC", "Noto Sans Mono CJK SC", monospace;
   background: var(--code-bg);
   padding: 0.2em 0.4em;
   border-radius: 6px;
   font-size: 0.9em;
+  font-variant-ligatures: none;
 }
 pre {
   background: var(--code-bg);
@@ -102,6 +110,8 @@ pre {
   overflow-x: auto;
   border: 1px solid var(--border);
   margin: 1em 0;
+  line-height: 1.45;
+  font-variant-ligatures: none;
 }
 pre code { background: none; padding: 0; font-size: 0.875em; }
 .highlight { background: var(--code-bg); border-radius: 8px; border: 1px solid var(--border); }
@@ -122,7 +132,7 @@ th { background: var(--table-header-bg); color: var(--text-heading); font-weight
 img { max-width: 100%; height: auto; }
 input[type="checkbox"] { margin-right: 0.4em; }
 
-/* Mermaid 容器 */
+/* Mermaid 容器（CDN 渲染回退时用） */
 .mermaid {
   text-align: center;
   margin: 1.5em 0;
@@ -130,6 +140,30 @@ input[type="checkbox"] { margin-right: 0.4em; }
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
+}
+
+/* Mermaid 转 ASCII 的产物：等宽、紧凑、超宽横向滚动 */
+.mermaid-ascii {
+  margin: 1em 0;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  padding: 12px 16px;
+}
+.mermaid-ascii pre {
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+    "Sarasa Mono SC", "Noto Sans Mono CJK SC", monospace;
+  font-size: 0.8em;
+  line-height: 1.15;
+  white-space: pre;
+  color: var(--text);
+  font-variant-ligatures: none;
 }
 
 /* 窄屏：隐藏侧边栏，单栏阅读 */

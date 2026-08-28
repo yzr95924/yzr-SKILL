@@ -2,24 +2,31 @@
 """把一份 Markdown 转成自包含、可双击浏览的 HTML。
 
 默认深色阅读主题 + 侧边栏目录（TOC）+ 离线代码高亮（Pygments），
-按需自动挂 KaTeX（数学公式）与 Mermaid（图表）CDN——只有源文件真出现
-对应语法才挂，普通文档零额外网络请求。
+公式按需挂 KaTeX CDN；Mermaid 图表默认转 ASCII 离线渲染（不走 CDN），
+只有转换失败 / 不支持的图类型才回退到 Mermaid CDN。
 
-Python >= 3.7。依赖：markdown / pymdown-extensions / pygments / jinja2。
+Python >= 3.7。Python 依赖：markdown / pymdown-extensions / pygments / jinja2。
+含 Mermaid 且未加 --no-mermaid-ascii 时需要 Node + beautiful-mermaid
+（安装命令见 SKILL.md 前置条件；缺依赖时脚本打印同一条命令）。
 资源（模板 / 样式）相对本脚本解析，vendored 副本同样可用。
 """
 
 import argparse
+import html
 import importlib.util
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 # 资源目录相对脚本定位：scripts/ 的上一级 yzr-md-to-html/assets/
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 DEFAULT_TEMPLATE = ASSETS_DIR / "template.html"
 DEFAULT_STYLE = ASSETS_DIR / "style.css"
+# Mermaid → ASCII wrapper（Node 脚本，与 md_to_html.py 同级）
+MERMAID_WRAPPER = Path(__file__).resolve().parent / "mermaid_to_ascii.mjs"
 
 # 依赖：(import 名 → pip 包名)。find_spec 用 import 名，安装提示用 pip 包名——
 # 二者不一致时（如 pymdownx → pymdown-extensions）只此处维护，是依赖清单的单一来源。
@@ -61,14 +68,47 @@ def render_html(
     style_path: Path,
     want_toc: bool,
     lang: str,
-) -> str:
+    want_mermaid_ascii: bool = True,
+) -> Tuple[str, List[Tuple[int, str]]]:
     import markdown
     from jinja2 import Template
     from pygments.formatters import HtmlFormatter
     from pymdownx.superfences import fence_div_format
 
     has_math = MATH_HINT in text
-    has_mermaid = bool(MERMAID_RE.search(text))
+    mermaid_present = bool(MERMAID_RE.search(text))
+
+    # 逐块转 ASCII：成功 → <pre>；失败 / 无 node → 回退 CDN 渲染并记录原因
+    mermaid_failures = []  # [(第几个 mermaid 块, 原因)]
+    node_bin = shutil.which("node") if (want_mermaid_ascii and mermaid_present) else None
+    block_no = [0]
+
+    def mermaid_ascii_format(source, language, css_class, options, md, **kwargs):
+        block_no[0] += 1
+        if not want_mermaid_ascii:
+            return fence_div_format(source, language, css_class, options, md, **kwargs)
+        if node_bin is not None:
+            try:
+                proc = subprocess.run(
+                    [node_bin, str(MERMAID_WRAPPER)],
+                    input=source,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                    timeout=30,
+                )
+                if proc.returncode == 0:
+                    return f'<div class="mermaid-ascii"><pre>{html.escape(proc.stdout)}</pre></div>'
+                reason = proc.stderr.strip() or f"退出码 {proc.returncode}"
+                mermaid_failures.append((block_no[0], reason))
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                mermaid_failures.append((block_no[0], str(exc)))
+        else:
+            mermaid_failures.append((block_no[0], "未找到 node 可执行文件"))
+        return fence_div_format(source, language, css_class, options, md, **kwargs)
+
+    # 是否挂 Mermaid CDN：ASCII 模式下仅当存在回退块；关闭 ASCII 则照旧按源检测
+    # 注意：须在 md.convert 之后计算（mermaid_failures 在转换过程中填充）
 
     # 不用 'extra'（它含 fenced_code，与 superfences 冲突）——显式列出需要的扩展
     extensions = [
@@ -92,7 +132,13 @@ def render_html(
             "guess_lang": False,
         },
         "pymdownx.superfences": {
-            "custom_fences": [{"name": "mermaid", "class": "mermaid", "format": fence_div_format}]
+            "custom_fences": [
+                {
+                    "name": "mermaid",
+                    "class": "mermaid",
+                    "format": mermaid_ascii_format,
+                }
+            ]
         },
         "pymdownx.arithmatex": {"generic": True},
     }
@@ -103,6 +149,8 @@ def render_html(
     if not want_toc:
         toc_html = ""
 
+    has_mermaid = ((not want_mermaid_ascii) and mermaid_present) or bool(mermaid_failures)
+
     # Pygments 深色样式运行时生成，避免手维护一份 CSS
     pygments_css = HtmlFormatter(style="monokai").get_style_defs(".highlight")
     styles = style_path.read_text(encoding="utf-8")
@@ -111,7 +159,7 @@ def render_html(
     # content/toc/styles 均为已安全的 HTML/CSS；autoescape 关，title 单独用 |e 转义
     template = Template(template_src, autoescape=False)
 
-    return template.render(
+    html_out = template.render(
         title=title,
         lang=lang,
         content=content,
@@ -122,6 +170,7 @@ def render_html(
         has_mermaid=has_mermaid,
         has_toc=bool(toc_html.strip()),
     )
+    return html_out, mermaid_failures
 
 
 def convert_file(
@@ -132,27 +181,39 @@ def convert_file(
     style: Path,
     want_toc: bool,
     lang: str,
-) -> Path:
+    want_mermaid_ascii: bool,
+) -> Tuple[Path, List[Tuple[Path, int, str]]]:
     text = src.read_text(encoding="utf-8")
     if title is None:
         title = derive_title(text, src)
-    html = render_html(text, title, template, style, want_toc, lang)
+    html_out, failures = render_html(text, title, template, style, want_toc, lang, want_mermaid_ascii)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(html, encoding="utf-8")
-    return out
+    out.write_text(html_out, encoding="utf-8")
+    # 与 convert_dir 统一为 (源文件, 块号, 原因) 3 元组
+    return out, [(src, block_no, reason) for block_no, reason in failures]
 
 
-def convert_dir(src_dir: Path, out_dir: Path, template: Path, style: Path, lang: str, want_toc: bool) -> int:
+def convert_dir(
+    src_dir: Path,
+    out_dir: Path,
+    template: Path,
+    style: Path,
+    lang: str,
+    want_toc: bool,
+    want_mermaid_ascii: bool,
+) -> Tuple[int, List[Tuple[Path, int, str]]]:
     files = sorted(src_dir.rglob("*.md"))
     if not files:
         sys.exit(f"目录下没有 .md 文件: {src_dir}")
     out_dir.mkdir(parents=True, exist_ok=True)
     count = 0
+    failures = []
     for f in files:
         rel = f.relative_to(src_dir).with_suffix(".html")
-        convert_file(f, out_dir / rel, None, template, style, want_toc, lang)
+        _, file_failures = convert_file(f, out_dir / rel, None, template, style, want_toc, lang, want_mermaid_ascii)
+        failures.extend(file_failures)
         count += 1
-    return count
+    return count, failures
 
 
 def main(argv=None) -> None:
@@ -164,6 +225,11 @@ def main(argv=None) -> None:
     parser.add_argument("--style", default=str(DEFAULT_STYLE), help="自定义 CSS 路径")
     parser.add_argument("--no-toc", action="store_true", help="关闭侧边栏目录")
     parser.add_argument("--lang", default="zh-CN", help="<html lang>，默认 zh-CN")
+    parser.add_argument(
+        "--no-mermaid-ascii",
+        action="store_true",
+        help="关闭 Mermaid 转 ASCII，回退为挂 Mermaid CDN 渲染",
+    )
     args = parser.parse_args(argv)
 
     ensure_deps()
@@ -179,17 +245,26 @@ def main(argv=None) -> None:
     if not style.exists():
         sys.exit(f"样式不存在: {style}")
 
+    want_mermaid_ascii = not args.no_mermaid_ascii
+
     if src.is_dir():
         out_dir = Path(args.output) if args.output else src
-        n = convert_dir(src, out_dir, template, style, args.lang, not args.no_toc)
+        n, failures = convert_dir(src, out_dir, template, style, args.lang, not args.no_toc, want_mermaid_ascii)
         print(f"已批量转换 {n} 个文件 → {out_dir}/")
     else:
         out = Path(args.output) if args.output else src.with_suffix(".html")
-        convert_file(src, out, args.title, template, style, not args.no_toc, args.lang)
+        _, failures = convert_file(
+            src, out, args.title, template, style, not args.no_toc, args.lang, want_mermaid_ascii
+        )
         print(f"已生成: {out}")
         source_text = src.read_text(encoding="utf-8")
-        if MATH_HINT in source_text or MERMAID_RE.search(source_text):
-            print("（含公式 / Mermaid，首次打开需联网加载 CDN）")
+        if MATH_HINT in source_text:
+            print("（含公式，首次打开需联网加载 KaTeX CDN）")
+
+    if failures:
+        print(f"（{len(failures)} 个 Mermaid 块转 ASCII 失败，已回退为 CDN 渲染，需联网加载）")
+        for fpath, block_no, reason in failures:
+            print(f"  - {fpath} 第 {block_no} 个 mermaid 块: {reason}")
 
 
 if __name__ == "__main__":
