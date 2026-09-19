@@ -72,9 +72,8 @@
 - **progressive disclosure 三级加载**（层级定义见 `references/skill-template-guide.md`
   「progressive disclosure」，此处不重抄）：**正文长度权威上限 = 5000
   词**（本仓库只在此处给出该指标，其它位置只引用不重抄）；接近上限就抽一层到 `references/` 并写明
-  "何时去读"；> 300 行的 reference 带目录。**例外**：CLI 字面拷贝给目标仓的模板文件（如
-  `references/claude-md-template.md` 经 `cp` 拷到 `<wiki-root>/CLAUDE.md`）不适用目录规则——TOC 会被
-  字面拷贝带进目标仓。引用 `scripts/` / `references/` / `assets/` 时一律说明何时去读。
+  "何时去读"；reference 一律不手写目录（TOC）——agent 全量读入正文不看 TOC，目录只对浏览器 /
+  编辑器有效（编辑器可按标题自动生成）。引用 `scripts/` / `references/` / `assets/` 时一律说明何时去读。
 - **正文超长根因诊断**：超长时先查根因再删字——grep 同一规则关键词在 SKILL.md + references/ 出现
   ≥ 2 次且内容相似 = 重抄；`### 1. <Op>` 等多步操作单步 > 30 行 = 未下放；"## 参考样例" > 80 行 =
   未下放。修法顺序见「修法优先级」；抽层直接拆 `references/` 文件，禁用 HTML `<details>` 折叠块。
@@ -224,6 +223,7 @@
 | 指标单一来源 | `grep -nE "\b<阈值/版本裸数字>\b"` | 命中改常量名引用（除非数字另有出处） |
 | 正文描述一致性 | 核心原则关键词 grep 全部 `.md` + 手工语义对照（图 / 表 / 散文 / 列表承载同一信息） | ≥ 2 次且无 self-aware 注释 = 重抄嫌疑，读段对比确认；跨体裁同语义 ≥ 2 处 = 重抄 |
 | 何时不使用节 | `grep -n "^## 何时不使用" <skill-dir>/SKILL.md` | 命中即报——selection 信息归 description「不适用」槽，按「结构与加载」selection 条迁移 |
+| reference 禁手写目录 | `python -m scripts.quick_validate <skill-dir>`（看"手写目录"WARN） | 命中即报——agent 全量读入不看 TOC，目录只对浏览器 / 编辑器有效 |
 | 机械操作脚本化 | 语义检查：工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律，逐条过准入规则两问（纯函数？lint 可验证？） | 零判断字节操作靠 md 纪律维持且无脚本承托 → 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；迁移路径上的写操作硬编码进脚本 → 报"迁移期例外" |
 | 依赖单向 | `python -m scripts.check_skill_dependencies <repo-root>` | 互提候选对 → 人工判方向，双向依赖 = 违规 |
 | 跨 skill 指称 | `python -m scripts.check_skill_dependencies <repo-root>`（看 `one_way` 输出） | 判定口径见正文「跨 skill 指称」原则——逐条归因，命中即报 |

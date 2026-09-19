@@ -8,7 +8,7 @@
 
 | 工具 | 用途 | 来源 |
 | --- | --- | --- |
-| `pyyaml` | 跑 `yzr-skill-creator/scripts/quick_validate.py` 校验 SKILL.md frontmatter + 正文结构（`--tier`） | pip |
+| `pyyaml` | 跑 `yzr-skill-creator/scripts/quick_validate.py` 校验 SKILL.md frontmatter + 正文结构 + 目录禁令（`--tier`） | pip |
 | `ruff` | Python 格式化 + lint（`pyproject.toml` 配 py37 + 120 行宽） | pip |
 | `markdownlint-cli` | Markdown 行宽与 lint（`.markdownlint.jsonc` 配 MD013 ≤ 120） | npm |
 

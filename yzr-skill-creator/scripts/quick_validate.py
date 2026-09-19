@@ -132,6 +132,41 @@ def check_description_format(skill_path):
     return findings
 
 
+def check_no_toc(skill_path):
+    """Detect hand-written TOC sections in a skill's markdown (WARN-only).
+
+    目录禁令 SSOT 在 references/skill-writing-principles.md「正文写作原则」的
+    「结构与加载」：reference 一律不手写目录（TOC）——agent 全量读入正文不看
+    TOC，目录只对浏览器 / 编辑器有效。两类信号：`## TOC` / `## 目录` 节头；
+    连续 ≥ 3 行页内锚点列表（无节头形态的目录）。WARN 不 fail——与正文结构
+    检查同级，只防回潮；不做 fence 感知，代码块内示例可能误报。
+    """
+    skill_path = Path(skill_path)
+    ssot = "references/skill-writing-principles.md「结构与加载」目录禁令"
+    heading_re = re.compile(r"^##\s+(?:TOC|目录)\s*$")
+    anchor_re = re.compile(r"^\s*[-*]\s+\[[^\]]+\]\(#")
+    findings = []
+    for md_file in sorted(skill_path.rglob("*.md")):
+        rel = md_file.relative_to(skill_path)
+        run_start = None
+        run_len = 0
+        for lineno, line in enumerate(md_file.read_text().splitlines(), start=1):
+            if heading_re.match(line):
+                findings.append(("WARN", f"{rel}:{lineno} 手写目录节 `{line.strip()}`——{ssot}"))
+            if anchor_re.match(line):
+                if run_start is None:
+                    run_start = lineno
+                run_len += 1
+            elif run_len:
+                if run_len >= 3:
+                    findings.append(("WARN", f"{rel}:{run_start} 疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
+                run_start = None
+                run_len = 0
+        if run_len >= 3:
+            findings.append(("WARN", f"{rel}:{run_start} 疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
+    return findings
+
+
 def validate_skill(skill_path):
     """Basic validation of a skill"""
     skill_path = Path(skill_path)
@@ -223,7 +258,7 @@ def validate_skill(skill_path):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Validate a skill's frontmatter and body structure")
+    parser = argparse.ArgumentParser(description="Validate a skill's frontmatter, body structure, and TOC ban")
     parser.add_argument("skill_dir", help="Path to the skill directory")
     parser.add_argument(
         "--tier",
@@ -238,6 +273,7 @@ if __name__ == "__main__":
 
     findings = check_body_structure(args.skill_dir, tier=args.tier)
     findings += check_description_format(args.skill_dir)
+    findings += check_no_toc(args.skill_dir)
     for level, msg in findings:
         print(f"{level}: {msg}")
 

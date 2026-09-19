@@ -21,7 +21,7 @@ skill-name/
 3. **捆绑资源**（`scripts/` / `references/` / `assets/` / `eval/`）：按需加载
    — scripts 可不读直接执行；references / assets 需 Read 才加载。
 
-**关键模式**（长度上限与抽层 / 何时去读 / 引用深度 / TOC 阈值——权威口径全部见
+**关键模式**（长度上限与抽层 / 何时去读 / 引用深度——权威口径全部见
 `references/skill-writing-principles.md`「正文写作原则」的「结构与加载」节，此处不重抄）：
 
 **领域组织**：skill 支持多领域 / 框架时按变体组织——

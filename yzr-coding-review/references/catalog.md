@@ -15,73 +15,6 @@
 
 语言中立,不绑 Python / Go / TS 特定语法。
 
-## TOC
-
-### 第一组:Naming
-
-- [Rename Variable](#rename-variable)
-- [Rename Function](#rename-function)
-- [Change Function Declaration](#change-function-declaration)
-
-### 第二组:Functions
-
-- [Extract Function](#extract-function)
-- [Inline Function](#inline-function)
-- [Extract Variable](#extract-variable)
-- [Inline Variable](#inline-variable)
-- [Introduce Parameter Object](#introduce-parameter-object)
-- [Remove Dead Code](#remove-dead-code)
-- [Replace Algorithm](#replace-algorithm)
-
-### 第三组:Classes & Modules
-
-- [Extract Class](#extract-class)
-- [Inline Class](#inline-class)
-- [Move Function](#move-function)
-- [Move Field](#move-field)
-- [Hide Delegate](#hide-delegate)
-- [Remove Middle Man](#remove-middle-man)
-
-### 第四组:Data
-
-- [Encapsulate Variable](#encapsulate-variable)
-- [Replace Primitive with Object](#replace-primitive-with-object)
-- [Encapsulate Record](#encapsulate-record)
-- [Replace Derived Variable with Query](#replace-derived-variable-with-query)
-
-### 第五组:Conditional Logic
-
-- [Decompose Conditional](#decompose-conditional)
-- [Consolidate Conditional Expression](#consolidate-conditional-expression)
-- [Replace Nested Conditional with Guard Clauses](#replace-nested-conditional-with-guard-clauses)
-- [Replace Conditional with Polymorphism](#replace-conditional-with-polymorphism)
-- [Introduce Special Case](#introduce-special-case)
-
-### 第六组:API
-
-- [Parameterize Function](#parameterize-function)
-- [Remove Flag Argument](#remove-flag-argument)
-- [Preserve Whole Object](#preserve-whole-object)
-- [Replace Parameter with Query](#replace-parameter-with-query)
-- [Separate Query from Modifier](#separate-query-from-modifier)
-
-### 第七组:Inheritance
-
-- [Pull Up Method](#pull-up-method)
-- [Push Down Method](#push-down-method)
-- [Pull Up Constructor Body](#pull-up-constructor-body)
-
-### 第八组:合理性审视(非 Fowler)
-
-- [Missing Input Validation](#missing-input-validation)
-- [Swallowed Error](#swallowed-error)
-- [Inconsistent Error Handling](#inconsistent-error-handling)
-- [Magic Literal](#magic-literal)
-- [Inefficient Algorithmic Shape](#inefficient-algorithmic-shape)
-- [Repeated Expensive Call](#repeated-expensive-call)
-- [Duplicate Code](#duplicate-code)
-- [Misleading Comment](#misleading-comment)
-
 ## 第一组:Naming
 
 ### Rename Variable
@@ -353,11 +286,15 @@
 - **方案**: 以代码为准——改注释对齐代码,或代码确实是 bug 则改代码;陈旧注释直接删 / 更新。
 - **严重度**: 注释与代码矛盾 → Major(对齐 rubric);纯陈旧但无害注释 → Minor。
 
+### Redundant Comment
+
+- **信号**: 注释逐行复述代码做什么(叙述式 what);注释 = 代码直译,删除零信息损失;段头横幅 / 分隔线注释;docstring 仅复读函数名或签名。
+- **方案**: 复述 what 直接删;解释 why / 非显然约束 / 外部契约的注释保留;删前确认没藏非显然信息(魔数来源 / 坑的成因),有则改写成一句 why 注释;注释与代码矛盾不归本卡,见 Misleading Comment。
+- **严重度**: 多数 Nitpick(对齐 rubric);大面积叙述式注释淹没 why 注释 / 信噪比显著恶化 → Minor。
+
 ## 维护说明
 
-**新增场景**: 在对应分组末尾追加卡片,保持 3 项列表 schema 完整;TOC 加链接;不改 SSOT 措辞(改卡片不改 SKILL.md)。
-
-**TOC 维护**: TOC 锚点按卡片标题生成(GitHub 风格:小写 + 去标点 + 空格转 `-`),全角标点 `:` / `、` / `(` / `)` 删除。
+**新增场景**: 在对应分组末尾追加卡片,保持 3 项列表 schema 完整;不改 SSOT 措辞(改卡片不改 SKILL.md)。
 
 **边界**: 本 catalog 是"语言中立骨架";具体语言细节(typing Protocol / Go error wrapping / TS strict null 等)
 不写进卡片,由 LLM 自身语言知识判断。第八组只收"合理性"维度卡片,bug 修复 / 性能调优执行 / 安全审计专项不进本 catalog。
