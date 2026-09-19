@@ -125,7 +125,7 @@ metadata:
 
 后面为 skill 的正文——**骨架从 `assets/skill-template.md` 拷贝**，逐节填充（规范节名 / 顺序 /
 各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
-`references/skill-template-guide.md`「变体」）。先填全骨架再按「精简与粒度约束」删节，不要"想到哪写到哪"——
+`references/skill-template-guide.md`「变体」）。先填全骨架再按 `references/skill-writing-principles.md`「精简与粒度约束」删节，不要"想到哪写到哪"——
 SKILL.md 格式统一靠的就是这份骨架。
 
 起草完成后先跑预检再进入测试用例：

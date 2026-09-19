@@ -1,4 +1,4 @@
-# my_SKILL CI —— 全 skill 自校验（quick_validate frontmatter + ruff）。
+# my_SKILL CI —— 全 skill 自校验（quick_validate frontmatter + check_anchor_health 引用存活 + ruff）。
 #
 # ┌─ 单向依赖不变量（核心原则，任何改动不得违反）──────────────────────────┐
 # │ 本 workflow 只跑 my_SKILL 自家的脚本，**绝不调用 llmw CLI、不读 CLI 仓**。 │
@@ -9,7 +9,7 @@
 # 作用域：本仓全部 skill（yzr-*/）。原「探测器自校验」职责（两 llm-*-management
 # skill 的 check_*_fixtures.py）已随这两 skill 迁往 llm_workspace_cli 仓
 # （2026-08-18，斩断历史），本 CI 不再覆盖——它们由 CLI 仓 fixtures-smoke 守护。
-# 本仓 CI 收敛为通用的 skill 健康门：quick_validate + ruff。
+# 本仓 CI 收敛为通用的 skill 健康门：quick_validate + check_anchor_health + ruff。
 
 name: CI
 
@@ -45,3 +45,5 @@ jobs:
           python yzr-skill-creator/scripts/quick_validate.py yzr-skill-creator
           python yzr-skill-creator/scripts/quick_validate.py yzr-sys-design-doc
           python yzr-skill-creator/scripts/quick_validate.py yzr-writing-review
+      - name: check_anchor_health (all skills, references stay alive)
+        run: python yzr-skill-creator/scripts/check_anchor_health.py --repo-root .

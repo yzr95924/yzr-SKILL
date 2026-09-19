@@ -16,13 +16,26 @@ SKILL.md + references/*.md + scripts/*.md of the scanned skill:
 2. If the link carries `#anchor`, GitHub-style heading slug is computed
    for every heading in the target file; report ANCHOR-DRIFT if no
    heading slug matches.
+3. Backticked path references (`` `references/foo.md` `` / `` `x.py` ``)
+   in the scanned markdown: the path must resolve — relative to the
+   containing file first, then to the skill root (operational refs are
+   written skill-root-relative), then as a skill-wide basename search.
+   Report PATH-MISSING if nothing matches. Placeholders, teaching-example
+   names, bare topic filenames (AGENTS.md, CLAUDE.md, ...) and
+   managed-project / sibling-skill paths (`` MEMORY/... `` / `` yzr-*/... ``)
+   are skipped.
+4. 「节名」 pointers, cross-file (`` `references/x.md`「节名」 ``) and
+   same-file (`` 见「节名」 ``): the name must match a heading text or a
+   bold lead-in (**指标单一来源** style) in the target file. Report
+   SECTION-MISSING otherwise.
 
 What it does NOT do
 -------------------
 - Does not verify the link makes semantic sense (e.g., pointing at the
   right section). It only checks "does the section still exist".
 - Does not validate frontmatter / skill structure (see quick_validate.py).
-- Does not detect cross-skill mentions (see check_skill_dependencies.py).
+- Does not detect cross-skill mentions (see check_skill_dependencies.py),
+  and does not check refs that resolve outside the scanned skill root.
 - Does not recurse into vendored copies under .agents/ or ~/.claude/skills/
   (per [[skill-source-priority-over-memory-vendor]]).
 
@@ -52,8 +65,16 @@ Manual rules this script encodes (fallback when the script is unavailable)
 -------------------------------------------------------------------------
 - GitHub-style heading slug: lowercase + strip punctuation + spaces to `-`;
   full-width punctuation `：` / `、` / `（` / `）` is REMOVED, not converted.
-- Code-fence "teaching example" paths (sources/foo.md inside a fence) are
-  exempt — their target is not supposed to exist.
+- A backticked path ref resolves relative to the containing file first,
+  then to the skill root (operational refs are written that way), then
+  as a skill-wide basename search. Code-fence "teaching example" paths
+  are exempt, and so are obviously-sampled names (`` a.md `` / `` foo.py ``
+  / `` iteration-N/ ``), bare topic filenames (AGENTS.md / CLAUDE.md /
+  MEMORY.md / README.md / CHANGELOG.md) and managed-project / sibling-skill
+  paths (`` MEMORY/... `` / `` yzr-*/... ``) — none of those can be local refs.
+- A 「节名」 resolves exact-match or anchor-extends-name (the heading /
+  bold lead-in may carry a parenthetical suffix, e.g. 正文骨架（canonical 节）
+  for 「正文骨架」). Same-file refs use a guide word (`见` / `按` / 详见 ...).
 """
 
 import argparse
@@ -61,7 +82,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 # Bootstrap so `from scripts.utils import ...` works both as a standalone
 # script and as `python -m scripts.check_anchor_health`.
@@ -118,20 +139,10 @@ def _find_code_spans(line: str) -> List[Tuple[int, int]]:
     return spans
 
 
-def extract_links(text: str) -> List[Tuple[int, str, str]]:
-    """Yield (line_number_1indexed, link_text, target_with_anchor) for
-    every markdown link in *text*. Skips:
-
-    - Lines inside fenced code blocks (```` ``` ```` / `~~~`) — those are
-      illustrative code samples, not real cross-references.
-    - Links whose **target** (the `(...)` part) is inside an inline-code
-      span — markdown like `` `[link](foo.md)` `` demonstrates link
-      syntax, it doesn't actually link. We only filter by target, not
-      by link text, because real links often have `` `code` `` inside
-      the text portion (e.g. `` [`migrate-workflow.md` §六](migrate.md#六) ``)
-      and we don't want to lose those.
-    """
-    hits: List[Tuple[int, str, str]] = []
+def _iter_unfenced_lines(text: str) -> Iterator[Tuple[int, str]]:
+    """Yield (line_number_1indexed, line) for lines outside fenced code
+    blocks. Fence detection is shared by every extractor so the rules
+    can't drift apart."""
     in_fence = False
     fence_char: Optional[str] = None  # "`" or "~"
     fence_len: int = 0  # opener run length; closer must match char + be >= this long
@@ -155,6 +166,24 @@ def extract_links(text: str) -> List[Tuple[int, str, str]]:
             continue
         if in_fence:
             continue
+        yield lineno, line
+
+
+def extract_links(text: str) -> List[Tuple[int, str, str]]:
+    """Yield (line_number_1indexed, link_text, target_with_anchor) for
+    every markdown link in *text*. Skips:
+
+    - Lines inside fenced code blocks (```` ``` ```` / `~~~`) — those are
+      illustrative code samples, not real cross-references.
+    - Links whose **target** (the `(...)` part) is inside an inline-code
+      span — markdown like `` `[link](foo.md)` `` demonstrates link
+      syntax, it doesn't actually link. We only filter by target, not
+      by link text, because real links often have `` `code` `` inside
+      the text portion (e.g. `` [`migrate-workflow.md` §六](migrate.md#六) ``)
+      and we don't want to lose those.
+    """
+    hits: List[Tuple[int, str, str]] = []
+    for lineno, line in _iter_unfenced_lines(text):
         code_spans = _find_code_spans(line)
         for match in _LINK_RE.finditer(line):
             target_start, target_end = match.span(2)
@@ -335,6 +364,108 @@ def resolve_target(containing_file: Path, target_path: str, skill_root: Path) ->
     return resolved
 
 
+# ---------------------------------------------------------------------------
+# Backticked path refs + 「section」 pointers
+# ---------------------------------------------------------------------------
+
+# A backticked token that can carry a concrete file reference: path
+# charset only, ending in a source / doc extension. Commands with spaces,
+# template placeholders and globs never match.
+_PATH_TOKEN_RE = re.compile(r"^[A-Za-z0-9_./-]+\.(?:md|py)$")
+
+# ``scripts/utils.py::SYMBOL`` — the file part is a real ref, the symbol
+# suffix is not; strip it before resolving.
+_SYMBOL_SUFFIX_RE = re.compile(r"::[A-Za-z0-9_.]+$")
+
+# File *kinds* discussed as topics (the target project's AGENTS.md, a
+# skill's CHANGELOG.md sidecar, ...), not pointers into this skill. Bare
+# occurrences are skipped; directory-qualified occurrences still checked.
+# SKILL.md is deliberately absent — it resolves locally in every skill.
+_TOPIC_FILENAMES = frozenset({"AGENTS.md", "CLAUDE.md", "MEMORY.md", "README.md", "CHANGELOG.md"})
+
+# Teaching-example naming (same spirit as the code-fence exemption):
+# single letters / foo-bar names used to illustrate a naming rule.
+_PLACEHOLDER_STEMS = frozenset({"a", "b", "foo", "bar", "baz"})
+
+_GUIDE_WORDS = r"(?:详见|参见|参考|对照|见|按|依|查)"
+
+# Cross-file form: `references/foo.md`「节名」 — path immediately followed
+# by the corner-bracket section name.
+_PATH_SECTION_RE = re.compile(r"`([^`\n]+)`\s*「([^」\n]+)」")
+# Same-file form: 见「节名」 / 按「节名」 — guide word directly before the
+# name. Cross-file refs carry the path in between, so the two patterns
+# never report the same occurrence twice.
+_GUIDE_SECTION_RE = re.compile(_GUIDE_WORDS + r"\s*「([^」\n]+)」")
+
+_BOLD_SPAN_RE = re.compile(r"\*\*([^*\n]+)\*\*")
+
+
+def extract_backtick_paths(text: str) -> List[Tuple[int, str]]:
+    """Yield (line_number, path_token) for inline-code spans that look
+    like concrete file paths (see _PATH_TOKEN_RE). Fenced blocks are
+    skipped: their paths are command examples with cwd-relative meaning."""
+    hits: List[Tuple[int, str]] = []
+    for lineno, line in _iter_unfenced_lines(text):
+        for start, end in _find_code_spans(line):
+            content = _SYMBOL_SUFFIX_RE.sub("", line[start + 1 : end - 1].strip())
+            if _PATH_TOKEN_RE.match(content):
+                hits.append((lineno, content))
+    return hits
+
+
+def extract_section_refs(text: str) -> List[Tuple[int, str, str]]:
+    """Yield (line_number, path_token_or_empty, section_name) for every
+    「节名」 pointer: cross-file (`` `file.md`「X」 ``) or same-file
+    (`` 见「X」 ``)."""
+    hits: List[Tuple[int, str, str]] = []
+    for lineno, line in _iter_unfenced_lines(text):
+        for match in _PATH_SECTION_RE.finditer(line):
+            hits.append((lineno, match.group(1), match.group(2)))
+        remainder = _PATH_SECTION_RE.sub("", line)
+        for match in _GUIDE_SECTION_RE.finditer(remainder):
+            hits.append((lineno, "", match.group(1)))
+    return hits
+
+
+def is_placeholder_path(path: str) -> bool:
+    """True for sample / template naming that can never be a real ref:
+    `<...>` markers, globs, ellipses, single-letter / foo-bar sample
+    stems, iteration-N placeholders."""
+    if any(ch in path for ch in "<>*") or "..." in path:
+        return True
+    for segment in path.split("/"):
+        stem = segment.rsplit(".", 1)[0]
+        if stem in _PLACEHOLDER_STEMS or segment.endswith("-N"):
+            return True
+    return False
+
+
+def collect_anchor_texts(text: str) -> set:
+    """All stable prose anchors in *text*: heading texts (ATX + setext)
+    and bold lead-ins (``**指标单一来源**`` style). 「X」 pointers resolve
+    against this set."""
+    anchors = set()
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        atx_match = _ATX_HEADING_RE.match(line)
+        if atx_match:
+            anchors.add(atx_match.group(3).strip())
+            continue
+        setext_match = _SETEXT_HEADING_RE.match(line)
+        if setext_match and i > 0:
+            anchors.add(lines[i - 1].strip())
+    anchors.update(m.group(1).strip() for m in _BOLD_SPAN_RE.finditer(text))
+    return anchors
+
+
+def anchor_text_matches(name: str, anchors: set) -> bool:
+    """True if *name* resolves to an anchor. Exact match, or the anchor
+    extends the name (headings / bold lead-ins often carry a parenthetical
+    suffix: 正文骨架（canonical 节） for 「正文骨架」)."""
+    target = name.strip()
+    return any(a == target or a.startswith(target) for a in anchors)
+
+
 def scan_file(md_path: Path, skill_root: Path) -> List[Dict[str, str]]:
     """Audit a single markdown file. Returns a list of issue dicts; empty
     if the file is clean.
@@ -414,7 +545,95 @@ def scan_file(md_path: Path, skill_root: Path) -> List[Dict[str, str]]:
                     ),
                 }
             )
+    _scan_backtick_paths(md_path, skill_root, text, issues)
+    _scan_section_refs(md_path, skill_root, text, issues)
     return issues
+
+
+def _resolve_skill_root_ref(skill_root: Path, token: str) -> Optional[Path]:
+    """Fallback resolution for refs written from the skill root rather
+    than the containing file's directory — operational refs in this repo
+    routinely say `references/x.md` inside a references/ file. Also
+    serves bare basenames found anywhere in the skill (``x.py`` for
+    scripts/x.py). Returns an existing path or None."""
+    if "/" in token:
+        candidate = skill_root / token
+        try:
+            candidate = candidate.resolve()
+            candidate.relative_to(skill_root.resolve())
+        except (OSError, ValueError):
+            return None
+        return candidate if candidate.exists() else None
+    for match in sorted(skill_root.rglob(token)):
+        if match.is_file():
+            return match
+    return None
+
+
+def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: List[Dict[str, str]]) -> None:
+    """PATH-MISSING: every backticked ``x.md`` / ``x.py`` reference must
+    resolve — relative to the containing file first, then to the skill
+    root (operational refs), then as a skill-wide basename search."""
+    for lineno, token in extract_backtick_paths(text):
+        if "/" not in token and token in _TOPIC_FILENAMES:
+            continue
+        if token.startswith("MEMORY/") or token.startswith("yzr-"):
+            # Managed-project memory file / sibling-skill path — topic
+            # mentions, never local refs (cross-skill is out of scope).
+            continue
+        if is_placeholder_path(token):
+            continue
+        resolved = resolve_target(md_path, token, skill_root)
+        if resolved is None:
+            # Escapes the skill root — cross-skill ref, out of scope.
+            continue
+        if resolved.exists():
+            continue
+        if _resolve_skill_root_ref(skill_root, token):
+            continue
+        issues.append(
+            {
+                "file": str(md_path.relative_to(skill_root)),
+                "line": str(lineno),
+                "link_text": "",
+                "target": token,
+                "anchor": "",
+                "status": "PATH-MISSING",
+                "reason": f"backticked path not found: {token}",
+            }
+        )
+
+
+def _scan_section_refs(md_path: Path, skill_root: Path, text: str, issues: List[Dict[str, str]]) -> None:
+    """SECTION-MISSING: a 「节名」 pointer must match a heading text or a
+    bold lead-in in its target file (same file for the 见「X」 form)."""
+    for lineno, path_token, name in extract_section_refs(text):
+        if path_token:
+            target = resolve_target(md_path, path_token, skill_root)
+            if target is None or not target.exists():
+                target = _resolve_skill_root_ref(skill_root, path_token)
+                if target is None:
+                    # Dead / out-of-scope target — reported (or skipped)
+                    # by the path passes; don't double-report here.
+                    continue
+            anchors = collect_anchor_texts(target.read_text())
+            where = f"{path_token}「{name}」"
+        else:
+            anchors = collect_anchor_texts(text)
+            where = f"「{name}」"
+        if anchor_text_matches(name, anchors):
+            continue
+        issues.append(
+            {
+                "file": str(md_path.relative_to(skill_root)),
+                "line": str(lineno),
+                "link_text": "",
+                "target": where,
+                "anchor": "",
+                "status": "SECTION-MISSING",
+                "reason": f"{where} not found among the target's headings / bold lead-ins",
+            }
+        )
 
 
 def find_markdown_files(skill_root: Path, include_templates: bool = False) -> List[Path]:
@@ -438,8 +657,10 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
     for sub in ("references", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
-            for p in sorted(sub_root.iterdir()):
-                if p.suffix != ".md" or not p.is_file():
+            # rglob: references/ may nest (e.g. references/agents/grader.md);
+            # scripts/ is flat in practice but rglob is harmless there.
+            for p in sorted(sub_root.rglob("*.md")):
+                if not p.is_file():
                     continue
                 if not include_templates and p.stem.endswith("-template"):
                     continue
@@ -454,16 +675,20 @@ def count_skipped_templates(skill_root: Path) -> int:
     for sub in ("references", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
-            n += sum(1 for p in sub_root.iterdir() if p.suffix == ".md" and p.stem.endswith("-template"))
+            n += sum(1 for p in sub_root.rglob("*.md") if p.stem.endswith("-template"))
     return n
 
 
-def scan_skill(skill_root: Path, include_templates: bool = False) -> Tuple[int, int, int, List[Dict[str, str]]]:
+def scan_skill(
+    skill_root: Path, include_templates: bool = False
+) -> Tuple[int, int, int, int, int, List[Dict[str, str]]]:
     """Scan one skill directory. Returns (files_scanned, links_checked,
-    templates_skipped, issues)."""
+    paths_checked, sections_checked, templates_skipped, issues)."""
     files = find_markdown_files(skill_root, include_templates=include_templates)
     all_issues: List[Dict[str, str]] = []
     links_checked = 0
+    paths_checked = 0
+    sections_checked = 0
     for f in files:
         text = f.read_text()
         links = extract_links(text)
@@ -477,9 +702,18 @@ def scan_skill(skill_root: Path, include_templates: bool = False) -> Tuple[int, 
             and (split_target(tgt)[0] or split_target(tgt)[1])
         ]
         links_checked += len(checkable)
+        paths_checked += sum(
+            1
+            for _, token in extract_backtick_paths(text)
+            if not ("/" not in token and token in _TOPIC_FILENAMES)
+            and not token.startswith("MEMORY/")
+            and not token.startswith("yzr-")
+            and not is_placeholder_path(token)
+        )
+        sections_checked += len(extract_section_refs(text))
         all_issues.extend(scan_file(f, skill_root))
     templates_skipped = 0 if include_templates else count_skipped_templates(skill_root)
-    return len(files), links_checked, templates_skipped, all_issues
+    return len(files), links_checked, paths_checked, sections_checked, templates_skipped, all_issues
 
 
 # ---------------------------------------------------------------------------
@@ -551,14 +785,18 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     overall_files = 0
     overall_links = 0
+    overall_paths = 0
+    overall_sections = 0
     overall_templates = 0
     overall_issues: List[Dict[str, object]] = []
     for skill_dir in skill_dirs:
-        files_scanned, links_checked, templates_skipped, issues = scan_skill(
+        files_scanned, links_checked, paths_checked, sections_checked, templates_skipped, issues = scan_skill(
             skill_dir, include_templates=args.include_templates
         )
         overall_files += files_scanned
         overall_links += links_checked
+        overall_paths += paths_checked
+        overall_sections += sections_checked
         overall_templates += templates_skipped
         for issue in issues:
             overall_issues.append({"skill": skill_dir.name, **issue})
@@ -567,6 +805,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         payload = {
             "files_scanned": overall_files,
             "links_checked": overall_links,
+            "paths_checked": overall_paths,
+            "sections_checked": overall_sections,
             "templates_skipped": overall_templates,
             "issue_count": len(overall_issues),
             "issues": overall_issues,
@@ -579,7 +819,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             else ""
         )
         print(
-            f"Scanned {overall_files} file(s), {overall_links} link(s){suffix}; {len(overall_issues)} issue(s) found."
+            f"Scanned {overall_files} file(s), {overall_links} link(s), "
+            f"{overall_paths} path ref(s), {overall_sections} section ref(s){suffix}; "
+            f"{len(overall_issues)} issue(s) found."
         )
         if overall_issues:
             print("")
