@@ -1,6 +1,6 @@
 # 严重度判定细则(SSOT)
 
-4 级严重度,本文件是唯一权威定义。SKILL.md 和 report-template.md 都引用本文件,不重抄。
+4 级严重度,本文件是唯一权威定义。`SKILL.md` 和 `report-template.md` 都引用本文件,不重抄。
 
 ## Blocker
 

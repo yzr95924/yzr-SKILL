@@ -10,7 +10,7 @@
 
 - **信号**: 看到什么模式应该想到这个场景
 - **方案**: 一两句话怎么改
-- **严重度**: 典型落点(不绑死,以 severity-rubric.md 为准);数值阈值**直取自 rubric** 的卡片
+- **严重度**: 典型落点(不绑死,以 `severity-rubric.md` 为准);数值阈值**直取自 rubric** 的卡片
   标注"（对齐 rubric）"——改阈值只改 rubric 一处;其余为卡片演绎落点,判定仍以 rubric 为准。
 
 语言中立,不绑 Python / Go / TS 特定语法。
@@ -294,7 +294,7 @@
 
 ## 维护说明
 
-**新增场景**: 在对应分组末尾追加卡片,保持 3 项列表 schema 完整;不改 SSOT 措辞(改卡片不改 SKILL.md)。
+**新增场景**: 在对应分组末尾追加卡片,保持 3 项列表 schema 完整;不改 SSOT 措辞(改卡片不改 `SKILL.md`)。
 
 **边界**: 本 catalog 是"语言中立骨架";具体语言细节(typing Protocol / Go error wrapping / TS strict null 等)
 不写进卡片,由 LLM 自身语言知识判断。第八组只收"合理性"维度卡片,bug 修复 / 性能调优执行 / 安全审计专项不进本 catalog。
