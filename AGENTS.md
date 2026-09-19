@@ -110,7 +110,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ## 高层结构
 
-入库文件（19 个）：
+入库文件（18 个）：
 
 ```text
 .
@@ -122,8 +122,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                          # 同级，短条目直接索引行）
 ├── .markdownlint.jsonc    # MD013 放宽到 120
 ├── yzr-multi-agent-context/       # CLAUDE.md → AGENTS.md 单源 + CLAUDE.md 薄壳改造（元 skill）
-├── yzr-outline-wiki/           # Outline Wiki 搜 / 读 / 写 / 编辑（MCP 操作；含 references/
-│                               # doc_style + style_checklist；MCP 接入见其 §接入 小节）
 ├── yzr-coding-review/           # 交互式代码 review（合理性审视 + 重构场景 catalog；
 │                                # 语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 ├── yzr-writing-review/          # 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 /
@@ -178,14 +176,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 ### 跨 skill 协作约定
 
-- `yzr-outline-wiki` 是唯一维护 Outline Wiki MCP 使用的 skill——搜 / 读 / 写 / 编辑 +
-  图片附件 3 步 + 扩展能力（@mention / 评论 / Collection 管理 / 移动 / 删除）。MCP
-  接入与鉴权在 agent 配置文件中维护（见其 §接入 小节），本 skill 不做配置操作。以 MCP
-  为主、不直连 REST，有两个例外：写侧在大文档整篇重写时走 REST 绕开
-  `update_document` 的换行吞字 bug；读侧在客户端截断 MCP 多 content block 时走 REST
-  `POST /api/documents.info` 拿正文（元数据仍走 MCP `fetch`；属临时，待 agent 完整支持
-  多 block 后撤销）。破坏性操作（移动 / 删除 / 归档）必须先
-  在会话内显式确认；对他人文档用 `create_comment` 提议而非直接覆盖。
 - `yzr-skill-creator` 内部的"运行与评估测试用例"章节要求 workspace 与 skill 同级
   （`<skill-name>-workspace/`），按 `iteration-N/eval-N/` 嵌套；with-skill 与 baseline 必须
   在同一轮并行启动，不要串行。

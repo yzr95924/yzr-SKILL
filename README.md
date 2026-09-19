@@ -46,12 +46,10 @@ python3 scripts/install-dev-deps.py
 
 > 每个子目录即一个独立 skill。完整名单与简介见 [CLAUDE.md](./CLAUDE.md) 顶层结构。
 
-按职责分四类：
+按职责分三类：
 
 - **代码评审 / 重构**：
   - `yzr-coding-review` —— 交互式代码 review（合理性审视 + 重构场景 catalog；语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
-- **outline 工具**（远程 wiki 协作）：
-  - `yzr-outline-wiki` —— Outline Wiki 搜 / 读 / 写 / 编辑 + 图片附件 + @mention + 评论 + Collection 管理
 - **写作 / 审查**：
   - `yzr-writing-review` —— 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 / 跨文档 SSOT；默认对话式结论，可出分级报告 / 逐条过，确认后承接改写）
 - **元 skill**（项目上下文 / skill 本体工程）：
@@ -73,7 +71,6 @@ python3 scripts/install-dev-deps.py
 
 ### 依赖的 MCP
 
-- `outline`（Outline Wiki MCP）—— `yzr-outline-wiki` 必需（接入见其 SKILL.md §接入 小节）
 - `Gemini Docs`（Gemini API 文档 MCP）—— 查 Gemini API 文档时按需
 
 ### 依赖的 Skills

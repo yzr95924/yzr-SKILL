@@ -42,7 +42,6 @@ jobs:
           python yzr-skill-creator/scripts/quick_validate.py yzr-coding-review
           python yzr-skill-creator/scripts/quick_validate.py yzr-md-to-html
           python yzr-skill-creator/scripts/quick_validate.py yzr-multi-agent-context
-          python yzr-skill-creator/scripts/quick_validate.py yzr-outline-wiki
           python yzr-skill-creator/scripts/quick_validate.py yzr-skill-creator
           python yzr-skill-creator/scripts/quick_validate.py yzr-sys-design-doc
           python yzr-skill-creator/scripts/quick_validate.py yzr-writing-review

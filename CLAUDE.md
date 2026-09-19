@@ -16,6 +16,3 @@ This file provides guidance to Claude Code when working with code in this reposi
 - `~/.claude/skills/<name>` 是 vendored 副本软链（→ `~/.agents/skills/<name>`，
   `.agents/` 是 npx install 出来的真目录）——改 SKILL 必须改仓库源（`<skill-name>/`），
   不能只改这里。详见 [[skill-source-vs-runtime-vendor]]（注意：此 MEMORY 链接需手动 Read）。
-- `~/.claude.json#mcpServers.outline` 是当前 session 的 Outline MCP 配置；`/api/documents.info`
-  REST 旁路读正文用它同源 key，body `{"id":"<docId>"}` → `data.text`（详见
-  `yzr-outline-wiki` SKILL.md §接入 与 §故障排查）。

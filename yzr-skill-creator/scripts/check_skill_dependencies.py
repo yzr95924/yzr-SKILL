@@ -65,8 +65,8 @@ def find_mentions(text: str, target_name: str) -> List[Tuple[int, str]]:
     """Lines (1-based number, stripped text) where target_name appears as a
     whole token — not a substring of a longer kebab-case identifier."""
     # name chars are [a-z0-9-]; a real mention is bounded by non-name chars on
-    # both sides, so "yzr-outline-wiki" won't match inside
-    # "yzr-outline-wiki-extra".
+    # both sides, so "yzr-coding-review" won't match inside
+    # "yzr-coding-review-extra".
     pattern = re.compile(r"(?<![a-z0-9-])" + re.escape(target_name) + r"(?![a-z0-9-])")
     hits: List[Tuple[int, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
