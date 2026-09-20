@@ -32,8 +32,7 @@ metadata:
    （怎么表达：措辞 / typo / 指称 / 注释）还是规矩（怎么做决定 / 执行：规则 / 流程 /
    脚本行为 / 新增功能）——说法 = 单点，规矩 = 行为性。单点修改直接做：对照
    `references/skill-writing-principles.md` 写作原则自查 + 跑 `python -m scripts.verify <skill-dir>`
-   验证（一次覆盖 frontmatter / 正文结构 / 引用存活 / 启发式扫描 / markdownlint / ruff；
-   改了 `scripts/` 再手跑 `tests/smoke_test_*.py`），汇报里声明分类 +
+   验证（改了 `scripts/` 再手跑 `tests/smoke_test_*.py`），汇报里声明分类 +
    一句理由；行为性修改**先问用户是否跑 eval 循环**——不点头不跑、不静默降级。
    行为性（评估 + 迭代）介入：快照旧版 → with-skill vs baseline 同轮并行 → 读
    transcript 找"模型在哪里挣扎"→ 改 → 重跑验证。
@@ -51,7 +50,7 @@ metadata:
 | --- | --- |
 | 1. 创建 | 起草好的 `<skill-name>/SKILL.md` + 骨架，可选的 `eval/evals.json` |
 | 2. 改进 | 改写后的 SKILL.md + `<skill-name>-workspace/iteration-N/` 评估产物（outputs + grading.json） |
-| 3. 描述优化 | 新 `description` 候选 + before/after 触发准确率（按 `DEFAULT_HOLDOUT_RATIO` 拆分） |
+| 3. 描述优化 | 新 `description` 候选 + before/after 触发准确率 |
 | 4. 原则校验 | 审计报告（每条原则 pass/fail + 证据 + 建议修法），不动手改 |
 
 ## 执行原则 / 边界
@@ -135,9 +134,7 @@ SKILL.md 格式统一靠的就是这份骨架。
 起草正文前先落 `scripts/` 清单：访谈第 6 问标出的机械操作逐条进 `scripts/`（留 md 的记录
 理由），正文只写判断引导与"跑 X 命令"调用行。
 
-起草完成后先跑预检再进入测试用例：
-`python -m scripts.verify <skill-dir> --tier <type>`（frontmatter 合法性 + 正文结构 + description
-格式标记 + 引用存活 + 长度；WARN 级提示不阻断）。
+起草完成后先跑预检再进入测试用例：`python -m scripts.verify <skill-dir> --tier <type>`。
 
 通用骨架 / 变体规则见 `references/skill-template-guide.md`；写作风格与语言原则见
 `references/skill-writing-principles.md`「正文写作原则」——不在此重抄 agent 通识。
@@ -195,8 +192,7 @@ prompt，等下一步再起草断言。
 > 优化原则见 `references/skill-writing-principles.md`「description 优化原则」
 > （`optimize_description.py` 运行时也读这一节）。
 
-直接优化某个已有 skill 的 description，提升触发准确率。`--skill-path` 原生支持
-任意 skill 目录。
+直接优化某个已有 skill 的 description，提升触发准确率。
 
 #### 第 1 步：生成触发评估查询
 
@@ -222,12 +218,7 @@ setsid python3 -m scripts.optimize_description \
   > /tmp/desc-eval-results.json 2> /tmp/desc-eval.log < /dev/null &
 ```
 
-`--model` 可选：省略时 `claude -p` 用本机 claude CLI 的默认模型（不强绑定具体模型）；
-要指定时传 `--model <id>`。跑的过程中定期 tail 输出，告知用户当前在第几轮、分数长什么样。
-脚本自动把评估集按 `DEFAULT_HOLDOUT_RATIO` 拆训练 / 保留测试（SSOT 在
-`scripts/optimize_description.py`），每轮评估前跑 canary 对照查询（canary 失败 =
-测量通道异常，脚本中止报错而非产数字）。结束时会打印 before/after 摘要（stderr），
-JSON 结果走 stdout。
+跑的过程中定期 tail 输出，告知用户当前在第几轮、分数长什么样。
 
 #### 第 4 步：应用结果
 
@@ -239,13 +230,10 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
   --apply /tmp/desc-eval-results.json --dry-run   # 先看 diff，确认后去掉 --dry-run 落盘
 ```
 
-脚本写前先过校验，不通过就报错退出、不动文件；与现有描述一致时报"无需改动"即返回。
-
 ### 原则校验（独立入口）
 
-拿写作原则当 checklist，审计某个已有 skill 符合多少、违反哪些——frontmatter 合法性 /
-指标散落 / 口径冲突 / 章节覆盖 / 触发措辞等，产出 pass/fail 报告。**只审计、不改写**；
-要修让用户点头再动或转入口 2。
+拿写作原则当 checklist，审计某个已有 skill 符合多少、违反哪些，产出 pass/fail 报告。
+**只审计、不改写**；要修让用户点头再动或转入口 2。
 
 #### 怎么校验
 
@@ -255,13 +243,10 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。
 
    - **机械项一条命令跑完**：`python -m scripts.verify <skill-dir> --tier <default\|reference\|meta>`
-     —— 覆盖 frontmatter 合法性、description 格式标记、正文结构与长度、引用存活（链接 / 路径 /
-     「节名」指针）、跨 skill 提及、两条启发式扫描、markdownlint、ruff；输出统一
-     `LEVEL: 文件:行 证据 —— 修法`，`--json` 机器可读。单项排查用对应脚本（`quick_validate` /
-     `check_anchor_health` / `audit_prose` / `check_skill_dependencies`）。
-   - **判定仍归 agent**：verify 报的是候选 + 证据（INFO / WARN 不阻断），是否违规照 principles
-     末尾「审计速查」表每行的判定口径判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 /
-     agent 中立 / 跨体裁重抄 / 机械操作脚本化的语义部分）逐条跑 grep 执行。
+     （覆盖清单、单项排查用哪个脚本见 `scripts/verify.py` docstring；`--json` 机器可读）。
+   - **判定仍归 agent**：verify 报的是候选 + 证据，是否违规照 principles 末尾「审计速查」表
+     每行的判定口径判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 / agent 中立 /
+     跨体裁重抄 / 机械操作脚本化的语义部分）逐条跑 grep 执行。
 
 4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法；报告只活在对话里，
    不建归档文件（口径见 `references/skill-writing-principles.md`「审查深度标准」的报告条）。

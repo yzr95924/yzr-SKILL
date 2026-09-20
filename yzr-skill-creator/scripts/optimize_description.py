@@ -22,6 +22,9 @@ Single entry point for yzr-skill-creator's「描述优化」独立入口. The lo
 
 All judge / improve calls run `claude -p` in a neutral cwd (temp dir) with no
 tools, so project context (AGENTS.md / MCP servers) cannot bias the result.
+No model is pinned by default — `claude -p` uses the user's configured default
+(pass `--model` to override); not binding this skill to a specific model is
+intentional.
 The skills list is parsed in-process from ~/.claude/skills — nothing is cloned,
 moved, or written to the skills directory.
 
@@ -33,7 +36,9 @@ report — the summary is meant to be relayed by the agent in chat.
 `--apply <results.json> --skill-path <dir>` is the write-back half of that last
 sentence: it replaces the frontmatter description mechanically (block-scalar
 indentation + wrapping included), validates the result with quick_validate
-before touching the file, and prints a diff instead when given `--dry-run`.
+before touching the file, refuses to write on any validation error, reports
+"无需改动" and writes nothing when the best description equals the current
+one, and prints a diff instead when given `--dry-run`.
 Whether to accept a candidate description stays with the user — see
 SKILL.md「描述优化 · 第 4 步」.
 """

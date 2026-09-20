@@ -58,10 +58,9 @@ Execute this task:
    `expectations` 数组用字段 `text` / `passed` / `evidence`）。
    可编程检查的断言写脚本跑，不要肉眼判断——脚本更快、可跨迭代复用。
 2. **汇总 + 校验**：`python -m scripts.eval_report <workspace>/iteration-<N> --evals <skill>/eval/evals.json`
-   出每个用例的 with_skill vs baseline 通过数与"只有一边通过"的断言清单，同时校验
-   grading.json 的字段名 / summary 算术 / 断言是否漏评（漏一条即 ERROR，避免把没评分的断言
-   读成 0 通过）。**输出文件的实际差异与"这版好不好"的结论仍由 agent 读文件判**，把数字 +
-   差异 + 自己的判断一起给用户，请反馈。
+   出每个用例的 with_skill vs baseline 对比（校验范围与输出格式见
+   `scripts/eval_report.py` docstring）。**输出文件的实际差异与"这版好不好"的结论仍由
+   agent 读文件判**，把数字 + 差异 + 自己的判断一起给用户，请反馈。
 3. **迭代循环**：按用户反馈（以及对比暴露出的明显缺陷）改写 skill → 跑新
    `iteration-<N+1>/`（baseline 取值规则见 SKILL.md「迭代循环」）。
 
