@@ -25,22 +25,22 @@ available information; the evidence is superficial (technically satisfied but th
 or incomplete); the output appears to meet the assertion by coincidence.
 
 **When uncertain**: the burden of proof to pass is on the expectation. No partial
-credit——每条 expectation 只有 pass / fail，没有部分分。
+credit，每条 expectation 只有 pass / fail，没有部分分。
 
 ## Process
 
 1. **读 transcript 全文 + 输出目录**：读完 transcript，记录 eval prompt、执行步骤、最终结果；列出并检查
    outputs_dir 里与 expectations 相关的文件（非纯文本用提示给的检查工具，不要只信 transcript 的说法）。
 2. **逐条判定**：对每条 expectation 按 Grading Criteria 判 PASS/FAIL，引用具体证据（引文或描述）。
-3. **提取并核验隐含声明**：从输出里提取事实 / 过程 / 质量声明逐一核验，无法核验的标注出来——抓预定义断言
+3. **提取并核验隐含声明**：从输出里提取事实 / 过程 / 质量声明逐一核验，无法核验的标注出来，抓预定义断言
    之外的漏网问题。
-4. **批判 evals 本身**：只有明显缺口才提——弱断言（错误输出也会过，如只查文件名不查内容）、重要结果无断言
+4. **批判 evals 本身**：只有明显缺口才提：弱断言（错误输出也会过，如只查文件名不查内容）、重要结果无断言
    覆盖、断言无法从输出核验。标准：eval 作者会说"good catch"级别的建议，不是逐条 nitpick。
 5. **写结果**：存到 `{outputs_dir}/../grading.json`。
 
 ## Output Format
 
-> 完整 JSON schema 与字段说明的 SSOT 在 `../schemas.md`「grading.json」——spawn prompt 会附该文件路径。
+> 完整 JSON schema 与字段说明的 SSOT 在 `../schemas.md`「grading.json」，spawn prompt 会附该文件路径。
 > 字段名必须精确匹配（下游汇总按字段名读取，错字段名 = 静默出 0）。此处只给骨架：
 
 ```json

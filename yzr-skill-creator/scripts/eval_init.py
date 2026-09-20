@@ -113,7 +113,7 @@ def init(
         for side in ("with_skill", baseline):
             (eval_dir / side / "outputs").mkdir(parents=True, exist_ok=True)
         lines = [
-            f"=== eval-{item['id']} —— 同一轮并行启动两个子 agent（不要串行）===",
+            f"=== eval-{item['id']}：同一轮并行启动两个子 agent（不要串行）===",
             "[with_skill]",
             skill_prompt(skill_path, item, eval_dir / "with_skill" / "outputs"),
         ]

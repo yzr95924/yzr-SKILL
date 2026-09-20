@@ -81,7 +81,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
             findings.append(
                 _schema_finding(
                     "GRADING-SCHEMA",
-                    f"expectations[{i}] 缺字段 {missing}——字段名是契约，缺了会被读成 0 通过",
+                    f"expectations[{i}] 缺字段 {missing}，字段名是契约，缺了会被读成 0 通过",
                     rel,
                     str(i),
                     "按 references/schemas.md「grading.json」补字段",

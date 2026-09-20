@@ -189,7 +189,7 @@ def _dependency_findings(repo_root: Path) -> List[Finding]:
             Finding(
                 rule="CROSS-SKILL-MENTION",
                 level="ERROR",
-                evidence=f"依赖筛查未产出可解析的结果（rc={rc}）——测量通道断了，这轮不给结论",
+                evidence=f"依赖筛查未产出可解析的结果（rc={rc}），测量通道断了，这轮不给结论",
                 fix=f"单跑看报错：python3 -m scripts.check_skill_dependencies {repo_root}",
             )
         ]
@@ -205,7 +205,7 @@ def _dependency_findings(repo_root: Path) -> List[Finding]:
         Finding(
             rule="CROSS-SKILL-MENTION",
             level=_ADVISORY_LEVEL,
-            evidence="；".join(lines) + "——互提 ≠ 互依，方向需读正文判",
+            evidence="；".join(lines) + "；互提 ≠ 互依，方向需读正文判",
             fix=f"逐条证据：python3 -m scripts.check_skill_dependencies {repo_root}",
         )
     ]

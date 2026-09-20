@@ -1,8 +1,8 @@
 # JSON Schemas
 
-> 本文件是 JSON schema **唯一完整示例来源**——`references/agents/*.md` 只含骨架，字段精确值
+> 本文件是 JSON schema **唯一完整示例来源**：`references/agents/*.md` 只含骨架，字段精确值
 > 一律以本文件为准（spawn 子 agent 时把对应节的路径附进 prompt）。
-> 描述优化（入口 3）没有独立 JSON schema——`scripts/optimize_description.py` 直接输出
+> 描述优化（入口 3）没有独立 JSON schema，`scripts/optimize_description.py` 直接输出
 > results.json（含 history 数组），字段以该脚本 docstring 为准。
 >
 > 下面两份的字段名是**契约**，由 `scripts/eval_report.py` 汇总时强校验（范围见其
