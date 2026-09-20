@@ -20,10 +20,13 @@ SKILL.md + references/*.md + scripts/*.md of the scanned skill:
    in the scanned markdown: the path must resolve — relative to the
    containing file first, then to the skill root (operational refs are
    written skill-root-relative), then as a skill-wide basename search.
-   Report PATH-MISSING if nothing matches. Placeholders, teaching-example
-   names, bare topic filenames (AGENTS.md, CLAUDE.md, ...) and
-   managed-project / sibling-skill paths (`` MEMORY/... `` / `` yzr-*/... ``)
-   are skipped.
+   Report PATH-MISSING if nothing matches. A relative path that escapes
+   the skill root (`` `../../other-skill/x.md` ``) is reported as
+   CROSS-SKILL-PATH instead of being ignored — cross-skill relative
+   paths are forbidden (they break silently under independent
+   distribution). Placeholders, teaching-example names, bare topic
+   filenames (AGENTS.md, CLAUDE.md, ...) and managed-project /
+   sibling-skill paths (`` MEMORY/... `` / `` yzr-*/... ``) are skipped.
 4. 「节名」 pointers, cross-file (`` `references/x.md`「节名」 ``) and
    same-file (`` 见「节名」 ``): the name must match a heading text or a
    bold lead-in (**指标单一来源** style) in the target file. Report
@@ -34,8 +37,10 @@ What it does NOT do
 - Does not verify the link makes semantic sense (e.g., pointing at the
   right section). It only checks "does the section still exist".
 - Does not validate frontmatter / skill structure (see quick_validate.py).
-- Does not detect cross-skill mentions (see check_skill_dependencies.py),
-  and does not check refs that resolve outside the scanned skill root.
+- Does not detect cross-skill mentions (see check_skill_dependencies.py).
+  It does not audit a *linked* sibling skill's internals — but a relative
+  path that escapes the scanned skill root is itself a violation and is
+  reported (CROSS-SKILL-PATH).
 - Does not recurse into vendored copies under .agents/ or ~/.claude/skills/
   (per [[skill-source-priority-over-memory-vendor]]).
 
@@ -82,13 +87,13 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # Bootstrap so `from scripts.utils import ...` works both as a standalone
 # script and as `python -m scripts.check_anchor_health`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import parse_skill_md  # noqa: E402
+from scripts.utils import discover_skill_dirs, find_code_spans, iter_unfenced_lines  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Link extraction
@@ -98,13 +103,6 @@ from scripts.utils import parse_skill_md  # noqa: E402
 # allow anything except `)`, whitespace, `<`, `>` — same as CommonMark.
 # Anchor detection is done separately by splitting on `#` after the target.
 _LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
-
-# Fenced code block opening: 3+ backticks or 3+ tildes, ≤ 3 leading spaces
-# (CommonMark). We capture the full run so a 4-backtick fence (````) can
-# contain 3-backtick (```) lines as *content* — matching the opener's run
-# length is what tells content-closers apart from real closers. The info
-# string after the fence (e.g. ```` ```yaml ````) is ignored.
-_FENCE_RE = re.compile(r"^( {0,3})(`{3,}|~{3,})")
 
 # Explicit HTML anchor tags. GitHub honors `<a id="...">` and `<a name="...">`
 # as navigation targets independent of heading slugs — skills use these for
@@ -118,55 +116,9 @@ _EXPLICIT_ANCHOR_RE = re.compile(r"""<a\b[^>]*\b(?:id|name)\s*=\s*["']([^"']+)["
 _ATX_HEADING_RE = re.compile(r"^( {0,3})(#{1,6})\s+(.*?)\s*#*\s*$")
 _SETEXT_HEADING_RE = re.compile(r"^( {0,3})([^\n]+)\n[ \t]*(=+|-+)[ \t]*$")
 
-
-def _find_code_spans(line: str) -> List[Tuple[int, int]]:
-    """Return [(start, end), ...] of inline-code spans in *line*. A span
-    is a pair of matching single backticks; we don't try to model
-    CommonMark's run-length matching (rare in this repo). Spans are
-    half-open [start, end) — i.e. the backticks themselves are inside
-    the span."""
-    spans: List[Tuple[int, int]] = []
-    i = 0
-    while i < len(line):
-        if line[i] == "`":
-            close = line.find("`", i + 1)
-            if close == -1:
-                break
-            spans.append((i, close + 1))
-            i = close + 1
-        else:
-            i += 1
-    return spans
-
-
-def _iter_unfenced_lines(text: str) -> Iterator[Tuple[int, str]]:
-    """Yield (line_number_1indexed, line) for lines outside fenced code
-    blocks. Fence detection is shared by every extractor so the rules
-    can't drift apart."""
-    in_fence = False
-    fence_char: Optional[str] = None  # "`" or "~"
-    fence_len: int = 0  # opener run length; closer must match char + be >= this long
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        fence_match = _FENCE_RE.match(line)
-        if fence_match:
-            run = fence_match.group(2)
-            char = run[0]
-            length = len(run)
-            if not in_fence:
-                in_fence = True
-                fence_char = char
-                fence_len = length
-            elif char == fence_char and length >= fence_len:
-                # Real closer (CommonMark: closer run must be ≥ opener).
-                in_fence = False
-                fence_char = None
-                fence_len = 0
-            # else: a fence-char line inside an open fence is *content*
-            # (e.g. ``` inside a ```` block) — ignore, stay in_fence.
-            continue
-        if in_fence:
-            continue
-        yield lineno, line
+# Fence detection + inline-code spans (the two "is this prose or example?"
+# primitives) come from scripts.utils so every checker in this skill agrees on
+# what a fence is; do not re-implement them here.
 
 
 def extract_links(text: str) -> List[Tuple[int, str, str]]:
@@ -183,8 +135,8 @@ def extract_links(text: str) -> List[Tuple[int, str, str]]:
       and we don't want to lose those.
     """
     hits: List[Tuple[int, str, str]] = []
-    for lineno, line in _iter_unfenced_lines(text):
-        code_spans = _find_code_spans(line)
+    for lineno, line in iter_unfenced_lines(text):
+        code_spans = find_code_spans(line)
         for match in _LINK_RE.finditer(line):
             target_start, target_end = match.span(2)
             if any(c_start <= target_start and target_end <= c_end for c_start, c_end in code_spans):
@@ -405,8 +357,8 @@ def extract_backtick_paths(text: str) -> List[Tuple[int, str]]:
     like concrete file paths (see _PATH_TOKEN_RE). Fenced blocks are
     skipped: their paths are command examples with cwd-relative meaning."""
     hits: List[Tuple[int, str]] = []
-    for lineno, line in _iter_unfenced_lines(text):
-        for start, end in _find_code_spans(line):
+    for lineno, line in iter_unfenced_lines(text):
+        for start, end in find_code_spans(line):
             content = _SYMBOL_SUFFIX_RE.sub("", line[start + 1 : end - 1].strip())
             if _PATH_TOKEN_RE.match(content):
                 hits.append((lineno, content))
@@ -416,15 +368,33 @@ def extract_backtick_paths(text: str) -> List[Tuple[int, str]]:
 def extract_section_refs(text: str) -> List[Tuple[int, str, str]]:
     """Yield (line_number, path_token_or_empty, section_name) for every
     「节名」 pointer: cross-file (`` `file.md`「X」 ``) or same-file
-    (`` 见「X」 ``)."""
+    (`` 见「X」 ``).
+
+    A pointer sitting inside an inline-code span is illustrating the syntax,
+    not using it — same exemption ``extract_links`` applies to code-spanned
+    link targets. Only the ``「X」`` part has to be inside the span, since the
+    cross-file form always has the path in backticks and the name outside them.
+    """
     hits: List[Tuple[int, str, str]] = []
-    for lineno, line in _iter_unfenced_lines(text):
+    for lineno, line in iter_unfenced_lines(text):
+        spans = find_code_spans(line)
         for match in _PATH_SECTION_RE.finditer(line):
+            if _last_group_in_code(match, spans):
+                continue
             hits.append((lineno, match.group(1), match.group(2)))
         remainder = _PATH_SECTION_RE.sub("", line)
         for match in _GUIDE_SECTION_RE.finditer(remainder):
+            if _last_group_in_code(match, spans):
+                continue
             hits.append((lineno, "", match.group(1)))
     return hits
+
+
+def _last_group_in_code(match, spans: List[Tuple[int, int]]) -> bool:
+    """True when the match's ``「节名」`` group (its last capture group) sits
+    inside an inline-code span."""
+    start, end = match.span(match.lastindex)
+    return any(a <= start and end <= b for a, b in spans)
 
 
 def is_placeholder_path(path: str) -> bool:
@@ -570,10 +540,33 @@ def _resolve_skill_root_ref(skill_root: Path, token: str) -> Optional[Path]:
     return None
 
 
+def _escapes_skill_root(md_path: Path, token: str, skill_root: Path) -> Optional[bool]:
+    """``True``: *token* (resolved against the containing file) lands outside
+    *skill_root*, i.e. it reaches into a sibling skill. ``None``: unresolvable
+    (filesystem error) — a distinct answer, because reporting an unreadable path
+    as a cross-skill violation sends the reader to fix the wrong thing."""
+    try:
+        resolved = (md_path.parent / token).resolve()
+    except OSError:
+        return None
+    try:
+        resolved.relative_to(skill_root.resolve())
+    except ValueError:
+        return True
+    return False
+
+
 def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: List[Dict[str, str]]) -> None:
     """PATH-MISSING: every backticked ``x.md`` / ``x.py`` reference must
     resolve — relative to the containing file first, then to the skill
-    root (operational refs), then as a skill-wide basename search."""
+    root (operational refs), then as a skill-wide basename search.
+
+    CROSS-SKILL-PATH: a relative path that leaves the skill root is a
+    violation in itself (see references/skill-writing-principles.md
+    「相对路径引用禁止」) — it resolves only as long as the sibling skill
+    keeps its current directory name and layout, and breaks silently once
+    skills are distributed independently.
+    """
     for lineno, token in extract_backtick_paths(text):
         if "/" not in token and token in _TOPIC_FILENAMES:
             continue
@@ -585,7 +578,18 @@ def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: Lis
             continue
         resolved = resolve_target(md_path, token, skill_root)
         if resolved is None:
-            # Escapes the skill root — cross-skill ref, out of scope.
+            if _escapes_skill_root(md_path, token, skill_root) is True:
+                issues.append(
+                    {
+                        "file": str(md_path.relative_to(skill_root)),
+                        "line": str(lineno),
+                        "link_text": "",
+                        "target": token,
+                        "anchor": "",
+                        "status": "CROSS-SKILL-PATH",
+                        "reason": f"relative path escapes the skill root: {token}",
+                    }
+                )
             continue
         if resolved.exists():
             continue
@@ -722,20 +726,10 @@ def scan_skill(
 
 
 def discover_skills(repo_root: Path) -> List[Path]:
-    """Return absolute skill dirs under *repo_root* (each has a parseable
-    SKILL.md). Mirrors check_skill_dependencies.discover_skills but
-    returns paths only (the per-skill name isn't needed here)."""
-    skills: List[Path] = []
-    for child in sorted(repo_root.iterdir()):
-        skill_md = child / "SKILL.md"
-        if not child.is_dir() or not skill_md.is_file():
-            continue
-        try:
-            parse_skill_md(child)
-        except (ValueError, OSError):
-            continue
-        skills.append(child.resolve())
-    return skills
+    """Absolute skill dirs under *repo_root* — the shared rule in
+    scripts.utils.discover_skill_dirs, with the parseable frontmatter the
+    cross-skill screens also require."""
+    return [path.resolve() for path in discover_skill_dirs(repo_root, require_parseable=True)]
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -4,6 +4,9 @@
 > 一律以本文件为准（spawn 子 agent 时把对应节的路径附进 prompt）。
 > 描述优化（入口 3）没有独立 JSON schema——`scripts/optimize_description.py` 直接输出
 > results.json（含 history 数组），字段以该脚本 docstring 为准。
+>
+> 下面两份的字段名是**契约**，由 `scripts/eval_report.py` 在汇总时校验：缺字段 / summary 算错 /
+> 断言漏评一律 ERROR（历史上错字段名会被读成"0 通过"，报出一个自信的错误数字）。
 
 ---
 

@@ -25,10 +25,17 @@ tools, so project context (AGENTS.md / MCP servers) cannot bias the result.
 The skills list is parsed in-process from ~/.claude/skills — nothing is cloned,
 moved, or written to the skills directory.
 
-Output: results JSON on stdout (machine-readable, agent applies
-`best_description`); a compact human summary on stderr. `--results-dir` saves
+Output: results JSON on stdout (machine-readable, carries `best_description`);
+a compact human summary on stderr. `--results-dir` saves
 results.json + per-round improvement transcripts under logs/. There is no HTML
 report — the summary is meant to be relayed by the agent in chat.
+
+`--apply <results.json> --skill-path <dir>` is the write-back half of that last
+sentence: it replaces the frontmatter description mechanically (block-scalar
+indentation + wrapping included), validates the result with quick_validate
+before touching the file, and prints a diff instead when given `--dry-run`.
+Whether to accept a candidate description stays with the user — see
+SKILL.md「描述优化 · 第 4 步」.
 """
 
 import argparse
@@ -568,9 +575,162 @@ def _print_final_summary(output: dict) -> None:
     print("=" * 60, file=sys.stderr)
 
 
+# --- applying a result back into SKILL.md -----------------------------------
+
+# Wrapping width for the emitted block scalar. markdownlint's MD013 measures
+# every line of the file (frontmatter included) against 120, and 90 leaves room
+# for the 2-space indent plus future style tweaks.
+DESCRIPTION_WRAP_WIDTH = 90
+_DESCRIPTION_KEY_RE = re.compile(r"^description:[ \t]*(.*)$")
+# Break preferentially after these — CJK prose has no spaces to break on, so a
+# hard wrap mid-sentence would read badly in every downstream view.
+_BREAK_AFTER = "。；，、：）】"
+
+
+def _frontmatter_close(lines: List[int]) -> int:
+    """Index of the closing ``---`` line."""
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return i
+    raise ValueError("SKILL.md frontmatter has no closing ---")
+
+
+def _description_span(lines: List[str]) -> Tuple[int, int]:
+    """``[start, end)`` line indices of the frontmatter ``description`` block."""
+    close = _frontmatter_close(lines)
+    for i in range(1, close):
+        match = _DESCRIPTION_KEY_RE.match(lines[i])
+        if match:
+            end = close
+            for j in range(i + 1, close):
+                # A non-empty, non-indented line is the next top-level key.
+                if lines[j].strip() and not (lines[j].startswith("  ") or lines[j].startswith("\t")):
+                    end = j
+                    break
+            return i, end
+    raise ValueError("SKILL.md frontmatter has no description key")
+
+
+def wrap_description(description: str, indent: str = "  ", width: int = DESCRIPTION_WRAP_WIDTH) -> List[str]:
+    """Fold a description into indented lines of ≤ *width*.
+
+    Break opportunities are whitespace and CJK punctuation (``_BREAK_AFTER``),
+    so a Chinese description wraps after a clause marker instead of mid-word;
+    only a single unbreakable run longer than the width gets hard-cut. Existing
+    newlines become paragraph breaks (one blank indented line each).
+    """
+    out: List[str] = []
+    for para_index, paragraph in enumerate(description.split("\n")):
+        if para_index:
+            out.append(indent)
+        pieces: List[str] = []
+        current = ""
+        for char in paragraph:
+            current += char
+            if char.isspace() or char in _BREAK_AFTER:
+                pieces.append(current)
+                current = ""
+        if current:
+            pieces.append(current)
+
+        line = ""
+        for piece in pieces:
+            if len(piece) > width:
+                if line:
+                    out.append(indent + line)
+                    line = ""
+                for start in range(0, len(piece), width):
+                    chunk = piece[start : start + width]
+                    if start + width < len(piece):
+                        out.append(indent + chunk)
+                    else:
+                        line = chunk
+                continue
+            if line and len(line) + len(piece) > width:
+                out.append(indent + line.rstrip())
+                line = piece
+            else:
+                line += piece
+        out.append(indent + line.rstrip())
+    return out
+
+
+def rewrite_description(text: str, new_description: str) -> str:
+    """Return SKILL.md text with the frontmatter description replaced.
+
+    Always re-emits as a ``|`` block scalar: the value is multi-line prose, and
+    block style is what every existing SKILL.md in this repo uses.
+    """
+    lines = text.split("\n")
+    start, end = _description_span(lines)
+    block = ["description: |"] + wrap_description(new_description.strip())
+    return "\n".join(lines[:start] + block + lines[end:])
+
+
+def apply_description(skill_path: Path, new_description: str, dry_run: bool = False) -> int:
+    """Write ``best_description`` into the skill's frontmatter, gated on validation.
+
+    The write is mechanical (pure function of the two inputs), so it belongs in a
+    script; whether to accept a candidate description stays with the user — this
+    function is only reached after they say yes.
+
+    Returns a process exit code. Never leaves a broken SKILL.md behind: the
+    candidate is validated in a throwaway copy first, and the real write is an
+    atomic rename.
+    """
+    import difflib
+
+    from scripts.quick_validate import validate_skill
+
+    skill_md = skill_path / "SKILL.md"
+    original = skill_md.read_text()
+    try:
+        current = parse_skill_md(skill_path)[1]
+    except ValueError as e:
+        # The *existing* file is already unparseable — say so instead of
+        # pretending the candidate was at fault.
+        print(f"Error: 现有 frontmatter 无法解析，先修 SKILL.md：{e}", file=sys.stderr)
+        return 1
+    if " ".join(new_description.split()) == current:
+        print("best_description 与现有 description 一致，无需改动。", file=sys.stderr)
+        return 0
+
+    try:
+        updated = rewrite_description(original, new_description)
+    except ValueError as e:
+        print(f"Error: cannot locate the description block: {e}", file=sys.stderr)
+        return 1
+
+    # Gate on the real validator before touching the file.
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="skill-apply-") as tmp:
+        (Path(tmp) / "SKILL.md").write_text(updated)
+        valid, message = validate_skill(Path(tmp))
+    if not valid:
+        print(f"Error: 新 frontmatter 未通过校验，SKILL.md 未改动：{message}", file=sys.stderr)
+        return 1
+
+    if dry_run:
+        diff = difflib.unified_diff(
+            original.splitlines(), updated.splitlines(), "a/SKILL.md", "b/SKILL.md", lineterm="", n=2
+        )
+        print("\n".join(diff))
+        print("\n(--dry-run: 未写入)", file=sys.stderr)
+        return 0
+
+    tmp_path = skill_md.with_name(skill_md.name + ".tmp-apply")
+    tmp_path.write_text(updated)
+    import os
+
+    os.replace(str(tmp_path), str(skill_md))
+    print(f"已写入 {skill_md}（description {len(current)} → {len(new_description.strip())} 字符）", file=sys.stderr)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run eval + improve loop for a skill description")
-    parser.add_argument("--eval-set", required=True, help="Path to eval set JSON file")
+    parser.add_argument("--eval-set", default=None, help="Path to eval set JSON file (loop mode)")
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--description", default=None, help="Override starting description")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per claude -p call in seconds")
@@ -590,7 +750,25 @@ def main():
         default=None,
         help="Save results.json + improve transcripts to a timestamped subdirectory here",
     )
+    parser.add_argument(
+        "--apply",
+        default=None,
+        metavar="RESULTS_JSON",
+        help="apply mode: write results.json's best_description into --skill-path's frontmatter "
+        "instead of running the loop (run this only after the user approved the candidate)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="with --apply: print a diff, write nothing")
     args = parser.parse_args()
+
+    if args.apply:
+        best = json.loads(Path(args.apply).read_text()).get("best_description")
+        if not best:
+            print(f"Error: no 'best_description' in {args.apply}", file=sys.stderr)
+            sys.exit(1)
+        sys.exit(apply_description(Path(args.skill_path), str(best), dry_run=args.dry_run))
+
+    if not args.eval_set:
+        parser.error("--eval-set is required in loop mode (or use --apply)")
 
     eval_set = json.loads(Path(args.eval_set).read_text())
     for i, item in enumerate(eval_set):

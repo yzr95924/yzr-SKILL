@@ -13,7 +13,7 @@ description: |
   写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-19
+  modify time: 2026-09-20
 ---
 # yzr skill creator
 
@@ -31,8 +31,9 @@ metadata:
    references/ / scripts/ / assets/ / eval/），不只 SKILL.md。判别尺度 = 改的是说法
    （怎么表达：措辞 / typo / 指称 / 注释）还是规矩（怎么做决定 / 执行：规则 / 流程 /
    脚本行为 / 新增功能）——说法 = 单点，规矩 = 行为性。单点修改直接做：对照
-   `references/skill-writing-principles.md` 写作原则自查 + 按文件类型验证（md →
-   `quick_validate.py` / markdownlint；py → ruff check + format），汇报里声明分类 +
+   `references/skill-writing-principles.md` 写作原则自查 + 跑 `python -m scripts.verify <skill-dir>`
+   验证（一次覆盖 frontmatter / 正文结构 / 引用存活 / 启发式扫描 / markdownlint / ruff；
+   改了 `scripts/` 再手跑 `scripts/smoke_test_*.py`），汇报里声明分类 +
    一句理由；行为性修改**先问用户是否跑 eval 循环**——不点头不跑、不静默降级。
    行为性（评估 + 迭代）介入：快照旧版 → with-skill vs baseline 同轮并行 → 读
    transcript 找"模型在哪里挣扎"→ 改 → 重跑验证。
@@ -129,8 +130,8 @@ metadata:
 SKILL.md 格式统一靠的就是这份骨架。
 
 起草完成后先跑预检再进入测试用例：
-`python -m scripts.quick_validate <skill-dir>`（frontmatter 合法性 + 正文结构 + description
-格式标记；WARN 级提示不阻断）。
+`python -m scripts.verify <skill-dir> --tier <type>`（frontmatter 合法性 + 正文结构 + description
+格式标记 + 引用存活 + 长度；WARN 级提示不阻断）。
 
 通用骨架 / 变体规则见 `references/skill-template-guide.md`；写作风格与语言原则见
 `references/skill-writing-principles.md`「正文写作原则」——不在此重抄 agent 通识。
@@ -224,9 +225,15 @@ JSON 结果走 stdout。
 
 #### 第 4 步：应用结果
 
-从 JSON 输出取 `best_description`，向用户展示 before/after 并汇报分数；
-**用户确认后**才更新到 skill 的 SKILL.md frontmatter（触发措辞属行为性改动，不先斩后奏）。
-若 `best_description` 与原版相同，无动作，直接汇报。
+向用户展示 before/after 并汇报分数；**用户确认后**才写回（触发措辞属行为性改动，不先斩后奏）。
+写回是零判断的字节操作（frontmatter 块标量的缩进 / 折行手改容易破 YAML），交给脚本：
+
+```bash
+python3 -m scripts.optimize_description --skill-path <path-to-skill> \
+  --apply /tmp/desc-eval-results.json --dry-run   # 先看 diff，确认后去掉 --dry-run 落盘
+```
+
+脚本写前先过校验，不通过就报错退出、不动文件；与现有描述一致时报"无需改动"即返回。
 
 ### 原则校验（独立入口）
 
@@ -239,19 +246,19 @@ JSON 结果走 stdout。
 1. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文
    写作原则 + 末尾「审计速查」表，逐条核对）。
 2. 读目标 skill 的 `SKILL.md`（必要时连带 `references/` / `scripts/`）。
-3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。能程序化的查：
+3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。
 
-   | 类别 | 操作 |
-   | --- | --- |
-   | frontmatter 合法性 + description 固定格式标记（触发： / 不适用：） | `python -m scripts.quick_validate <skill-dir>` |
-   | 正文结构一致性（规范节缺失 / 乱序 / 额外节） | `python -m scripts.quick_validate <skill-dir> --tier <default\|reference\|meta>`——WARN 不 fail；节名 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS` |
-   | 跨 skill 双向依赖 | `python -m scripts.check_skill_dependencies <repo-root>`（"互提" ≠ "互依"，是否成环靠 agent 读正文确认） |
-   | 跨文件 link anchor 漂移（spec 演进 / 段号变 / 章节删后无人察觉） | `python -m scripts.check_anchor_health <skill-dir>` 或 `--repo-root` 全扫（`--json` 机器可读 / `--include-templates` 审模板） |
+   - **机械项一条命令跑完**：`python -m scripts.verify <skill-dir> --tier <default\|reference\|meta>`
+     —— 覆盖 frontmatter 合法性、description 格式标记、正文结构与长度、引用存活（链接 / 路径 /
+     「节名」指针）、跨 skill 提及、两条启发式扫描、markdownlint、ruff；输出统一
+     `LEVEL: 文件:行 证据 —— 修法`，`--json` 机器可读。单项排查用对应脚本（`quick_validate` /
+     `check_anchor_health` / `audit_prose` / `check_skill_dependencies`）。
+   - **判定仍归 agent**：verify 报的是候选 + 证据（INFO / WARN 不阻断），是否违规照 principles
+     末尾「审计速查」表每行的判定口径判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 /
+     agent 中立 / 跨体裁重抄 / 机械操作脚本化的语义部分）逐条跑 grep 执行。
 
-   其余 grep 类检查（正文长度 / 跨文件重复 / 常量引用 / 链接路径基准 / Iron Law / 三件套 /
-   形式匹配 / 版本史 / 精简）集中在 principles 末尾「审计速查」表，逐条执行。
-
-4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法。
+4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法；报告只活在对话里，
+   不建归档文件（口径见 `references/skill-writing-principles.md`「审查深度标准」的报告条）。
 
 #### 审查深度标准（入口 4 默认口径）
 
@@ -273,8 +280,14 @@ JSON 结果走 stdout。
 
 - `assets/skill-template.md` —— 可拷贝的 SKILL.md 正文骨架（起草新 skill 时用）
 
-`scripts/` 常量 SSOT:
+`scripts/`:
+
+- 一条命令跑全套：`python -m scripts.verify <skill-dir> --tier <type>`（含 markdownlint / ruff；
+  各检查脚本的职责、规则 ID 与抑误报豁免写在脚本 docstring，本文件不复述）
+
+常量 SSOT:
 
 - `scripts/utils.py::CANONICAL_BODY_SECTIONS` —— 正文规范节名 / 顺序 / 豁免（节名列表唯一真源）
 - `scripts/utils.py::DESCRIPTION_MAX_CHARS` —— description 长度硬上限
+- `scripts/utils.py::BODY_WORD_LIMIT` + `SOFT_WORD_TARGETS` —— 正文长度硬上限 / 分档软目标
 - `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` —— 触发评估集训练 / 保留测试拆分比例

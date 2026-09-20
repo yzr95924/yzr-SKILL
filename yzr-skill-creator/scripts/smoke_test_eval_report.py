@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Fixture smoke test for eval_report's grading.json validation.
+
+The class of bug this pins: a grader writes the wrong field name or skips an
+assertion, and the tabulation step reads the hole as "0 passed" and reports a
+confident wrong score. Every case below has both directions — the broken fixture
+must produce the named ERROR, the good fixture must produce none — because an
+always-failing validator passes the same test as a correct one.
+
+Run: python3 scripts/smoke_test_eval_report.py  (from yzr-skill-creator/)
+Exit 0 = all green, 1 = regression.
+"""
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+from typing import Dict, List
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from scripts.eval_report import check_evals, check_grading, collect  # noqa: E402
+
+ASSERTIONS = ["产出含 X", "使用了脚本 Y", "正文不含 Z"]
+
+
+def good_grading(passed: List[str]) -> Dict:
+    return {
+        "expectations": [
+            {"text": text, "passed": text in passed, "evidence": "transcript step 2" if text in passed else "未找到"}
+            for text in ASSERTIONS
+        ],
+        "summary": {
+            "passed": len(passed),
+            "failed": len(ASSERTIONS) - len(passed),
+            "total": len(ASSERTIONS),
+            "pass_rate": len(passed) / len(ASSERTIONS),
+        },
+    }
+
+
+def rules(findings, level="ERROR") -> List[str]:
+    return [f.rule for f in findings if f.level == level]
+
+
+def write_run(root: Path, eval_id: int, side: str, payload) -> None:
+    target = root / f"eval-{eval_id}" / side
+    target.mkdir(parents=True, exist_ok=True)
+    if isinstance(payload, str):
+        (target / "grading.json").write_text(payload)
+    else:
+        (target / "grading.json").write_text(json.dumps(payload, ensure_ascii=False))
+
+
+def check_good(failures: List[str], root: Path) -> None:
+    write_run(root, 0, "with_skill", good_grading(ASSERTIONS))
+    write_run(root, 0, "old_skill", good_grading(ASSERTIONS[:1]))
+    runs, findings = collect(root)
+    if rules(findings):
+        failures.append(f"good run produced {rules(findings)}")
+    warns = [f.rule for f in findings if f.level == "WARN"]
+    if warns:
+        failures.append(f"good run produced WARN {warns}")
+    sides = runs[0]
+    if set(sides) != {"with_skill", "old_skill"}:
+        failures.append(f"good run: unexpected sides {sorted(sides)}")
+    if sum(r["passed"] for r in sides["with_skill"].values()) != 3:
+        failures.append("good run: with_skill should score 3/3")
+
+
+def check_field_typo(failures: List[str]) -> None:
+    """`pass` instead of `passed` must be an ERROR, not a silent 0."""
+    broken = {
+        "expectations": [{"text": ASSERTIONS[0], "pass": True, "evidence": "x"}],
+        "summary": {"passed": 1, "failed": 0, "total": 1, "pass_rate": 1.0},
+    }
+    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    write_run(root, 0, "with_skill", broken)
+    findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
+    if "GRADING-SCHEMA" not in rules(findings):
+        failures.append("field typo: not reported as GRADING-SCHEMA ERROR")
+
+
+def check_arithmetic(failures: List[str]) -> None:
+    bad_summary = good_grading(ASSERTIONS[:1])
+    bad_summary["summary"] = {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0}
+    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    write_run(root, 0, "with_skill", bad_summary)
+    findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
+    got = rules(findings)
+    if "GRADING-ARITHMETIC" not in got:
+        failures.append(f"summary mismatch: expected GRADING-ARITHMETIC, got {got}")
+
+
+def check_unreadable(failures: List[str]) -> None:
+    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    write_run(root, 0, "with_skill", '{"expectations": [')
+    findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
+    if "GRADING-SCHEMA" not in rules(findings):
+        failures.append("truncated JSON: not reported")
+
+
+def check_missing_grading(failures: List[str]) -> None:
+    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    (root / "eval-0" / "with_skill" / "outputs").mkdir(parents=True)
+    _runs, findings = collect(root)
+    if "WORKSPACE-LAYOUT" not in [f.rule for f in findings]:
+        failures.append("no grading.json: layout not flagged")
+
+
+def check_evals_set(failures: List[str]) -> None:
+    """eval/evals.json drift: stale skill_name / duplicate id / missing input file."""
+
+    def make_skill(payload) -> Path:
+        root = Path(tempfile.mkdtemp(prefix="er-smoke-")) / "demo-skill"
+        (root / "eval").mkdir(parents=True)
+        (root / "SKILL.md").write_text("---\nname: demo-skill\ndescription: 触发：a。不适用：b。\n---\n# t\n")
+        (root / "eval" / "evals.json").write_text(json.dumps(payload, ensure_ascii=False))
+        return root
+
+    good = make_skill(
+        {"skill_name": "demo-skill", "evals": [{"id": 0, "prompt": "p", "expectations": ["x"], "files": []}]}
+    )
+    if check_evals(good):
+        failures.append(f"check_evals: clean set reported {check_evals(good)}")
+    for label, payload, want in (
+        (
+            "stale skill_name",
+            {"skill_name": "old-name", "evals": [{"id": 0, "prompt": "p", "expectations": ["x"]}]},
+            "EVALS-SCHEMA",
+        ),
+        (
+            "duplicate id",
+            {
+                "skill_name": "demo-skill",
+                "evals": [
+                    {"id": 0, "prompt": "p", "expectations": ["x"]},
+                    {"id": 0, "prompt": "q", "expectations": ["y"]},
+                ],
+            },
+            "EVALS-SCHEMA",
+        ),
+        (
+            "missing input file",
+            {
+                "skill_name": "demo-skill",
+                "evals": [{"id": 0, "prompt": "p", "expectations": ["x"], "files": ["eval/files/gone.csv"]}],
+            },
+            "EVALS-INPUT-MISSING",
+        ),
+    ):
+        got = [f.rule for f in check_evals(make_skill(payload)) if f.level == "ERROR"]
+        if want not in got:
+            failures.append(f"check_evals {label}: expected {want}, got {got}")
+
+
+def main() -> int:
+    failures: List[str] = []
+    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    check_good(failures, root)
+    check_field_typo(failures)
+    check_arithmetic(failures)
+    check_unreadable(failures)
+    check_missing_grading(failures)
+    check_evals_set(failures)
+    if failures:
+        print("SMOKE FAIL:", *failures, sep="\n  ")
+        return 1
+    print("SMOKE OK: eval_report good/broken directions pinned (schema, arithmetic, coverage, layout)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

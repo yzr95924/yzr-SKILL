@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """
 Quick validation script for skills - minimal version
+
+Checks a skill directory's SKILL.md for: frontmatter legality, canonical body
+structure, description format markers, hand-written TOC ban, the retired
+「何时不使用」 section, and body length. Frontmatter problems are ERROR (they
+block); the rest are WARN / INFO advisories that never fail the run — this is a
+drift tripwire, not a gate on judgement calls.
+
+Output: human lines ``LEVEL: file:line  evidence —— fix`` (stable format; prose
+quotes the messages), or ``--json`` for machine use.
 """
 
 import re
@@ -12,9 +21,22 @@ from pathlib import Path
 # `python3 -m scripts.quick_validate` (from yzr-skill-creator/). Resolves B1.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import yaml
+from scripts.utils import (  # noqa: E402
+    BODY_WORD_LIMIT,
+    CANONICAL_BODY_SECTIONS,
+    DESCRIPTION_MAX_CHARS,
+    SKILL_TIERS,
+    SOFT_WORD_TARGETS,
+    Finding,
+    estimate_body_words,
+    format_findings,
+    load_frontmatter,
+)
 
-from scripts.utils import CANONICAL_BODY_SECTIONS, DESCRIPTION_MAX_CHARS, SKILL_TIERS, parse_skill_md
+# Selection-layer negatives belong in the frontmatter description's 「不适用」 slot
+# (references/skill-writing-principles.md「结构与加载」); a body section saying the
+# same thing is a second copy that silently rots after the next description edit.
+WHEN_NOT_SECTION_RE = re.compile(r"^##\s+何时不使用")
 
 
 def normalize_heading(text):
@@ -23,25 +45,45 @@ def normalize_heading(text):
     return re.sub(r"\s+", "", text)
 
 
+def _body(skill_path):
+    """Return the SKILL.md body (frontmatter stripped), or None if unparseable."""
+    content = (Path(skill_path) / "SKILL.md").read_text()
+    match = re.match(r"^---\n.*?\n---\n(.*)$", content, re.DOTALL)
+    return match.group(1) if match else None
+
+
+def _frontmatter_line_offset(skill_path):
+    """Line number of the frontmatter closing ``---`` (body checks number their
+    findings relative to it)."""
+    lines = (skill_path / "SKILL.md").read_text().split("\n")
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return i
+    return 0
+
+
 def check_body_structure(skill_path, tier="default"):
     """Check SKILL.md body against CANONICAL_BODY_SECTIONS (utils.py).
 
-    WARN-level only — never blocks (frontmatter failures do). Returns a list of
-    (level, message) findings: missing required sections / out-of-order canonical
-    sections are WARN; sections the given tier may omit and extra H2 sections
-    are INFO.
+    WARN-level only — never blocks (frontmatter failures do). Findings: missing
+    required sections / out-of-order canonical sections are WARN; sections the
+    given tier may omit and extra H2 sections are INFO.
     """
     skill_path = Path(skill_path)
-    skill_md = skill_path / "SKILL.md"
-    if not skill_md.exists():
-        return [("ERROR", "SKILL.md not found")]
+    if not (skill_path / "SKILL.md").exists():
+        return [Finding(rule="BODY-STRUCTURE", level="ERROR", evidence="SKILL.md not found", file="SKILL.md")]
 
-    content = skill_md.read_text()
-    match = re.match(r"^---\n.*?\n---\n(.*)$", content, re.DOTALL)
-    if not match:
-        return [("ERROR", "Cannot parse frontmatter; body structure check skipped")]
+    body = _body(skill_path)
+    if body is None:
+        return [
+            Finding(
+                rule="BODY-STRUCTURE",
+                level="ERROR",
+                evidence="Cannot parse frontmatter; body structure check skipped",
+                file="SKILL.md",
+            )
+        ]
 
-    body = match.group(1)
     headings = re.findall(r"^##\s+(.+)$", body, re.MULTILINE)
     found = {normalize_heading(h): h for h in headings}
 
@@ -57,16 +99,21 @@ def check_body_structure(skill_path, tier="default"):
             continue
         if tier in exempt_tiers:
             findings.append(
-                (
-                    "INFO",
-                    f"正文缺少可选节 `{heading}`（{tier} 型可省略，参考 assets/skill-template.md）",
+                Finding(
+                    rule="BODY-SECTION-MISSING",
+                    level="INFO",
+                    evidence=f"正文缺少可选节 `{heading}`（{tier} 型可省略，参考 assets/skill-template.md）",
+                    file="SKILL.md",
                 )
             )
         else:
             findings.append(
-                (
-                    "WARN",
-                    f"正文缺少规范节 `{heading}`——参照 assets/skill-template.md 补齐（节名 SSOT 在 scripts/utils.py::CANONICAL_BODY_SECTIONS）",
+                Finding(
+                    rule="BODY-SECTION-MISSING",
+                    level="WARN",
+                    evidence=f"正文缺少规范节 `{heading}`——参照 assets/skill-template.md 补齐"
+                    "（节名 SSOT 在 scripts/utils.py::CANONICAL_BODY_SECTIONS）",
+                    file="SKILL.md",
                 )
             )
 
@@ -74,7 +121,14 @@ def check_body_structure(skill_path, tier="default"):
     if [normalize_heading(h) for h in present_in_order] != canonical_found:
         expected = " → ".join(f"`{h}`" for norm, h, _ in canonical if norm in set(canonical_found))
         actual = " → ".join(f"`{h}`" for h in present_in_order)
-        findings.append(("WARN", f"规范节顺序不符——应为 {expected}，实际 {actual}"))
+        findings.append(
+            Finding(
+                rule="BODY-ORDER",
+                level="WARN",
+                evidence=f"规范节顺序不符——应为 {expected}，实际 {actual}",
+                file="SKILL.md",
+            )
+        )
 
     canonical_norms = {norm for norm, _, _ in canonical}
     extras = [h for h in headings if normalize_heading(h) not in canonical_norms]
@@ -95,15 +149,47 @@ def check_body_structure(skill_path, tier="default"):
         else:
             extras = []
     if extras:
+        listed = "、".join(f"`{h}`" for h in extras)
         findings.append(
-            (
-                "INFO",
-                "额外 H2 节："
-                + "、".join(f"`{h}`" for h in extras)
-                + "——规范节之外的节应尽量收进 references/，或按 skill-template-guide.md「变体」放路由位置",
+            Finding(
+                rule="BODY-EXTRA",
+                level="INFO",
+                evidence=f"额外 H2 节：{listed}"
+                "——规范节之外的节应尽量收进 references/，或按 skill-template-guide.md「变体」放路由位置",
+                file="SKILL.md",
             )
         )
 
+    return findings
+
+
+def check_no_when_not_section(skill_path):
+    """WARN on a retired ``## 何时不使用`` section (deterministic).
+
+    It used to surface only as a generic "额外 H2 节" INFO, which reads as
+    optional tidy-up — but the section is an explicit convention retirement with
+    a defined migration (selection negatives go to the description's 「不适用」
+    slot), so it gets its own rule and a WARN.
+    """
+    skill_path = Path(skill_path)
+    body = _body(skill_path)
+    if body is None:
+        return []
+    offset = _frontmatter_line_offset(skill_path)
+    findings = []
+    for index, line in enumerate(body.split("\n"), start=1):
+        if not WHEN_NOT_SECTION_RE.match(line):
+            continue
+        findings.append(
+            Finding(
+                rule="WHEN-NOT-SECTION",
+                level="WARN",
+                evidence="正文含已废除的 `## 何时不使用` 节——selection 负例归 frontmatter description 的「不适用」槽"
+                "（口径见 references/skill-writing-principles.md「结构与加载」）",
+                file="SKILL.md",
+                line=str(offset + index),
+            )
+        )
     return findings
 
 
@@ -115,18 +201,23 @@ def check_description_format(skill_path):
     WARN 不 fail——描述触发准确性由 optimize_description 优化，这里只防结构漂移。
     """
     try:
-        _, description, _ = parse_skill_md(Path(skill_path))
+        frontmatter = load_frontmatter(Path(skill_path))
     except (ValueError, OSError):
+        return []
+    description = " ".join(str(frontmatter.get("description", "") or "").split())
+    if not description:
         return []
 
     findings = []
     for marker, label in ((re.compile(r"触发[：:]"), "触发："), (re.compile(r"不适用[：:]"), "不适用：")):
         if not marker.search(description):
             findings.append(
-                (
-                    "WARN",
-                    f"description 缺 `{label}` 标记——固定格式（场景一句 + 触发： + 不适用：）"
+                Finding(
+                    rule="DESC-FORMAT",
+                    level="WARN",
+                    evidence=f"description 缺 `{label}` 标记——固定格式（场景一句 + 触发： + 不适用：）"
                     "见 references/skill-writing-principles.md「description 优化原则」",
+                    file="SKILL.md",
                 )
             )
     return findings
@@ -146,25 +237,68 @@ def check_no_toc(skill_path):
     heading_re = re.compile(r"^##\s+(?:TOC|目录)\s*$")
     anchor_re = re.compile(r"^\s*[-*]\s+\[[^\]]+\]\(#")
     findings = []
+
+    def flag(rel, line_no, text):
+        return Finding(rule="HAND-TOC", level="WARN", evidence=text, file=rel, line=str(line_no))
+
     for md_file in sorted(skill_path.rglob("*.md")):
-        rel = md_file.relative_to(skill_path)
+        rel = str(md_file.relative_to(skill_path))
         run_start = None
         run_len = 0
         for lineno, line in enumerate(md_file.read_text().splitlines(), start=1):
             if heading_re.match(line):
-                findings.append(("WARN", f"{rel}:{lineno} 手写目录节 `{line.strip()}`——{ssot}"))
+                findings.append(flag(rel, lineno, f"手写目录节 `{line.strip()}`——{ssot}"))
             if anchor_re.match(line):
                 if run_start is None:
                     run_start = lineno
                 run_len += 1
             elif run_len:
                 if run_len >= 3:
-                    findings.append(("WARN", f"{rel}:{run_start} 疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
+                    findings.append(flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
                 run_start = None
                 run_len = 0
         if run_len >= 3:
-            findings.append(("WARN", f"{rel}:{run_start} 疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
+            findings.append(flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表）——{ssot}"))
     return findings
+
+
+def check_body_length(skill_path, tier="default"):
+    """Estimate body words and compare against BODY_WORD_LIMIT / SOFT_WORD_TARGETS.
+
+    Why a script and not the audit table's ``wc -w`` row: ``wc -w`` reads a
+    Chinese paragraph as one word, so the prose row added a "chars / 1.7"
+    conversion that miscounts ASCII-heavy bodies by ~3x — measured against this
+    very skill it reports ~5400 "words" where the real estimate is ~2300, i.e. a
+    false violation of the hard limit. utils.estimate_body_words counts CJK and
+    ASCII separately. Levels stay advisory: the estimate is a proxy for what the
+    loader bills, so exceeding it is a WARN rather than a hard failure.
+    """
+    body = _body(skill_path)
+    if body is None:
+        return []
+    words = estimate_body_words(body)
+    soft = SOFT_WORD_TARGETS.get(tier)
+    if words > BODY_WORD_LIMIT:
+        return [
+            Finding(
+                rule="BODY-LENGTH",
+                level="WARN",
+                evidence=f"正文约 {words} 词（CJK/1.7 + ASCII token 估算），超硬上限 {BODY_WORD_LIMIT}"
+                "——按 references/skill-writing-principles.md「正文超长根因诊断」查根因再抽层",
+                file="SKILL.md",
+            )
+        ]
+    if soft is not None and words > soft:
+        return [
+            Finding(
+                rule="BODY-LENGTH",
+                level="WARN",
+                evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}——按「精简与粒度约束」三问逐段删，"
+                "或抽一层到 references/（软目标不取代硬上限，仅供参考）",
+                file="SKILL.md",
+            )
+        ]
+    return []
 
 
 def validate_skill(skill_path):
@@ -176,24 +310,14 @@ def validate_skill(skill_path):
     if not skill_md.exists():
         return False, "SKILL.md not found"
 
-    # Read and validate frontmatter
-    content = skill_md.read_text()
-    if not content.startswith("---"):
-        return False, "No YAML frontmatter found"
-
-    # Extract frontmatter
-    match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
-    if not match:
-        return False, "Invalid frontmatter format"
-
-    frontmatter_text = match.group(1)
-
-    # Parse YAML frontmatter
+    # Parse frontmatter through the single shared reader (utils.load_frontmatter)
     try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        if not isinstance(frontmatter, dict):
-            return False, "Frontmatter must be a YAML dictionary"
-    except yaml.YAMLError as e:
+        frontmatter = load_frontmatter(skill_path)
+    except OSError as e:
+        return False, f"Cannot read SKILL.md: {e}"
+    except ValueError as e:
+        return False, str(e)
+    except Exception as e:  # yaml errors surface as ValueError above; this is a last-resort net
         return False, f"Invalid YAML in frontmatter: {e}"
 
     # Define allowed properties
@@ -241,7 +365,8 @@ def validate_skill(skill_path):
         if len(description) > DESCRIPTION_MAX_CHARS:
             return (
                 False,
-                f"Description is too long ({len(description)} characters). Maximum is {DESCRIPTION_MAX_CHARS} characters.",
+                f"Description is too long ({len(description)} characters). "
+                f"Maximum is {DESCRIPTION_MAX_CHARS} characters.",
             )
 
     # Validate compatibility field if present (optional)
@@ -255,27 +380,55 @@ def validate_skill(skill_path):
     return True, "Skill is valid!"
 
 
+def _collect_findings(skill_dir, tier):
+    valid, message = validate_skill(skill_dir)
+    if not valid:
+        return valid, message, [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
+    findings = check_body_structure(skill_dir, tier=tier)
+    findings += check_no_when_not_section(skill_dir)
+    findings += check_description_format(skill_dir)
+    findings += check_no_toc(skill_dir)
+    findings += check_body_length(skill_dir, tier=tier)
+    return valid, message, findings
+
+
 if __name__ == "__main__":
     import argparse
+    import json
 
-    parser = argparse.ArgumentParser(description="Validate a skill's frontmatter, body structure, and TOC ban")
+    parser = argparse.ArgumentParser(
+        description="Validate a skill's frontmatter, body structure, description format, TOC ban, and length"
+    )
     parser.add_argument("skill_dir", help="Path to the skill directory")
     parser.add_argument(
         "--tier",
         choices=SKILL_TIERS,
         default="default",
-        help="Skill tier for the body-structure check (default: %(default)s)",
+        help="Skill tier for the body-structure and length checks (default: %(default)s)",
     )
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
     args = parser.parse_args()
 
-    valid, message = validate_skill(args.skill_dir)
-    print(message)
+    valid, message, findings = _collect_findings(args.skill_dir, args.tier)
 
-    findings = check_body_structure(args.skill_dir, tier=args.tier)
-    findings += check_description_format(args.skill_dir)
-    findings += check_no_toc(args.skill_dir)
-    for level, msg in findings:
-        print(f"{level}: {msg}")
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "skill_dir": str(args.skill_dir),
+                    "tier": args.tier,
+                    "valid": valid,
+                    "message": message,
+                    "findings": [f.to_dict() for f in findings],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(message)
+        for line in format_findings(findings):
+            print(line)
 
-    has_error = any(level == "ERROR" for level, _ in findings)
+    has_error = any(f.level == "ERROR" for f in findings)
     sys.exit(0 if valid and not has_error else 1)

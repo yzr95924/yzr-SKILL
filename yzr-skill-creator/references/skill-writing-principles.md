@@ -22,8 +22,9 @@
    做错）。
 3. 该进哪个分组？归位到对应 H3 组，不平铺堆叠、不用"子化 X / 与 Y 互补"交叉引用绕说。
 
-改规则名时 grep 本文件全部「」引用同步指针——规则互指无检查器兜底（check_anchor_health 只查 markdown
-链接），改名 = 破坏性操作。
+改规则名时跑 `python -m scripts.check_anchor_health --repo-root`——「节名」指针（同文件 `见「X」`
+与跨文件 `` `a.md`「X」 ``）与 markdown 链接、反引号路径一并核存活，改名 = 可检查的破坏性操作，
+不必再手工 grep 全文件。
 
 本文件自身同样受下述原则管辖——定期拿「精简与粒度约束」「正文描述一致性」审本文件；原则文件腐化的典型
 长相：扁平堆叠、交叉引用绕说、同名多处、疤痕组织。
@@ -70,9 +71,9 @@
 ### 结构与加载
 
 - **progressive disclosure 三级加载**（层级定义见 `references/skill-template-guide.md`
-  「progressive disclosure」，此处不重抄）：**正文长度权威上限 = 5000
-  词**（本仓库只在此处给出该指标，其它位置只引用不重抄）；接近上限就抽一层到 `references/` 并写明
-  "何时去读"；reference 一律不手写目录（TOC）——agent 全量读入正文不看 TOC，目录只对浏览器 /
+  「progressive disclosure」，此处不重抄）：**正文长度权威上限 = `BODY_WORD_LIMIT` 词**（本仓库只在
+  `scripts/utils.py` 给该指标，其它位置只引用不重抄；判定见「审计速查」BODY-LENGTH 行）；接近上限就抽一层到
+  `references/` 并写明"何时去读"；reference 一律不手写目录（TOC）——agent 全量读入正文不看 TOC，目录只对浏览器 /
   编辑器有效（编辑器可按标题自动生成）。引用 `scripts/` / `references/` / `assets/` 时一律说明何时去读。
 - **正文超长根因诊断**：超长时先查根因再删字——grep 同一规则关键词在 SKILL.md + references/ 出现
   ≥ 2 次且内容相似 = 重抄；`### 1. <Op>` 等多步操作单步 > 30 行 = 未下放；"## 参考样例" > 80 行 =
@@ -153,8 +154,10 @@
   text extraction` + 一段代码" vs 150 token 的"PDF (Portable Document Format) files
   are a common..."）。两类典型噪音：机械常识铺开（agent 本就会的步骤逐条列）、疤痕组织
   （单 case 补丁 / 多原因论证 / 防御性澄清）。规则越多单条遵从率越低，**削减是执行效果的
-  正收益**。**量化软目标**（不取代 5000 词硬上限；无脚本常量承托，非 SSOT）：参考型
-  < 300 词；高频触发 < 800；普通 < 2000；元 / 多入口不设。
+  正收益**。**量化软目标**（不取代 `BODY_WORD_LIMIT` 硬上限）按 skill 类型分档，权威值在
+  `scripts/utils.py::SOFT_WORD_TARGETS`（default / reference / meta 三档，meta 不设上限），
+  判定见「审计速查」BODY-LENGTH 行；高频触发的 skill 可由作者自愿再收紧一档，脚本不为其另设档位
+  （避免为一次性偏好增加配置面）。
 - **修法优先级**（正文超长 / 冗余处置顺序）：**(0) 机械操作 → 固化进脚本**（零判断字节
   操作过「机械操作脚本化」准入规则——直接消除 prose，优于一切挪位）→ (1) 挪 references/
   → (2) 挪 tool help（`Run --help for
@@ -181,13 +184,28 @@
   例外**：迁移 / 升级路径上的写操作一律 agent（脚本只认识当前形态，硬编码 = 探测器要
   同时理解新旧形态）。**推论**：md 大段重述脚本已实现的机制细节（算法 / 分支条件 /
   内部函数名）= 跨体裁重抄——机制归脚本 docstring，md 只留口径（是什么 / 严重性 / 怎么
-  修）。
+  修）。**验收**：脚本改动不等于 ruff / lint 通过——静态检查只证明代码能跑、canary 只证明测量通道
+  活着，都不证明判定逻辑对；新建或大改脚本必须配打桩冒烟（不依赖模型实跑、秒级），且**正反两向都钉**
+  （脏 fixture 必须命中、干净 fixture 必须静默）——只钉单向的检查器"永远报警"也算全绿。既有冒烟见
+  `scripts/smoke_test_*.py`。批量改写源码（按偏移 / 正则跨行替换）另有一条：**先留行为基线、改完对基线**，
+  lint 绿不代表没吃掉内容（本仓一次批量改参数把两个脚本咬出语法洞，靠基线 diff 才发现）。
+- **脚本化的代价核对（纯函数只是准入，不是理由）**：过两问之后还要算一笔账——
+  **频率 × 出错代价** 是否高于新增代码的长期成本（脚本行数 + 抑误报的豁免清单 + 配套冒烟）。
+  三类典型不值得：一条 `mkdir -p && cp -r` 就能做完的字节操作（脚本比命令更长）；判定 100% 靠人、
+  模式又是一行 alternation 的 grep（脚本只省一次复制粘贴）；为低频动作建的脚手架。**启发式检查器另算**：
+  它的真实成本不在规则而在**永远在长的豁免清单**——加规则前先估计本仓实跑的误报数，误报需人工
+  复核的只给 INFO 级，不升 ERROR。
 - **one excellent example > 多个平庸样例**：一个完整可运行示例胜过 5 个模板填空 / 多语言实现——
   agent 自己会移植语言，选最相关的 1 个写好就够。
 
 ## 审计速查
 
 执行入口 4（原则校验）时逐条跑；判定为违规即报。
+
+**机械项不必手打**：`python -m scripts.verify <skill-dir> --tier <type>` 一次跑完下表里能被程序化的
+行（各行的检查列已写明由哪个脚本 / 哪个规则 ID 负责，输出统一 `LEVEL: 文件:行 证据 —— 修法`）。
+**本表的价值在"判定"列**：脚本只出候选与证据，是否违规照该行判定口径由 agent 判；标着 grep 的行
+= 脚本不做、逐条手工执行（原因见「脚本化的代价核对」）。
 
 ### 审查深度标准（入口 4 默认口径）
 
@@ -213,25 +231,27 @@
 - **报告分级**：fail 按 P1 真实 bug / P2 代码质量 / P3 口径散落分级，每条附
   `文件:行` 证据 + 修法；**P4 观察项必须给"保留 vs 砍"的明确建议**——保留者附删除测试
   正面理由，建议砍者直接进修复清单，不允许"观察项 = 默认不动"的死档；pass 项计数汇总
-  （要展开逐条列出时再说）
-- **修复流**：逐项等用户确认 → 修（只动仓库源，不手拷 vendored）→ quick_validate +
-  markdownlint + ruff 验证 → commit + push（用户经 npx 同步 vendored）→ git 确认
+  （要展开逐条列出时再说）。**报告只活在对话里**：用户没主动要 audit 文档时不建
+  `audit-*.md` 之类的归档文件、也不写 MEMORY 历史——结论在回复里、修复在文件里，
+  归档件只会变成无人维护的第二真源
+- **修复流**：逐项等用户确认 → 修（只动仓库源，不手拷 vendored）→ `python -m scripts.verify
+  <skill-dir>` 验证（含 markdownlint / ruff；改了脚本再手跑 `scripts/smoke_test_*.py`）→
+  commit + push（用户经 npx 同步 vendored）→ git 确认
 
 | 原则 | 检查 | 判定 |
 | --- | --- | --- |
 | agent 中立 | `grep -ni "claude \?code\|qoder\|cursor\|windsurf\|codex"` | 命中逐处复核：特有机制点名 OK，可泛化却写死 → 改泛指 |
-| 指标单一来源 | `grep -nE "\b<阈值/版本裸数字>\b"` | 命中改常量名引用（除非数字另有出处） |
+| 指标单一来源 | `python -m scripts.audit_prose <skill-dir>`（BARE-METRIC：同 skill 内同 `<数字><单位>` 跨 ≥ 2 文件） | INFO 候选 → 定权威源：脚本常量则 prose 改 `` `CONST` `` 引用，prose 则留一处其余改指针；跨 skill 的同名数字不算（各自独立演进） |
 | 正文描述一致性 | 核心原则关键词 grep 全部 `.md` + 手工语义对照（图 / 表 / 散文 / 列表承载同一信息） | ≥ 2 次且无 self-aware 注释 = 重抄嫌疑，读段对比确认；跨体裁同语义 ≥ 2 处 = 重抄 |
-| 何时不使用节 | `grep -n "^## 何时不使用" <skill-dir>/SKILL.md` | 命中即报——selection 信息归 description「不适用」槽，按「结构与加载」selection 条迁移 |
-| reference 禁手写目录 | `python -m scripts.quick_validate <skill-dir>`（看"手写目录"WARN） | 命中即报——agent 全量读入不看 TOC，目录只对浏览器 / 编辑器有效 |
-| 机械操作脚本化 | 语义检查：工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律，逐条过准入规则两问（纯函数？lint 可验证？） | 零判断字节操作靠 md 纪律维持且无脚本承托 → 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；迁移路径上的写操作硬编码进脚本 → 报"迁移期例外" |
+| 何时不使用节 | `python -m scripts.quick_validate <skill-dir>`（WHEN-NOT-SECTION） | 命中即报——selection 信息归 description「不适用」槽，按「结构与加载」selection 条迁移 |
+| reference 禁手写目录 | `python -m scripts.quick_validate <skill-dir>`（HAND-TOC WARN） | 命中即报——agent 全量读入不看 TOC，目录只对浏览器 / 编辑器有效 |
+| 机械操作脚本化 | 语义检查：工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律，逐条过准入两问 + 「脚本化的代价核对」那笔账 | 零判断字节操作靠 md 纪律维持且无脚本承托 → 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；纯函数但不值脚本成本的（低频 / 一行命令可代 / 判定全靠人）→ 报"过度固化"；脚本改动无打桩冒烟 → 报"验收缺失" |
 | 依赖单向 | `python -m scripts.check_skill_dependencies <repo-root>` | 互提候选对 → 人工判方向，双向依赖 = 违规 |
 | 跨 skill 指称 | `python -m scripts.check_skill_dependencies <repo-root>`（看 `one_way` 输出） | 判定口径见正文「跨 skill 指称」原则——逐条归因，命中即报 |
-| 相对路径禁止 | `grep -rEn '\]\(\.\./\.\./[a-z]'` | 出现即违规，改纯文本 |
+| 相对路径禁止 | `python -m scripts.check_anchor_health <skill-dir>`（DEAD-LINK 覆盖 markdown 链接逃逸；CROSS-SKILL-PATH 覆盖反引号路径逃逸） | 出现即违规，改纯文本"X 侧 spec §Y"式描述 |
 | 链接基准 | `python -m scripts.check_anchor_health --repo-root`（`--json` / `--include-templates`） | 有输出即修；code fence 教学示例豁免 |
 | Iron Law 证据 | `grep -n "迭代\|baseline\|transcript\|RED\|GREEN\|REFACTOR"` | 纪律 / 模式型无命中 = 按"未经验证"标注 |
 | Iron Law（粗筛） | `grep -rn "iteration-[0-9]\+\|without_skill\|old_skill" <workspace>/` | 命中 = 有 baseline 痕迹 |
-| 反合理化三件套 | `grep -n "NEVER\|ALWAYS\|必须\|禁止\|不能\|不得"` + `grep -n "Rationalization\|合理化\|Red \?Flag\|红旗\|违反字面"` | 纪律型：前者命中而三件套缺任一 = 不合规 |
-| 精简与粒度约束 | `wc -w`（中文按 1 词 ≈ 1.5–2 字折算） | 超软目标 = WARN 偏臃肿；超 5000 词硬限 = 违规 |
-| 精简（常识铺垫） | `grep -n "\(PDF \(Portable\|is a\|are a\)\|is a common file format\)"` | 命中 = "通用背景铺垫"类冗余段 |
-| 时间性信息不内联 | `grep -n 'v\?[0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\s*\(起\|开始\|之后\|以来\|废止\|引入\|新增\|删除\)'` | 规范文档（SKILL.md / references）命中即嫌疑（无阈值）：自身演进史 = 违规，叙事归 commit message；无时间动词的版本约束（"Python ≥ 3.7"）合法；原则文档自身定义引语（如"0.6.0 起删了 X"）豁免 |
+| 反合理化三件套 | `grep -n "NEVER\|ALWAYS\|必须\|禁止\|不能\|不得"` + `grep -n "Rationalization\|合理化\|Red \?Flag\|红旗\|违反字面"` | 纪律型：前者命中而三件套缺任一 = 不合规（型态判定归人，见「反合理化」适用范围） |
+| 精简与粒度约束 | `python -m scripts.quick_validate <skill-dir> --tier <t>`（BODY-LENGTH，CJK / ASCII 分别折算） | 超软目标 = WARN 偏臃肿；超 `BODY_WORD_LIMIT` = 违规（估算值是代理指标，不据此自动 fail） |
+| 时间性信息不内联 | `python -m scripts.audit_prose <skill-dir>`（VERSION-HISTORY-INLINE） | INFO 候选：自身演进史 = 违规，叙事归 commit message；无时间动词的版本约束（外部依赖）与引语内示例已在脚本内豁免，剩余命中人工判 |

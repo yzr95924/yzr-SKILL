@@ -38,25 +38,19 @@ from typing import Dict, List, Optional, Tuple
 # script and as `python -m scripts.check_skill_dependencies`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import parse_skill_md  # noqa: E402
+from scripts.utils import discover_skill_dirs, parse_skill_md  # noqa: E402
 
 
 def discover_skills(repo_root: Path) -> List[Tuple[str, Path]]:
-    """Return [(name, skill_dir)] for each direct subdir of repo_root whose
-    SKILL.md parses to a non-empty kebab-case name."""
+    """Return [(name, skill_dir)] for each skill under *repo_root*.
+
+    What counts as a skill is decided once, in scripts.utils.discover_skill_dirs
+    (require_parseable=True ⇒ frontmatter parses and the name is kebab-case), so
+    every repo-wide screen sweeps the same set of directories.
+    """
     skills: List[Tuple[str, Path]] = []
-    for child in sorted(repo_root.iterdir()):
-        skill_md = child / "SKILL.md"
-        if not child.is_dir() or not skill_md.is_file():
-            continue
-        try:
-            name, _desc, _content = parse_skill_md(child)
-        except (ValueError, OSError):
-            continue
-        name = name.strip()
-        # kebab-case sanity — skip dirs that aren't real skills
-        if not re.match(r"^[a-z0-9-]+$", name):
-            continue
+    for child in discover_skill_dirs(repo_root, require_parseable=True):
+        name = parse_skill_md(child)[0].strip()
         skills.append((name, child))
     return skills
 

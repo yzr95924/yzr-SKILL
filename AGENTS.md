@@ -47,6 +47,15 @@ This file provides guidance to AI coding agents when working with code in this r
 
 `yzr-skill-creator/scripts/` 下的脚本顶部都注入了 `sys.path` 引导，**两种调用形式都可用**：
 
+日常只要一条命令（全套检查，含 markdownlint / ruff）：
+
+```bash
+python3 yzr-skill-creator/scripts/verify.py --repo-root .      # 全部 skill
+python3 yzr-skill-creator/scripts/verify.py <skill-dir> --tier meta
+```
+
+单独跑某一项时用下面的脚本：
+
 ```bash
 # 形式 A：独立脚本（README 的原写法）
 python3 yzr-skill-creator/scripts/quick_validate.py <skill-dir>
@@ -65,6 +74,11 @@ python3 yzr-skill-creator/scripts/optimize_description.py --eval-set ... --skill
 ```bash
 markdownlint '**/*.md'  # 遵守 .markdownlint.jsonc
 ```
+
+**必须在仓库根跑**（或用 `-c .markdownlint.jsonc` 显式指定）——否则配置找不到，行宽退回默认值，
+正常行被成批误报 MD013。判回归只看有无**新错误类别**，不计 lint 计数
+绝对值。日常别手打这条：`yzr-skill-creator/scripts/verify.py` 已把 cwd 与 config 路径钉死
+（坑的完整说明在该脚本 docstring）。
 
 ### Python 格式 / lint
 
@@ -132,7 +146,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # （执行期活文档，进度/问题/设计变更循环）
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
-    ├── scripts/           # quick_validate / optimize_description / check_* …
+    ├── scripts/           # verify（全套入口）/ quick_validate / check_* / audit_prose / …
     ├── references/        # schemas.md（evals.json / grading.json JSON 结构）+ agents/grader.md
     └── assets/skill-template.md   # 可拷贝的 SKILL.md 正文骨架
 ```
@@ -152,8 +166,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 每个 `SKILL.md` 都遵循三级渐进加载：
 
-1. **frontmatter**：`name` + `description`（≤ 1024 字符，触发判定的唯一信号）—— 始终在上下文。
-2. **正文**：触发时加载，控制在 5000 词以内。
+1. **frontmatter**：`name` + `description`（≤ `utils.py::DESCRIPTION_MAX_CHARS` 字符，触发判定的唯一信号）—— 始终在上下文。
+2. **正文**：触发时加载，控制在 `utils.py::BODY_WORD_LIMIT` 词以内（数值只在该常量处给）。
 3. **捆绑资源**：`scripts/` 可执行、`references/` 按需阅读、`assets/` 模板/图标、`eval/`
    评估集。
 
@@ -166,10 +180,14 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 | 脚本 | 作用 |
 | --- | --- |
-| `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构校验 + 手写目录（TOC）禁令检查（`--tier <default\|reference\|meta>`；正文结构 / 目录问题 WARN 不 fail） |
+| `scripts/verify.py` | **一条命令跑全套**（下面各检查 + markdownlint + ruff；cwd/config 陷阱在脚本内钉死；`--repo-root` 自动枚举全部 skill；工具状态 OK/FAIL/SKIP/MISSING 结构化，`--strict-tools` 只把 MISSING 变 error；`--json`） |
+| `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构 + description 格式标记 + 手写目录（TOC）禁令 + 已废除的「何时不使用」节 + 正文长度（`--tier <default\|reference\|meta>`；除 frontmatter 外 WARN 不 fail；`--json`） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
-| `scripts/check_anchor_health.py` | 引用存活检查——markdown 链接锚点 + 反引号路径 + 「节名」指针（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
-| `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告 |
+| `scripts/check_anchor_health.py` | 引用存活检查——markdown 链接锚点 + 反引号路径（含逃逸出 skill 根的跨 skill 相对路径）+ 「节名」指针（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
+| `scripts/audit_prose.py` | 两条启发式扫描（BARE-METRIC 指标散落 / VERSION-HISTORY-INLINE 版本演进史内联）；INFO 级候选，判定归 agent |
+| `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告；`--apply`（配 `--dry-run`）负责写回 frontmatter |
+| `scripts/eval_report.py` | 一次 eval iteration 的 grading.json 契约校验（字段名 / summary 算术 / 断言漏评）+ with_skill vs baseline 对比表；也供 verify 校验 evals.json |
+| `scripts/smoke_test_*.py` | 打桩冒烟（判定 / 计分逻辑的正反两向钉死），改脚本后手跑，CI 每次全跑 |
 
 `references/agents/grader.md` 定义了评分子 agent 指令；
 `references/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。
@@ -189,7 +207,9 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - agent 配置文件已预批准一组 MCP / Bash 权限（Gemini Docs MCP、`pip install *`、
   `python3 *` 等），新增依赖工具时若需新权限需走 `update-config` skill。具体路径与权限
   清单见各自 agent 配置文件（路径因 agent 而异，本文件不展开）。
-- 新增 skill 时优先复用 `yzr-skill-creator/scripts/quick_validate.py` 做预检，再决定是否
-  走评估 / 描述优化流程。
+- 新增 skill 时优先复用 `yzr-skill-creator/scripts/verify.py` 做预检（它内含 quick_validate /
+  引用存活 / 启发式扫描 / markdownlint / ruff），再决定是否走评估 / 描述优化流程。
+- 本仓 CI（`.github/workflows/ci.yml`）= `verify.py --repo-root . --strict-tools` + 仓库级
+  markdownlint + 全部 `smoke_test_*.py`；新增 skill 不必改 CI（脚本自己枚举目录）。
 - `yzr-skill-creator` 内部的 `optimize_description` 会调用 agent CLI 子进程
   （具体 CLI 因 agent 而异，见各自 agent 的逃生舱）。

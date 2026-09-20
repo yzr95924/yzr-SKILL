@@ -12,7 +12,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: code-quality
-  modify time: 2026-08-22
+  modify time: 2026-09-20
 ---
 
 # yzr-coding-review
@@ -59,8 +59,8 @@ metadata:
 ### Step 3: 走 catalog 补充
 
 LLM 用 catalog 重构场景卡 + 合理性审视卡片补齐设计层问题;每条映射到 ≥ 1 个场景名 / 卡片名。
-数值阈值项(函数长 > 50 行 / 嵌套 ≥ 3 层 / 参数 > 5 个 / 重复块 > 5 行 × ≥ 3 处 / 空 catch)
-先现场 grep / AST 速算拿客观计数,再进判断层定严重度,不凭目测。
+数值阈值项(函数长度 / 嵌套层数 / 参数个数 / 重复块规模等)先现场 grep / AST 速算拿客观计数,
+再进判断层定严重度,不凭目测;阈值数值只在 `references/severity-rubric.md` 给,本节不复述。
 
 ### Step 4: 形态路由
 

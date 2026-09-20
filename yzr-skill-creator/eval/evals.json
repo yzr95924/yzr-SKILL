@@ -9,9 +9,9 @@
       "expectations": [
         "产出 SKILL.md 的正文含全部必填规范 H2 节且顺序一致（必填清单 SSOT 在 scripts/utils.py::CANONICAL_BODY_SECTIONS）",
         "产出 SKILL.md 的 frontmatter 含 name / description，description 描述具体触发场景且写\"主动\"",
-        "`python -m scripts.quick_validate <skill-dir> --tier default` 对产出无 WARN（额外路由节 INFO 可接受）",
+        "`python -m scripts.verify <skill-dir> --tier default` 对产出无 WARN（额外路由节 INFO 可接受）",
         "产出 SKILL.md 引用了 assets/skill-template.md 骨架对应的规范节名，而不是自创节名",
-        "产出 SKILL.md 正文 ≤ 2000 词（中文按 1 词 ≈ 1.5–2 字折算，用字符数 / 1.7 估算；阈值口径 SSOT 见 references/skill-writing-principles.md「精简与粒度约束」软目标——改阈值需同步本条）",
+        "verify 输出不含 BODY-LENGTH：正文词数守在 default 档软目标内（阈值与折算口径 SSOT 在 scripts/utils.py::SOFT_WORD_TARGETS / estimate_body_words，本条不重抄数字）",
         "产出正文无\"通用背景铺垫\"常识段（如 \"X is a common file format\" / 大段文件格式科普）",
         "产出正文无同义多语言示例堆叠（同一操作并列 python + js + go 实现）"
       ]
