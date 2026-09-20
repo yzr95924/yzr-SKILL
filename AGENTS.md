@@ -189,6 +189,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/audit_prose.py` | 两条启发式扫描（BARE-METRIC 指标散落 / VERSION-HISTORY-INLINE 版本演进史内联）；INFO 级候选，判定归 agent |
 | `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告；`--apply`（配 `--dry-run`）负责写回 frontmatter |
 | `scripts/eval_report.py` | 一次 eval iteration 的 grading.json 契约校验（字段名 / summary 算术 / 断言漏评）+ with_skill vs baseline 对比表；也供 verify 校验 evals.json |
+| `scripts/eval_init.py` | eval 迭代工作区初始化（目录树 + 逐迭代旧版快照 + 子 agent prompt 拼装）；与 eval_report 构成 writer/reader round-trip，冒烟钉死 |
 | `tests/smoke_test_*.py` | 打桩冒烟（判定 / 计分逻辑的正反两向钉死），改 `scripts/` 后手跑，CI glob 全跑 |
 
 `references/agents/grader.md` 定义了评分子 agent 指令；

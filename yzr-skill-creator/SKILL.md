@@ -59,7 +59,9 @@ metadata:
 
 - **元 skill 的"元"特征**：本 skill 的产物是"让 agent 在某类任务上更靠谱"的载体，不是用户最终要的文件；写每段 prose 前先问"下游 agent 读到这里会怎么想"
 - **过拟合红线**：用户给的反馈只覆盖少数 prompt；要让 skill 在一百万次调用里都成立，必须从反馈归纳"意图类别"而非把 case 逐条抄进 SKILL.md
-- **必须跑评估**（行为性改动；单点编辑豁免——见入口 2 分级介入）：写完不跑 eval = 在赌运气（哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）；改进时先 `cp -r` 旧版到 workspace 做 baseline，否则"是否更好"无法量化
+- **必须跑评估**（行为性改动；单点编辑豁免——见入口 2 分级介入）：写完不跑 eval = 在赌运气
+  （哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）；改进时先留旧版快照做 baseline
+  （`scripts.eval_init` 自动做），否则"是否更好"无法量化
 - **用户说"优化描述"是泛指**：默认包括 frontmatter `description` + 标题 + 章节 +
   when-to-use 措辞 + 操作步骤，不默认专指 frontmatter；用户要细分会用精确措辞
   （"只改 frontmatter" / "只动 description 字段"）。维度分清：frontmatter 只决定
@@ -128,7 +130,7 @@ metadata:
 
 后面为 skill 的正文——**骨架从 `assets/skill-template.md` 拷贝**，逐节填充（规范节名 / 顺序 /
 各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
-`references/skill-template-guide.md`「变体」）。先填全骨架再按 `references/skill-writing-principles.md`「精简与粒度约束」删节，不要"想到哪写到哪"——
+`references/skill-template-guide.md`「变体」）。先填全骨架再删节，不要"想到哪写到哪"——
 SKILL.md 格式统一靠的就是这份骨架。
 
 起草正文前先落 `scripts/` 清单：访谈第 6 问标出的机械操作逐条进 `scripts/`（留 md 的记录
@@ -136,7 +138,7 @@ SKILL.md 格式统一靠的就是这份骨架。
 
 起草完成后先跑预检再进入测试用例：`python -m scripts.verify <skill-dir> --tier <type>`。
 
-通用骨架 / 变体规则见 `references/skill-template-guide.md`；写作风格与语言原则见
+写作风格与语言原则见
 `references/skill-writing-principles.md`「正文写作原则」——不在此重抄 agent 通识。
 
 #### 测试用例
@@ -152,23 +154,26 @@ prompt，等下一步再起草断言。
 
 本节是连续流程，不要中途停下来。
 
-- with-skill 与 baseline 在**同一轮**并行启动（不要串行）；baseline 类型：
-  - 入口 1（创建）→ `without_skill/`
-  - 入口 2（改进）→ `old_skill/`（编辑前先快照旧版）
-- workspace 布局、并行启动 / 起草断言 / 评分 / 对话展示的细节与命令见
+- 工作区目录树 / 旧版快照 / 子 agent prompt：`python3 -m scripts.eval_init
+  --workspace <skill-name>-workspace --iteration <N> --skill-path <skill-dir>
+  --baseline without_skill|old_skill` 一次备好（创建场景 `without_skill`，改进场景
+  `old_skill`）
+- 同轮并行启动 / 起草断言 / 评分 / 对话展示的判断性纪律见
   `references/eval-pipeline.md`
 
 ### 改进 skill
 
-跑过测试用例、用户评审过结果后，根据反馈迭代——迭代原则（从反馈归纳泛化 / 保持精简 /
-解释"为什么" / 找跨用例重复工作进 `scripts/`）见 `references/skill-writing-principles.md`
-「精简与粒度约束」+「解释为什么」+「机械操作脚本化」三条，此处不重抄。
+跑过测试用例、用户评审过结果后，根据反馈迭代——迭代原则（从反馈归纳泛化而非逐 case 抄写 /
+找重复工作进 `scripts/`）见 `references/skill-writing-principles.md`「Iron Law」+
+「归属与下放」，逐段精简按下述 Concision review 执行。
 
 #### 迭代循环
 
-完成改进后：(1) 应用改动 → (2) 跑新 `iteration-<N+1>/`（**含** baseline，baseline
-取值：创建场景始终 `without_skill`；改进场景：用户最初版本 or 上一轮迭代，由你判）→
-(3) 在对话里展示本轮对比（含上一轮对比）、请用户反馈 → (4) 按反馈继续循环。
+完成改进后：(1) 先跑 `scripts.eval_init` 备好 `iteration-<N+1>/`——改进场景必须
+**先于应用改动**跑（快照的是跑时的当前版 = 上一轮迭代结果，先改后跑会把新版快照成
+baseline，对比失去意义）→ (2) 应用改动 → (3) 同轮并行启动两组子 agent（prompt 用
+eval_init 打印的）→ (4) 在对话里展示本轮对比（含上一轮对比）、请用户反馈 →
+(5) 按反馈继续循环。
 
 #### 堵 loophole（REFACTOR 阶段）
 
@@ -182,8 +187,9 @@ prompt，等下一步再起草断言。
 
 #### Concision review（每轮迭代必做）
 
-下轮改动前对每段答「精简与粒度约束」三问（哪段必需？哪段是 agent 常识冗余？哪段是 case 抄进去的
-过拟合？），处理顺序按修法优先级——见 `references/skill-writing-principles.md`「精简与粒度约束」。
+下轮改动前对每段问**删掉它，称职 agent 会做错吗**——不会 → 删或下放，处理顺序按「修法
+优先级」（`references/skill-writing-principles.md`「归属与下放」）；细则判据与典型噪音场景卡见
+yzr-writing-review「指令文档」组。
 
 停止条件：用户满意 / 反馈全空 / 看不到有意义的进展。
 
@@ -232,29 +238,27 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 
 ### 原则校验（独立入口）
 
-拿写作原则当 checklist，审计某个已有 skill 符合多少、违反哪些，产出 pass/fail 报告。
-**只审计、不改写**；要修让用户点头再动或转入口 2。
+拿写作原则当 checklist，审计某个已有 skill 的**机制合规**——违反哪些，产出 pass/fail 报告。
+**只审计、不改写**；散文质量不在本入口审——转交 yzr-writing-review「指令文档」组、
+`scripts/*.py` 转交 yzr-coding-review（分工口径见 principles 末尾「审查分工」）。
+要修让用户点头再动或转入口 2。
 
 #### 怎么校验
 
-1. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文
-   写作原则 + 末尾「审计速查」表，逐条核对）。
-2. 读目标 skill 的 `SKILL.md`（必要时连带 `references/` / `scripts/`）。
-3. 逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。
-
-   - **机械项一条命令跑完**：`python -m scripts.verify <skill-dir> --tier <default\|reference\|meta>`
-     （覆盖清单、单项排查用哪个脚本见 `scripts/verify.py` docstring；`--json` 机器可读）。
-   - **判定仍归 agent**：verify 报的是候选 + 证据，是否违规照 principles 末尾「审计速查」表
-     每行的判定口径判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 / agent 中立 /
-     跨体裁重抄 / 机械操作脚本化的语义部分）逐条跑 grep 执行。
-
-4. 产出报告（**只审计、不改写**）——每条 pass / fail + 证据 + 建议修法；报告只活在对话里，
+1. **机械项一条命令跑完**：`python -m scripts.verify <skill-dir> --tier <default\|reference\|meta>`
+   （覆盖清单、单项排查用哪个脚本见 `scripts/verify.py` docstring；`--json` 机器可读）。
+2. 把 `references/skill-writing-principles.md` 当 checklist（description 优化原则 + 正文
+   写作原则 + 末尾「审计速查」表），读目标 skill 的 `SKILL.md`（必要时连带 `references/` /
+   `scripts/`）逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。是否违规照速查表每行
+   判定口径由 agent 判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 / agent 中立 /
+   机械操作脚本化的语义部分）逐条跑 grep 执行。
+3. 产出报告（**只审计、不改写**）——每条 pass / fail + 建议修法；报告只活在对话里，
    不建归档文件（口径见 `references/skill-writing-principles.md`「审查深度标准」的报告条）。
 
 #### 审查深度标准（入口 4 默认口径）
 
-入口 4 默认按深度标准执行（全量精读 + 逐段删除测试，不只跑速查表机械检查）——
-细则见 `references/skill-writing-principles.md`「审查深度标准」。
+入口 4 默认按深度标准执行（全量精读每个文件，不只跑速查表机械检查）；散文层转交与人工行
+判据细则见 `references/skill-writing-principles.md`「审查深度标准」。
 
 ## 参考文件
 
@@ -265,7 +269,8 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 - `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅流程
 - `references/skill-template-guide.md` —— 通用写作骨架 / 变体规则
 - `references/skill-writing-principles.md` —— description + 正文写作原则 + 末尾审计速查表（SSOT）
-- `references/eval-pipeline.md` —— 行为评估的机械细节（workspace 布局 / 并行启动 / 评分 / 对话展示）
+- `references/eval-pipeline.md` —— eval 迭代的判断性纪律（并行启动 / 断言起草 / 评分 /
+  对话展示）+ eval_init 初始化命令
 
 `assets/`:
 
@@ -273,8 +278,8 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 
 `scripts/`:
 
-- 一条命令跑全套：`python -m scripts.verify <skill-dir> --tier <type>`（含 markdownlint / ruff；
-  各检查脚本的职责、规则 ID 与抑误报豁免写在脚本 docstring，本文件不复述）
+- 一条命令跑全套：`python -m scripts.verify <skill-dir> --tier <type>`（各检查脚本的
+  职责、规则 ID 与抑误报豁免写在脚本 docstring，本文件不复述）
 
 常量 SSOT:
 

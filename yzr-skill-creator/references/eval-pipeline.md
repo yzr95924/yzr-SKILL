@@ -1,43 +1,32 @@
 # 评估测试用例的执行细节
 
-> 本文件承载 yzr-skill-creator「运行与评估测试用例」章节的机械细节——workspace 布局、
-> 子 agent prompt 模板、JSON 约定。SKILL.md 主文件只列原则性指针。
+> 本文件承载 yzr-skill-creator「运行与评估测试用例」章节的**判断性纪律**——并行启动、
+> 断言起草、评分与对话展示。机械细节（目录树 / 旧版快照 / 子 agent prompt 拼装）固化在
+> `scripts/eval_init.py`，SKILL.md 主文件只列原则性指针。
 
-## 工作区布局
+## 第 0 步：初始化工作区
 
-结果放在 `<skill-name>-workspace/`，与 skill 目录同级（**不要**放在 skill 目录内）。
-workspace 内按迭代（`iteration-1/`、`iteration-2/` 等）组织，每个迭代内每个测试用例
-单独成目录（`eval-0/`、`eval-1/` 等）。目录边做边建，不要一次建完。
+```bash
+python3 -m scripts.eval_init --workspace <skill-name>-workspace --iteration <N> \
+  --skill-path <skill-dir> --baseline without_skill|old_skill
+```
 
-子运行目录按 baseline 类型分流（创建 `without_skill/outputs/` / 改进 `old_skill/outputs/`，
-细节见「第 1 步」Baseline 配置）；`grading.json` 落在 `outputs/` 同级（grader 产物，见「第 3 步」）。
+一条命令备好整轮迭代：`iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/` 目录树
+（即 `scripts/eval_report.py` 读回的布局契约，round-trip 由
+`tests/smoke_test_eval_init.py` 钉死）、`old_skill` 场景的**逐迭代**旧版快照
+（快照 = 跑 init 时的当前版，即上一轮迭代结果——**必须先于应用本轮改动跑**，先改后跑
+会把新版快照成 baseline，对比失去意义）、以及逐用例填好路径的
+子 agent prompt（模板 SSOT 在脚本）。已存在的 iteration 目录拒绝覆盖——重跑换新编号。
 
-## 第 1 步：在同一轮并行启动 with-skill 与 baseline
+## 第 1 步：同轮并行启动两个子 agent
 
-对每个测试用例，在**同一轮**启动两个子 agent——一个带 skill、一个不带。
-**重要**：不要先启动 with-skill、再串行启动 baseline；并发启动让它们大致同时完成。
+对 eval_init 打印的每段 prompt，在**同一轮**启动两个子 agent——一个带 skill、
+一个不带。**重要**：不要先启动 with-skill、再串行启动 baseline；并发启动让它们
+大致同时完成。
 
 **没有子 agent 的环境（降级路径）**：改为**串行**执行——对每个测试用例，自己读该
 skill 的 SKILL.md 并按其指令完成任务（**跳过 baseline**：你写的 skill 你自己跑，
 独立性的损失由人工评审环节补偿），评估结果直接在对话里展示。
-
-**With-skill prompt 模板：**
-
-```text
-Execute this task:
-- Skill path: <path-to-skill>
-- Task: <eval prompt>
-- Input files: <eval files if any, or "none">
-- Save outputs to: <workspace>/iteration-<N>/eval-<ID>/with_skill/outputs/
-- Outputs to save: <what the user cares about — e.g., "the .docx file", "the final CSV">
-```
-
-**Baseline 配置**：
-
-- **创建新 skill**：完全不用 skill，同样的 prompt，不传 skill path，输出存到
-  `without_skill/outputs/`
-- **改进现有 skill**：用旧版——编辑前先快照 skill（`cp -r <skill-path> <workspace>/skill-snapshot/`），
-  然后让 baseline 子 agent 指向那份快照，输出存到 `old_skill/outputs/`
 
 ## 第 2 步：在运行进行中起草断言
 
@@ -54,8 +43,7 @@ Execute this task:
 
 1. **为每次运行打分**：启动 grader 子 agent（或内联打分），它读
    `references/agents/grader.md`，逐条核对断言与输出。评分存到
-   `<run>/grading.json`（字段约定见 `references/schemas.md`「grading.json」——
-   `expectations` 数组用字段 `text` / `passed` / `evidence`）。
+   `<run>/grading.json`（字段约定见 `references/schemas.md`「grading.json」）。
    可编程检查的断言写脚本跑，不要肉眼判断——脚本更快、可跨迭代复用。
 2. **汇总 + 校验**：`python -m scripts.eval_report <workspace>/iteration-<N> --evals <skill>/eval/evals.json`
    出每个用例的 with_skill vs baseline 对比（校验范围与输出格式见

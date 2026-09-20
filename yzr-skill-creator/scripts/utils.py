@@ -26,7 +26,8 @@ BODY_WORD_LIMIT = 5000
 # over-long-but-under-hard skill still gets flagged. ``meta`` = no target: a
 # multi-entry / methodology skill legitimately carries more prose. The 高频触发
 # tightening mentioned in prose is an author's voluntary choice and deliberately
-# gets no tier / flag of its own (避免太多选项).
+# gets no tier / flag of its own (an extra knob for a one-off preference is
+# maintenance surface we refuse).
 SOFT_WORD_TARGETS: Dict[str, Optional[int]] = {"default": 2000, "reference": 300, "meta": None}
 
 # Body word estimate: Chinese prose has no spaces, so ``wc -w`` reads a whole

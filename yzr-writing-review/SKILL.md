@@ -63,7 +63,8 @@ metadata:
 
 ### Step 2: 加载参考
 
-必读 `references/catalog.md`（七组场景卡，细则自含，含 SSOT 组）；按需读
+必读 `references/catalog.md`（八组场景卡，细则自含，含 SSOT 组；第八组「指令文档」按被审
+对象类型启用）；按需读
 `references/severity-rubric.md`（判定严重度时）。
 
 ### Step 3: 走 catalog 补齐

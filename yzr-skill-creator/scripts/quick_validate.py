@@ -304,8 +304,8 @@ def check_body_length(skill_path, tier="default"):
             Finding(
                 rule="BODY-LENGTH",
                 level="WARN",
-                evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}——按「精简与粒度约束」三问逐段删，"
-                "或抽一层到 references/（软目标不取代硬上限，仅供参考）",
+                evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}——按「正文超长根因诊断」"
+                "查根因处置（重抄→删重留指针 / 未下放→抽 references/；软目标不取代硬上限，仅供参考）",
                 file="SKILL.md",
             )
         ]

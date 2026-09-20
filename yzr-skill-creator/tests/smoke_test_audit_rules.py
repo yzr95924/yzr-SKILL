@@ -180,7 +180,8 @@ def check_bare_metric(failures: List[str]) -> None:
     if "BARE-METRIC" in rules(audit_prose.check_bare_metrics(quoted)):
         failures.append("BARE-METRIC: quoted example not exempted")
     # A copy that names its authority on the same line is a declared copy, not
-    # drift (the exemption is part of 「正文描述一致性」, not an ad-hoc whitelist).
+    # drift (the exemption follows the SSOT-annotation requirement in
+    # 「指标单一来源」/「自包含例外」, not an ad-hoc whitelist).
     annotated = make_skill(
         {
             "SKILL.md": CLEAN_SKILL,

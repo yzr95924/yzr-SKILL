@@ -26,19 +26,8 @@ skill-name/
 3. **捆绑资源**（`scripts/` / `references/` / `assets/` / `eval/`）：按需加载
    — scripts 可不读直接执行；references / assets 需 Read 才加载。
 
-**关键模式**（长度上限与抽层 / 何时去读 / 引用深度——权威口径全部见
-`references/skill-writing-principles.md`「正文写作原则」的「结构与加载」节，此处不重抄）：
-
-**领域组织**：skill 支持多领域 / 框架时按变体组织——
-
-```text
-cloud-deploy/
-├── SKILL.md（workflow + selection）
-└── references/
-    ├── aws.md
-    ├── gcp.md
-    └── azure.md
-```
+长度上限与抽层 / 何时去读 / 引用深度的权威口径见
+`references/skill-writing-principles.md`「结构与加载」节，此处不重抄。
 
 ## 正文骨架（canonical 节）
 
@@ -67,6 +56,8 @@ description 优化后悄悄过期）；执行期边界（做本职工作时遇�
   "以维护者立场而非作者立场看代码"）；一两句话能讲清的立场写成「执行原则 / 边界」的
   一条 bullet（"立场 + 为什么"）；机械型 skill（转换 / 提取 / 管线）**不加**——写不出
   有内容的视角节 = 该加的是别的东西或什么都不加
+- **领域组织**（多领域 / 框架 skill）：`references/` 按领域一文件（如 aws.md / gcp.md /
+  azure.md），SKILL.md 只留 workflow + selection
 
 ## 何时去读本文件
 

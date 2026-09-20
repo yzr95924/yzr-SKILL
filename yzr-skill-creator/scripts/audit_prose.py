@@ -18,8 +18,8 @@ is not worth a rule + its exemption list):
   - 反合理化三件套 — two simple greps + a "is this a discipline skill?" call
     that a word-density proxy gets wrong (measured: the repo's doc-writing skill
     trips density, the discipline skill does not).
-  - 正文描述一致性 — needs semantic comparison, only the grep half is mechanical
-    and that half is a different pattern per rule.
+  - Semantic restatement / 口径漂移 — verdict moved to yzr-writing-review (its catalog
+    X group + 「指令文档」组 judgment notes); no grep row lives here anymore.
 
 Every finding is INFO: these are candidate screens, never verdicts. Output shape
 is scripts.utils.Finding, same as quick_validate, so verify.py can merge them.
@@ -64,13 +64,14 @@ METRIC_RE = re.compile(r"(?<![\w.])(?:\d+\s*[–—-]\s*)?\d+(?:\.\d+)?\s*(词|�
 
 # An occurrence that names its authority on the same line ("（对齐 rubric）" /
 # "以 X 为准" / "SSOT") is a declared copy, not drift — that exemption is part of
-# the principle being checked (references/skill-writing-principles.md
-# 「正文描述一致性」: "≥ 2 次且无 self-aware 注释 = 重抄嫌疑"), so the rule must
+# the principles checked here (「指标单一来源」/「自包含例外」require self-aware SSOT
+# notes; restatement verdicts belong to yzr-writing-review), so the rule must
 # apply it rather than leaving the agent to re-derive it per hit.
 DECLARED_SOURCE_RE = re.compile(r"对齐|以.{0,16}为准|直取|SSOT|同.{0,8}口径|见\s*`?[a-z0-9-]+\.md")
 
 # Version + a change verb = the sentence is narrating this project's own
-# evolution, which belongs in a commit message (原则「时间性信息不内联」).
+# evolution, which belongs in a commit message (rule now lives in the
+# yzr-writing-review catalog, 「指令文档」组 I4).
 VERSION_HISTORY_RE = re.compile(r"v?[0-9]+\.[0-9]+(?:\.[0-9]+)?\s*(?:起|开始|之后|以来|废止|引入|新增|删除)")
 
 # Quoted material is definitional or illustrative text — the principle file
