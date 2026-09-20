@@ -117,10 +117,28 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 - **相对路径引用禁止**：markdown 链接只能指向本 skill 目录内文件；跨 skill 相对路径
   （`../../other-skill/...`）在独立分发（npx / vendored 副本）下会因对方目录重构**无声断裂**，需要
   时用纯文本"X 侧 spec §Y"描述，不带链接。
-- **链接相对路径基准匹配**：相对路径基准 = **当前文件所在目录**：SKILL.md 引用写 `references/foo.md`；
-  `references/a.md` 引用同目录 `b.md` 写 `b.md` 不写 `../b.md`（最常见死链），引用 skill 根写
-  `../scripts/foo.py`。**例外**：code fence 内"教学示例"路径（target 本就不该存在）。核对跑
-  `scripts/check_anchor_health.py`（slug 规则见其 docstring）。
+
+### 引用约定
+
+仓内引用按"指什么"选语法。出处标 external（外部背书，优先于仓内先例）或 house（本仓自选）：
+
+| 指什么 | 语法 | 出处 |
+| --- | --- | --- |
+| 节（同文件） | `[节名](#slug)` | external：GitHub section links；slug = 小写 + 去标点 + 每空格一个连字符 |
+| 节（跨文件） | `[节名](references/x.md#slug)` | external：同上；链接目标基准 = 所在文件目录 |
+| 文件（操作指令） | 反引号相对路径，基准 = skill 根；cwd 不是 skill 根时文中明示（"从本文件目录运行"） | external：agentskills.io spec + Anthropic forms.md 实践 |
+| 术语 / 规则名 / 强调 | “” | external：GB/T 15834 |
+| 命令 / 文件名 / 代码 | 反引号 | markdown 惯例 |
+
+- **链接是校验通道**：`scripts/check_anchor_health.py` 校验一切链接目标与锚点，指针漂移必报
+  DEAD-LINK / ANCHOR-DRIFT；不被链接承载的文字引用在校验之外，少用。code fence 内示例路径豁免
+  （target 本就不该存在）
+- **直角引号退役**（house，2026-09）：corner bracket 的节名指针无外部背书、不被任何标准模板采用、
+  无法靠校验兜底，仓内归零后不得再出现；节指针一律改链接
+- **步骤引用**：跨节必须带名（`[Step 4: 形态路由](#step-4-形态路由)`），裸序号与序号区间
+  （"Step 4–6"）禁止；同一工作流节内兄弟互指可裸序号（house：自含块惯例）
+- **改节标题后**跑 `scripts/check_anchor_health.py`，按 ANCHOR-DRIFT 清零
+- **行号引用**禁止（漂移最快、无任何校验通道）
 
 ### 方法论（写前 / 形式）
 

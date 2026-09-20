@@ -14,7 +14,7 @@ Checks run (in this order):
 
   1. quick_validate — frontmatter legality + body structure + description format
                       + TOC ban + retired 「何时不使用」 section + body length
-  2. check_anchor_health — link anchors, backticked paths, 「节名」 pointers
+  2. check_anchor_health — link anchors, backticked paths
   3. audit_prose — heuristic prose screens (INFO only)
   4. eval_report.check_evals — eval/evals.json drift (stale skill_name / duplicate
      id / declared input file missing)
@@ -167,7 +167,7 @@ def _quick_validate_findings(skill_dir: Path, tier: str) -> List[Finding]:
 
 
 def _anchor_findings(skill_dir: Path) -> List[Finding]:
-    _files, _links, _paths, _sections, _skipped, issues = check_anchor_health.scan_skill(skill_dir)
+    _files, _links, _paths, _skipped, issues = check_anchor_health.scan_skill(skill_dir)
     return [
         Finding(
             rule=issue.get("status", "ANCHOR"),
@@ -175,7 +175,7 @@ def _anchor_findings(skill_dir: Path) -> List[Finding]:
             evidence=issue.get("reason", ""),
             file=issue.get("file", ""),
             line=issue.get("line", ""),
-            fix="修引用或补齐目标节（机制见 scripts/check_anchor_health.py docstring）",
+            fix="修链接 / 路径或补齐目标标题（脚本：scripts/check_anchor_health.py）",
         )
         for issue in issues
     ]

@@ -1,38 +1,17 @@
 #!/usr/bin/env python3
-"""Mechanical scanner for enumerable AI-style fingerprints in Markdown.
+"""Scan markdown for enumerable AI-style fingerprints (literal matches only).
 
-The class of bug this pins: AI-slop fingerprint detection happens ad-hoc with
-one-off greps, so every review re-invents it (or silently skips it). Detection
-is a zero-judgment literal match, so it belongs in a script; the *fix* (comma
-vs colon vs period vs parens, quote / meta-mention exemptions) is judgment and
-stays with the reviewer, same writer/reader split as audit_prose in
-yzr-skill-creator.
+Findings are INFO candidates: detection is mechanical, the fix is reviewer
+judgment (quote / meta-mention exemptions stay human).
 
-v1 pattern table: DASH only. Extension contract for adding a row to PATTERNS:
-  * the pattern must be a pure literal / regex match; anything needing judgment
-    to recognize stays in the catalog cards;
-  * before merging, estimate false-positive cost on the real corpus; the true
-    cost of a heuristic checker is its ever-growing exemption list (see
-    yzr-skill-creator skill-writing-principles, "脚本化的代价核对"). Only
-    near-zero-FP patterns qualify;
-  * every new pattern ships with positive + negative fixtures in
-    tests/smoke_test_scan_fingerprints.py;
-  * rule truth stays in references/catalog.md (第六组 指纹表); each entry below
-    points at its card row via `rule`.
+Extension contract for PATTERNS: literal or regex only (no judgment),
+near-zero false positives on the real corpus, positive + negative fixtures in
+tests/smoke_test_scan_fingerprints.py, rule text stays in
+references/catalog.md.
 
-Built-in skips (documented behaviour, not suppressions): fenced code blocks and
-inline code spans (covers literal format contracts like
-``LEVEL: 文件:行 证据 —— 修法``). Meta-mentions (a line *talking about* the
-symbol, e.g. the fingerprint row itself) are deliberately reported; the
-reviewer exempts them.
-
-Output: one line per hit: ``INFO: <file>:<line> <pattern-id> <evidence>``.
-``--json`` prints a machine-readable array instead. Exit code is always 0:
-findings are candidates, never a gate.
-
-Usage:
-  python3 scripts/scan_fingerprints.py <file-or-dir> [--json]
-  (a directory is scanned as **/*.md)
+Usage: python3 scripts/scan_fingerprints.py <file-or-dir> [--json]
+A directory scans **/*.md. Fence blocks and inline code spans are skipped;
+meta-mentions are deliberately reported. Exit code is always 0.
 """
 
 import argparse

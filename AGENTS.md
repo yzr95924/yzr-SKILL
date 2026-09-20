@@ -186,7 +186,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/verify.py` | **一条命令跑全套**（下面各检查 + markdownlint + ruff；cwd/config 陷阱在脚本内钉死；`--repo-root` 自动枚举全部 skill；工具状态 OK/FAIL/SKIP/MISSING 结构化，`--strict-tools` 只把 MISSING 变 error；`--json`） |
 | `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构 + description 格式标记 + 手写目录（TOC）禁令 + 已废除的「何时不使用」节 + 正文长度（`--tier <default\|reference\|meta>`；除 frontmatter 外 WARN 不 fail；`--json`） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
-| `scripts/check_anchor_health.py` | 引用存活检查——markdown 链接锚点 + 反引号路径（含逃逸出 skill 根的跨 skill 相对路径）+ 「节名」指针（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
+| `scripts/check_anchor_health.py` | 引用存活检查：markdown 链接目标 + 锚点 slug（同文件与跨文件 `path#锚`）+ 反引号路径（含逃逸出 skill 根的跨 skill 相对路径）；节名指针机制已退役，节引用约定见 skill-writing-principles.md"引用约定"（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
 | `scripts/audit_prose.py` | 两条启发式扫描（BARE-METRIC 指标散落 / VERSION-HISTORY-INLINE 版本演进史内联）；INFO 级候选，判定归 agent |
 | `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告；`--apply`（配 `--dry-run`）负责写回 frontmatter |
 | `scripts/eval_report.py` | 一次 eval iteration 的 grading.json 契约校验（字段名 / summary 算术 / 断言漏评）+ with_skill vs baseline 对比表；也供 verify 校验 evals.json |

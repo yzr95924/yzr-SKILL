@@ -2,7 +2,7 @@
 """Fixture smoke test for the mechanical audit rules added to this skill.
 
 Covers the checks that replaced hand-typed grep rows: quick_validate's
-「何时不使用」 / length / TOC rules, check_anchor_health's heading / section-ref
+「何时不使用」 / length / TOC rules, check_anchor_health's heading slug
 extraction and CROSS-SKILL-PATH, and audit_prose's two heuristic screens. Every
 rule case pins both directions — dirty fixture fires the rule id, clean fixture
 stays silent — and the extraction / line-number cases pin exact output, because
@@ -109,9 +109,8 @@ def check_toc_still_works(failures: List[str]) -> None:
 
 
 def check_anchor_extraction(failures: List[str]) -> None:
-    """Heading / section-ref extraction: both had silent dead branches (a
-    two-line regex fed single lines; offset shift after a sub) until pinned
-    to exact output."""
+    """Heading extraction: it had a silent dead branch (a two-line regex fed
+    single lines) until pinned to exact output."""
     slugs = check_anchor_health.collect_heading_slugs("Title One\n===\n\n## ATX\n")
     if "title-one" not in slugs:
         failures.append(f"setext heading not collected: {sorted(slugs)}")
@@ -124,10 +123,6 @@ def check_anchor_extraction(failures: List[str]) -> None:
     bogus = [s for s in slugs_fm if "name" in s or "description" in s]
     if bogus:
         failures.append(f"frontmatter fence read as setext heading: {bogus}")
-    line = "正文 `references/x.md`「A节」前缀 `code` 见「B节」 尾部"
-    got = {(p, n) for _ln, p, n in check_anchor_health.extract_section_refs(line)}
-    if got != {("references/x.md", "A节"), ("", "B节")}:
-        failures.append(f"section refs on one line mis-extracted: {sorted(got)}")
 
 
 def check_desc_format(failures: List[str]) -> None:
