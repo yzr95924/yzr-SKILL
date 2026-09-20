@@ -226,10 +226,3 @@ python3 scripts/coverage.py <project-root>
 > 3. 无 `MEMORY/` → 建最小 `MEMORY/MEMORY.md`（R6）
 > 4. 生成薄壳 `CLAUDE.md`（`@AGENTS.md` + 逃生舱注释块，Step 4 展示确认）
 > 5. `coverage.py` 比对 100% 目标 → markdownlint 0 error → `rm -rf .migration-backup/`
-
-## 参考文件
-
-- [`references/layering.md`](references/layering.md) —— 分层模型 + 段落分层决策树（Step 1 / 2）
-- [`references/rewrite-rules.md`](references/rewrite-rules.md) —— R1–R6 完整规则 + 路径 2 诊断清单（Step 2 / 3 / 4）
-- [`eval/trigger_eval.json`](eval/trigger_eval.json) —— 触发评估集（description 触发优化用的
-  20 条 `{query, should_trigger}` 查询，**非**行为评估集）

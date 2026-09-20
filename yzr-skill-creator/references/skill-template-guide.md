@@ -17,7 +17,7 @@ skill-name/
 
 `tests/` 与 `scripts/` 的分工：`scripts/` 是 skill 运行时 agent 要执行的脚本；
 `tests/` 只在开发 / CI 阶段运行（ruff / markdownlint 由 verify.py 一并覆盖），不参与
-运行时加载，也不列入 SKILL.md 的「参考文件」节。
+运行时加载。
 
 ## progressive disclosure（三级加载）
 

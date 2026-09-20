@@ -42,7 +42,6 @@ references/xxx-workflow.md，正文留路标>
 <1–2 个真实用户输入 → 本 skill 介入路径的映射。与 description 的"常见触发"分工：
 description 放触发短句（决定何时调），此处放介入路径 walkthrough（决定怎么干）。可省略>
 
-## 参考文件
-
-<有 references/ / scripts/ / assets/ 时列出并说明何时去读；没有则整节删除。
-tests/ 属开发期测试（运行时不读），不列>
+<有意不设文末「参考文件」索引节：references/ / scripts/ / assets/ 的"何时去读"写在用它
+的工作流步骤行内；文件集合本身是路由信息时（多领域 / 按运行时上下文选读），路由表也写在
+调度步内>

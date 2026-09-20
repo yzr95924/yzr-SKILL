@@ -270,14 +270,18 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
 #   default   — 普通 workflow skill（缺省）
 #   reference — 纯参考资料型（只聚合信息、不改变 agent 行为，可省行为类节）
 #   meta      — 元 skill / 多入口 skill（允许在第一个规范节前加路由节）
-# Empty exempt set = required for every tier. 参考样例 / 参考文件 are recommended
-# for all tiers, so they exempt every tier (missing them = INFO, not WARN).
+# Empty exempt set = required for every tier. 参考样例 is recommended for all
+# tiers, so it exempts every tier (missing it = INFO, not WARN). There is
+# deliberately NO canonical "参考文件" index section: the agent reaches every
+# bundled file through inline "何时去读" pointers at the step that uses it; a
+# terminal listing is double-writing at best (see skill-writing-principles.md
+# 「正文超长根因诊断」's restatement smell). Enumeration-as-routing needs (e.g.
+# multi-domain skills) belong inline at the dispatch step as a routing table.
 CANONICAL_BODY_SECTIONS = (
     ("## 输入 / 输出", frozenset()),
     ("## 执行原则 / 边界", frozenset({"reference"})),
     ("## 工作流 / 步骤", frozenset({"reference"})),
     ("## 参考样例", frozenset({"default", "reference", "meta"})),
-    ("## 参考文件", frozenset({"default", "reference", "meta"})),
 )
 
 # Allowed --tier values for quick_validate.py's body-structure check.

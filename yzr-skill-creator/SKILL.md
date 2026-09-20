@@ -69,7 +69,8 @@ metadata:
 - **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader
   会偏向自己刚写的版本（grader 盲评约定见 `references/agents/grader.md`）
 - **指标单一来源**：脚本里有 `CONST = value` 的，prose 用 `` `CONST` `` 引用，禁止写字面量
-  （原则见 `references/skill-writing-principles.md`；本 skill 常量清单见「参考文件」）
+  （原则见 `references/skill-writing-principles.md`；本 skill 的常量定义在 `scripts/utils.py`
+  与 `scripts/optimize_description.py` 顶部）
 - **与用户沟通**：skill 使用者编程背景差异大——术语（eval / holdout / baseline 等）先给
   一句人话解释
 
@@ -259,31 +260,3 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 
 入口 4 默认按深度标准执行（全量精读每个文件，不只跑速查表机械检查）；散文层转交与人工行
 判据细则见 `references/skill-writing-principles.md`「审查深度标准」。
-
-## 参考文件
-
-`references/` 补充文档:
-
-- `references/agents/grader.md` —— 如何对照输出评估断言（spawn grader 子 agent 时读）
-- `references/schemas.md` —— evals.json、grading.json 的 JSON 结构
-- `references/trigger-eval-guide.md` —— 描述优化的查询写作指南 + 触发原理 + 审阅流程
-- `references/skill-template-guide.md` —— 通用写作骨架 / 变体规则
-- `references/skill-writing-principles.md` —— description + 正文写作原则 + 末尾审计速查表（SSOT）
-- `references/eval-pipeline.md` —— eval 迭代的判断性纪律（并行启动 / 断言起草 / 评分 /
-  对话展示）+ eval_init 初始化命令
-
-`assets/`:
-
-- `assets/skill-template.md` —— 可拷贝的 SKILL.md 正文骨架（起草新 skill 时用）
-
-`scripts/`:
-
-- 一条命令跑全套：`python -m scripts.verify <skill-dir> --tier <type>`（各检查脚本的
-  职责、规则 ID 与抑误报豁免写在脚本 docstring，本文件不复述）
-
-常量 SSOT:
-
-- `scripts/utils.py::CANONICAL_BODY_SECTIONS` —— 正文规范节名 / 顺序 / 豁免（节名列表唯一真源）
-- `scripts/utils.py::DESCRIPTION_MAX_CHARS` —— description 长度硬上限
-- `scripts/utils.py::BODY_WORD_LIMIT` + `SOFT_WORD_TARGETS` —— 正文长度硬上限 / 分档软目标
-- `scripts/optimize_description.py::DEFAULT_HOLDOUT_RATIO` —— 触发评估集训练 / 保留测试拆分比例
