@@ -141,7 +141,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 │                                # 语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 ├── yzr-writing-review/          # 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 /
 │                                # 跨文档 SSOT；默认对话式结论，可出分级报告 / 逐条过；
-│                                # 确认后承接改写，规则库 references/）
+│                                # 确认后承接改写；规则库 references/，可枚举指纹机械扫描
+│                                # scripts/scan_fingerprints.py）
 ├── yzr-sys-design-doc/          # 正式系统设计文档写作：full/lite 两档路由（需求层/方案层/
 │                                # 落地层 + DFX），full 档配套独立实施任务书
 │                                # （执行期活文档，进度/问题/设计变更循环）
@@ -213,6 +214,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - 新增 skill 时优先复用 `yzr-skill-creator/scripts/verify.py` 做预检（它内含 quick_validate /
   引用存活 / 启发式扫描 / markdownlint / ruff），再决定是否走评估 / 描述优化流程。
 - 本仓 CI（`.github/workflows/ci.yml`）= `verify.py --repo-root . --strict-tools` + 仓库级
-  markdownlint + `tests/smoke_test_*.py` glob 循环；新增 skill 与新增冒烟都不必改 CI。
+  markdownlint + `*/tests/smoke_test_*.py` 递归 glob 循环（各冒烟在自己 skill 目录下跑）；
+  新增 skill 与新增冒烟都不必改 CI。
 - `yzr-skill-creator` 内部的 `optimize_description` 会调用 agent CLI 子进程
   （具体 CLI 因 agent 而异，见各自 agent 的逃生舱）。

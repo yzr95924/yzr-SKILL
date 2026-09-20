@@ -10,7 +10,7 @@
 [tool.ruff]
 target-version = "py37"
 line-length = 120
-src = ["yzr-skill-creator"]
+src = ["yzr-skill-creator", "yzr-writing-review"]
 extend-exclude = [
   ".agents",
   ".claude",

@@ -49,8 +49,9 @@ jobs:
         run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
       - name: scoring / schema / rule smoke tests
         # glob 循环：新增冒烟不必改本文件（与 verify.py「新增 skill 不必改 CI」同一理念）。
-        working-directory: yzr-skill-creator
+        # 递归全部 skill：冒烟在各自 skill 目录下运行（cwd 约定见各文件头注）。
         run: |
-          for t in tests/smoke_test_*.py; do
-            python "$t" || exit 1
+          for t in */tests/smoke_test_*.py; do
+            d=${t%/tests/*}
+            (cd "$d" && python "tests/$(basename "$t")") || exit 1
           done
