@@ -9,7 +9,7 @@ prompt 拼装）固化在此；eval-pipeline.md 只留判断性纪律（同轮�
 What it does:
 
 1. Reads ``--evals <skill>/eval/evals.json`` (schema: "evals.json" in
-   references/schemas.md) for eval ids + prompts.
+   ref/schemas.md) for eval ids + prompts.
 2. Creates ``<workspace>/iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/``
    for every eval — exactly the layout ``scripts/eval_report.py`` reads back
    (``eval-*`` dirs, one ``grading.json`` per side at ``eval-<id>/<side>/``);

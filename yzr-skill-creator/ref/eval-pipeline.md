@@ -1,6 +1,6 @@
 # 评估测试用例的执行细节
 
-> 本文件承载 yzr-skill-creator“运行与评估测试用例”章节的**判断性纪律**：并行启动、
+> 本文件承载本入口（[章节](../SKILL.md#运行与评估测试用例)）的**判断性纪律**：并行启动、
 > 断言起草、评分与对话展示。机械细节（目录树 / 旧版快照 / 子 agent prompt 拼装）固化在
 > `scripts/eval_init.py`，SKILL.md 主文件只列原则性指针。
 
@@ -42,15 +42,15 @@ skill 的 SKILL.md 并按其指令完成任务（**跳过 baseline**：你写的
 ## 第 3 步：评分 + 对话展示
 
 1. **为每次运行打分**：启动 grader 子 agent（或内联打分），它读
-   `references/agents/grader.md`，逐条核对断言与输出。评分存到
-   `<run>/grading.json`（字段约定见 [grading.json](schemas.md#gradingjson)）。
+   `ref/agents/grader.md`，逐条核对断言与输出。评分存到
+   `<run>/grading.json`（字段约定见 [章节](schemas.md#gradingjson)）。
    可编程检查的断言写脚本跑，不要肉眼判断，脚本更快、可跨迭代复用。
 2. **汇总 + 校验**：`python -m scripts.eval_report <workspace>/iteration-<N> --evals <skill>/eval/evals.json`
    出每个用例的 with_skill vs baseline 对比（校验范围与输出格式见
    `scripts/eval_report.py` docstring）。**输出文件的实际差异与"这版好不好"的结论仍由
    agent 读文件判**，把数字 + 差异 + 自己的判断一起给用户，请反馈。
 3. **迭代循环**：按用户反馈（以及对比暴露出的明显缺陷）改写 skill → 跑新
-   `iteration-<N+1>/`（baseline 取值规则见 [迭代循环](../SKILL.md#迭代循环)）。
+   `iteration-<N+1>/`（baseline 取值规则见 [章节](../SKILL.md#迭代循环)）。
 
 ## 何时去读本文件
 

@@ -121,7 +121,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   Step 2 / 3 改写时对照。
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
-  段内不再单挂指引。**不**内联索引行——理由见上方 [设计与原理](#设计与原理) L2 记忆层段（Step 2 引用同一 R2 模板）。
+  段内不再单挂指引。**不**内联索引行——理由见上方 [章节](#设计与原理) 的 L2 记忆层段（Step 2 引用同一 R2 模板）。
 - **记忆写统一（默认，见 R6）**：R2 解决**读**统一；**写**统一（agent 把新记忆写 `MEMORY/` 而非私有
   memory）是默认，连同 repo-local + 存在性一起收口到 R6（禁私有 memory + 最小 `MEMORY.md` 模板 +
   写入规约）。详见 `references/rewrite-rules.md` R6。

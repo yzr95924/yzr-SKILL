@@ -6,7 +6,7 @@ description: |
   触发：<"用户原话" / 场景描述，主动句式；把没显式提 skill 名但显然需要的
   情形也列进去，防 agent 少触发>
   不适用：<负例>
-  完整原则见 references/skill-writing-principles.md“description 优化原则”。
+  完整原则见 ref/skill-writing-principles.md“description 优化原则”。
 metadata:
   author: 你的名字
   modify time: YYYY-MM-DD
@@ -28,20 +28,20 @@ metadata:
 <贯穿全程的判断基线：不单独属于某一步的规则、红线、以及"为什么"。视角 / 立场
 一两句话能讲清 = 写成一条 bullet（立场 + 为什么）；需要成段展开（review / 评审类）
 = 在本节后立一个领域节（如“评审立场”），判据见
-references/skill-template-guide.md“变体”。参考资料型 skill 可省略本节>
+ref/skill-template-guide.md“变体”。参考资料型 skill 可省略本节>
 
 ## 工作流 / 步骤
 
 <按顺序的操作步骤。多入口 skill 可在第一个规范节之前加一个路由节（如“入口”，
-判据见 references/skill-template-guide.md“变体”）。单步超过下放阈值
-（见 references/skill-writing-principles.md“正文超长根因诊断”）= 下放到
-references/xxx-workflow.md，正文留路标>
+判据见 ref/skill-template-guide.md“变体”）。单步超过下放阈值
+（见 ref/skill-writing-principles.md“正文超长根因诊断”）= 下放到
+ref/xxx-workflow.md，正文留路标>
 
 ## 参考样例
 
 <1–2 个真实用户输入 → 本 skill 介入路径的映射。与 description 的"常见触发"分工：
 description 放触发短句（决定何时调），此处放介入路径 walkthrough（决定怎么干）。可省略>
 
-<有意不设文末“参考文件”索引节：references/ / scripts/ / assets/ 的"何时去读"写在用它
+<有意不设文末“参考文件”索引节：ref/ / scripts/ / assets/ 的"何时去读"写在用它
 的工作流步骤行内；文件集合本身是路由信息时（多领域 / 按运行时上下文选读），路由表也写在
 调度步内>

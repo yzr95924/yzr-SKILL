@@ -10,7 +10,7 @@ judgement stays with the agent. Two of the audit table's rows qualify:
     mistyped once in this repo's history (commit "修复审计 grep 语法").
 
 Deliberately NOT here (they stay grep rows in
-references/skill-writing-principles.md“审计速查”, because a one-line alternation
+ref/skill-writing-principles.md“审计速查”, because a one-line alternation
 is not worth a rule + its exemption list):
 
   - agent 中立 (品牌词 grep) — trivial pattern, verdict is 100% human.
@@ -94,7 +94,7 @@ def _is_quoted(line: str, start: int, end: int) -> bool:
 
 
 def _markdown_files(skill_dir: Path) -> List[Path]:
-    """Prose files of one skill: SKILL.md + references/ + assets/ (recursive).
+    """Prose files of one skill: SKILL.md + references/ (or ref/) + assets/ (recursive).
 
     scripts/*.py is excluded — a constant there is the *source* of truth, not a
     stray literal. scripts/*.md / eval/*.json likewise.
@@ -103,7 +103,7 @@ def _markdown_files(skill_dir: Path) -> List[Path]:
     skill_md = skill_dir / "SKILL.md"
     if skill_md.is_file():
         files.append(skill_md)
-    for sub in ("references", "assets"):
+    for sub in ("references", "ref", "assets"):
         sub_root = skill_dir / sub
         if sub_root.is_dir():
             files.extend(sorted(p for p in sub_root.rglob("*.md") if p.is_file()))
@@ -132,7 +132,7 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
                         file=rel,
                         line=str(lineno),
                         fix="演进叙事挪 git commit message，正文最多留一句路标"
-                        "（见 references/skill-writing-principles.md“时间性信息不内联”；外部依赖版本约束合法）",
+                        "（见 ref/skill-writing-principles.md“时间性信息不内联”；外部依赖版本约束合法）",
                     )
                 )
     return findings
@@ -175,7 +175,7 @@ def check_bare_metrics(skill_dir: Path) -> List[Finding]:
                 file="",
                 line="",
                 fix="确认权威出处后：脚本常量则 prose 改 `` `CONST` `` 引用，prose 则留一处其余改指针"
-                "（见 references/skill-writing-principles.md“指标单一来源”）",
+                "（见 ref/skill-writing-principles.md“指标单一来源”）",
             )
         )
     return findings

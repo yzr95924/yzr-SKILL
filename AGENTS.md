@@ -14,9 +14,10 @@ This file provides guidance to AI coding agents when working with code in this r
 ## 仓库规约（来源：README.md）
 
 - 每个 skill 目录名（kebab-case）必须与 `SKILL.md` frontmatter 的 `name` 一致。
-- 每个 skill 目录**必须**包含 `SKILL.md`；可选 `scripts/`、`tests/`、`references/`、`assets/`、
-  `eval/` 子目录（`tests/` 为开发期测试专用，运行时 agent 不读——定位见
-  yzr-skill-creator/references/skill-template-guide.md）。
+- 每个 skill 目录**必须**包含 `SKILL.md`；可选 `scripts/`、`tests/`、`ref/`、`assets/`、
+  `eval/` 子目录（按需文档目录新标准名 `ref/`，存量 skill 仍为 `references/`，工具双兼容；
+  `tests/` 为开发期测试专用，运行时 agent 不读——定位见
+  yzr-skill-creator/ref/skill-template-guide.md）。
 - 全部 Markdown 文件需经格式化 + lint，行宽 ≤ 120 字符（`.markdownlint.jsonc`，MD013 已放宽）。
 - 跨会话需要持久化的"为什么"与边界规则写入根目录 `MEMORY/`（`MEMORY.md` 是索引）。
   两种条目形式按事实颗粒度选：
@@ -32,7 +33,7 @@ This file provides guidance to AI coding agents when working with code in this r
     `- 一行事实` 索引行承载，不单独建 `<slug>.md`
   - 判别尺度交给事实本身：需要解释"为什么这么做"或"将来怎么用" → 完整；仅作 reminder → 短
   - **MEMORY 重复 → 直接删**（不要留 thin pointer）：MEMORY 条目内容已落
-    SKILL 源（`<skill-name>/SKILL.md` / `scripts/` / `references/`）→ **直接删**
+    SKILL 源（`<skill-name>/SKILL.md` / `scripts/` / `ref/`，存量为 `references/`）→ **直接删**
     MEMORY 条目 + `MEMORY.md` 索引指针。反模式：留 pointer = 死代码 + 漂移风险
     （详见 `skill-source-priority-over-memory-vendor.md` "反模式"段）。
     **MEMORY 只记 SKILL 源不涵盖的跨会话 meta**——SKILL 开发配置相关（python /
@@ -150,7 +151,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # verify（全套入口）/ quick_validate / check_* / audit_prose / …
     ├── tests/             # smoke_test_*（打桩冒烟，开发期 / CI 专用，运行时不读）
-    ├── references/        # schemas.md（evals.json / grading.json JSON 结构）+ agents/grader.md
+    ├── ref/               # schemas.md（evals.json / grading.json JSON 结构）+ agents/grader.md
     └── assets/skill-template.md   # 可拷贝的 SKILL.md 正文骨架
 ```
 
@@ -171,7 +172,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 
 1. **frontmatter**：`name` + `description`（≤ `utils.py::DESCRIPTION_MAX_CHARS` 字符，触发判定的唯一信号）—— 始终在上下文。
 2. **正文**：触发时加载，控制在 `utils.py::BODY_WORD_LIMIT` 词以内（数值只在该常量处给）。
-3. **捆绑资源**：`scripts/` 可执行、`references/` 按需阅读、`assets/` 模板/图标、`eval/`
+3. **捆绑资源**：`scripts/` 可执行、`ref/` 按需阅读、`assets/` 模板/图标、`eval/`
    评估集。
 
 正文规范 H2 节名 / 顺序 / 各类型豁免的 SSOT 在
@@ -193,8 +194,8 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/eval_init.py` | eval 迭代工作区初始化（目录树 + 逐迭代旧版快照 + 子 agent prompt 拼装）；与 eval_report 构成 writer/reader round-trip，冒烟钉死 |
 | `tests/smoke_test_*.py` | 打桩冒烟（判定 / 计分逻辑的正反两向钉死），改 `scripts/` 后手跑，CI glob 全跑 |
 
-`references/agents/grader.md` 定义了评分子 agent 指令；
-`references/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。
+`ref/agents/grader.md` 定义了评分子 agent 指令；
+`ref/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。
 
 ### 跨 skill 协作约定
 

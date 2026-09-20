@@ -10,7 +10,7 @@ skill-name/
 ├── tests/        - 开发期测试（打桩冒烟等）；运行时 agent 不读（可选）
 └── 捆绑资源（可选）
     ├── scripts/    - 用于确定性 / 重复性任务的可执行脚本（Python / Bash 等）
-    ├── references/ - 按需加载到上下文的文档（heavy reference 必备）
+    ├── ref/ - 按需加载到上下文的文档（heavy reference 必备；存量旧 skill 或名为 references/）
     ├── assets/     - 用于输出的文件（模板 / 图标 / 字体）
     └── eval/       - 用于对当前 skill 的评估
 ```
@@ -23,11 +23,11 @@ skill-name/
 
 1. **元数据**（`name` + `description`）：始终在上下文中
 2. **SKILL.md 正文**：skill 触发时进入上下文（尽量简短，触发即载入）
-3. **捆绑资源**（`scripts/` / `references/` / `assets/` / `eval/`）：按需加载
-   — scripts 可不读直接执行；references / assets 需 Read 才加载。
+3. **捆绑资源**（`scripts/` / `ref/` / `assets/` / `eval/`）：按需加载
+   — scripts 可不读直接执行；ref / assets 需 Read 才加载。
 
 长度上限与抽层 / 何时去读 / 引用深度的权威口径见
-[结构与加载](skill-writing-principles.md#结构与加载)节，此处不重抄。
+[章节](skill-writing-principles.md#结构与加载)，此处不重抄。
 
 ## 正文骨架（canonical 节）
 
@@ -50,13 +50,13 @@ description 优化后悄悄过期）；执行期边界（做本职工作时遇�
   规范节本身仍按 canonical 顺序完整保留
 - **领域特有节**（评审立场 / 设计决策 / 前置条件等）：放“执行原则 / 边界”之后；
   超过下放阈值（见 [正文超长根因诊断](skill-writing-principles.md#结构与加载)）
-  下放到 `references/`，正文只留路标
+  下放到 `ref/`，正文只留路标
 - **视角 / 立场节的加与不加**：视角 / 立场（如“评审立场”）仅当 skill 的核心价值是
   **判断**且立场需要成段展开时才立节（review / 评审 / 审计类典型，立场本身决定产物：
   "以维护者立场而非作者立场看代码"）；一两句话能讲清的立场写成“执行原则 / 边界”的
   一条 bullet（"立场 + 为什么"）；机械型 skill（转换 / 提取 / 管线）**不加**，写不出
   有内容的视角节 = 该加的是别的东西或什么都不加
-- **领域组织**（多领域 / 框架 skill）：`references/` 按领域一文件（如 aws.md / gcp.md /
+- **领域组织**（多领域 / 框架 skill）：`ref/` 按领域一文件（如 aws.md / gcp.md /
   azure.md），SKILL.md 只留 workflow + selection
 
 ## 何时去读本文件

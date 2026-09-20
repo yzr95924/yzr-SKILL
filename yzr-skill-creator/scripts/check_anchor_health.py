@@ -2,7 +2,7 @@
 """Audit a skill's markdown cross-references: link targets, heading anchors,
 backticked paths. Existence only, never semantics.
 
-Checks run over SKILL.md + top-level / references/ / scripts/ *.md:
+Checks run over SKILL.md + top-level / references/ (or ref/) / scripts/ *.md:
 - `[text](target)`: target must resolve inside the skill (DEAD-LINK); with
   `#anchor`, anchor must match a heading slug (see slugify_heading) or an
   explicit <a id> (ANCHOR-DRIFT).
@@ -11,7 +11,7 @@ Checks run over SKILL.md + top-level / references/ / scripts/ *.md:
   CROSS-SKILL-PATH). Fenced code, externals, and placeholder / topic-name
   exemptions: see is_placeholder_path, is_placeholder_target, _TOPIC_FILENAMES.
 
-Reference convention SSOT: references/skill-writing-principles.md "引用约定".
+Reference convention SSOT: ref/skill-writing-principles.md "引用约定".
 Does not audit vendored copies (per [[skill-source-priority-over-memory-vendor]]).
 
 Usage:
@@ -429,7 +429,7 @@ def scan_file(md_path: Path, skill_root: Path) -> List[Dict[str, str]]:
 def _resolve_skill_root_ref(skill_root: Path, token: str) -> Optional[Path]:
     """Fallback resolution for refs written from the skill root rather
     than the containing file's directory — operational refs in this repo
-    routinely say `references/x.md` inside a references/ file. Also
+    routinely say `ref/x.md` inside a ref/ file (legacy skills: `references/`). Also
     serves bare basenames found anywhere in the skill (``x.py`` for
     scripts/x.py). Returns an existing path or None."""
     if "/" in token:
@@ -468,7 +468,7 @@ def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: Lis
     root (operational refs), then as a skill-wide basename search.
 
     CROSS-SKILL-PATH: a relative path that leaves the skill root is a
-    violation in itself (see references/skill-writing-principles.md
+    violation in itself (see ref/skill-writing-principles.md
     "相对路径引用禁止") — it resolves only as long as the sibling skill
     keeps its current directory name and layout, and breaks silently once
     skills are distributed independently.
@@ -515,7 +515,7 @@ def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: Lis
 
 
 def find_markdown_files(skill_root: Path, include_templates: bool = False) -> List[Path]:
-    """Markdown files to audit: SKILL.md + references/*.md + scripts/*.md.
+    """Markdown files to audit: SKILL.md + references/ (or ref/) + scripts/*.md.
 
     Files whose name ends in ``-template.md`` are skipped by default —
     they are skeleton files that get copied into the wiki root, where
@@ -540,10 +540,10 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
         if not include_templates and p.stem.endswith("-template"):
             continue
         files.append(p)
-    for sub in ("references", "scripts"):
+    for sub in ("references", "ref", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
-            # rglob: references/ may nest (e.g. references/agents/grader.md);
+            # rglob: reference dirs may nest (e.g. ref/agents/grader.md);
             # scripts/ is flat in practice but rglob is harmless there.
             for p in sorted(sub_root.rglob("*.md")):
                 if not p.is_file():
@@ -559,7 +559,7 @@ def count_skipped_templates(skill_root: Path) -> int:
     summary line)."""
     skill_md = skill_root / "SKILL.md"
     n = sum(1 for p in skill_root.glob("*.md") if p.is_file() and p != skill_md and p.stem.endswith("-template"))
-    for sub in ("references", "scripts"):
+    for sub in ("references", "ref", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
             n += sum(1 for p in sub_root.rglob("*.md") if p.stem.endswith("-template"))
@@ -615,7 +615,7 @@ def discover_skills(repo_root: Path) -> List[Path]:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Audit markdown link anchors inside a skill — catches silent drift between SKILL.md / references/*.md cross-references and the headings they point at."
+        description="Audit markdown link anchors inside a skill — catches silent drift between SKILL.md / bundled-doc cross-references and the headings they point at."
     )
     parser.add_argument(
         "skill_dir",

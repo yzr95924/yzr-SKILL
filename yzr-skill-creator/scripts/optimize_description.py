@@ -15,7 +15,7 @@ Single entry point for yzr-skill-creator's“描述优化”入口. The loop:
      channel is broken (model error / CLI error / parse error), and the run
      aborts instead of producing numbers from a broken channel
   4. improve: feed failures + previous attempts + the“description 优化原则”
-     section of references/skill-writing-principles.md to `claude -p`, get a
+     section of ref/skill-writing-principles.md to `claude -p`, get a
      new description back
   5. repeat until all train queries pass or max_iterations; pick the best
      iteration by test score (train score if no holdout)
@@ -226,14 +226,14 @@ def run_eval(
 
 
 def _load_description_principles() -> str:
-    """Read description-optimization principles from references/skill-writing-principles.md.
+    """Read description-optimization principles from ref/skill-writing-principles.md.
 
     The principles live in a single SSOT markdown file so they can be extended
     without touching code. Extracts the section under the `## description 优化
     原则` header (up to the next `## ` header) and injects it into the
     improvement prompt.
     """
-    path = Path(__file__).resolve().parent.parent / "references" / "skill-writing-principles.md"
+    path = Path(__file__).resolve().parent.parent / "ref" / "skill-writing-principles.md"
     text = path.read_text(encoding="utf-8")
     header = "## description 优化原则"
     start = text.find(header)

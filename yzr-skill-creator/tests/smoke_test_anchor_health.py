@@ -87,6 +87,19 @@ def cross_file_anchor_positive_negative():
 
 
 @case
+def ref_dir_is_scanned():
+    # ref/ 是本仓新标准目录名，扫描面与 references/ 等价（双兼容）
+    root = make_skill(
+        {
+            "SKILL.md": "---\nname: s\ndescription: d\n---\n\n好 [a](ref/r.md#深层节) 坏 [b](ref/r.md#gone)。\n",
+            "ref/r.md": "## 深层节\n",
+        }
+    )
+    got = statuses(root)
+    assert got.count("ANCHOR-DRIFT") == 1, got
+
+
+@case
 def backtick_path_resolves_from_skill_root():
     # operational ref inside a references/ file, written skill-root-relative
     root = make_skill(

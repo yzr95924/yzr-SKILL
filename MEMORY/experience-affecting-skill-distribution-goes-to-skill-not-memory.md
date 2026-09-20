@@ -35,7 +35,7 @@ SKILL.md + bundled refs 在另一台机器装，看不到 MEMORY**——前面�
 | 影响 SKILL 触发后用户能否达成目标（典型是别人会踩的"坑"） | → **SKILL.md** 故障排查 / 注意事项 + `references/` 详方案 |
 | 只记录仓库维护者的设计决策 / 为什么（无对外行为影响） | → **MEMORY** |
 | 跨 skill 协作约定 / boundary decisions（如 paper-wiki 解耦） | → **MEMORY**，由相关 SKILL.md 引用 |
-| 影响多个 skill 的元规则（如 description 写法原则） | → **MEMORY/**`yzr-skill-creator/references/skill-writing-principles.md` 等专门档 |
+| 影响多个 skill 的元规则（如 description 写法原则） | → **MEMORY/**`yzr-skill-creator/ref/skill-writing-principles.md` 等专门档 |
 
 **How to apply：**
 

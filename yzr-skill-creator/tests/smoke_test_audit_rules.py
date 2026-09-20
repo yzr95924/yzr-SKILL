@@ -151,6 +151,9 @@ def check_cross_skill_path(failures: List[str]) -> None:
     legit = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `references/guide.md`。\n", "references/guide.md": "# g\n"})
     if "CROSS-SKILL-PATH" in rules(verify._anchor_findings(legit)):
         failures.append("CROSS-SKILL-PATH: legit in-skill path reported")
+    legit_ref = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `ref/guide.md`。\n", "ref/guide.md": "# g\n"})
+    if "CROSS-SKILL-PATH" in rules(verify._anchor_findings(legit_ref)):
+        failures.append("CROSS-SKILL-PATH: legit ref/ path reported")
 
 
 def check_bare_metric(failures: List[str]) -> None:

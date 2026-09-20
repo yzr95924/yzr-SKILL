@@ -4,7 +4,7 @@ Everything here is a pure helper: constants that prose refers to by name, the
 frontmatter reader shared by every script, the fence-aware line iterator, and
 the Finding record that check scripts emit. No check *logic* lives here — a rule
 belongs to the script that enforces it (see
-references/skill-writing-principles.md“机械操作脚本化”推论: mechanism detail
+ref/skill-writing-principles.md“机械操作脚本化”推论: mechanism detail
 stays in the script, prose keeps only the口径).
 """
 
@@ -14,7 +14,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 # Description length hard limit, in characters. Single source of truth for this metric:
 # quick_validate.py enforces it, optimize_description.py rewrites over-long descriptions
-# against it. The human-facing statement lives in references/skill-writing-principles.md
+# against it. The human-facing statement lives in ref/skill-writing-principles.md
 # ("指标单一来源" 原则) — change the limit here and code updates everywhere.
 DESCRIPTION_MAX_CHARS = 1024
 
@@ -119,7 +119,7 @@ def iter_unfenced_lines(text: str):
 
 # Severity vocabulary is reused from quick_validate (ERROR blocks, WARN advises,
 # INFO observes) rather than inventing a second scale — the P1–P4 grading in
-# references/skill-writing-principles.md“审查深度标准” is the agent's *report*
+# ref/skill-writing-principles.md“审查深度标准” is the agent's *report*
 # layer and is derived from (level, rule), not stored here.
 FINDING_LEVELS = ("ERROR", "WARN", "INFO")
 
@@ -262,7 +262,7 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
 
 # Canonical SKILL.md body sections (H2 headings), in canonical order. Single source
 # of truth for the body skeleton: quick_validate.py checks skills against it,
-# assets/skill-template.md and references/skill-template-guide.md reference it by
+# assets/skill-template.md and ref/skill-template-guide.md reference it by
 # name — prose must NOT re-list the headings (指标单一来源 原则).
 #
 # Each entry: (heading, exempt_tiers) where exempt_tiers is the set of skill tiers

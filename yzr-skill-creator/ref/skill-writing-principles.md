@@ -2,8 +2,8 @@
 
 本文件是 yzr-skill-creator 管理"SKILL 文字怎么写好"的唯一真源（SSOT）。
 
-**按任务选读**：改 / 优化 description → 只读 [description 优化原则](#description-优化原则) 节；写 / 改正文 → 读 [正文写作原则](#正文写作原则)
-五组；审计（入口 4）→ 全组原则当 checklist + 末尾 [审计速查](#审计速查) 与 [审查深度标准](#审查深度标准入口-4-默认口径) 逐条执行；新增原则 →
+**按任务选读**：改 / 优化 description → 只读 [章节](#description-优化原则)；写 / 改正文 → 读 [章节](#正文写作原则)
+五组；审计（入口 4）→ 全组原则当 checklist + 末尾 [章节](#审计速查) 与 [章节](#审查深度标准入口-4-默认口径) 逐条执行；新增原则 →
 先过下方“新增前三问”。不用每次全量加载。
 
 - **description 优化原则**（下一节）由 description 优化器读取，在此新增 / 修改原则，下次跑优化器立即生效
@@ -12,7 +12,7 @@
 
 **怎么读**：每条 = 名称 + 规则句；例外 / 界限 / 准入等子结构以行内粗体标记折进，不单开子条目
 （判断准则细节就是原则本身，不是装饰；长度随例外复杂度，不机械限句数）。审计检查（grep / 命令）
-不内联在原则里：写作时不需要看，执行入口 4（原则校验）时查末尾 [审计速查](#审计速查) 表。
+不内联在原则里：写作时不需要看，执行入口 4（原则校验）时查末尾 [章节](#审计速查)。
 
 新增原则前先过三问，不要直接追加：
 
@@ -63,7 +63,7 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 
 ## 正文写作原则
 
-> 审计检查操作见文件末尾 [审计速查](#审计速查) 表。写作时跳过，只在执行入口 4（原则校验）时查表执行。
+> 审计检查操作见文件末尾 [章节](#审计速查)。写作时跳过，只在执行入口 4（原则校验）时查表执行。
 
 写 / 改 SKILL.md 正文时遵循：
 
@@ -71,26 +71,26 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 
 - **progressive disclosure 三级加载**（层级定义见
   [progressive disclosure](skill-template-guide.md#progressive-disclosure三级加载)，此处不重抄）：**正文长度权威上限 = `BODY_WORD_LIMIT` 词**（本仓库只在
-  `scripts/utils.py` 给该指标，其它位置只引用不重抄；判定见[审计速查](#审计速查)BODY-LENGTH 行）；接近上限就抽一层到
-  `references/` 并写明"何时去读"；reference 一律不手写目录（TOC），agent 全量读入正文不看 TOC，目录只对浏览器 /
-   编辑器有效（编辑器可按标题自动生成）。引用 `scripts/` / `references/` / `assets/` 时一律说明何时去读。
+  `scripts/utils.py` 给该指标，其它位置只引用不重抄；判定见[章节](#审计速查) BODY-LENGTH 行）；接近上限就抽一层到
+  `ref/` 并写明"何时去读"；reference 一律不手写目录（TOC），agent 全量读入正文不看 TOC，目录只对浏览器 /
+   编辑器有效（编辑器可按标题自动生成）。引用 `scripts/` / `ref/` / `assets/` 时一律说明何时去读。
 - **长度软目标**：按 skill 类型分档的软目标在 `scripts/utils.py::SOFT_WORD_TARGETS`（default /
-  reference / meta 三档，meta 不设上限），不取代 `BODY_WORD_LIMIT` 硬上限；判定见[审计速查](#审计速查)BODY-LENGTH
+  reference / meta 三档，meta 不设上限），不取代 `BODY_WORD_LIMIT` 硬上限；判定见[章节](#审计速查)BODY-LENGTH
   行。高频触发的 skill 可由作者自愿再收紧一档，脚本不为其另设档位（避免为一次性偏好增加配置面）。
 - **正文超长根因诊断**：超长时先查根因再删字：同一规则多处重抄 → 删重留指针；单步 /
-  大样例未下放 → 挪 `references/`。抽层直接拆 references/ 文件，禁用 HTML `<details>` 折叠块；
+  大样例未下放 → 挪 `ref/`。抽层直接拆 ref/ 文件，禁用 HTML `<details>` 折叠块；
   处置顺序见[修法优先级](#归属与下放)。
 - **正文应覆盖（骨架 SSOT 在脚本常量）**：规范 H2 节名、顺序、各类型可省略规则见
   `scripts/utils.py::CANONICAL_BODY_SECTIONS`，此处与其它 prose 一律不重抄节名列表。可 `cp` 填充的
-  骨架见 `assets/skill-template.md`；各类型适配见 [变体](skill-template-guide.md#变体各类型的骨架适配)。
+  骨架见 `assets/skill-template.md`；各类型适配见 [章节](skill-template-guide.md#变体各类型的骨架适配)。
 - **selection 归 description，正文不设“何时不使用”节**：路由层负例（该不该用本 skill）全部
   进 frontmatter description 的“不适用”槽，正文是触发后才加载的，承载不了 selection 信息；
   反向同样成立：触发语 / 路由结论不写回正文（description 常驻上下文，正文复述 = 同文档双写；
   权限 / 纪律句在执行点的重述除外，归删除测试）。
   执行期边界（做本职工作时遇到毗邻情形怎么处理）归“执行原则 / 边界”，流程内分流归
-  “工作流 / 步骤”（归位口径见 [正文骨架](skill-template-guide.md#正文骨架canonical-节)末段）。
-- **引用深度硬上限（one level deep）**：所有 reference 必须从 SKILL.md 直接挂；`references/a.md →
-  references/b.md` 作**加载链**（"不读 b 就无法执行 a 的步骤"）**禁止**：agent 嵌套引用时用
+  “工作流 / 步骤”（归位口径见 [章节](skill-template-guide.md#正文骨架canonical-节)末段）。
+- **引用深度硬上限（one level deep）**：所有 reference 必须从 SKILL.md 直接挂；`ref/a.md →
+  ref/b.md` 作**加载链**（"不读 b 就无法执行 a 的步骤"）**禁止**：agent 嵌套引用时用
   `head -100` 预览会丢信息。**例外**：CLI 字面拷贝模板；**SSOT 路标**：a.md 写"权威定义在 `b.md`
   §Y"式指路不算加载链，前提 b.md 也已从 SKILL.md 直接挂载。
 
@@ -124,18 +124,22 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 
 | 指什么 | 语法 | 出处 |
 | --- | --- | --- |
-| 节（同文件） | `[节名](#slug)` | external：GitHub section links；slug = 小写 + 去标点 + 每空格一个连字符 |
-| 节（跨文件） | `[节名](references/x.md#slug)` | external：同上；链接目标基准 = 所在文件目录 |
+| 节（同文件） | `[章节](#slug)` | external：GitHub section links；slug = 小写 + 去标点 + 每空格一个连字符 |
+| 节（跨文件） | `[章节](ref/x.md#slug)` | external：同上；链接目标基准 = 所在文件目录 |
 | 文件（操作指令） | 反引号相对路径，基准 = skill 根；cwd 不是 skill 根时文中明示（"从本文件目录运行"） | external：agentskills.io spec + Anthropic forms.md 实践 |
 | 术语 / 规则名 / 强调 | “” | external：GB/T 15834 |
 | 命令 / 文件名 / 代码 | 反引号 | markdown 惯例 |
 
+- **文本不抄 slug**：agent 读 raw 不渲染，slug 已承载标题名，文本再抄一遍是双写噪音；文本默认用
+  “章节”类泛指向词，仅在承载 slug 之外的增量时保留具名：区分一对锚点的短 handle（Step 4 / Step 6）、
+  指向节内条目时写条目名（slug 是父节，如“跨 skill 指称”）。例外：assets/ 模板的交付文档面向
+  渲染态人类读者（设计评审），文本用全名
 - **链接是校验通道**：`scripts/check_anchor_health.py` 校验一切链接目标与锚点，指针漂移必报
   DEAD-LINK / ANCHOR-DRIFT；不被链接承载的文字引用在校验之外，少用。code fence 内示例路径豁免
   （target 本就不该存在）
 - **直角引号退役**（house，2026-09）：corner bracket 的节名指针无外部背书、不被任何标准模板采用、
   无法靠校验兜底，仓内归零后不得再出现；节指针一律改链接
-- **步骤引用**：跨节必须带名（`[Step 4: 形态路由](#step-4-形态路由)`），裸序号与序号区间
+- **步骤引用**：跨节必须带名（`[Step 4](#step-4-形态路由)`），裸序号与序号区间
   （"Step 4–6"）禁止；同一工作流节内兄弟互指可裸序号（house：自含块惯例）
 - **改节标题后**跑 `scripts/check_anchor_health.py`，按 ANCHOR-DRIFT 清零
 - **行号引用**禁止（漂移最快、无任何校验通道）
@@ -143,7 +147,7 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 ### 方法论（写前 / 形式）
 
 - **Iron Law（没观察到失败就别写 skill）**：写纪律型 / 模式型 / 参考型 skill 前必须先**不带 skill
-  跑典型 prompt 观察失败**（条数权威值在 SKILL.md“baseline 演练（RED 阶段）”，此处不重抄），把
+  跑典型 prompt 观察失败**（条数权威值在 [章节](../SKILL.md#baseline-演练red-阶段)，此处不重抄），把
   agent 的违规与借口（"为简化" / "用户没说明" / "这样更快" / "应该等价"）
   **原样**抄进 Rationalization Table 输入池。没观察到失败就写 = 赌运气。按 **RED**（观察失败）→
   **GREEN**（写**最小** skill 堵刚看到的违规，不预堵假想漏洞）→ **REFACTOR**（重跑同一批 prompt
@@ -168,7 +172,7 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 ### 归属与下放
 
 - **修法优先级**（正文超长 / 冗余处置顺序）：**(0) 机械操作 → 固化进脚本**（零判断字节
-  操作过“机械操作脚本化”准入规则，直接消除 prose，优于一切挪位）→ (1) 挪 references/
+  操作过“机械操作脚本化”准入规则，直接消除 prose，优于一切挪位）→ (1) 挪 ref/
   → (2) 挪 tool help（`Run --help for
   details.` 替列所有 flag）→ (3) 交叉引用 → (4) 跨 skill 引用（**REQUIRED SUB-SKILL:** 替复述，
   **禁用 `@` 强制加载**）→ (5) 压示例 → (6) 删字（高风险，最后手段）。
@@ -220,8 +224,8 @@ yzr-coding-review。
 > 用户要求"最严 / 仔细审查"时按此口径执行。散文层不在此审，转交 yzr-writing-review
 > （见上 [审查分工](#审计速查)）。
 
-- **全量范围**：`SKILL.md` + `references/` + `scripts/` + `assets/` + `eval/` 每个文件逐行
-  读，无抽样；`references/canonical/` 与 `fixtures/*.txt` 是字节金标准，不碰内容，只审
+- **全量范围**：`SKILL.md` + `ref/`（存量 `references/`）+ `scripts/` + `assets/` + `eval/` 每个文件逐行
+  读，无抽样；`ref/canonical/` 与 `fixtures/*.txt` 是字节金标准，不碰内容，只审
   自包含注释（"与哪份 SSOT 重复 + 理由"）是否齐全
 - **正确性以验证证据为准**：纪律型 / 模式型内容无 baseline / eval 证据时按"未经验证"报，
   审计者不凭精读断言其对错
@@ -235,7 +239,7 @@ yzr-coding-review。
 | --- | --- | --- |
 | agent 中立 | `grep -ni "claude \?code\|qoder\|cursor\|windsurf\|codex"` | 命中逐处复核：特有机制点名 OK，可泛化却写死 → 改泛指 |
 | 指标单一来源 | `python -m scripts.audit_prose <skill-dir>`（BARE-METRIC：同 skill 内同 `<数字><单位>` 跨 ≥ 2 文件） | INFO 候选 → 定权威源：脚本常量则 prose 改 `` `CONST` `` 引用，prose 则留一处其余改指针；跨 skill 的同名数字不算（各自独立演进） |
-| 何时不使用节 | `python -m scripts.quick_validate <skill-dir>`（WHEN-NOT-SECTION） | 命中即报，selection 信息归 description“不适用”槽，按[结构与加载](#结构与加载)selection 条迁移 |
+| 何时不使用节 | `python -m scripts.quick_validate <skill-dir>`（WHEN-NOT-SECTION） | 命中即报，selection 信息归 description“不适用”槽，按[章节](#结构与加载) selection 条迁移 |
 | 触发语不回正文 | 人工：正文逐句问"管何时调还是怎么用"；比对须含 frontmatter description（常驻上下文） | 何时调内容（触发语 / 路由结论）出现在正文 = 违规，删或迁回 description；权限 / 纪律句在执行点的重述不算此条（口径在 yzr-writing-review 第八组判定注三） |
 | reference 禁手写目录 | `python -m scripts.quick_validate <skill-dir>`（HAND-TOC WARN） | 命中即报，agent 全量读入不看 TOC，目录只对浏览器 / 编辑器有效 |
 | 机械操作脚本化 | 语义检查：每段 prose 先过脚本化测试（"能用脚本钉死吗？能 → 为什么没钉？"），工作流步骤里"格式严格 / 必须按 X 格式写 / 手工同步"类纪律是高嫌疑起点；候选逐条过准入两问 + “脚本化的代价核对”那笔账 | 过准入 + 代价核对仍以 prose 承载、且无保留理由（判断引导 / 路由胶水 / context 节省 ≈ 0）→ 报"应脚本化"；md 重述脚本机制细节 → 报"机制挪 docstring"；纯函数但不值脚本成本的（低频 / 一行命令可代 / 判定全靠人）→ 报"过度固化"；脚本改动无打桩冒烟 → 报"验收缺失" |
