@@ -7,7 +7,7 @@ binary serves controlled judge responses and a synthetic skills pool stands in
 for ~/.claude/skills (absent on CI runners), so the run is deterministic and
 needs no model calls. Exit 0 = all green, 1 = regression.
 
-Run: python3 scripts/smoke_test_scoring.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_scoring.py  (from yzr-skill-creator/)
 """
 
 import json

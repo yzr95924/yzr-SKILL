@@ -7,12 +7,17 @@ skill-name/
 ├── SKILL.md（必选，YAML frontmatter + Markdown 说明文档）
 │   ├── YAML frontmatter（name、description 必需）
 │   └── Markdown 说明正文
+├── tests/        - 开发期测试（打桩冒烟等）；运行时 agent 不读（可选）
 └── 捆绑资源（可选）
     ├── scripts/    - 用于确定性 / 重复性任务的可执行脚本（Python / Bash 等）
     ├── references/ - 按需加载到上下文的文档（heavy reference 必备）
     ├── assets/     - 用于输出的文件（模板 / 图标 / 字体）
     └── eval/       - 用于对当前 skill 的评估
 ```
+
+`tests/` 与 `scripts/` 的分工：`scripts/` 是 skill 运行时 agent 要执行的脚本；
+`tests/` 只在开发 / CI 阶段运行（ruff / markdownlint 由 verify.py 一并覆盖），不参与
+运行时加载，也不列入 SKILL.md 的「参考文件」节。
 
 ## progressive disclosure（三级加载）
 

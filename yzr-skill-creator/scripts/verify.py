@@ -21,7 +21,7 @@ Checks run (in this order):
   5. check_skill_dependencies — repo mode only; mutual-mention candidates,
                                 advisory (互提 ≠ 互依, direction is a human call)
   6. markdownlint — skipped when the tool or the repo config is absent
-  7. ruff check + format — only when the skill has scripts/
+  7. ruff check + format — only when the skill has scripts/ and/or tests/
 
 Gating: exit 1 on any ERROR. WARN / INFO never fail a run — they are advice for
 the agent to weigh. A bad invocation or unreadable target is exit 2 (UsageError). Each external tool reports a structured state (see
@@ -262,33 +262,42 @@ def _markdownlint(skill_dir: Path, repo_root: Optional[Path]) -> Tuple[List[Find
     return [finding], ToolResult(name, "markdownlint", TOOL_FAIL, f"{len(lines)} issue(s)")
 
 
-def _ruff_run(skill: str, binary: str, args: List[str], rel: str, repo_root: Path) -> Tuple[List[Finding], ToolResult]:
+def _ruff_run(
+    skill: str, binary: str, args: List[str], rels: List[str], repo_root: Path
+) -> Tuple[List[Finding], ToolResult]:
     label = "ruff " + " ".join(args)
-    rc, output = _run_tool([binary] + args + [rel], repo_root)
+    rc, output = _run_tool([binary] + args + rels, repo_root)
     if rc == 0:
         return [], ToolResult(skill, label, TOOL_OK)
     lines = _issue_lines(output)
-    finding = _tool_output_finding("RUFF", f"{label} 失败（{rel}）:", lines, "ruff check --fix / ruff format")
+    finding = _tool_output_finding(
+        "RUFF", f"{label} 失败（{' '.join(rels)}）:", lines, "ruff check --fix / ruff format"
+    )
     return [finding], ToolResult(skill, label, TOOL_FAIL, f"{len(lines)} line(s)")
 
 
 def _ruff(skill_dir: Path, repo_root: Optional[Path]) -> Tuple[List[Finding], List[ToolResult]]:
     name = skill_dir.name
-    scripts_dir = skill_dir / "scripts"
-    if not scripts_dir.is_dir():
-        return [], [ToolResult(name, "ruff", TOOL_SKIP, "skill has no scripts/")]
+    # Runtime scripts and dev-time tests are linted together: scripts/ holds what
+    # the skill executes at runtime, tests/ (smoke tests) what CI/developers run.
+    sub_dirs = [skill_dir / sub for sub in ("scripts", "tests") if (skill_dir / sub).is_dir()]
+    if not sub_dirs:
+        return [], [ToolResult(name, "ruff", TOOL_SKIP, "skill has no scripts/ or tests/")]
     binary = shutil.which("ruff")
     if binary is None:
         return [], [ToolResult(name, "ruff", TOOL_MISSING, "not installed")]
     if repo_root is None:
         return [], [ToolResult(name, "ruff", TOOL_MISSING, "no repo root — pyproject.toml config unreachable")]
-    rel = _relative_to_root(scripts_dir, repo_root)
-    if rel is None:
-        return [], [ToolResult(name, "ruff", TOOL_MISSING, f"{skill_dir} is not under {repo_root}")]
+    rels: List[str] = []
+    for sub_dir in sub_dirs:
+        rel = _relative_to_root(sub_dir, repo_root)
+        if rel is None:
+            return [], [ToolResult(name, "ruff", TOOL_MISSING, f"{skill_dir} is not under {repo_root}")]
+        rels.append(rel)
     findings: List[Finding] = []
     results: List[ToolResult] = []
     for args in (["check"], ["format", "--check"]):
-        sub_findings, result = _ruff_run(name, binary, args, rel, repo_root)
+        sub_findings, result = _ruff_run(name, binary, args, rels, repo_root)
         findings += sub_findings
         results.append(result)
     return findings, results

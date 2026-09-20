@@ -8,7 +8,7 @@ candidate must leave the file exactly as it was. A corrupted block scalar is the
 silent kind of failure — the skill still looks present, but its description (and
 therefore its triggering) is quietly broken.
 
-Run: python3 scripts/smoke_test_apply_description.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_apply_description.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 

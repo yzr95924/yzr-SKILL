@@ -7,7 +7,7 @@ confident wrong score. Every case below has both directions — the broken fixtu
 must produce the named ERROR, the good fixture must produce none — because an
 always-failing validator passes the same test as a correct one.
 
-Run: python3 scripts/smoke_test_eval_report.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_eval_report.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 

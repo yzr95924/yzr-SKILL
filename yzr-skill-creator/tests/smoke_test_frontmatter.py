@@ -7,7 +7,7 @@ the trigger judge (this happened historically with a hand-rolled parser that cut
 off at a blank line inside a ``|`` block) and a bad word estimate turns into a
 bogus length finding. Cases below pin the exact shapes that broke before.
 
-Run: python3 scripts/smoke_test_frontmatter.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_frontmatter.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 

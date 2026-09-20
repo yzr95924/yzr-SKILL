@@ -14,8 +14,9 @@ This file provides guidance to AI coding agents when working with code in this r
 ## 仓库规约（来源：README.md）
 
 - 每个 skill 目录名（kebab-case）必须与 `SKILL.md` frontmatter 的 `name` 一致。
-- 每个 skill 目录**必须**包含 `SKILL.md`；可选 `scripts/`、`references/`、`assets/`、`eval/`
-  子目录。
+- 每个 skill 目录**必须**包含 `SKILL.md`；可选 `scripts/`、`tests/`、`references/`、`assets/`、
+  `eval/` 子目录（`tests/` 为开发期测试专用，运行时 agent 不读——定位见
+  yzr-skill-creator/references/skill-template-guide.md）。
 - 全部 Markdown 文件需经格式化 + lint，行宽 ≤ 120 字符（`.markdownlint.jsonc`，MD013 已放宽）。
 - 跨会话需要持久化的"为什么"与边界规则写入根目录 `MEMORY/`（`MEMORY.md` 是索引）。
   两种条目形式按事实颗粒度选：
@@ -147,6 +148,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 └── yzr-skill-creator/           # 元 skill：创建 / 改进 / 评估 skill 本身
     ├── SKILL.md           # skill 创作循环 + 描述优化 + 实操评估章节
     ├── scripts/           # verify（全套入口）/ quick_validate / check_* / audit_prose / …
+    ├── tests/             # smoke_test_*（打桩冒烟，开发期 / CI 专用，运行时不读）
     ├── references/        # schemas.md（evals.json / grading.json JSON 结构）+ agents/grader.md
     └── assets/skill-template.md   # 可拷贝的 SKILL.md 正文骨架
 ```
@@ -187,7 +189,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | `scripts/audit_prose.py` | 两条启发式扫描（BARE-METRIC 指标散落 / VERSION-HISTORY-INLINE 版本演进史内联）；INFO 级候选，判定归 agent |
 | `scripts/optimize_description.py` | 描述优化（触发评估 + 改进循环）；输出 results.json + 终端摘要，无 HTML 报告；`--apply`（配 `--dry-run`）负责写回 frontmatter |
 | `scripts/eval_report.py` | 一次 eval iteration 的 grading.json 契约校验（字段名 / summary 算术 / 断言漏评）+ with_skill vs baseline 对比表；也供 verify 校验 evals.json |
-| `scripts/smoke_test_*.py` | 打桩冒烟（判定 / 计分逻辑的正反两向钉死），改脚本后手跑，CI 每次全跑 |
+| `tests/smoke_test_*.py` | 打桩冒烟（判定 / 计分逻辑的正反两向钉死），改 `scripts/` 后手跑，CI glob 全跑 |
 
 `references/agents/grader.md` 定义了评分子 agent 指令；
 `references/schemas.md` 给出 `evals.json` / `grading.json` 字段约定。
@@ -210,6 +212,6 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 - 新增 skill 时优先复用 `yzr-skill-creator/scripts/verify.py` 做预检（它内含 quick_validate /
   引用存活 / 启发式扫描 / markdownlint / ruff），再决定是否走评估 / 描述优化流程。
 - 本仓 CI（`.github/workflows/ci.yml`）= `verify.py --repo-root . --strict-tools` + 仓库级
-  markdownlint + 全部 `smoke_test_*.py`；新增 skill 不必改 CI（脚本自己枚举目录）。
+  markdownlint + `tests/smoke_test_*.py` glob 循环；新增 skill 与新增冒烟都不必改 CI。
 - `yzr-skill-creator` 内部的 `optimize_description` 会调用 agent CLI 子进程
   （具体 CLI 因 agent 而异，见各自 agent 的逃生舱）。

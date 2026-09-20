@@ -9,7 +9,7 @@ stays silent — and the extraction / line-number cases pin exact output, becaus
 a matcher that silently drops matches (or is off by one line) passes
 single-direction, id-only tests.
 
-Run: python3 scripts/smoke_test_audit_rules.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_audit_rules.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 

@@ -44,4 +44,5 @@ description 放触发短句（决定何时调），此处放介入路径 walkthr
 
 ## 参考文件
 
-<有 references/ / scripts/ / assets/ 时列出并说明何时去读；没有则整节删除>
+<有 references/ / scripts/ / assets/ 时列出并说明何时去读；没有则整节删除。
+tests/ 属开发期测试（运行时不读），不列>

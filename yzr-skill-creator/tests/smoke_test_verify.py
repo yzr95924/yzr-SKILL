@@ -14,7 +14,7 @@ Both directions are pinned: the missing-tool case must gate under
 ``--strict-tools`` and must not gate on SKIP; the broken channel must be ERROR
 while a genuinely empty result stays INFO.
 
-Run: python3 scripts/smoke_test_verify.py  (from yzr-skill-creator/)
+Run: python3 tests/smoke_test_verify.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 

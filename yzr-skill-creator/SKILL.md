@@ -33,7 +33,7 @@ metadata:
    脚本行为 / 新增功能）——说法 = 单点，规矩 = 行为性。单点修改直接做：对照
    `references/skill-writing-principles.md` 写作原则自查 + 跑 `python -m scripts.verify <skill-dir>`
    验证（一次覆盖 frontmatter / 正文结构 / 引用存活 / 启发式扫描 / markdownlint / ruff；
-   改了 `scripts/` 再手跑 `scripts/smoke_test_*.py`），汇报里声明分类 +
+   改了 `scripts/` 再手跑 `tests/smoke_test_*.py`），汇报里声明分类 +
    一句理由；行为性修改**先问用户是否跑 eval 循环**——不点头不跑、不静默降级。
    行为性（评估 + 迭代）介入：快照旧版 → with-skill vs baseline 同轮并行 → 读
    transcript 找"模型在哪里挣扎"→ 改 → 重跑验证。

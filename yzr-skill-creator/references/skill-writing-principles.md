@@ -235,7 +235,7 @@
   `audit-*.md` 之类的归档文件、也不写 MEMORY 历史——结论在回复里、修复在文件里，
   归档件只会变成无人维护的第二真源
 - **修复流**：逐项等用户确认 → 修（只动仓库源，不手拷 vendored）→ `python -m scripts.verify
-  <skill-dir>` 验证（含 markdownlint / ruff；改了脚本再手跑 `scripts/smoke_test_*.py`）→
+  <skill-dir>` 验证（含 markdownlint / ruff；改了脚本再手跑 `tests/smoke_test_*.py`）→
   commit + push（用户经 npx 同步 vendored）→ git 确认
 
 | 原则 | 检查 | 判定 |

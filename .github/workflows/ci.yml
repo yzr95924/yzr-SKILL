@@ -48,11 +48,9 @@ jobs:
       - name: markdownlint repo-level docs (README / AGENTS / MEMORY)
         run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
       - name: scoring / schema / rule smoke tests
+        # glob 循环：新增冒烟不必改本文件（与 verify.py「新增 skill 不必改 CI」同一理念）。
         working-directory: yzr-skill-creator
         run: |
-          python scripts/smoke_test_scoring.py
-          python scripts/smoke_test_frontmatter.py
-          python scripts/smoke_test_audit_rules.py
-          python scripts/smoke_test_apply_description.py
-          python scripts/smoke_test_eval_report.py
-          python scripts/smoke_test_verify.py
+          for t in tests/smoke_test_*.py; do
+            python "$t" || exit 1
+          done
