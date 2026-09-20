@@ -102,6 +102,9 @@ metadata:
 4. 是否需要设置测试用例来验证 skill 是否可用？（可客观验证输出的 skill——文件转换、
    数据抽取、代码生成、固定工作流步骤——测试用例有益）
 5. 边界情况、示例文件、成功标准、依赖项等
+6. 流程里哪些步骤是**机械操作**（零判断、可枚举）？逐条标「判断 / 机械」——机械的默认进
+   `scripts/` 规划，留 md 要给理由（闸门与豁免口径见
+   `references/skill-writing-principles.md`「机械操作脚本化」）
 
 调研：检查可用的 MCP，对调研有帮助（搜索文档、查找类似 skill、查阅最佳实践）且支持
 子 agent 时并行调研，否则直接内联进行。
@@ -128,6 +131,9 @@ metadata:
 各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
 `references/skill-template-guide.md`「变体」）。先填全骨架再按 `references/skill-writing-principles.md`「精简与粒度约束」删节，不要"想到哪写到哪"——
 SKILL.md 格式统一靠的就是这份骨架。
+
+起草正文前先落 `scripts/` 清单：访谈第 6 问标出的机械操作逐条进 `scripts/`（留 md 的记录
+理由），正文只写判断引导与"跑 X 命令"调用行。
 
 起草完成后先跑预检再进入测试用例：
 `python -m scripts.verify <skill-dir> --tier <type>`（frontmatter 合法性 + 正文结构 + description
