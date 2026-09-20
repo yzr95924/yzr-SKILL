@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.optimize_description import apply_description  # noqa: E402
+from scripts.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
 from scripts.utils import parse_skill_md  # noqa: E402
 
 FM_TAIL = "metadata:\n  author: smoke\n  modify time: 2026-01-01\n"
@@ -54,7 +54,7 @@ def check_round_trip(failures):
     if rc != 0:
         failures.append(f"round-trip: apply returned {rc}")
         return
-    name, got, content = parse_skill_md(root)
+    _, got, content = parse_skill_md(root)
     if " ".join(LONG_DESCRIPTION.split()) != got:
         failures.append("round-trip: description came back different")
     if not content.startswith("---\nname: s\ndescription: |\n"):
@@ -64,8 +64,8 @@ def check_round_trip(failures):
     if "## 输入 / 输出" not in content or "旧描述" in content:
         failures.append("round-trip: body / old value mismatch")
     for line in content.split("\n"):
-        if line.startswith("  ") and len(line) > 100:
-            failures.append(f"round-trip: wrapped line exceeds 100 chars ({len(line)})")
+        if line.startswith("  ") and len(line) > DESCRIPTION_WRAP_WIDTH + 2:
+            failures.append(f"round-trip: wrapped line exceeds {DESCRIPTION_WRAP_WIDTH}+2 chars ({len(line)})")
             break
     # Second apply is a no-op.
     before = content

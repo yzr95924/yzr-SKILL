@@ -19,7 +19,7 @@ from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.eval_report import check_evals, check_grading, collect  # noqa: E402
+from scripts.eval_report import _cross_check_evals, check_evals, check_grading, collect, evals_by_id  # noqa: E402
 
 ASSERTIONS = ["产出含 X", "使用了脚本 Y", "正文不含 Z"]
 
@@ -108,6 +108,32 @@ def check_missing_grading(failures: List[str]) -> None:
         failures.append("no grading.json: layout not flagged")
 
 
+def check_coverage(failures: List[str]) -> None:
+    """--evals cross-check: a grading.json that skips assertions must be a
+    GRADING-COVERAGE ERROR (the headline bug this script exists for); a
+    fully-covered run must stay silent."""
+    evals, _ = evals_by_id({"evals": [{"id": 0, "prompt": "p", "expectations": ASSERTIONS}]}, "evals.json")
+
+    # Grades only the first assertion — a grader that silently skipped the rest.
+    partial = {
+        "expectations": [{"text": ASSERTIONS[0], "passed": True, "evidence": "x"}],
+        "summary": {"passed": 1, "failed": 0, "total": 1, "pass_rate": 1.0},
+    }
+    partial_root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    write_run(partial_root, 0, "with_skill", partial)
+    runs, _ = collect(partial_root)
+    got = [f.rule for f in _cross_check_evals(runs, evals, Path("evals.json")) if f.level == "ERROR"]
+    if "GRADING-COVERAGE" not in got:
+        failures.append(f"coverage: skipped assertions not reported as GRADING-COVERAGE ERROR, got {got}")
+
+    full_root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    write_run(full_root, 0, "with_skill", good_grading(ASSERTIONS))
+    runs_full, _ = collect(full_root)
+    loud = [f for f in _cross_check_evals(runs_full, evals, Path("evals.json")) if f.level == "ERROR"]
+    if loud:
+        failures.append(f"coverage: fully-covered run produced {[(f.rule, f.level) for f in loud]}")
+
+
 def check_evals_set(failures: List[str]) -> None:
     """eval/evals.json drift: stale skill_name / duplicate id / missing input file."""
 
@@ -121,8 +147,9 @@ def check_evals_set(failures: List[str]) -> None:
     good = make_skill(
         {"skill_name": "demo-skill", "evals": [{"id": 0, "prompt": "p", "expectations": ["x"], "files": []}]}
     )
-    if check_evals(good):
-        failures.append(f"check_evals: clean set reported {check_evals(good)}")
+    got = check_evals(good)
+    if got:
+        failures.append(f"check_evals: clean set reported {got}")
     for label, payload, want in (
         (
             "stale skill_name",
@@ -162,6 +189,7 @@ def main() -> int:
     check_arithmetic(failures)
     check_unreadable(failures)
     check_missing_grading(failures)
+    check_coverage(failures)
     check_evals_set(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")

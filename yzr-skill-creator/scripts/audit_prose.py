@@ -28,9 +28,8 @@ Usage:
     python3 -m scripts.audit_prose <skill-dir> [--json]
     python3 -m scripts.audit_prose --repo-root <repo-root> [--json]
 
-Exit code: 0 = no findings (or only findings); 1 = at least one finding (so a
-caller can gate on it — but note the level is INFO, the gate is a choice);
-2 = setup error.
+Exit code: 0 = no findings; 1 = at least one finding (all findings are INFO —
+gating on this exit code is a policy choice, not a verdict); 2 = setup error.
 """
 
 import argparse
@@ -206,8 +205,8 @@ def _collect_targets(args, parser) -> Tuple[List[Path], int]:
             print(f"error: no SKILL.md under: {skill_dir}", file=sys.stderr)
             return [], 2
         return [skill_dir], 0
+    # parser.error raises SystemExit(2); nothing below it runs.
     parser.error("give a skill dir or --repo-root")
-    return [], 2
 
 
 def scan_all(targets: List[Path]) -> List[Finding]:

@@ -63,6 +63,9 @@ DEFAULT_HOLDOUT_RATIO = 0.4
 
 # Judge candidates are collected from here so the eval list mirrors what a real
 # agent sees. The target skill is identified by its own frontmatter name.
+# Agent-specific path (Claude Code skills dir; root AGENTS.md notes the CLI
+# varies by agent): porting to another agent CLI = repoint this and the
+# `claude` binary in _call_claude, nothing else.
 SKILLS_DIR = Path.home() / ".claude" / "skills"
 
 # Canary: a synthetic skill whose description contains a unique token, plus
@@ -86,10 +89,17 @@ def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
     Prompt goes over stdin (not argv) because it can embed full skill content.
     Runs in the temp dir so project context cannot bias the answer.
     """
+    # Agent-specific binding, deliberately centralised in this one function:
+    # every judge / improve call goes through it, so swapping the agent CLI is
+    # a one-spot change (see SKILLS_DIR's comment).
     cmd = ["claude", "-p", "--output-format", "text"]
     if model:
         cmd.extend(["--model", model])
 
+    # CLAUDECODE marks an enclosing Claude Code session; stripping it keeps the
+    # child CLI behaving like a top-level invocation. The pass-everything-else
+    # policy is also what lets smoke_test_scoring inject its stub via
+    # SMOKE_JUDGE_CONFIG — extend the strip list and that stub dies silently.
     env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
     result = subprocess.run(
@@ -242,6 +252,7 @@ def improve_description(
     model: Optional[str],
     log_dir: Optional[Path] = None,
     iteration: Optional[int] = None,
+    timeout: int = 300,
 ) -> str:
     """Call Claude to improve the description based on eval results."""
     failed_triggers = [r for r in eval_results["results"] if r["should_trigger"] and not r["pass"]]
@@ -306,7 +317,7 @@ Based on the failures above and these principles, write a new and improved descr
 
 Please respond with only the new description text in <new_description> tags, nothing else."""
 
-    text = _call_claude(prompt, model)
+    text = _call_claude(prompt, model, timeout)
 
     match = re.search(r"<new_description>(.*?)</new_description>", text, re.DOTALL)
     if match:
@@ -336,7 +347,7 @@ Please respond with only the new description text in <new_description> tags, not
             f"important trigger words and intent coverage. Respond with only "
             f"the new description in <new_description> tags."
         )
-        shorten_text = _call_claude(shorten_prompt, model)
+        shorten_text = _call_claude(shorten_prompt, model, timeout)
         match = re.search(r"<new_description>(.*?)</new_description>", shorten_text, re.DOTALL)
         if match:
             shortened = match.group(1).strip().strip('"')
@@ -363,13 +374,15 @@ Please respond with only the new description text in <new_description> tags, not
 
 def split_eval_set(eval_set: List[dict], holdout: float, seed: int = 42) -> Tuple[List[dict], List[dict]]:
     """Split eval set into train and test sets, stratified by should_trigger."""
-    random.seed(seed)
+    # Local RNG: seeding the global one would reset the caller's random
+    # sequence when this module is imported as a library.
+    rng = random.Random(seed)
 
     trigger = [e for e in eval_set if e["should_trigger"]]
     no_trigger = [e for e in eval_set if not e["should_trigger"]]
 
-    random.shuffle(trigger)
-    random.shuffle(no_trigger)
+    rng.shuffle(trigger)
+    rng.shuffle(no_trigger)
 
     n_trigger_test = max(1, int(len(trigger) * holdout))
     n_no_trigger_test = max(1, int(len(no_trigger) * holdout))
@@ -406,6 +419,18 @@ def _print_eval_stats(label: str, results: List[dict], elapsed: Optional[float] 
             f"  [{status}] rate={rate_str} expected={r['should_trigger']}: {r['query'][:60]}",
             file=sys.stderr,
         )
+
+
+def select_best_iteration(history: List[dict], has_test_set: bool) -> dict:
+    """Best iteration by score: holdout test score first (train as tie-break)
+    when a test set exists, else train score alone.
+
+    Importable so the smoke test pins the real selection logic, not a copy
+    of its lambda (a copy stayed green when the tie-break was changed).
+    """
+    if has_test_set:
+        return max(history, key=lambda h: (h["test_passed"] or 0, h["train_passed"]))
+    return max(history, key=lambda h: h["train_passed"])
 
 
 def run_optimize_loop(
@@ -522,6 +547,7 @@ def run_optimize_loop(
             model=model,
             log_dir=log_dir,
             iteration=iteration,
+            timeout=timeout,
         )
         improve_elapsed = time.time() - t0
 
@@ -530,11 +556,10 @@ def run_optimize_loop(
 
         current_description = new_description
 
+    best = select_best_iteration(history, has_test_set=bool(test_set))
     if test_set:
-        best = max(history, key=lambda h: (h["test_passed"] or 0, h["train_passed"]))
         best_score = f"{best['test_passed']}/{best['test_total']}"
     else:
-        best = max(history, key=lambda h: h["train_passed"])
         best_score = f"{best['train_passed']}/{best['train_total']}"
 
     if verbose:
@@ -587,7 +612,7 @@ _DESCRIPTION_KEY_RE = re.compile(r"^description:[ \t]*(.*)$")
 _BREAK_AFTER = "。；，、：）】"
 
 
-def _frontmatter_close(lines: List[int]) -> int:
+def _frontmatter_close(lines: List[str]) -> int:
     """Index of the closing ``---`` line."""
     for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
@@ -702,8 +727,6 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
         return 1
 
     # Gate on the real validator before touching the file.
-    import tempfile
-
     with tempfile.TemporaryDirectory(prefix="skill-apply-") as tmp:
         (Path(tmp) / "SKILL.md").write_text(updated)
         valid, message = validate_skill(Path(tmp))
@@ -721,8 +744,6 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
 
     tmp_path = skill_md.with_name(skill_md.name + ".tmp-apply")
     tmp_path.write_text(updated)
-    import os
-
     os.replace(str(tmp_path), str(skill_md))
     print(f"已写入 {skill_md}（description {len(current)} → {len(new_description.strip())} 字符）", file=sys.stderr)
     return 0
@@ -775,6 +796,21 @@ def main():
         if not isinstance(item, dict) or "query" not in item or "should_trigger" not in item:
             print(f"Error: eval set item {i} missing 'query' / 'should_trigger': {item!r}", file=sys.stderr)
             sys.exit(1)
+    # Duplicate query texts would straddle the train/test split (membership is
+    # keyed on query text below) and double-count one side; collapse exact
+    # duplicates and refuse contradictory labels up front.
+    unique: Dict[str, dict] = {}
+    for item in eval_set:
+        prev = unique.get(item["query"])
+        if prev is not None and bool(prev["should_trigger"]) != bool(item["should_trigger"]):
+            print(
+                f"Error: query appears twice with conflicting should_trigger: {item['query']!r}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if prev is None:
+            unique[item["query"]] = item
+    eval_set = list(unique.values())
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():

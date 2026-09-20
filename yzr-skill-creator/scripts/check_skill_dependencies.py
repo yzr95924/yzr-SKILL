@@ -24,7 +24,8 @@ Usage:
 Output: mutual-mention pairs (candidates for real cycles) + one-directional
 mentions (info only — every mention must justify itself; exit code unaffected).
 
-Exit code: 0 = no mutual-mention pairs; 1 = at least one pair found.
+Exit code: 0 = no mutual-mention pairs; 1 = at least one pair found;
+2 = repo root not found.
 """
 
 import argparse
@@ -50,7 +51,7 @@ def discover_skills(repo_root: Path) -> List[Tuple[str, Path]]:
     """
     skills: List[Tuple[str, Path]] = []
     for child in discover_skill_dirs(repo_root, require_parseable=True):
-        name = parse_skill_md(child)[0].strip()
+        name = parse_skill_md(child)[0]  # already stripped by the shared reader
         skills.append((name, child))
     return skills
 

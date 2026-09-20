@@ -24,7 +24,7 @@ Checks run (in this order):
   7. ruff check + format — only when the skill has scripts/
 
 Gating: exit 1 on any ERROR. WARN / INFO never fail a run — they are advice for
-the agent to weigh. Each external tool reports a structured state (see
+the agent to weigh. A bad invocation or unreadable target is exit 2 (UsageError). Each external tool reports a structured state (see
 ToolResult): OK, FAIL (it ran and complained), SKIP (not applicable, e.g. a skill
 without scripts/), MISSING (the tool / its config / the skill's placement made it
 impossible to run). `--strict-tools` turns MISSING into an ERROR, for
@@ -63,7 +63,7 @@ from scripts import (  # noqa: E402
     eval_report,
     quick_validate,
 )
-from scripts.utils import Finding, discover_skill_dirs, format_findings  # noqa: E402
+from scripts.utils import FINDING_LEVELS, Finding, discover_skill_dirs, format_findings  # noqa: E402
 
 # Anchor drift blocks: a dead pointer is a real defect, and CI has always
 # treated check_anchor_health's exit code as a gate.
@@ -384,7 +384,7 @@ def _gate(run: Run, strict_tools: bool) -> List[Finding]:
 
 
 def _counts(findings: List[Finding]) -> Dict[str, int]:
-    return {lvl: sum(1 for f in findings if f.level == lvl) for lvl in ("ERROR", "WARN", "INFO")}
+    return {lvl: sum(1 for f in findings if f.level == lvl) for lvl in FINDING_LEVELS}
 
 
 def _render_json(run: Run, root: Optional[Path], repo_mode: bool, errors: List[Finding]) -> None:

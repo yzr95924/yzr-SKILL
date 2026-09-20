@@ -35,7 +35,7 @@ from typing import Dict, List, Optional, Tuple
 # script and as `python -m scripts.eval_report`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import Finding  # noqa: E402
+from scripts.utils import Finding, parse_skill_md  # noqa: E402
 
 # Side directories, in display order. A run has one baseline side; both are
 # listed so either layout validates.
@@ -97,7 +97,11 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
         if text in results:
             findings.append(
                 Finding(
-                    rule="GRADING-SCHEMA", level="WARN", evidence=f"重复的断言原文：{text[:40]}", file=rel, line=str(i)
+                    rule="GRADING-SCHEMA",
+                    level="WARN",
+                    evidence=f"重复的断言原文：{text[:_EVIDENCE_PREVIEW]}",
+                    file=rel,
+                    line=str(i),
                 )
             )
         results[text] = {"passed": bool(item["passed"])}
@@ -206,7 +210,7 @@ def collect(iteration_dir: Path) -> Tuple[Dict[int, Dict[str, Dict[str, bool]]],
                     level="ERROR",
                     evidence=f"用例目录名不合规范：{eval_dir.name}",
                     file=str(eval_dir),
-                    fix=f"目录名应为 eval-<id>（id 取自 {'evals.json'})",
+                    fix="目录名应为 eval-<id>（id 取自 evals.json）",
                 )
             )
             continue
@@ -312,8 +316,6 @@ def _evals_from_file(path: Path) -> Tuple[Dict[int, List[str]], List[Finding]]:
 def _check_evals_identity(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
     """The set must declare the skill it belongs to, or it drifts silently after
     a rename (the grader and the outputs stop matching)."""
-    from scripts.utils import parse_skill_md
-
     try:
         name = parse_skill_md(skill_dir)[0]
     except (ValueError, OSError):

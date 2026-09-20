@@ -32,11 +32,18 @@ from scripts import verify  # noqa: E402
 
 SKILL_BODY = "---\nname: probe-skill\ndescription: 场景。触发：x。不适用：y。\n---\n# t\n\n## 输入 / 输出\n\n正文。\n"
 
+# Same pattern as smoke_test_audit_rules: keep the TemporaryDirectory handles
+# alive for the process lifetime instead of sprinkling cleanup through every
+# check — a mid-check failure would leak anyway, and /tmp handles the rest.
+_KEEP = []
+
 
 def make_skill(name: str = "probe-skill") -> Path:
-    root = Path(tempfile.mkdtemp(prefix="verify-smoke-")) / name
+    tmp = tempfile.TemporaryDirectory(prefix="verify-smoke-")
+    root = Path(tmp.name) / name
     root.mkdir(parents=True)
     (root / "SKILL.md").write_text(SKILL_BODY)
+    _KEEP.append(tmp)
     return root
 
 
@@ -115,17 +122,18 @@ def check_tool_states(failures: List[str]) -> None:
 def check_markdownlint_placement(failures: List[str]) -> None:
     """A skill outside the repo root is a MISSING state, not a traceback."""
     skill = make_skill()
-    other_root = Path(tempfile.mkdtemp(prefix="verify-smoke-")) / "elsewhere"
-    other_root.mkdir()
-    try:
-        _findings, result = verify._markdownlint(skill, other_root)
-    except Exception as e:  # the old behaviour: ValueError escapes
-        failures.append(f"_markdownlint raised {type(e).__name__} instead of reporting MISSING")
-        return
-    if result.state != verify.TOOL_MISSING:
-        failures.append(f"skill outside repo root: expected MISSING, got {result.state}")
-    if _findings:
-        failures.append("a tool that never ran produced findings")
+    with tempfile.TemporaryDirectory(prefix="verify-smoke-") as td:
+        other_root = Path(td) / "elsewhere"
+        other_root.mkdir()
+        try:
+            _findings, result = verify._markdownlint(skill, other_root)
+        except Exception as e:  # the old behaviour: ValueError escapes
+            failures.append(f"_markdownlint raised {type(e).__name__} instead of reporting MISSING")
+            return
+        if result.state != verify.TOOL_MISSING:
+            failures.append(f"skill outside repo root: expected MISSING, got {result.state}")
+        if _findings:
+            failures.append("a tool that never ran produced findings")
 
 
 def check_usage_errors(failures: List[str]) -> None:

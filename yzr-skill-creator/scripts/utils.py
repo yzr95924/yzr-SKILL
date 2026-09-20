@@ -44,7 +44,7 @@ def estimate_body_words(body: str) -> int:
     """Estimate the word count of SKILL.md prose (fenced code excluded).
 
     Splitting CJK from ASCII matters: applying the CJK divisor to English text
-    overestimates by ~3x (an English word averages ~6 characters, not 1.7),
+    overestimates by ~3.5x (an English word averages ~6 characters, not 1.7),
     which would false-positive every ASCII-heavy skill against BODY_WORD_LIMIT.
     """
     prose = "\n".join(line for _, line in iter_unfenced_lines(body))
@@ -128,9 +128,9 @@ class Finding(NamedTuple):
     so CI and agents can filter; *evidence* is the human-readable line; *fix*
     is the suggested remedy ("" when the finding is self-explanatory).
 
-    Call sites pass every field by keyword: five of the six fields are ``str``,
-    so a positional slip is invisible to a linter and silently lands in the
-    wrong slot (this happened once while writing these scripts)."""
+    Call sites pass every field by keyword: all six fields are ``str``, so a
+    positional slip is invisible to a linter and silently lands in the wrong
+    slot (this happened once while writing these scripts)."""
 
     rule: str
     level: str

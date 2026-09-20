@@ -6,7 +6,7 @@ SKILL.md / references/*.md cross-references and the headings they point at.
 What it checks
 --------------
 For every markdown link `[text](target)` (or `[text](target#anchor)`) in
-SKILL.md + references/*.md + scripts/*.md of the scanned skill:
+SKILL.md + top-level *.md + references/*.md + scripts/*.md of the scanned skill:
 
 1. Target file resolves to an existing file (relative to the containing
    file's directory, with the skill repo as the search boundary).
@@ -111,10 +111,50 @@ _LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 _EXPLICIT_ANCHOR_RE = re.compile(r"""<a\b[^>]*\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 
 # Heading line: ATX-style (# ... ######). Indent ≤ 3 spaces, then 1-6 '#',
-# then a space, then the heading text. Setext (=== / ---) is rare in this
-# repo; we accept it for completeness with a separate regex below.
+# then a space, then the heading text. Setext (text line + ===/--- underline)
+# is rare in this repo; it is detected per-line via _setext_heading_text.
 _ATX_HEADING_RE = re.compile(r"^( {0,3})(#{1,6})\s+(.*?)\s*#*\s*$")
-_SETEXT_HEADING_RE = re.compile(r"^( {0,3})([^\n]+)\n[ \t]*(=+|-+)[ \t]*$")
+# Setext underline: 3-space indent max, a run of = or -, optional trailing
+# whitespace. The heading text is whatever eligible line precedes it — the old
+# two-line regex was only ever fed single lines, so setext headings silently
+# never matched (pinned in smoke_test_audit_rules).
+_SETEXT_UNDERLINE_RE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
+
+
+def _frontmatter_end_index(lines: List[str]) -> int:
+    """0-based index of the line *after* the frontmatter closing fence
+    (0 = no frontmatter).
+
+    Setext detection must not fire on frontmatter fences: the closing
+    ``---`` always has a non-blank frontmatter line above it and would
+    otherwise read as a setext underline, minting bogus headings out of
+    frontmatter keys.
+    """
+    if not lines or lines[0].strip() != "---":
+        return 0
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            return i + 1
+    return 0
+
+
+def _setext_heading_text(lines: List[str], i: int, frontmatter_end: int) -> Optional[str]:
+    """Heading text when *lines[i]* is a setext underline, else None.
+
+    CommonMark shape: a non-blank paragraph line (not itself an ATX heading)
+    directly above an ===/--- underline. A ``---`` after a blank line is a
+    thematic break, not an underline; frontmatter fences are excluded via
+    *frontmatter_end*.
+    """
+    if i <= frontmatter_end:
+        return None
+    if not _SETEXT_UNDERLINE_RE.match(lines[i]):
+        return None
+    prev = lines[i - 1]
+    if not prev.strip() or _ATX_HEADING_RE.match(prev):
+        return None
+    return prev.strip()
+
 
 # Fence detection + inline-code spans (the two "is this prose or example?"
 # primitives) come from scripts.utils so every checker in this skill agrees on
@@ -218,6 +258,7 @@ def collect_heading_slugs(text: str) -> Dict[str, int]:
     """
     slugs: Dict[str, int] = {}
     lines = text.splitlines()
+    fm_end = _frontmatter_end_index(lines)
     for i, line in enumerate(lines):
         atx_match = _ATX_HEADING_RE.match(line)
         if atx_match:
@@ -226,12 +267,11 @@ def collect_heading_slugs(text: str) -> Dict[str, int]:
             if slug and slug not in slugs:
                 slugs[slug] = i + 1
             continue
-        # Setext: a non-blank line followed by === or ---. The heading
-        # text is on the previous line.
-        setext_match = _SETEXT_HEADING_RE.match(line)
-        if setext_match and i > 0:
-            heading = lines[i - 1].strip()
-            slug = slugify_heading(heading)
+        # Setext: a non-blank line followed by an ===/--- underline. The
+        # heading text is on the previous line.
+        setext_text = _setext_heading_text(lines, i, fm_end)
+        if setext_text is not None:
+            slug = slugify_heading(setext_text)
             if slug and slug not in slugs:
                 slugs[slug] = i  # 1-indexed: the underline line is i+1, heading is i
     return slugs
@@ -383,8 +423,13 @@ def extract_section_refs(text: str) -> List[Tuple[int, str, str]]:
                 continue
             hits.append((lineno, match.group(1), match.group(2)))
         remainder = _PATH_SECTION_RE.sub("", line)
+        # Code spans must be recomputed on the *remainder*: the sub above
+        # shifts offsets, and judging remainder matches against the original
+        # line's spans silently dropped same-file refs that sat after a
+        # cross-file one (pinned in smoke_test_audit_rules).
+        remainder_spans = find_code_spans(remainder)
         for match in _GUIDE_SECTION_RE.finditer(remainder):
-            if _last_group_in_code(match, spans):
+            if _last_group_in_code(match, remainder_spans):
                 continue
             hits.append((lineno, "", match.group(1)))
     return hits
@@ -416,14 +461,15 @@ def collect_anchor_texts(text: str) -> set:
     against this set."""
     anchors = set()
     lines = text.splitlines()
+    fm_end = _frontmatter_end_index(lines)
     for i, line in enumerate(lines):
         atx_match = _ATX_HEADING_RE.match(line)
         if atx_match:
             anchors.add(atx_match.group(3).strip())
             continue
-        setext_match = _SETEXT_HEADING_RE.match(line)
-        if setext_match and i > 0:
-            anchors.add(lines[i - 1].strip())
+        setext_text = _setext_heading_text(lines, i, fm_end)
+        if setext_text is not None:
+            anchors.add(setext_text)
     anchors.update(m.group(1).strip() for m in _BOLD_SPAN_RE.finditer(text))
     return anchors
 
@@ -658,6 +704,14 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
     skill_md = skill_root / "SKILL.md"
     if skill_md.is_file():
         files.append(skill_md)
+    # Top-level *.md besides SKILL.md (rare; typically a README) ships with
+    # the skill and its links drift like any other file — audit it.
+    for p in sorted(skill_root.glob("*.md")):
+        if not p.is_file() or p == skill_md:
+            continue
+        if not include_templates and p.stem.endswith("-template"):
+            continue
+        files.append(p)
     for sub in ("references", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
@@ -675,7 +729,8 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
 def count_skipped_templates(skill_root: Path) -> int:
     """Count ``*-template.md`` files that would be skipped (for the
     summary line)."""
-    n = 0
+    skill_md = skill_root / "SKILL.md"
+    n = sum(1 for p in skill_root.glob("*.md") if p.is_file() and p != skill_md and p.stem.endswith("-template"))
     for sub in ("references", "scripts"):
         sub_root = skill_root / sub
         if sub_root.is_dir():

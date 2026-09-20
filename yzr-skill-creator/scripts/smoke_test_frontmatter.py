@@ -17,9 +17,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import estimate_body_words, load_frontmatter, parse_skill_md  # noqa: E402
+from scripts.utils import (  # noqa: E402
+    BODY_WORD_LIMIT,
+    estimate_body_words,
+    load_frontmatter,
+    parse_skill_md,
+)
 
 BODY = "\n# t\n\n## 输入 / 输出\n\n正文。\n"
+
+# Malformed-frontmatter fixtures must raise, never return a half-parsed dict.
+ERROR_CASES = (
+    ("no-frontmatter", "# t\n\n正文。\n"),
+    ("no-closing", "---\nname: x\ndescription: y\n# t\n"),
+    ("not-a-mapping", "---\n- just\n- a\n- list\n---\n# t\n"),
+)
 
 
 def write_skill(fm_lines):
@@ -101,11 +113,7 @@ def run_error_cases(failures):
     """Malformed frontmatter must raise, never return a half-parsed dict."""
     tmp = tempfile.TemporaryDirectory(prefix="fm-smoke-err-")
     path = Path(tmp.name)
-    for label, text in (
-        ("no-frontmatter", "# t\n\n正文。\n"),
-        ("no-closing", "---\nname: x\ndescription: y\n# t\n"),
-        ("not-a-mapping", "---\n- just\n- a\n- list\n---\n# t\n"),
-    ):
+    for label, text in ERROR_CASES:
         (path / "SKILL.md").write_text(text)
         try:
             parse_skill_md(path)
@@ -134,7 +142,7 @@ def run_load_frontmatter_cases(failures) -> None:
         failures.append(f"load_frontmatter: unexpected mapping {data!r}")
 
 
-def run_estimate_cases(failures):
+def run_estimate_cases(failures) -> int:
     """CJK and ASCII must be counted on their own bases.
 
     The naive "total chars / 1.7" formula the audit table carried reads an
@@ -155,8 +163,9 @@ def run_estimate_cases(failures):
         if got != expected:
             failures.append(f"estimate {label}: {got} != {expected}")
     over = estimate_body_words("词" * 10000)
-    if not over > 5000:
-        failures.append(f"estimate hard-limit-over: {over} should exceed 5000")
+    if over <= BODY_WORD_LIMIT:
+        failures.append(f"estimate hard-limit-over: {over} should exceed {BODY_WORD_LIMIT}")
+    return len(checks) + 1  # + the hard-limit-over pin
 
 
 def main():
@@ -164,11 +173,14 @@ def main():
     run_parse_cases(failures)
     run_error_cases(failures)
     run_load_frontmatter_cases(failures)
-    run_estimate_cases(failures)
+    est_pins = run_estimate_cases(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print(f"SMOKE OK: frontmatter {len(cases())} shapes + 3 error paths + raw mapping + 5 estimator pins")
+    print(
+        f"SMOKE OK: frontmatter {len(cases())} shapes + {len(ERROR_CASES)} error paths"
+        f" + raw mapping + {est_pins} estimator pins"
+    )
     return 0
 
 

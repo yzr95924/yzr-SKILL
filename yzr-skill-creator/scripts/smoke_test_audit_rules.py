@@ -2,10 +2,12 @@
 """Fixture smoke test for the mechanical audit rules added to this skill.
 
 Covers the checks that replaced hand-typed grep rows: quick_validate's
-「何时不使用」 / length / TOC rules, check_anchor_health's CROSS-SKILL-PATH, and
-audit_prose's two heuristic screens. Each case pins both directions — the dirty
-fixture must fire the rule id, the clean fixture must stay silent — because an
-audit rule that only ever reports is as useless as one that never does.
+「何时不使用」 / length / TOC rules, check_anchor_health's heading / section-ref
+extraction and CROSS-SKILL-PATH, and audit_prose's two heuristic screens. Every
+rule case pins both directions — dirty fixture fires the rule id, clean fixture
+stays silent — and the extraction / line-number cases pin exact output, because
+a matcher that silently drops matches (or is off by one line) passes
+single-direction, id-only tests.
 
 Run: python3 scripts/smoke_test_audit_rules.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
@@ -18,7 +20,7 @@ from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts import audit_prose, quick_validate, verify  # noqa: E402
+from scripts import audit_prose, check_anchor_health, quick_validate, verify  # noqa: E402
 
 CLEAN_SKILL = """---
 name: smoke-target
@@ -65,12 +67,18 @@ def rules(findings) -> List[str]:
 
 
 def check_when_not_section(failures: List[str]) -> None:
-    dirty = make_skill(
-        {"SKILL.md": CLEAN_SKILL.replace("## 输入 / 输出", "## 何时不使用\n\n不该用本 skill。\n\n## 输入 / 输出")}
-    )
+    dirty_text = CLEAN_SKILL.replace("## 输入 / 输出", "## 何时不使用\n\n不该用本 skill。\n\n## 输入 / 输出")
+    dirty = make_skill({"SKILL.md": dirty_text})
     clean = make_skill({"SKILL.md": CLEAN_SKILL})
-    if "WHEN-NOT-SECTION" not in rules(quick_validate.check_no_when_not_section(dirty)):
+    hits = [f for f in quick_validate.check_no_when_not_section(dirty) if f.rule == "WHEN-NOT-SECTION"]
+    if not hits:
         failures.append("WHEN-NOT-SECTION: dirty fixture not reported")
+    else:
+        # Pin the line number too: an off-by-one in the fence offset survived
+        # every earlier run because no test looked at Finding.line.
+        expected = dirty_text.split("\n").index("## 何时不使用") + 1
+        if hits[0].line != str(expected):
+            failures.append(f"WHEN-NOT-SECTION: line {hits[0].line} != {expected}")
     if "WHEN-NOT-SECTION" in rules(quick_validate.check_no_when_not_section(clean)):
         failures.append("WHEN-NOT-SECTION: clean fixture reported")
 
@@ -96,6 +104,30 @@ def check_toc_still_works(failures: List[str]) -> None:
     skill = make_skill({"SKILL.md": body})
     if "HAND-TOC" not in rules(quick_validate.check_no_toc(skill)):
         failures.append("HAND-TOC: anchor-list TOC not reported")
+    if rules(quick_validate.check_no_toc(make_skill({"SKILL.md": CLEAN_SKILL}))):
+        failures.append("HAND-TOC: clean fixture reported")
+
+
+def check_anchor_extraction(failures: List[str]) -> None:
+    """Heading / section-ref extraction: both had silent dead branches (a
+    two-line regex fed single lines; offset shift after a sub) until pinned
+    to exact output."""
+    slugs = check_anchor_health.collect_heading_slugs("Title One\n===\n\n## ATX\n")
+    if "title-one" not in slugs:
+        failures.append(f"setext heading not collected: {sorted(slugs)}")
+    # The frontmatter closing fence has a non-blank line above it and must
+    # NOT mint a setext heading; a real setext heading after it must survive.
+    fenced = "---\nname: x\ndescription: y\n---\n\nBody\n===\n"
+    slugs_fm = check_anchor_health.collect_heading_slugs(fenced)
+    if "body" not in slugs_fm:
+        failures.append(f"setext after frontmatter not collected: {sorted(slugs_fm)}")
+    bogus = [s for s in slugs_fm if "name" in s or "description" in s]
+    if bogus:
+        failures.append(f"frontmatter fence read as setext heading: {bogus}")
+    line = "正文 `references/x.md`「A节」前缀 `code` 见「B节」 尾部"
+    got = {(p, n) for _ln, p, n in check_anchor_health.extract_section_refs(line)}
+    if got != {("references/x.md", "A节"), ("", "B节")}:
+        failures.append(f"section refs on one line mis-extracted: {sorted(got)}")
 
 
 def check_desc_format(failures: List[str]) -> None:
@@ -205,21 +237,23 @@ def check_clean_skill_is_quiet(failures: List[str]) -> None:
 
 def main() -> int:
     failures: List[str] = []
-    for check in (
+    checks = (
         check_when_not_section,
         check_body_length,
         check_toc_still_works,
         check_desc_format,
+        check_anchor_extraction,
         check_cross_skill_path,
         check_bare_metric,
         check_version_history,
         check_clean_skill_is_quiet,
-    ):
+    )
+    for check in checks:
         check(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: 8 rule groups, dirty + clean directions pinned")
+    print(f"SMOKE OK: {len(checks)} rule groups, dirty + clean directions pinned")
     return 0
 
 

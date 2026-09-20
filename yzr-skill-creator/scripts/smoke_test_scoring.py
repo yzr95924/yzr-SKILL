@@ -3,8 +3,9 @@
 
 Catches the class of bug that static checks and the canary can't: pass-judgment
 logic (`== should_trigger`) and best-selection tie-break. A stubbed `claude`
-binary serves controlled judge responses, so the run is deterministic and needs
-no model calls. Exit 0 = all green, 1 = regression.
+binary serves controlled judge responses and a synthetic skills pool stands in
+for ~/.claude/skills (absent on CI runners), so the run is deterministic and
+needs no model calls. Exit 0 = all green, 1 = regression.
 
 Run: python3 scripts/smoke_test_scoring.py  (from yzr-skill-creator/)
 """
@@ -17,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.optimize_description import run_eval
+from scripts import optimize_description
 
 TARGET = "smoke-target-skill"
 
@@ -56,7 +57,13 @@ EXPECTED = {
 
 
 def run_smoke_eval() -> dict:
-    """Run the four-quadrant eval with the stubbed judge in the foreground PATH."""
+    """Run the four-quadrant eval with the stubbed judge and a synthetic
+    skills pool.
+
+    The pool (decoys + target) replaces the host's real ~/.claude/skills,
+    which CI runners don't have — and makes the judge pick the target out of
+    a list, which is what the real routing layer does.
+    """
     with tempfile.TemporaryDirectory(prefix="skill-smoke-") as td:
         td_path = Path(td)
         stub = td_path / "claude"
@@ -64,13 +71,20 @@ def run_smoke_eval() -> dict:
         stub.chmod(0o755)
         config = td_path / "judge-config.json"
         config.write_text(json.dumps({"rules": RULES}))
+        skills_dir = td_path / "skills"
+        for name in (TARGET, "smoke-decoy-a", "smoke-decoy-b"):
+            entry = skills_dir / name
+            entry.mkdir(parents=True)
+            (entry / "SKILL.md").write_text(f"---\nname: {name}\ndescription: |\n  {name} 的描述。\n---\n# {name}\n")
 
         old_path = os.environ.get("PATH", "")
         old_config = os.environ.get("SMOKE_JUDGE_CONFIG")
+        old_skills_dir = optimize_description.SKILLS_DIR
         os.environ["PATH"] = str(td_path) + os.pathsep + old_path
         os.environ["SMOKE_JUDGE_CONFIG"] = str(config)
+        optimize_description.SKILLS_DIR = skills_dir
         try:
-            return run_eval(
+            return optimize_description.run_eval(
                 eval_set=QUERIES,
                 skill_name=TARGET,
                 description="smoke description",
@@ -81,6 +95,7 @@ def run_smoke_eval() -> dict:
             )
         finally:
             os.environ["PATH"] = old_path
+            optimize_description.SKILLS_DIR = old_skills_dir
             if old_config is None:
                 os.environ.pop("SMOKE_JUDGE_CONFIG", None)
             else:
@@ -88,13 +103,26 @@ def run_smoke_eval() -> dict:
 
 
 def run_best_selection() -> dict:
-    """Replicate run_optimize_loop's best pick: test score, then train score."""
+    """Pin the real selection function (not a re-typed copy of its lambda —
+    a copy stays green when the tie-break is changed in the source)."""
     history = [
         {"iteration": 1, "test_passed": 8, "test_total": 8, "train_passed": 11, "train_total": 12},
         {"iteration": 2, "test_passed": 8, "test_total": 8, "train_passed": 12, "train_total": 12},
     ]
-    best = max(history, key=lambda h: (h["test_passed"] or 0, h["train_passed"]))
-    return {"chosen_iteration": best["iteration"], "expected_iteration": 2}
+    best = optimize_description.select_best_iteration(history, has_test_set=True)
+    train_only = optimize_description.select_best_iteration(
+        [
+            {"iteration": 1, "test_passed": None, "train_passed": 3, "train_total": 4},
+            {"iteration": 2, "test_passed": None, "train_passed": 5, "train_total": 6},
+        ],
+        has_test_set=False,
+    )
+    return {
+        "chosen_iteration": best["iteration"],
+        "expected_iteration": 2,  # test tie 8=8 → train 12 > 11 breaks it
+        "train_only_iteration": train_only["iteration"],
+        "expected_train_only": 2,
+    }
 
 
 def main() -> int:
@@ -112,11 +140,16 @@ def main() -> int:
             f"best-selection: chose iteration {selection['chosen_iteration']}, "
             f"expected {selection['expected_iteration']}"
         )
+    if selection["train_only_iteration"] != selection["expected_train_only"]:
+        failures.append(
+            f"best-selection (no holdout): chose iteration {selection['train_only_iteration']}, "
+            f"expected {selection['expected_train_only']}"
+        )
 
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: 4/4 quadrants + best-selection tie-break")
+    print("SMOKE OK: 4/4 quadrants + best-selection (real function, both modes)")
     return 0
 
 

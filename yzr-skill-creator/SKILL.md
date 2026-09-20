@@ -78,7 +78,7 @@ metadata:
 
 1. 明确这个 skill 要做什么、大致如何实现
 2. **RED 阶段**——不带 skill 跑典型 prompt 观察失败（细节与条数见
-   「创建一个 skill · baseline 演练（RED 阶段）」，此处不重抄）；**纯参考资料型 skill 可跳过**
+   「创建一个 skill · baseline 演练（RED 阶段）」，此处不重抄）
 3. 起草 skill（改进场景 = 编辑现有版）——**针对 RED 观察到的具体违规做最小封堵**，
    不预堵"可能存在的"漏洞
 4. 设计几个测试 prompt 让 agent 跑一遍（细节见「测试用例」）

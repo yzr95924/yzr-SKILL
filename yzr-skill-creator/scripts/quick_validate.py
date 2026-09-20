@@ -4,9 +4,10 @@ Quick validation script for skills - minimal version
 
 Checks a skill directory's SKILL.md for: frontmatter legality, canonical body
 structure, description format markers, hand-written TOC ban, the retired
-「何时不使用」 section, and body length. Frontmatter problems are ERROR (they
-block); the rest are WARN / INFO advisories that never fail the run — this is a
-drift tripwire, not a gate on judgement calls.
+「何时不使用」 section, and body length. Frontmatter problems and an
+unparseable body are ERROR (they block); the rest are WARN / INFO advisories
+that never fail the run — this is a drift tripwire, not a gate on judgement
+calls.
 
 Output: human lines ``LEVEL: file:line  evidence —— fix`` (stable format; prose
 quotes the messages), or ``--json`` for machine use.
@@ -46,19 +47,29 @@ def normalize_heading(text):
 
 
 def _body(skill_path):
-    """Return the SKILL.md body (frontmatter stripped), or None if unparseable."""
-    content = (Path(skill_path) / "SKILL.md").read_text()
-    match = re.match(r"^---\n.*?\n---\n(.*)$", content, re.DOTALL)
-    return match.group(1) if match else None
+    """Return the SKILL.md body (frontmatter stripped), or None if unparseable.
+
+    Fence tolerance deliberately matches utils.load_frontmatter
+    (``line.strip() == "---"``): a closing fence with trailing whitespace is
+    legal frontmatter, and the two readers disagreeing once made
+    validate_skill pass while check_body_structure errored on the same file.
+    """
+    lines = (Path(skill_path) / "SKILL.md").read_text().split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[i + 1 :])
+    return None
 
 
 def _frontmatter_line_offset(skill_path):
-    """Line number of the frontmatter closing ``---`` (body checks number their
-    findings relative to it)."""
+    """1-based line number of the frontmatter closing ``---`` (body checks
+    number their findings relative to it)."""
     lines = (skill_path / "SKILL.md").read_text().split("\n")
     for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
-            return i
+            return i + 1
     return 0
 
 
@@ -342,15 +353,18 @@ def validate_skill(skill_path):
     if not isinstance(name, str):
         return False, f"Name must be a string, got {type(name).__name__}"
     name = name.strip()
-    if name:
-        # Check naming convention (kebab-case: lowercase with hyphens)
-        if not re.match(r"^[a-z0-9-]+$", name):
-            return False, f"Name '{name}' should be kebab-case (lowercase letters, digits, and hyphens only)"
-        if name.startswith("-") or name.endswith("-") or "--" in name:
-            return False, f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"
-        # Check name length (max 64 characters per spec)
-        if len(name) > 64:
-            return False, f"Name is too long ({len(name)} characters). Maximum is 64 characters."
+    if not name:
+        # An empty name passed every check here while discover_skill_dirs
+        # (require_parseable=True) rejected it — the two must agree.
+        return False, "Name must not be empty"
+    # Check naming convention (kebab-case: lowercase with hyphens)
+    if not re.match(r"^[a-z0-9-]+$", name):
+        return False, f"Name '{name}' should be kebab-case (lowercase letters, digits, and hyphens only)"
+    if name.startswith("-") or name.endswith("-") or "--" in name:
+        return False, f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"
+    # Check name length (max 64 characters per spec)
+    if len(name) > 64:
+        return False, f"Name is too long ({len(name)} characters). Maximum is 64 characters."
 
     # Extract and validate description
     description = frontmatter.get("description", "")
