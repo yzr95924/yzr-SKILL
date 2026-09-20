@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Optimize a skill description via a routing-judge eval + improve loop.
 
-Single entry point for yzr-skill-creator's「描述优化」独立入口. The loop:
+Single entry point for yzr-skill-creator's「描述优化」入口. The loop:
   1. split the eval set into train / holdout (DEFAULT_HOLDOUT_RATIO)
 2. eval: for each query, one text-only `claude -p` call acts as the routing
       judge — it sees the available skills list (name + description) and picks
