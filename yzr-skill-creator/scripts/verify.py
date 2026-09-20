@@ -18,10 +18,12 @@ Checks run (in this order):
   3. audit_prose — heuristic prose screens (INFO only)
   4. eval_report.check_evals — eval/evals.json drift (stale skill_name / duplicate
      id / declared input file missing)
-  5. check_skill_dependencies — repo mode only; mutual-mention candidates,
+  5. delivery gate — uncommitted md edits spanning >=2 H2 sections of one skill
+     -> advisory "propose full-text audit" (git tree only; clean or non-git silent)
+  6. check_skill_dependencies — repo mode only; mutual-mention candidates,
                                 advisory (互提 ≠ 互依, direction is a human call)
-  6. markdownlint — skipped when the tool or the repo config is absent
-  7. ruff check + format — only when the skill has scripts/ and/or tests/
+  7. markdownlint — skipped when the tool or the repo config is absent
+  8. ruff check + format — only when the skill has scripts/ and/or tests/
 
 Gating: exit 1 on any ERROR. WARN / INFO never fail a run — they are advice for
 the agent to weigh. A bad invocation or unreadable target is exit 2 (UsageError). Each external tool reports a structured state (see
@@ -46,6 +48,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -303,12 +306,127 @@ def _ruff(skill_dir: Path, repo_root: Optional[Path]) -> Tuple[List[Finding], Li
     return findings, results
 
 
+_HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+_H2_RE = re.compile(r"^## (?!#)(.+?)\s*$")
+
+
+def _h2_spans(text: str) -> List[Tuple[int, str]]:
+    """(line, title) of real H2 headings; fenced "## x" lines are not headings."""
+    spans: List[Tuple[int, str]] = []
+    in_fence = False
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = _H2_RE.match(line)
+        if m:
+            spans.append((i, m.group(1).strip()))
+    return spans
+
+
+def _enclosing_h2(spans: List[Tuple[int, str]], new_line: int) -> str:
+    title = ""
+    for start, t in spans:
+        if start <= new_line:
+            title = t
+        else:
+            break
+    return title
+
+
+def _sections_touched(diff_text: str, read_text) -> set:
+    """Pure: -U0 unified diff -> {(file, H2 title)}. read_text(rel) returns the
+    working-tree text ("" when gone). A hunk anchors at its new-start line —
+    that is where deletion-only hunks landed, so removals count as touching the
+    section they cut. Non-.md targets and /dev/null are skipped; lines before
+    the first H2 (frontmatter / 前言) belong to no section."""
+    touched = set()
+    current = ""
+    for line in diff_text.splitlines():
+        if line.startswith("+++ "):
+            path = line[4:]
+            if path.startswith("b/"):
+                path = path[2:]
+            current = path if path.endswith(".md") else ""
+            continue
+        if not current:
+            continue
+        m = _HUNK_RE.match(line)
+        if not m:
+            continue
+        title = _enclosing_h2(_h2_spans(read_text(current)), int(m.group(1)))
+        if title:
+            touched.add((current, title))
+    return touched
+
+
+def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
+    """Delivery-gate trigger. The prose rule (SKILL.md 交付门禁条) asks the agent
+    to offer a full-text audit once a batch of prose edits spans >=2 H2 sections
+    — cross-section redundancy is a diff blind spot. Prose rules only fire when
+    in attention, so the count is mechanized here: deterministic, INFO-level,
+    the decision stays human. Untracked new .md files are the same blind spot
+    (no diff to read) and count as one pseudo-section each. Outside a git tree,
+    a clean tree, or without the git binary: silent no-op."""
+    try:
+        diff = subprocess.run(
+            ["git", "-C", str(skill_dir), "diff", "-U0", "HEAD", "--", "*.md"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True,
+        )
+        top = subprocess.run(
+            ["git", "-C", str(skill_dir), "rev-parse", "--show-toplevel"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True,
+        )
+        if diff.returncode != 0 or top.returncode != 0:
+            return []
+
+        root = Path(top.stdout.strip())
+
+        def read_text(rel: str) -> str:
+            try:
+                return (root / rel).read_text(encoding="utf-8")
+            except OSError:
+                return ""
+
+        touched = _sections_touched(diff.stdout, read_text)
+        untracked = subprocess.run(
+            ["git", "-C", str(skill_dir), "ls-files", "--others", "--exclude-standard", "--", "*.md"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True,
+        )
+        if untracked.returncode == 0:
+            for rel in untracked.stdout.splitlines():
+                touched.add((rel, "(新文件)"))
+    except OSError:
+        return []
+    if len(touched) < 2:
+        return []
+    listing = "；".join(f"{f} § {s}" for f, s in sorted(touched)[:6])
+    more = f"（共 {len(touched)} 处）" if len(touched) > 6 else ""
+    return [
+        Finding(
+            rule="DELIVERY-GATE",
+            level=_ADVISORY_LEVEL,
+            evidence=f"未提交 md 改动触及 {len(touched)} 个 H2 节：{listing}{more}",
+            fix="交付门禁：提议对目标 skill 跑全文审计（散文层转 yzr-writing-review，机制层按审计速查表），用户点头才执行",
+        )
+    ]
+
+
 def verify_skill(skill_dir: Path, tier: str, repo_root: Optional[Path]) -> Tuple[List[Finding], List[ToolResult]]:
     """Every check for one skill. Returns (findings, tool results)."""
     findings = _quick_validate_findings(skill_dir, tier)
     findings += _anchor_findings(skill_dir)
     findings += audit_prose.scan_skill(skill_dir)
     findings += eval_report.check_evals(skill_dir)
+    findings += _delivery_gate_findings(skill_dir)
     md_findings, md_result = _markdownlint(skill_dir, repo_root)
     ruff_findings, ruff_results = _ruff(skill_dir, repo_root)
     return findings + md_findings + ruff_findings, [md_result] + ruff_results

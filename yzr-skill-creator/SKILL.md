@@ -41,28 +41,22 @@ metadata:
 
 ## 执行原则 / 边界
 
-无论走哪个入口，下面这些原则贯穿全程，不是单独某一步的规则，而是 agent 在用本 skill 时应保持的判断基线：
+无论走哪个入口，下面这些原则贯穿全程，是 agent 用本 skill 时的判断基线：
 
-- **元 skill 的"元"特征**：本 skill 的产物是"让 agent 在某类任务上更靠谱"的载体，不是用户最终要的文件；写每段 prose 前先问"下游 agent 读到这里会怎么想"
-- **过拟合红线**：用户给的反馈只覆盖少数 prompt；要让 skill 在一百万次调用里都成立，必须从反馈归纳"意图类别"而非把 case 逐条抄进 SKILL.md
-- **必须跑评估**（行为性改动；单点编辑豁免，见入口 2）：写完不跑 eval = 在赌运气
-  （哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）；改进时先留旧版快照做 baseline
-  （`scripts.eval_init` 自动做），否则"是否更好"无法量化
-- **交付门禁**：一批 prose 改动（触及 ≥2 个 H2 节，或同一措辞跨节改）交付前，主动提议
-  对目标 skill 跑全文审计，散文层转 yzr-writing-review“指令文档”组（跨节冗余与
-  frontmatter 双写是 diff 视野的盲区，必须全文比对），机制层跑 verify + 审计速查表；
-  用户点头才执行，单节单点修改免除
-- **用户说"优化描述"是泛指**：默认包括 frontmatter `description` + 标题 + 章节 +
-  when-to-use 措辞 + 操作步骤，不默认专指 frontmatter；用户要细分会用精确措辞
-  （"只改 frontmatter" / "只动 description 字段"）。维度分清：frontmatter 只决定
-  "何时调"、正文决定"怎么用"。入口 3 只动前者，入口 1/2 才动正文
-- **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader
-  会偏向自己刚写的版本（grader 盲评约定见 `ref/agents/grader.md`）
-- **指标单一来源**：脚本里有 `CONST = value` 的，prose 用 `` `CONST` `` 引用，禁止写字面量
-  （原则见 `ref/skill-writing-principles.md`；本 skill 的常量定义在 `scripts/utils.py`
-  与 `scripts/optimize_description.py` 顶部）
-- **与用户沟通**：skill 使用者编程背景差异大，术语（eval / holdout / baseline 等）先给
-  一句人话解释
+- **元 skill 的"元"特征**：本 skill 的产物是"让 agent 在某类任务上更靠谱"的载体，不是用户
+  最终要的文件；写每段 prose 前先问"下游 agent 读到这里会怎么想"
+- **必须跑评估**：行为性改动默认走评估循环（单点豁免，见[章节](#改进-skill)）；写完不跑 eval
+  = 在赌运气（哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）
+- **交付门禁**：一批 prose 改动（触及 ≥2 个 H2 节，或同一措辞跨节改）交付前，主动提议对目标
+  skill 跑全文审计（跨节冗余与 frontmatter 双写是 diff 视野的盲区，必须全文比对）：散文层转
+  yzr-writing-review，机制层按[章节](#原则校验)；用户点头才执行，单节单点修改免除
+- **用户说"优化描述"是泛指**：默认包括 frontmatter `description` + 标题 + 章节 + when-to-use
+  措辞 + 操作步骤，不默认专指 frontmatter；用户要细分会用精确措辞（"只改 frontmatter" /
+  "只动 description 字段"）。维度分清：frontmatter 只决定"何时调"、正文决定"怎么用"
+- **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader 会偏向
+  自己刚写的版本（grader 盲评约定见 `ref/agents/grader.md`）
+- **与用户沟通**：skill 使用者编程背景差异大，术语（eval / holdout / baseline 等）先给一句
+  人话解释
 
 ## 工作流 / 步骤
 
@@ -185,7 +179,7 @@ eval_init 打印的）→ (4) 在对话里展示本轮对比（含上一轮对�
 
 下轮改动前对每段问**删掉它，称职 agent 会做错吗**，不会 → 删或下放，处理顺序按“修法
 优先级”（[章节](ref/skill-writing-principles.md#归属与下放)）；细则判据与典型噪音场景卡见
-yzr-writing-review“指令文档”组。
+yzr-writing-review。
 
 停止条件：用户满意 / 反馈全空 / 看不到有意义的进展。
 
@@ -235,7 +229,7 @@ python3 -m scripts.optimize_description --skill-path <path-to-skill> \
 ### 原则校验
 
 拿写作原则当 checklist，审计某个已有 skill 的**机制合规**，违反哪些，产出 pass/fail 报告。
-**只审计、不改写**；散文质量不在本入口审，转交 yzr-writing-review“指令文档”组、
+**只审计、不改写**；散文质量不在本入口审，转交 yzr-writing-review、
 `scripts/*.py` 转交 yzr-coding-review（分工口径见 principles 末尾“审查分工”）。
 要修让用户点头再动或转入口 2。
 

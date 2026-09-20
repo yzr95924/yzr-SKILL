@@ -19,7 +19,7 @@ is not worth a rule + its exemption list):
     that a word-density proxy gets wrong (measured: the repo's doc-writing skill
     trips density, the discipline skill does not).
   - Semantic restatement / 口径漂移 — verdict moved to yzr-writing-review (its catalog
-    X group + “指令文档”组 judgment notes); no grep row lives here anymore.
+    judgment notes); no grep row lives here anymore.
 
 Every finding is INFO: these are candidate screens, never verdicts. Output shape
 is scripts.utils.Finding, same as quick_validate, so verify.py can merge them.

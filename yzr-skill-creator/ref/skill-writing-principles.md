@@ -216,7 +216,7 @@ docstring）。改名 = 可检查的破坏性操作，不必手工 grep 全文�
 = 脚本不做、逐条手工执行（原因见[脚本化的代价核对](#归属与下放)）。
 
 **审查分工**：本表与 verify 只管**机制合规**；md 的散文质量审查归 yzr-writing-review（其
-catalog“指令文档”组是为 agent 读者文档设计的场景卡），`scripts/*.py` 的审查归
+catalog 有专为 agent 读者文档设计的场景卡），`scripts/*.py` 的审查归
 yzr-coding-review。
 
 ### 审查深度标准（入口 4 默认口径）
