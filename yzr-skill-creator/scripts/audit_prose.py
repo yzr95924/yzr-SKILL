@@ -10,7 +10,7 @@ judgement stays with the agent. Two of the audit table's rows qualify:
     mistyped once in this repo's history (commit "修复审计 grep 语法").
 
 Deliberately NOT here (they stay grep rows in
-references/skill-writing-principles.md「审计速查」, because a one-line alternation
+references/skill-writing-principles.md“审计速查”, because a one-line alternation
 is not worth a rule + its exemption list):
 
   - agent 中立 (品牌词 grep) — trivial pattern, verdict is 100% human.
@@ -19,7 +19,7 @@ is not worth a rule + its exemption list):
     that a word-density proxy gets wrong (measured: the repo's doc-writing skill
     trips density, the discipline skill does not).
   - Semantic restatement / 口径漂移 — verdict moved to yzr-writing-review (its catalog
-    X group + 「指令文档」组 judgment notes); no grep row lives here anymore.
+    X group + “指令文档”组 judgment notes); no grep row lives here anymore.
 
 Every finding is INFO: these are candidate screens, never verdicts. Output shape
 is scripts.utils.Finding, same as quick_validate, so verify.py can merge them.
@@ -64,21 +64,21 @@ METRIC_RE = re.compile(r"(?<![\w.])(?:\d+\s*[–—-]\s*)?\d+(?:\.\d+)?\s*(词|�
 
 # An occurrence that names its authority on the same line ("（对齐 rubric）" /
 # "以 X 为准" / "SSOT") is a declared copy, not drift — that exemption is part of
-# the principles checked here (「指标单一来源」/「自包含例外」require self-aware SSOT
+# the principles checked here (“指标单一来源”/“自包含例外”require self-aware SSOT
 # notes; restatement verdicts belong to yzr-writing-review), so the rule must
 # apply it rather than leaving the agent to re-derive it per hit.
 DECLARED_SOURCE_RE = re.compile(r"对齐|以.{0,16}为准|直取|SSOT|同.{0,8}口径|见\s*`?[a-z0-9-]+\.md")
 
 # Version + a change verb = the sentence is narrating this project's own
 # evolution, which belongs in a commit message (rule now lives in the
-# yzr-writing-review catalog, 「指令文档」组 I4).
+# yzr-writing-review catalog, “指令文档”组 I4).
 VERSION_HISTORY_RE = re.compile(r"v?[0-9]+\.[0-9]+(?:\.[0-9]+)?\s*(?:起|开始|之后|以来|废止|引入|新增|删除)")
 
 # Quoted material is definitional or illustrative text — the principle file
 # quoting its own counter-example ("0.6.0 起删了 X") is not itself a violation,
 # and neither is a grep pattern shown in backticks. This exemption is what keeps
 # both rules at zero false positives on this repo's 18 markdown files.
-_QUOTE_PAIRS = (('"', '"'), ("“", "”"), ("「", "」"), ("‘", "’"))
+_QUOTE_PAIRS = (('"', '"'), ("“", "”"), ("‘", "’"))
 
 
 def _quote_spans(line: str) -> List[Tuple[int, int]]:
@@ -132,7 +132,7 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
                         file=rel,
                         line=str(lineno),
                         fix="演进叙事挪 git commit message，正文最多留一句路标"
-                        "（见 references/skill-writing-principles.md「时间性信息不内联」；外部依赖版本约束合法）",
+                        "（见 references/skill-writing-principles.md“时间性信息不内联”；外部依赖版本约束合法）",
                     )
                 )
     return findings
@@ -175,7 +175,7 @@ def check_bare_metrics(skill_dir: Path) -> List[Finding]:
                 file="",
                 line="",
                 fix="确认权威出处后：脚本常量则 prose 改 `` `CONST` `` 引用，prose 则留一处其余改指针"
-                "（见 references/skill-writing-principles.md「指标单一来源」）",
+                "（见 references/skill-writing-principles.md“指标单一来源”）",
             )
         )
     return findings

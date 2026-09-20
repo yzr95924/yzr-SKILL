@@ -13,7 +13,7 @@ config path and the working directory are pinned, so the trap cannot recur.
 Checks run (in this order):
 
   1. quick_validate — frontmatter legality + body structure + description format
-                      + TOC ban + retired 「何时不使用」 section + body length
+                      + TOC ban + retired “何时不使用” section + body length
   2. check_anchor_health — link anchors, backticked paths
   3. audit_prose — heuristic prose screens (INFO only)
   4. eval_report.check_evals — eval/evals.json drift (stale skill_name / duplicate

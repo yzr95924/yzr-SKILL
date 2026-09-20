@@ -2,14 +2,14 @@
 """
 Scaffold one eval iteration's workspace — the writer half of eval_report.
 
-yzr-skill-creator「运行与评估测试用例」的机械细节（目录树 / 旧版快照 / 子 agent
+yzr-skill-creator“运行与评估测试用例”的机械细节（目录树 / 旧版快照 / 子 agent
 prompt 拼装）固化在此；eval-pipeline.md 只留判断性纪律（同轮并行启动、无子 agent
 环境的降级路径）。零判断：不读 skill 内容、不做权衡，输出是输入的纯函数。
 
 What it does:
 
-1. Reads ``--evals <skill>/eval/evals.json`` (schema: references/schemas.md
-   「evals.json」) for eval ids + prompts.
+1. Reads ``--evals <skill>/eval/evals.json`` (schema: "evals.json" in
+   references/schemas.md) for eval ids + prompts.
 2. Creates ``<workspace>/iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/``
    for every eval — exactly the layout ``scripts/eval_report.py`` reads back
    (``eval-*`` dirs, one ``grading.json`` per side at ``eval-<id>/<side>/``);
@@ -18,7 +18,7 @@ What it does:
 3. ``--baseline old_skill`` snapshots the skill at init time
    (``iteration-<N>/skill-snapshot/``, ``cp -r``) — the snapshot is whatever
    the skill tree looks like when init runs, so run init BEFORE applying this
-   round's edits (eval-pipeline.md「第 0 步」): snapshot-after-edit would
+   round's edits (eval-pipeline.md“第 0 步”): snapshot-after-edit would
    baseline the new version against itself. Per-iteration (not per-workspace)
    so each iteration naturally compares against the previous round's result.
    ``without_skill`` needs no snapshot.

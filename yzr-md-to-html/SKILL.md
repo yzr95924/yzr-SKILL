@@ -27,7 +27,7 @@ metadata:
 
 - **输入**：一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`）
 - **输出**：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联，公式 / 图表按需渲染）
-- **参数与默认值以 `python3 scripts/md_to_html.py --help` 为单一来源**（argparse 定义，此处不
+- **参数与默认值以 `python3 scripts/md_to_html.py --help`（从 skill 根运行）为单一来源**（argparse 定义，此处不
   重抄）：文件输入默认生成同名 `.html`；目录输入默认就地生成，`--title` 默认取首个 `#`
   一级标题再退回文件名
 

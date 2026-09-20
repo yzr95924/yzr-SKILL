@@ -184,7 +184,7 @@ npx skills add google-gemini/gemini-skills --skill gemini-interactions-api
 | 脚本 | 作用 |
 | --- | --- |
 | `scripts/verify.py` | **一条命令跑全套**（下面各检查 + markdownlint + ruff；cwd/config 陷阱在脚本内钉死；`--repo-root` 自动枚举全部 skill；工具状态 OK/FAIL/SKIP/MISSING 结构化，`--strict-tools` 只把 MISSING 变 error；`--json`） |
-| `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构 + description 格式标记 + 手写目录（TOC）禁令 + 已废除的「何时不使用」节 + 正文长度（`--tier <default\|reference\|meta>`；除 frontmatter 外 WARN 不 fail；`--json`） |
+| `scripts/quick_validate.py` | frontmatter 合法性 + 正文结构 + description 格式标记 + 手写目录（TOC）禁令 + 已废除的“何时不使用”节 + 正文长度（`--tier <default\|reference\|meta>`；除 frontmatter 外 WARN 不 fail；`--json`） |
 | `scripts/check_skill_dependencies.py` | 跨 skill 双向依赖筛查（仓库级；列出互相提及的 skill 对 + 证据，方向人工判） |
 | `scripts/check_anchor_health.py` | 引用存活检查：markdown 链接目标 + 锚点 slug（同文件与跨文件 `path#锚`）+ 反引号路径（含逃逸出 skill 根的跨 skill 相对路径）；节名指针机制已退役，节引用约定见 skill-writing-principles.md"引用约定"（单 skill 或 `--repo-root` 全扫；`--json` 机器可读） |
 | `scripts/audit_prose.py` | 两条启发式扫描（BARE-METRIC 指标散落 / VERSION-HISTORY-INLINE 版本演进史内联）；INFO 级候选，判定归 agent |

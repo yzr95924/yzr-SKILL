@@ -15,7 +15,7 @@ Two jobs, in this order:
 2. **Comparison table.** with_skill vs baseline (``without_skill`` for a new
    skill, ``old_skill`` for an improvement) per eval case, plus the assertions
    that flipped between the two sides. That is the whole tabulation step of
-   references/eval-pipeline.md「第 3 步」; reading outputs and judging quality
+   references/eval-pipeline.md“第 3 步”; reading outputs and judging quality
    stays with the agent.
 
 Numbers here are not a gate: exit 1 means "the data is malformed", never
@@ -84,7 +84,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
                     f"expectations[{i}] 缺字段 {missing}，字段名是契约，缺了会被读成 0 通过",
                     rel,
                     str(i),
-                    "按 references/schemas.md「grading.json」补字段",
+                    "按 references/schemas.md 的\u201cgrading.json\u201d补字段",
                 )
             )
             continue
@@ -134,7 +134,7 @@ def _check_summary(summary, rel: str, results: Dict[str, Dict[str, bool]]) -> Li
                 f"summary 缺字段 {missing}",
                 rel,
                 "summary",
-                "按 references/schemas.md「grading.json」补齐",
+                "按 references/schemas.md 的\u201cgrading.json\u201d补齐",
             )
         ]
     findings: List[Finding] = []

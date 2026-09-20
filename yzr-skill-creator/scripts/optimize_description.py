@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Optimize a skill description via a routing-judge eval + improve loop.
 
-Single entry point for yzr-skill-creator's「描述优化」入口. The loop:
+Single entry point for yzr-skill-creator's“描述优化”入口. The loop:
   1. split the eval set into train / holdout (DEFAULT_HOLDOUT_RATIO)
 2. eval: for each query, one text-only `claude -p` call acts as the routing
       judge — it sees the available skills list (name + description) and picks
@@ -14,7 +14,7 @@ Single entry point for yzr-skill-creator's「描述优化」入口. The loop:
      description run before the eval set — a canary failure means the judge
      channel is broken (model error / CLI error / parse error), and the run
      aborts instead of producing numbers from a broken channel
-  4. improve: feed failures + previous attempts + the「description 优化原则」
+  4. improve: feed failures + previous attempts + the“description 优化原则”
      section of references/skill-writing-principles.md to `claude -p`, get a
      new description back
   5. repeat until all train queries pass or max_iterations; pick the best
@@ -40,7 +40,7 @@ before touching the file, refuses to write on any validation error, reports
 "无需改动" and writes nothing when the best description equals the current
 one, and prints a diff instead when given `--dry-run`.
 Whether to accept a candidate description stays with the user — see
-SKILL.md「描述优化 · 第 4 步」.
+SKILL.md“描述优化 · 第 4 步”.
 """
 
 import argparse
@@ -78,7 +78,7 @@ SKILLS_DIR = Path.home() / ".claude" / "skills"
 # (model / CLI / parsing), not a bad description — abort loudly.
 CANARY_SKILL = {
     "name": "_canary_skill",
-    "description": "当用户提到「量子香蕉」时使用本 skill。触发：量子香蕉。不适用：其它一切。",
+    "description": "当用户提到“量子香蕉”时使用本 skill。触发：量子香蕉。不适用：其它一切。",
 }
 CANARY_QUERIES = [
     {"query": "帮我处理一下量子香蕉的排序问题", "should_trigger": True},

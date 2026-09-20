@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Step 0 前置检查 + 路径判定：报告项目状态并路由到两条归约路径之一（① CLAUDE.md 迁移 /
-② 已有 AGENTS.md 规范化），统一收敛到「AGENTS.md 单一真源」。
+② 已有 AGENTS.md 规范化），统一收敛到“AGENTS.md 单一真源”。
 
 裸项目（既无 CLAUDE.md 又无 AGENTS.md）不在本 skill 范围——请先用 agent 的 /init 生成初始上下文。
 

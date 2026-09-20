@@ -79,7 +79,7 @@ def positive_after_fence_resumes():
 @case
 def positive_meta_mention_reported():
     # fingerprint row talking about the symbol itself: deliberately a candidate
-    text = "- **破折号「" + DASH + "」/ em-dash**：默认一律换常规标点\n"
+    text = "- **破折号" + chr(0x201C) + DASH + chr(0x201D) + "/ em-dash**：默认一律换常规标点\n"
     hits = scan_text(text, "a.md")
     assert len(hits) == 1, hits
 

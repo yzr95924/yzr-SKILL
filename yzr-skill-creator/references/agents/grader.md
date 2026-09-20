@@ -40,7 +40,7 @@ credit，每条 expectation 只有 pass / fail，没有部分分。
 
 ## Output Format
 
-> 完整 JSON schema 与字段说明的 SSOT 在 `../schemas.md`「grading.json」，spawn prompt 会附该文件路径。
+> 完整 JSON schema 与字段说明的 SSOT 在 [grading.json](../schemas.md#gradingjson)，spawn prompt 会附该文件路径。
 > 字段名必须精确匹配（下游汇总按字段名读取，错字段名 = 静默出 0）。此处只给骨架：
 
 ```json

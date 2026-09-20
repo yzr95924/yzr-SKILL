@@ -1,6 +1,6 @@
 # 改写规则 R1–R6
 
-> 本文件是「迁移时怎么改写每段内容」的 SSOT。Step 2 / 3 改写、Step 4 生成薄壳时读它。
+> 本文件是“迁移时怎么改写每段内容”的 SSOT。Step 2 / 3 改写、Step 4 生成薄壳时读它。
 > SKILL.md 只给摘要 + 指针，不重抄。
 
 ## R1 — 工具无关化（去品牌绑定）
@@ -27,10 +27,10 @@
 
 ## R2 — 记忆索引 `@import` 收口（不回退内联）
 
-`MEMORY.md` 是 L2 索引的**唯一**真源。`AGENTS.md` 的「跨会话记忆（索引）」段用**单行
+`MEMORY.md` 是 L2 索引的**唯一**真源。`AGENTS.md` 的“跨会话记忆（索引）”段用**单行
 `@MEMORY/MEMORY.md`** 引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**
 （见 `layering.md` 骨架）兜底，段内不再单挂指引。**不**内联索引行——内联会踩"双写漂移 / L1
-膨胀 / 真源分裂"三个坑，理由详见 SKILL.md「设计与原理」L2 段（此处不重抄）。
+膨胀 / 真源分裂"三个坑，理由详见 SKILL.md“设计与原理”L2 段（此处不重抄）。
 
 完整段落模板（顶部强制 Read 指令见 `layering.md` 骨架，逐字拷到 AGENTS.md 顶部；本段只剩引用一行）：
 
@@ -57,7 +57,7 @@
 ### 写统一（默认，见 R6）
 
 R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一——agent 把新记忆写到 `MEMORY/` 而非
-私有 memory——已由「可选」升为**默认**，连同「MEMORY 仓 repo-local + 不存在则在 repo 下建」一起收口到
+私有 memory——已由“可选”升为**默认**，连同“MEMORY 仓 repo-local + 不存在则在 repo 下建”一起收口到
 **R6**（禁私有 memory 理由 + 最小 `MEMORY.md` 模板 + 写入规约均在那里）。本节不再单挂，避免与 R6 双写漂移。
 
 ## R3 — 行宽不变
@@ -104,7 +104,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 <!-- 如果没有专属内容，删除此注释块 -->
 ```
 
-> 「薄壳声明」是**结构性指针**（指向 SSOT + 提醒勿编辑共用部分），不是被迁移的内容，不违反"薄壳不放大段正文"。
+> “薄壳声明”是**结构性指针**（指向 SSOT + 提醒勿编辑共用部分），不是被迁移的内容，不违反"薄壳不放大段正文"。
 > 它让任何打开 CLAUDE.md 的人/agent 一眼知道：真源在 AGENTS.md、这里别动。Claude Code 加载时会把它和
 > `@AGENTS.md` 展开内容一起读入，相当于一句"接下来这段是 AGENTS.md 的内容"的引导。
 
@@ -126,8 +126,8 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 - 总行数 ≤ 30（含注释标记）
 - `@AGENTS.md` 存在
-- 顶部有「薄壳声明」（指向 AGENTS.md 为单一真源、提醒勿编辑共用部分）——结构性指针，不计入"正文"
-- 除「薄壳声明」、`@AGENTS.md` 和 HTML 注释标记外，不应有大段正文——有就说明该内容本该在 AGENTS.md（R1 去品牌后归 L1）或 MEMORY（R4），不该留在薄壳
+- 顶部有“薄壳声明”（指向 AGENTS.md 为单一真源、提醒勿编辑共用部分）——结构性指针，不计入"正文"
+- 除“薄壳声明”、`@AGENTS.md` 和 HTML 注释标记外，不应有大段正文——有就说明该内容本该在 AGENTS.md（R1 去品牌后归 L1）或 MEMORY（R4），不该留在薄壳
 
 ## R6 — MEMORY 仓 repo-local + 存在性
 
@@ -148,19 +148,19 @@ This file provides guidance to Claude Code when working with code in this reposi
 记忆跟 repo 走——只活这一份，不写 agent 私有 memory（如 `~/.claude/...`）。
 ```
 
-**写位置（写统一，默认）：AGENTS.md「仓库规约」段默认含「记忆写入规约」。** 持久化的"为什么 / 边界规则"
+**写位置（写统一，默认）：AGENTS.md“仓库规约”段默认含“记忆写入规约”。** 持久化的"为什么 / 边界规则"
 写 `MEMORY/`（`MEMORY.md` 索引 + `MEMORY/<slug>.md` 正文），**禁写** agent 私有 memory。两种条目形式
 （完整带 frontmatter 三件套 `name` / `description` / `metadata.type` / 短 memory 索引行）的模板见
-[`layering.md`](layering.md) 骨架「仓库规约」段——本规则只管"写哪 / 不写哪"，条目格式细节不重抄。
+[`layering.md`](layering.md) 骨架“仓库规约”段——本规则只管"写哪 / 不写哪"，条目格式细节不重抄。
 
-> 写统一在本 skill 内是**默认**：用户明确要「记忆跟 repo 走」。各 agent 对"执行 AGENTS.md 写入
+> 写统一在本 skill 内是**默认**：用户明确要“记忆跟 repo 走”。各 agent 对"执行 AGENTS.md 写入
 > 指令"的程度仍不一——本规则保证**指令在场且明确**（生成的 AGENTS.md 必含写入规约 + 禁私有
 > memory），至于单个 agent 是否照办是其执行层问题，不在本 skill 上下文。
 
 **自检**：
 
 - `test -f MEMORY/MEMORY.md` 应存在（迁前无 MEMORY/ 的项目迁后必有）。
-- AGENTS.md「仓库规约」段含「不写私有 memory」/「写 `MEMORY/`」类措辞。
+- AGENTS.md“仓库规约”段含“不写私有 memory”/“写 `MEMORY/`”类措辞。
 
 ## 路径 2 规范化诊断清单（Step 1 路径 2 用）
 

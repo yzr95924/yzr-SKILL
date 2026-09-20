@@ -80,7 +80,7 @@ STOPWORDS = {
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-# 完整 memory frontmatter 三件套约束（参见本仓库 AGENTS.md「仓库规约」段——禁止无 frontmatter 起手）。
+# 完整 memory frontmatter 三件套约束（参见本仓库 AGENTS.md“仓库规约”段——禁止无 frontmatter 起手）。
 # 与 yzr-skill-creator 的 DESCRIPTION_MAX_CHARS（SKILL description 上限）是两套独立常量，本脚本不复用。
 ALLOWED_MEMORY_TYPES = frozenset({"user", "feedback", "project", "reference"})
 MEMORY_DESCRIPTION_MAX_CHARS = 200
@@ -226,7 +226,7 @@ def parse_memory_frontmatter(text: str) -> Tuple[Optional[dict], Optional[str]]:
 
 
 def check_memory_frontmatter(root: Path) -> List[str]:
-    r"""校验 MEMORY/<slug>.md frontmatter 三件套合法性（AGENTS.md「仓库规约」约定）。
+    r"""校验 MEMORY/<slug>.md frontmatter 三件套合法性（AGENTS.md“仓库规约”约定）。
 
     本仓库的"完整 memory"必须带 YAML frontmatter 三件套——`name`（必须等于文件 slug）/
     `description`（一行 ≤ 200 字符事实摘要，供 recall 阶段 relevance 判定）/
@@ -413,7 +413,7 @@ def main() -> int:
     if flag_count == 0:
         print("结论：无 flag——参与比对的行全部覆盖。记得人工复核被跳过的纯中文行。")
     else:
-        print("结论：有 flag——逐条确认是「真丢失」还是「去品牌改写 / 下沉到 MEMORY」。")
+        print("结论：有 flag——逐条确认是“真丢失”还是“去品牌改写 / 下沉到 MEMORY”。")
     return 0
 
 

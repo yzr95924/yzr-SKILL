@@ -2,7 +2,7 @@
 """Fixture smoke test for the mechanical audit rules added to this skill.
 
 Covers the checks that replaced hand-typed grep rows: quick_validate's
-「何时不使用」 / length / TOC rules, check_anchor_health's heading slug
+“何时不使用” / length / TOC rules, check_anchor_health's heading slug
 extraction and CROSS-SKILL-PATH, and audit_prose's two heuristic screens. Every
 rule case pins both directions — dirty fixture fires the rule id, clean fixture
 stays silent — and the extraction / line-number cases pin exact output, because
@@ -176,7 +176,7 @@ def check_bare_metric(failures: List[str]) -> None:
         failures.append("BARE-METRIC: quoted example not exempted")
     # A copy that names its authority on the same line is a declared copy, not
     # drift (the exemption follows the SSOT-annotation requirement in
-    # 「指标单一来源」/「自包含例外」, not an ad-hoc whitelist).
+    # “指标单一来源”/“自包含例外”, not an ad-hoc whitelist).
     annotated = make_skill(
         {
             "SKILL.md": CLEAN_SKILL,

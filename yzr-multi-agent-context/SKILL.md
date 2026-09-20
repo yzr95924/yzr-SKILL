@@ -18,7 +18,7 @@ metadata:
 
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
 
-把一个工程的项目上下文归约成「**AGENTS.md 作单一真源（SSOT）、对多个 agent 兼容**」——`CLAUDE.md`
+把一个工程的项目上下文归约成“**AGENTS.md 作单一真源（SSOT）、对多个 agent 兼容**”——`CLAUDE.md`
 或已有的 `AGENTS.md` 经两条路径收敛到同一份工具无关的 `AGENTS.md`，各 agent 各用各的入口加载它
 （原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md → @AGENTS.md` 的），不必维护两份。
 
@@ -29,12 +29,12 @@ metadata:
 无需额外配置；不原生读 `AGENTS.md` 的 agent 则经薄壳 `CLAUDE.md → @AGENTS.md` 引入同一份内容，
 且支持**递归** `@import`，故 AGENTS.md 内的 `@MEMORY/MEMORY.md` 也会被自动展开。
 
-**L2 记忆层用 `@MEMORY/MEMORY.md` 收口**（R2；此理由只在此讲一次，Step 2 / 3 均引用本段）：
+**L2 记忆层用 `@MEMORY/MEMORY.md` 收口**（R2；此理由只在此讲一次，Step 2（组织 AGENTS.md）/ Step 3（MEMORY）均引用本段）：
 `MEMORY.md`（索引文件）放在 `MEMORY/` 下，AGENTS.md 用 `@MEMORY/MEMORY.md` 单行引入——会自动展开
 `@import` 的 agent（递归 import / 原生支持 `@path`）会把索引正文展开到上下文；不展开 `@import` 的
 agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
 指令**（对所有 agent 一视同仁）：凡 `@` 引用都用 Read 读——不展开的据此 `Read MEMORY/MEMORY.md` 拿到
-索引，展开的读了也无害（从「段内逐点补指引」升级为「一条通则兜底」，不再绑定具体 agent）。
+索引，展开的读了也无害（从“段内逐点补指引”升级为“一条通则兜底”，不再绑定具体 agent）。
 
 为什么不把 MEMORY.md 索引内联进 AGENTS.md 正文：内联要双写（MEMORY.md 改一处就得回贴 AGENTS.md，
 必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成“MEMORY.md + AGENTS.md”双源。而自动展开
@@ -46,7 +46,7 @@ agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
 
 完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见 [`references/layering.md`](references/layering.md)
 ——Step 1 给段落分类时读它；改写规则 R1–R6 + 路径 2 诊断清单见
-[`references/rewrite-rules.md`](references/rewrite-rules.md)——Step 2 / 3 / 4 对照执行。
+[`references/rewrite-rules.md`](references/rewrite-rules.md)——Step 2 / 3 / 4（生成 AGENTS.md / MEMORY / 薄壳）对照执行。
 
 兼容性矩阵（按加载行为分类，不逐家点名——是否自动展开 `@import` 已由顶部强制 Read 指令通吃）：
 
@@ -78,7 +78,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 | 输入 | 必需 | 说明 |
 | --- | --- | --- |
 | 项目根目录 | 是 | 默认 cwd；两条路径之一：含 `CLAUDE.md` / 含 `AGENTS.md`（都没有→先用 `/init`） |
-| `MEMORY/` | 否 | 存在则一并去品牌化（Step 3）+ 在 AGENTS.md 加 `@MEMORY/MEMORY.md`；不存在则在 repo 下新建（R6） |
+| `MEMORY/` | 否 | 存在则一并去品牌化（Step 3 MEMORY）+ 在 AGENTS.md 加 `@MEMORY/MEMORY.md`；不存在则在 repo 下新建（R6） |
 | 源文件快照 | 自动 | Step 1 快照源（CLAUDE.md / AGENTS.md）到 `.migration-backup/`（**临时目录**），供 Step 5 覆盖率比对，验证通过即删 |
 
 ### 输出
@@ -86,7 +86,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 ```text
 <project-root>/
 ├── AGENTS.md                 新/改：工具无关真源（原生读 / 经薄壳 CLAUDE.md 引入），
-│                             含「## 跨会话记忆（索引）」段：@MEMORY/MEMORY.md（顶部强制 Read 指令在文件顶部）
+│                             含“## 跨会话记忆（索引）”段：@MEMORY/MEMORY.md（顶部强制 Read 指令在文件顶部）
 ├── CLAUDE.md                 薄壳（@AGENTS.md + <!-- Claude Code 专属 --> 逃生舱）——让 Claude Code 也
 │                             加载同一份 AGENTS.md（含递归 @MEMORY/MEMORY.md 展开）；有现有 CLAUDE.md
 │                             则改写，纯 AGENTS.md 项目则新建最小薄壳
@@ -121,7 +121,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   Step 2 / 3 改写时对照。
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
-  段内不再单挂指引。**不**内联索引行——理由见上方「设计与原理」L2 记忆层段（Step 2 引用同一 R2 模板）。
+  段内不再单挂指引。**不**内联索引行——理由见上方 [设计与原理](#设计与原理) L2 记忆层段（Step 2 引用同一 R2 模板）。
 - **记忆写统一（默认，见 R6）**：R2 解决**读**统一；**写**统一（agent 把新记忆写 `MEMORY/` 而非私有
   memory）是默认，连同 repo-local + 存在性一起收口到 R6（禁私有 memory + 最小 `MEMORY.md` 模板 +
   写入规约）。详见 `references/rewrite-rules.md` R6。
@@ -133,7 +133,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱。
 - **R6 MEMORY 仓 repo-local + 存在性**：跨会话记忆真源 = repo 根 `MEMORY/`，禁写 agent 私有 memory
   （`~/.claude/...`）。迁前无 `MEMORY/` → 在 repo 下建 `MEMORY/MEMORY.md` 最小索引（不跳过、不省略
-  记忆段）；「仓库规约」段默认含写入规约。完整约束 + 模板见
+  记忆段）；“仓库规约”段默认含写入规约。完整约束 + 模板见
   [`references/rewrite-rules.md`](references/rewrite-rules.md) R6。
 
 ### 运行约束
@@ -145,7 +145,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 > 贯穿全程：分类表（Step 1）、逃生舱内容（Step 4）两处**交互确认点**，不要静默决断。
 
-### Step 0：前置检查 + 路径判定（跑 `scripts/precheck.py`）
+### Step 0：前置检查 + 路径判定（跑 `scripts/precheck.py`，从 skill 根）
 
 ```bash
 python3 scripts/precheck.py <project-root>
@@ -174,7 +174,7 @@ python3 scripts/precheck.py <project-root>
      合并 CLAUDE.md 内容去重），冲突口径让用户裁定。
 2. 加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`**——段内不再挂段内指引（不展开
    `@import` 的 agent 由顶部强制 Read 指令兜底）。**无 `MEMORY/` 时先在 repo 下建 `MEMORY/MEMORY.md`
-   最小索引（R6）再放本段**——不再因「无 MEMORY/」省略。完整段落模板见
+   最小索引（R6）再放本段**——不再因“无 MEMORY/”省略。完整段落模板见
    [`references/rewrite-rules.md`](references/rewrite-rules.md) R2。
 3. 应用 R1（去品牌）+ R3（行宽）。
 4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`references/layering.md`](references/layering.md)）；
@@ -195,12 +195,12 @@ python3 scripts/precheck.py <project-root>
 
 让不原生读 `AGENTS.md` 的 agent（经 `CLAUDE.md` 加载）也能用上同一份：有现有 `CLAUDE.md`（路径 1；路径 2 并存场景）则改写成薄壳；
 纯 `AGENTS.md` 项目（路径 2 无 CLAUDE.md）则新建最小薄壳。按 [`references/rewrite-rules.md`](references/rewrite-rules.md)
-的薄壳模板：顶部「薄壳声明」（点明 AGENTS.md 是单一真源、勿在此编辑共用部分）+ `@AGENTS.md` +
+的薄壳模板：顶部“薄壳声明”（点明 AGENTS.md 是单一真源、勿在此编辑共用部分）+ `@AGENTS.md` +
 `<!-- Claude Code 专属 -->` 逃生舱（Step 2 识别出的 TOOL_SPECIFIC 内容，按 R5 处理）。没有逃生舱内容就省略注释块。
 **逃生舱内容展示给用户确认。** 自检口径（行数上限、`@AGENTS.md` 存在、薄壳声明、无大段正文）见
 [`references/rewrite-rules.md`](references/rewrite-rules.md) 薄壳验证段。
 
-### Step 5：覆盖率验证（跑 `scripts/coverage.py`）
+### Step 5：覆盖率验证（跑 `scripts/coverage.py`，从 skill 根）
 
 ```bash
 python3 scripts/coverage.py <project-root>

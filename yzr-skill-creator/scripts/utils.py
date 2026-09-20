@@ -4,7 +4,7 @@ Everything here is a pure helper: constants that prose refers to by name, the
 frontmatter reader shared by every script, the fence-aware line iterator, and
 the Finding record that check scripts emit. No check *logic* lives here — a rule
 belongs to the script that enforces it (see
-references/skill-writing-principles.md「机械操作脚本化」推论: mechanism detail
+references/skill-writing-principles.md“机械操作脚本化”推论: mechanism detail
 stays in the script, prose keeps only the口径).
 """
 
@@ -72,11 +72,11 @@ def find_code_spans(line: str) -> List[Tuple[int, int]]:
 
     A span is a pair of matching *single* backticks; CommonMark's run-length
     matching is deliberately not modelled. Known consequence: text wrapped in
-    double backticks (e.g. a `` `` `a.md`「X」 `` `` syntax illustration) is not
+    double backticks (e.g. a `` ``[x](a.md#y)`` `` link illustration) is not
     recognised as one code span, so an example inside it can still be scanned.
     Accepted because upgrading the matcher would change which live references
     each checker sees — a bigger behaviour change than the illustration case
-    is worth, and prose can dodge it by keeping examples out of guide-word form.
+    is worth, and prose can dodge it by putting such illustrations in fenced code.
     """
     spans: List[Tuple[int, int]] = []
     i = 0
@@ -119,7 +119,7 @@ def iter_unfenced_lines(text: str):
 
 # Severity vocabulary is reused from quick_validate (ERROR blocks, WARN advises,
 # INFO observes) rather than inventing a second scale — the P1–P4 grading in
-# references/skill-writing-principles.md「审查深度标准」 is the agent's *report*
+# references/skill-writing-principles.md“审查深度标准” is the agent's *report*
 # layer and is derived from (level, rule), not stored here.
 FINDING_LEVELS = ("ERROR", "WARN", "INFO")
 
@@ -275,7 +275,7 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
 # deliberately NO canonical "参考文件" index section: the agent reaches every
 # bundled file through inline "何时去读" pointers at the step that uses it; a
 # terminal listing is double-writing at best (see skill-writing-principles.md
-# 「正文超长根因诊断」's restatement smell). Enumeration-as-routing needs (e.g.
+# “正文超长根因诊断”'s restatement smell). Enumeration-as-routing needs (e.g.
 # multi-domain skills) belong inline at the dispatch step as a routing table.
 CANONICAL_BODY_SECTIONS = (
     ("## 输入 / 输出", frozenset()),

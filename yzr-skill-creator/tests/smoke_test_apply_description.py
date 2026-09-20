@@ -29,7 +29,7 @@ BODY = "\n# t\n\n## 输入 / 输出\n\n正文。\n"
 LONG_DESCRIPTION = (
     "当用户处于 skill 生命周期时使用本 skill：从工作流 / 模板 / 流程创建新 skill、通过 eval-and-iterate 改进现有 skill、"
     "独立优化某个 skill 的触发 description、或拿写作原则审计 skill 合规性（只报告、不改写）。"
-    "触发：「帮我做一个 X 的 skill」/「改进 XX 这个 skill」/「评估 / 迭代 XX skill」/「检查 XX skill 全文」；"
+    "触发：“帮我做一个 X 的 skill”/“改进 XX 这个 skill”/“评估 / 迭代 XX skill”/“检查 XX skill 全文”；"
     "用户反馈触发不准或行为不对；想跑评估。不适用：单步问询；问 skill 机制原理；写普通代码。"
 )
 
