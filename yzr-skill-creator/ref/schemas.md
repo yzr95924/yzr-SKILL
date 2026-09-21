@@ -1,18 +1,17 @@
-# JSON Schemas
+# JSON schema 契约
 
-> 本文件是 JSON schema **唯一完整示例来源**：`ref/agents/*.md` 只含骨架，字段精确值
-> 一律以本文件为准（spawn 子 agent 时把对应节的路径附进 prompt）。
-> 描述优化（入口 3）没有独立 JSON schema，`scripts/optimize_description.py` 直接输出
-> results.json（含 history 数组），字段以该脚本 docstring 为准。
+> 本文件是两份 JSON 的**唯一完整示例来源**：`ref/agents/*.md` 只放骨架，字段精确值一律以本文件为准
+> （启动子 agent 时把对应节的路径附进 prompt）。字段名是契约：错名 / 缺名会被下游读成"0 通过"，
+> `tools/eval_report.py` 在出任何数字前先报 ERROR
 >
-> 下面两份的字段名是**契约**，由 `scripts/eval_report.py` 汇总时强校验（范围见其
-> docstring）；面向 grader 的"错字段名 = 静默出 0"警告在 `ref/agents/grader.md`。
+> 描述优化（入口 3）不在本文件范围：其 results.json 由 `tools/optimize_description.py` 直接输出（stdout），
+> 供 `--apply` 写回
 
 ---
 
 ## evals.json
 
-Defines the evals for a skill. Located at `eval/evals.json` within the skill directory.
+一个 skill 的评估集，存 skill 目录内 `eval/evals.json`
 
 ```json
 {
@@ -20,89 +19,86 @@ Defines the evals for a skill. Located at `eval/evals.json` within the skill dir
   "evals": [
     {
       "id": 1,
-      "prompt": "User's example prompt",
-      "expected_output": "Description of expected result",
+      "prompt": "用户会说的任务原话",
+      "expected_output": "这轮成功长什么样（给人读）",
       "files": ["eval/files/sample1.pdf"],
       "expectations": [
-        "The output includes X",
-        "The skill used script Y"
+        "输出里包含 X",
+        "用到了脚本 Y"
       ]
     }
   ]
 }
 ```
 
-**Fields:**
+**字段**（标注 = 机器是否读它；"校验" = 缺或错在出数前报 ERROR）：
 
-- `skill_name`: Name matching the skill's frontmatter
-- `evals[].id`: Unique integer identifier
-- `evals[].prompt`: The task to execute
-- `evals[].expected_output`: Human-readable description of success
-- `evals[].files`: Optional list of input file paths (relative to skill root)
-- `evals[].expectations`: List of verifiable statements
+- `skill_name`（校验）：须等于该 skill frontmatter 的 `name`；改名要同步，否则 grader 与产出对不上
+- `evals[].id`（校验）：整数且全文件唯一，决定 `eval-<id>/` 目录名
+- `evals[].prompt`（校验）：非空，交给执行 agent 的任务原话
+- `evals[].files`（校验，可选）：输入文件路径，相对 skill 根；列了就必须真实存在
+- `evals[].expectations`（grader 消费 + 覆盖率校验）：可核验断言列表；创建阶段可先空，评估循环里补
+- `evals[].expected_output`（机器不读）：给人看的成功描述
 
 ---
 
 ## grading.json
 
-Output from the grader agent. Located at `<run-dir>/grading.json`（与 `outputs/` 同级）。
+grader 子 agent 的产出，存 `<run-dir>/grading.json`（与 `outputs/` 同级）
 
 ```json
 {
   "expectations": [
     {
-      "text": "The output includes the name 'John Smith'",
+      "text": "输出里包含姓名 '张三'",
       "passed": true,
-      "evidence": "Found in transcript Step 3: 'Extracted names: John Smith, Sarah Johnson'"
+      "evidence": "transcript 第 3 步：'提取到的姓名：张三、李四'"
     },
     {
-      "text": "The spreadsheet has a SUM formula in cell B10",
+      "text": "表格 B10 单元格是 SUM 公式",
       "passed": false,
-      "evidence": "No spreadsheet was created. The output was a text file."
+      "evidence": "没有生成表格，输出是纯文本文件"
     }
   ],
-  "summary": {
-    "passed": 1,
-    "failed": 1,
-    "total": 2,
-    "pass_rate": 0.5
-  },
+  "summary": {"passed": 1, "failed": 1, "total": 2, "pass_rate": 0.5},
   "claims": [
     {
-      "claim": "The form has 12 fillable fields",
+      "claim": "表单有 12 个可填字段",
       "type": "factual",
       "verified": true,
-      "evidence": "Counted 12 fields in field_info.json"
+      "evidence": "在 field_info.json 里数到 12 个"
     },
     {
-      "claim": "All required fields were populated",
+      "claim": "所有必填字段都已填",
       "type": "quality",
       "verified": false,
-      "evidence": "Reference section was left blank despite data being available"
+      "evidence": "参考资料那一节是空的，尽管数据可得"
     }
   ],
   "user_notes_summary": {
-    "uncertainties": ["Used 2023 data, may be stale"],
+    "uncertainties": ["用的是 2023 年数据，可能过期"],
     "needs_review": [],
-    "workarounds": ["Fell back to text overlay for non-fillable fields"]
+    "workarounds": ["不可填字段改用文字覆盖"]
   },
   "eval_feedback": {
     "suggestions": [
       {
-        "assertion": "The output includes the name 'John Smith'",
-        "reason": "A hallucinated document that mentions the name would also pass — consider checking it appears as the primary contact with matching phone and email from the input"
+        "assertion": "输出里包含姓名 '张三'",
+        "reason": "凭空编的文档只要提到这个名字也能过；建议改查它是否作为主联系人出现，并与输入里的电话、邮箱对得上"
       }
     ],
-    "overall": "Assertions check presence but not correctness. Consider adding content verification."
+    "overall": "断言只查了有没有出现，没查对不对；建议补内容核验"
   }
 }
 ```
 
-**Fields:**
+**字段**（标注口径同上）：
 
-- `expectations[]`: Graded expectations with evidence
-- `summary`: Aggregate pass/fail counts
-- `claims`: Extracted and verified claims from the output
-- `user_notes_summary`: Issues flagged by the executor
-- `eval_feedback`: (optional) Improvement suggestions for the evals, only present when the grader identifies issues
-  worth raising
+- `expectations[]`（校验）：逐条判定，每条须齐 `text`（断言原文）/ `passed`（布尔）/ `evidence`（可核对
+  的证据）
+- `summary`（校验）：`passed` / `failed` / `total` / `pass_rate` 四项齐全，算术须与 `expectations` 数组
+  对得上（`pass_rate = passed / total`）；给了 `--evals` 时另查覆盖率：evals.json 里每条断言都得判过，
+  漏判按 ERROR 处理
+- `claims`（机器不读）：从输出里提取并核验的隐含声明；`type` 取 `factual` / `process` / `quality`
+- `user_notes_summary`（机器不读）：执行 agent 自标的不确定 / 需复核 / 变通
+- `eval_feedback`（机器不读，可选）：对 evals 本身的批判，只写"good catch"级别的

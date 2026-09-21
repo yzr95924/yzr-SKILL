@@ -13,13 +13,15 @@ Exit 0 = all green, 1 = regression.
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts.eval_report import _cross_check_evals, check_evals, check_grading, collect, evals_by_id  # noqa: E402
+from _fixtures import make_skill_dir, make_tmp_dir  # noqa: E402
+
+from tools.eval_report import _cross_check_evals, check_evals, check_grading, collect, evals_by_id  # noqa: E402
 
 ASSERTIONS = ["产出含 X", "使用了脚本 Y", "正文不含 Z"]
 
@@ -74,7 +76,7 @@ def check_field_typo(failures: List[str]) -> None:
         "expectations": [{"text": ASSERTIONS[0], "pass": True, "evidence": "x"}],
         "summary": {"passed": 1, "failed": 0, "total": 1, "pass_rate": 1.0},
     }
-    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", broken)
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
     if "GRADING-SCHEMA" not in rules(findings):
@@ -84,7 +86,7 @@ def check_field_typo(failures: List[str]) -> None:
 def check_arithmetic(failures: List[str]) -> None:
     bad_summary = good_grading(ASSERTIONS[:1])
     bad_summary["summary"] = {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0}
-    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", bad_summary)
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
     got = rules(findings)
@@ -93,7 +95,7 @@ def check_arithmetic(failures: List[str]) -> None:
 
 
 def check_unreadable(failures: List[str]) -> None:
-    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", '{"expectations": [')
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
     if "GRADING-SCHEMA" not in rules(findings):
@@ -101,7 +103,7 @@ def check_unreadable(failures: List[str]) -> None:
 
 
 def check_missing_grading(failures: List[str]) -> None:
-    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    root = make_tmp_dir(prefix="er-smoke-")
     (root / "eval-0" / "with_skill" / "outputs").mkdir(parents=True)
     _runs, findings = collect(root)
     if "WORKSPACE-LAYOUT" not in [f.rule for f in findings]:
@@ -119,14 +121,14 @@ def check_coverage(failures: List[str]) -> None:
         "expectations": [{"text": ASSERTIONS[0], "passed": True, "evidence": "x"}],
         "summary": {"passed": 1, "failed": 0, "total": 1, "pass_rate": 1.0},
     }
-    partial_root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    partial_root = make_tmp_dir(prefix="er-smoke-")
     write_run(partial_root, 0, "with_skill", partial)
     runs, _ = collect(partial_root)
     got = [f.rule for f in _cross_check_evals(runs, evals, Path("evals.json")) if f.level == "ERROR"]
     if "GRADING-COVERAGE" not in got:
         failures.append(f"coverage: skipped assertions not reported as GRADING-COVERAGE ERROR, got {got}")
 
-    full_root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    full_root = make_tmp_dir(prefix="er-smoke-")
     write_run(full_root, 0, "with_skill", good_grading(ASSERTIONS))
     runs_full, _ = collect(full_root)
     loud = [f for f in _cross_check_evals(runs_full, evals, Path("evals.json")) if f.level == "ERROR"]
@@ -138,11 +140,14 @@ def check_evals_set(failures: List[str]) -> None:
     """eval/evals.json drift: stale skill_name / duplicate id / missing input file."""
 
     def make_skill(payload) -> Path:
-        root = Path(tempfile.mkdtemp(prefix="er-smoke-")) / "demo-skill"
-        (root / "eval").mkdir(parents=True)
-        (root / "SKILL.md").write_text("---\nname: demo-skill\ndescription: 触发：a。不适用：b。\n---\n# t\n")
-        (root / "eval" / "evals.json").write_text(json.dumps(payload, ensure_ascii=False))
-        return root
+        return make_skill_dir(
+            {
+                "SKILL.md": "---\nname: demo-skill\ndescription: 触发：a。不适用：b。\n---\n# t\n",
+                "eval/evals.json": json.dumps(payload, ensure_ascii=False),
+            },
+            prefix="er-smoke-",
+            name="demo-skill",
+        )
 
     good = make_skill(
         {"skill_name": "demo-skill", "evals": [{"id": 0, "prompt": "p", "expectations": ["x"], "files": []}]}
@@ -183,7 +188,7 @@ def check_evals_set(failures: List[str]) -> None:
 
 def main() -> int:
     failures: List[str] = []
-    root = Path(tempfile.mkdtemp(prefix="er-smoke-"))
+    root = make_tmp_dir(prefix="er-smoke-")
     check_good(failures, root)
     check_field_typo(failures)
     check_arithmetic(failures)

@@ -44,7 +44,7 @@ jobs:
           python -m pip install ruff pyyaml
           npm install -g markdownlint-cli
       - name: verify every skill (structure + anchors + heuristics + md/py lint)
-        run: python yzr-skill-creator/scripts/verify.py --repo-root . --strict-tools
+        run: python yzr-skill-creator/tools/verify.py --repo-root . --strict-tools
       - name: markdownlint repo-level docs (README / AGENTS / MEMORY)
         run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
       - name: scoring / schema / rule smoke tests

@@ -14,13 +14,15 @@ Exit 0 = all green, 1 = regression.
 """
 
 import sys
-import tempfile
 from pathlib import Path
 from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts import audit_prose, check_anchor_health, quick_validate, verify  # noqa: E402
+from _fixtures import make_skill_dir  # noqa: E402
+
+from tools import audit_prose, check_anchor_health, quick_validate, verify  # noqa: E402
 
 CLEAN_SKILL = """---
 name: smoke-target
@@ -46,20 +48,9 @@ description: |
 """
 
 
-_KEEP = []
-
-
 def make_skill(files: Dict[str, str]) -> Path:
-    """Write a throwaway skill dir from {relative path: content}."""
-    tmp = tempfile.TemporaryDirectory(prefix="audit-smoke-")
-    root = Path(tmp.name) / "smoke-target"
-    for rel, content in files.items():
-        target = root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content)
-    # Kept alive for the process lifetime; the fixtures are a few KB each.
-    _KEEP.append(tmp)
-    return root
+    """本测试的夹具：建 audit-smoke- 前缀的临时 skill 目录。"""
+    return make_skill_dir(files, prefix="audit-smoke-")
 
 
 def rules(findings) -> List[str]:

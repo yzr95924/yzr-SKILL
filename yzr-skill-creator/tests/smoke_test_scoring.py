@@ -13,12 +13,14 @@ Run: python3 tests/smoke_test_scoring.py  (from yzr-skill-creator/)
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts import optimize_description
+from _fixtures import make_tmp_dir  # noqa: E402
+
+from tools import optimize_description
 
 TARGET = "smoke-target-skill"
 
@@ -60,46 +62,41 @@ def run_smoke_eval() -> dict:
     """Run the four-quadrant eval with the stubbed judge and a synthetic
     skills pool.
 
-    The pool (decoys + target) replaces the host's real ~/.claude/skills,
-    which CI runners don't have — and makes the judge pick the target out of
-    a list, which is what the real routing layer does.
+    The pool (decoys + target) stands in for the host's real ~/.claude/skills
+    (absent on CI runners) and is passed explicitly as skills_dir — it also
+    makes the judge pick the target out of a list, which is what the real
+    routing layer does.
     """
-    with tempfile.TemporaryDirectory(prefix="skill-smoke-") as td:
-        td_path = Path(td)
-        stub = td_path / "claude"
-        stub.write_text(STUB_SRC)
-        stub.chmod(0o755)
-        config = td_path / "judge-config.json"
-        config.write_text(json.dumps({"rules": RULES}))
-        skills_dir = td_path / "skills"
-        for name in (TARGET, "smoke-decoy-a", "smoke-decoy-b"):
-            entry = skills_dir / name
-            entry.mkdir(parents=True)
-            (entry / "SKILL.md").write_text(f"---\nname: {name}\ndescription: |\n  {name} 的描述。\n---\n# {name}\n")
+    td_path = make_tmp_dir(prefix="skill-smoke-")
+    stub = td_path / "claude"
+    stub.write_text(STUB_SRC)
+    stub.chmod(0o755)
+    config = td_path / "judge-config.json"
+    config.write_text(json.dumps({"rules": RULES}))
+    skills_dir = td_path / "skills"
+    for name in (TARGET, "smoke-decoy-a", "smoke-decoy-b"):
+        entry = skills_dir / name
+        entry.mkdir(parents=True)
+        (entry / "SKILL.md").write_text(f"---\nname: {name}\ndescription: |\n  {name} 的描述。\n---\n# {name}\n")
 
-        old_path = os.environ.get("PATH", "")
-        old_config = os.environ.get("SMOKE_JUDGE_CONFIG")
-        old_skills_dir = optimize_description.SKILLS_DIR
-        os.environ["PATH"] = str(td_path) + os.pathsep + old_path
-        os.environ["SMOKE_JUDGE_CONFIG"] = str(config)
-        optimize_description.SKILLS_DIR = skills_dir
-        try:
-            return optimize_description.run_eval(
-                eval_set=QUERIES,
-                skill_name=TARGET,
-                description="smoke description",
-                timeout=60,
-                runs_per_query=1,
-                trigger_threshold=0.5,
-                model=None,
-            )
-        finally:
-            os.environ["PATH"] = old_path
-            optimize_description.SKILLS_DIR = old_skills_dir
-            if old_config is None:
-                os.environ.pop("SMOKE_JUDGE_CONFIG", None)
-            else:
-                os.environ["SMOKE_JUDGE_CONFIG"] = old_config
+    old_path = os.environ.get("PATH", "")
+    old_config = os.environ.get("SMOKE_JUDGE_CONFIG")
+    os.environ["PATH"] = str(td_path) + os.pathsep + old_path
+    os.environ["SMOKE_JUDGE_CONFIG"] = str(config)
+    try:
+        return optimize_description.run_eval(
+            eval_set=QUERIES,
+            skill_name=TARGET,
+            description="smoke description",
+            config=optimize_description.EvalConfig(timeout=60, runs_per_query=1, trigger_threshold=0.5),
+            skills_dir=skills_dir,
+        )
+    finally:
+        os.environ["PATH"] = old_path
+        if old_config is None:
+            os.environ.pop("SMOKE_JUDGE_CONFIG", None)
+        else:
+            os.environ["SMOKE_JUDGE_CONFIG"] = old_config
 
 
 def run_best_selection() -> dict:

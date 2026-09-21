@@ -13,242 +13,58 @@ description: |
   写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-09-20
+  modify time: 2026-09-21
 ---
-# yzr skill creator
+# yzr-skill-creator
 
-这是一个用于创建、改进 skill、独立优化 skill 触发描述，并能校验 skill 写作原则符合度的 skill
+改动面永远是整个 skill 文件夹，不只 `SKILL.md`
 
 ## 入口
 
-先归类到四种入口之一再介入。
+先归类，再动手，执行流程见[章节](#工作流)
 
-1. **创建新 skill**：从零做一个，见[章节](#创建一个-skill)。
-2. **改进现有 skill**：已有 skill 要改（改动面 = 整个 skill 文件夹，不只 SKILL.md）。先分
-   **单点 / 行为性**：改的是说法（措辞 / typo / 指称 / 注释）还是规矩（规则 / 流程 /
-   脚本行为 / 新增功能），流程见[章节](#改进-skill)。
-3. **优化 skill 的 description**：只调触发准确率、不动正文，见[章节](#描述优化)。
-4. **校验写作原则**：拿原则当 checklist 审计，见[章节](#原则校验)。
+1. **创建一个 skill**：从零做
+2. **改进 skill**：先分**单点**（正文措辞 / typo / 指称 / 注释）与**行为性**（规则 / 流程 / 脚本行为 / 新增功能）
+3. **`description` 优化**：凡改动触及 frontmatter 的 `description`（无论意图是触发准确率还是措辞），一律走本入口
+4. **原则校验**：审计合规性（只报告）
 
-## 输入 / 输出
+分流：用户说"优化描述"而对象不明时，默认泛指（正文措辞与结构）走入口 2，点名 frontmatter 才走入口 3；一次请求同时涉及正文与 `description` 时，先 2 后 3，不混进同一轮评估
 
-| 入口 | skill 交付 |
+## 输入与输出
+
+| 入口 | 交付 |
 | --- | --- |
-| 1. 创建 | 收敛后的完整 skill 目录（评估可按用户指示跳过，跳过则无 `eval/`） |
-| 2. 改进 | 单点：改后文件 + verify 全绿 + 分类汇报；行为性：+ workspace 评估产物（见 [章节](ref/eval-pipeline.md#第-0-步初始化工作区)） |
-| 3. 描述优化 | 用户确认后写回的新 `description`（附 before/after 触发分数） |
-| 4. 原则校验 | 对话内 pass/fail 结论 + 证据 + 建议修法；不建文件、不动手改 |
+| 1. 创建一个 skill | 收敛后的完整 skill 目录 |
+| 2. 改进 skill | 单点：改后文件 + `verify` 全绿 + 分类汇报；行为性：另加 workspace 评估产物（见 `ref/improve-workflow.md`） |
+| 3. `description` 优化 | 用户确认后写回的新 `description`（附 before/after 触发分数） |
+| 4. 原则校验 | 对话内通过 / 违反结论 + 证据 + 建议修法；不建文件、不动手改 |
 
-## 执行原则 / 边界
+## 执行原则
 
-无论走哪个入口，下面这些原则贯穿全程，是 agent 用本 skill 时的判断基线：
+贯穿全程的判断基线，不单独属于某一步：
 
-- **元 skill 的"元"特征**：本 skill 的产物是"让 agent 在某类任务上更靠谱"的载体，不是用户
-  最终要的文件；写每段 prose 前先问"下游 agent 读到这里会怎么想"
-- **必须跑评估**：行为性改动默认走评估循环（单点豁免，见[章节](#改进-skill)）；写完不跑 eval
-  = 在赌运气（哪怕 1 个 case 也能暴露"skill 让模型做了无效工作"）
-- **交付门禁**：一批 prose 改动（触及 ≥2 个 H2 节，或同一措辞跨节改）交付前，主动提议对目标
-  skill 跑全文审计（跨节冗余与 frontmatter 双写是 diff 视野的盲区，必须全文比对）：散文层转
-  yzr-writing-review，机制层按[章节](#原则校验)；用户点头才执行，单节单点修改免除
-- **用户说"优化描述"是泛指**：默认包括 frontmatter `description` + 标题 + 章节 + when-to-use
-  措辞 + 操作步骤，不默认专指 frontmatter；用户要细分会用精确措辞（"只改 frontmatter" /
-  "只动 description 字段"）。维度分清：frontmatter 只决定"何时调"、正文决定"怎么用"
-- **writer 与 grader 分离**：跑评估的子 agent 跟打分的子 agent 不要合并，否则 grader 会偏向
-  自己刚写的版本（grader 盲评约定见 `ref/agents/grader.md`）
-- **与用户沟通**：skill 使用者编程背景差异大，术语（eval / holdout / baseline 等）先给一句
-  人话解释
+1. **每行自证**：改动触及的每段问"删掉它，称职 agent 会做错吗"，不会 → 删或下放；新增内容须有实录失败支撑且用户点头，不预堵假想漏洞
+2. **归位**：路由节只装分类判据与指针，不装执行流；闸门 / 纪律句放在它保护的流程入口处；正文只留判断、路由、闸门；执行细节超一屏、被多处共读、或被脚本按节抽取，三者居其一才独立 `ref/` 文件，否则留在对应工作流节
+3. **机械操作归脚本**：任何内容先问"能用脚本钉死吗"——能机械执行的一律用脚本实现，不靠文字约束；机制靠代码自描述（命名 / 结构 / `--help`），docstring 与 md 都不重述机制，md 只留判断、路由与"为什么"
+4. **双读者**：正文指导 agent 执行，不是用户手册；写每段前先考虑能否指导 agent 执行，再考虑用户后期好不好维护
+5. **写类不写例**：用户反馈只覆盖个别场景，正文要对一类请求成立；把反馈落成正文前，先归纳它指向哪一类请求，对类写规则，不把个案抄进正文
+6. **单一源与统一命名**：一件事只在一个地方描述，其他地方最多是引用；相同概念全程用同一个名称
+7. **交付纪律**：门禁全绿只证形式，不证内容正确；一批改动（触及多节 / 多文件 / 同措辞多处）在 diff 视野下有盲区。交付前主动提议对目标 skill 全文审计（机制层走原则校验，散文层转 yzr-writing-review），用户点头才执行；单点编辑豁免
 
-## 工作流 / 步骤
-
-创建 / 改进一个 skill 的主要流程如下（入口 3 / 4 的流程见本节尾部两个小节）：
-
-1. 明确这个 skill 要做什么、大致如何实现
-2. **RED 阶段**：不带 skill 跑典型 prompt 观察失败（细节与条数见
-   “创建一个 skill · baseline 演练（RED 阶段）”，此处不重抄）
-3. 起草 skill（改进场景 = 编辑现有版），**针对 RED 观察到的具体违规做最小封堵**，
-   不预堵"可能存在的"漏洞
-4. 设计几个测试 prompt 让 agent 跑一遍（细节见[章节](#测试用例)）
-5. 协助用户定性 + 定量评估结果（细节见[章节](#运行与评估测试用例)）→ 按反馈改写 → 重复直到满意
-6. **收敛后扩量再验证（防过拟合最后一道闸）**：测试集扩到 5–10 条（覆盖更广意图类别 +
-   相邻负例）再跑一轮完整评估，小样本收敛 ≠ 大样本成立
-
-用户说“不跑评估，直接头脑风暴”时照做。
+## 工作流
 
 ### 创建一个 skill
 
-#### 意图识别与访谈
-
-先理解用户的意图。当前对话可能已包含用户希望捕获的工作流（如"把这段流程沉淀成 skill"）。
-若是，先从对话历史抽取答案：用到了哪些工具、步骤顺序、用户做了哪些修正、观察到的
-输入/输出格式。再主动补齐缺口，梳理清楚之前先不写测试 prompt，需要确认的：
-
-1. 这个 skill 应该让 agent 能做什么？
-2. 应该在什么时机触发？（什么样的用户表述/上下文）
-3. 期望的输出格式是什么？
-4. 是否需要设置测试用例来验证 skill 是否可用？（文件转换、数据
-   抽取、代码生成、固定工作流步骤等可客观验证输出的 skill，测试用例有益）
-5. 边界情况、示例文件、成功标准、依赖项等
-6. 流程里哪些步骤是**机械操作**（零判断、可枚举）？逐条标“判断 / 机械”，机械的默认进
-   `scripts/` 规划，留 md 要给理由（闸门与豁免口径见
-   [机械操作脚本化](ref/skill-writing-principles.md#归属与下放)）
-
-调研：检查可用的 MCP，对调研有帮助（搜索文档、查找类似 skill、查阅最佳实践）且支持
-子 agent 时并行调研，否则直接内联进行。
-
-#### baseline 演练（RED 阶段）
-
-> 原则见 [Iron Law](ref/skill-writing-principles.md#方法论写前--形式)。
-
-不写 skill，先用旧版 skill（改进场景）或完全不带 skill（创建场景）跑 2–3 个典型 prompt：
-
-- **创建场景**：完全不带 skill 跑 prompt，让 agent 用基础能力自由发挥，记录它**怎么违反**（哪些规则被跳 / 哪些步骤被漏 / 用了什么借口逐字摘抄）。
-- **改进场景**：用当前版本的 skill 跑 prompt，记录**还错在哪**（旧 skill 没堵住的口子 / agent 找出的新借口）。
-
-这些 transcript 作为起草 skill 的**输入**。skill 不是凭空设计，是**针对观察到的违规做最小封堵**。
-后续 Rationalization Table + Red Flags 的素材都来自这里。**纯参考资料型 skill 跳过**。
-
-#### 起草 SKILL.md
-
-基于用户访谈的结果，按 `assets/skill-template.md` 的 frontmatter 占位符填充。
-`description` 三组件格式与写法原则的 SSOT 在
-[章节](ref/skill-writing-principles.md#description-优化原则)，不在此重抄。
-
-后面为 skill 的正文：**骨架从 `assets/skill-template.md` 拷贝**，逐节填充（规范节名 / 顺序 /
-各类型豁免的 SSOT 在 `scripts/utils.py::CANONICAL_BODY_SECTIONS`，变体规则见
-[章节](ref/skill-template-guide.md#变体各类型的骨架适配)）。先填全骨架再删节，不要"想到哪写到哪"，
-SKILL.md 格式统一靠的就是这份骨架。
-
-起草正文前先落 `scripts/` 清单：访谈第 6 问标出的机械操作逐条进 `scripts/`（留 md 的记录
-理由），正文只写判断引导与"跑 X 命令"调用行。
-
-起草完成后先跑预检再进入测试用例：`python -m scripts.verify <skill-dir> --tier <type>`。
-
-写作风格与语言原则见
-[章节](ref/skill-writing-principles.md#正文写作原则)，不在此重抄 agent 通识。
-
-#### 测试用例
-
-写完 skill 草稿后，设计几个测试 prompt（条数与 [章节](#baseline-演练red-阶段) 同量级，
-用真实用户会说的话），先跟用户确认："这是我准备跑的几个测试用例，你看这样 OK 吗？
-要不要再补几个？"再跑起来
-
-测试用例存到 `eval/evals.json`（结构见 `ref/schemas.md`）。先不写断言，只写
-prompt，等下一步再起草断言。
-
-### 运行与评估测试用例
-
-本节是连续流程，不要中途停下来。
-
-- 工作区目录树 / 旧版快照 / 子 agent prompt：`python3 -m scripts.eval_init
-  --workspace <skill-name>-workspace --iteration <N> --skill-path <skill-dir>
-  --baseline without_skill|old_skill` 一次备好（创建场景 `without_skill`，改进场景
-  `old_skill`）
-- 同轮并行启动 / 起草断言 / 评分 / 对话展示的判断性纪律见
-  `ref/eval-pipeline.md`
+先 Read `ref/create-workflow.md` 再动手（访谈 → 裸跑 → 起草 → 测试 → 评估）
 
 ### 改进 skill
 
-**单点改动**直接做：对照 `ref/skill-writing-principles.md` 自查 +
-`python -m scripts.verify <skill-dir>` 全绿（动 `scripts/` 加跑
-`tests/smoke_test_*.py`），汇报声明分类 + 一句理由。**行为性改动**走
-[迭代循环](#迭代循环)。
+授权闸门（行为性）：先问用户是否跑评估循环，不点头不跑、不静默降级；样本少不构成跳过理由，单个用例也能暴露结构性浪费。先 Read `ref/improve-workflow.md` 再动手
 
-跑过测试用例、用户评审过结果后，根据反馈迭代，迭代原则（从反馈归纳泛化而非逐 case 抄写 /
-找重复工作进 `scripts/`）见 [Iron Law](ref/skill-writing-principles.md#方法论写前--形式)+
-[章节](ref/skill-writing-principles.md#归属与下放)，逐段精简按下述 Concision review 执行。
+### `description` 优化
 
-#### 迭代循环
-
-**先问用户是否跑 eval 循环：不点头不跑、不静默降级。**完成改进后：(1) 先跑 `scripts.eval_init` 备好 `iteration-<N+1>/`，改进场景必须
-**先于应用改动**跑（快照的是跑时的当前版 = 上一轮迭代结果，先改后跑会把新版快照成
-baseline，对比失去意义）→ (2) 应用改动 → (3) 同轮并行启动两组子 agent（prompt 用
-eval_init 打印的）→ (4) 在对话里展示本轮对比（含上一轮对比）、请用户反馈 →
-(5) 按反馈继续循环。
-
-#### 堵 loophole（REFACTOR 阶段）
-
-> 原则见 [Iron Law](ref/skill-writing-principles.md#方法论写前--形式)+“反合理化”。
-
-每次迭代结束 + 读 transcript 后：(1) 识别新合理化（agent 又用什么借口绕禁令）；
-(2) 加进 Rationalization Table（**只**补 agent 实际说过的，预写"可能存在"借口是反模式）；
-(3) 对应红旗征兆若有缺则补 Red Flags；(4) agent 是否用看似不同但效果一致的手法绕禁令
-→ 在"违反字面 = 违反精神"里加新案例；(5) 重测同批 prompt，新借口应不再出现；
-仍出现 = 回 GREEN 重写。
-
-#### Concision review（每轮迭代必做）
-
-下轮改动前对每段问**删掉它，称职 agent 会做错吗**，不会 → 删或下放，处理顺序按“修法
-优先级”（[章节](ref/skill-writing-principles.md#归属与下放)）；细则判据与典型噪音场景卡见
-yzr-writing-review。
-
-停止条件：用户满意 / 反馈全空 / 看不到有意义的进展。
-
-### 描述优化
-
-> 优化原则见 [章节](ref/skill-writing-principles.md#description-优化原则)
-> （`optimize_description.py` 运行时也读这一节）。
-
-直接优化某个已有 skill 的 description，提升触发准确率。
-
-#### 第 1 步：生成触发评估查询
-
-生成评估查询（数量 / should-trigger 配比 / 写作指南见 `ref/trigger-eval-guide.md`），
-存为 JSON。
-
-#### 第 2 步：与用户过一遍
-
-把评估集在对话里呈现给用户审阅（should-trigger / should-not-trigger 分组列出，
-请用户确认或增删改），确认后存为 JSON。
-
-#### 第 3 步：运行优化循环
-
-告诉用户：这一步会花一些时间，我会在后台跑优化循环，并定期检查进度。
-把评估集存到 workspace，然后后台运行（用 `setsid` + 重定向 + `< /dev/null` 脱离进程组，
-否则 agent shell 工具超时会连坐杀掉跑到一半的循环）:
-
-```bash
-setsid python3 -m scripts.optimize_description \
-  --eval-set <path-to-trigger-eval.json> \
-  --skill-path <path-to-skill> \
-  --max-iterations 5 --verbose \
-  > /tmp/desc-eval-results.json 2> /tmp/desc-eval.log < /dev/null &
-```
-
-跑的过程中定期 tail 输出，告知用户当前在第几轮、分数长什么样。
-
-#### 第 4 步：应用结果
-
-向用户展示 before/after 并汇报分数；**用户确认后**才写回（触发措辞属行为性改动，不先斩后奏）。
-写回是零判断的字节操作（frontmatter 块标量的缩进 / 折行手改容易破 YAML），交给脚本：
-
-```bash
-python3 -m scripts.optimize_description --skill-path <path-to-skill> \
-  --apply /tmp/desc-eval-results.json --dry-run   # 先看 diff，确认后去掉 --dry-run 落盘
-```
+授权闸门：用户确认后才写回；无触发回归才写回（轻量修改不豁免对比）。先 Read `ref/description-workflow.md` 再动手
 
 ### 原则校验
 
-拿写作原则当 checklist，审计某个已有 skill 的**机制合规**，违反哪些，产出 pass/fail 报告。
-**只审计、不改写**；散文质量不在本入口审，转交 yzr-writing-review、
-`scripts/*.py` 转交 yzr-coding-review（分工口径见 principles 末尾“审查分工”）。
-要修让用户点头再动或转入口 2。
-
-#### 怎么校验
-
-1. **机械项一条命令跑完**：`python -m scripts.verify <skill-dir> --tier <default\|reference\|meta>`
-   （覆盖清单、单项排查用哪个脚本见 `scripts/verify.py` docstring；`--json` 机器可读）。
-2. 把 `ref/skill-writing-principles.md` 当 checklist（三段：
-   [description 优化原则](ref/skill-writing-principles.md#description-优化原则)、
-   [正文写作原则](ref/skill-writing-principles.md#正文写作原则)、末尾
-   [审计速查](ref/skill-writing-principles.md#审计速查)表），读目标 skill 的 `SKILL.md`
-   （必要时连带 `ref/`（存量为 `references/`）/ `scripts/`）逐条核对 → 通过 / 违反（附证据：文件:行 + 具体内容）。
-   是否违规照速查表每行
-   判定口径由 agent 判；表里的纯手工行（Iron Law 证据 / 反合理化三件套 / agent 中立 /
-   机械操作脚本化的语义部分）逐条跑 grep 执行。
-3. 产出报告（**只审计、不改写**）：每条 pass / fail + 建议修法；报告只活在对话里，
-   不建归档文件（口径见 [章节](ref/skill-writing-principles.md#审查深度标准入口-4-默认口径)的报告条）。
-
-#### 审查深度标准（入口 4 默认口径）
-
-入口 4 默认按深度标准执行（全量精读每个文件，不只跑速查表机械检查）；散文层转交与人工行
-判据细则见 [章节](ref/skill-writing-principles.md#审查深度标准入口-4-默认口径)。
+只审计、不改写（要修由用户点头转入口 2）；散文质量不在此审，转 yzr-writing-review。先 Read `ref/audit-workflow.md` 再动手

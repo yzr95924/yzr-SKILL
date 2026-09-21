@@ -1,38 +1,5 @@
 #!/usr/bin/env python3
-"""
-Scaffold one eval iteration's workspace — the writer half of eval_report.
-
-yzr-skill-creator“运行与评估测试用例”的机械细节（目录树 / 旧版快照 / 子 agent
-prompt 拼装）固化在此；eval-pipeline.md 只留判断性纪律（同轮并行启动、无子 agent
-环境的降级路径）。零判断：不读 skill 内容、不做权衡，输出是输入的纯函数。
-
-What it does:
-
-1. Reads ``--evals <skill>/eval/evals.json`` (schema: "evals.json" in
-   ref/schemas.md) for eval ids + prompts.
-2. Creates ``<workspace>/iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/``
-   for every eval — exactly the layout ``scripts/eval_report.py`` reads back
-   (``eval-*`` dirs, one ``grading.json`` per side at ``eval-<id>/<side>/``);
-   the two scripts form a round-trip pair pinned by
-   ``tests/smoke_test_eval_init.py``.
-3. ``--baseline old_skill`` snapshots the skill at init time
-   (``iteration-<N>/skill-snapshot/``, ``cp -r``) — the snapshot is whatever
-   the skill tree looks like when init runs, so run init BEFORE applying this
-   round's edits (eval-pipeline.md“第 0 步”): snapshot-after-edit would
-   baseline the new version against itself. Per-iteration (not per-workspace)
-   so each iteration naturally compares against the previous round's result.
-   ``without_skill`` needs no snapshot.
-4. Prints, per eval, the ready-to-spawn with-skill prompt plus the baseline
-   variant's differences — the prompt template SSOT lives here, not in prose.
-
-Refuses to clobber an existing non-empty iteration dir (exit 2) — re-running
-an iteration means a fresh number.
-
-Usage:
-    python3 -m scripts.eval_init --workspace <skill-name>-workspace \
-        --iteration 1 --skill-path <skill-dir> \
-        [--evals <skill-dir>/eval/evals.json] --baseline without_skill
-"""
+"""Scaffold one eval iteration's workspace (the writer half of eval_report)."""
 
 import argparse
 import json
@@ -41,26 +8,20 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Bootstrap sys.path so `from scripts.X import Y` works under both
-# `python3 scripts/eval_init.py` (standalone) and
-# `python3 -m scripts.eval_init` (from yzr-skill-creator/).
+# 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 SNAPSHOT_DIRNAME = "skill-snapshot"
-SIDES = ("with_skill", "without_skill", "old_skill")
 
 
 def _fail(message: str) -> int:
+    """打印错误并返回退出码 2。"""
     print(f"eval_init: {message}", file=sys.stderr)
     return 2
 
 
 def load_evals(evals_path: Path) -> Optional[List[Dict]]:
-    """Read evals.json and enforce the minimum contract init depends on.
-
-    Prints the error and returns None on any violation (main returns 2);
-    never raises, so callers can treat this as a plain value.
-    """
+    """读取并校验 evals.json；失败时打印错误并返回 None。"""
     try:
         data = json.loads(evals_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -78,6 +39,7 @@ def load_evals(evals_path: Path) -> Optional[List[Dict]]:
 
 
 def skill_prompt(skill_path: Path, item: Dict, out_dir: Path) -> str:
+    """拼一条子 agent 任务提示（skill 路径、任务、输入文件、产出目录）。"""
     files = item.get("files") or []
     files_line = ", ".join(str(f) for f in files) if files else "none"
     return (
@@ -97,7 +59,7 @@ def init(
     evals: List[Dict],
     baseline: str,
 ) -> Optional[List[str]]:
-    """Create the iteration tree (+snapshot). Returns prompts, or None (error, printed)."""
+    """建 iteration 工作区与目录骨架，返回每用例的提示文本；工作区已存在非空时返回 None。"""
     iteration_dir = workspace / f"iteration-{iteration}"
     if iteration_dir.exists() and any(iteration_dir.iterdir()):
         _fail(f"{iteration_dir} already exists and is not empty — use a fresh iteration number")
@@ -132,7 +94,10 @@ def init(
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    """CLI 入口：解析参数、校验路径、建工作区并打印提示。"""
+    parser = argparse.ArgumentParser(
+        description="Scaffold one eval iteration's workspace (the writer half of eval_report)"
+    )
     parser.add_argument("--workspace", required=True, help="Workspace root, e.g. <skill-name>-workspace/")
     parser.add_argument("--iteration", required=True, type=int, help="Iteration number (>= 1)")
     parser.add_argument("--skill-path", required=True, help="Skill directory")

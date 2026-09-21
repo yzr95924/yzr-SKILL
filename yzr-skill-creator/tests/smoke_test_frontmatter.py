@@ -2,7 +2,7 @@
 """Round-trip smoke test for the shared frontmatter reader + word estimator.
 
 Why this exists: every script that touches a skill reads its frontmatter through
-scripts.utils, so a parse regression silently truncates the description fed to
+tools.utils, so a parse regression silently truncates the description fed to
 the trigger judge (this happened historically with a hand-rolled parser that cut
 off at a blank line inside a ``|`` block) and a bad word estimate turns into a
 bogus length finding. Cases below pin the exact shapes that broke before.
@@ -12,12 +12,14 @@ Exit 0 = all green, 1 = regression.
 """
 
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts.utils import (  # noqa: E402
+from _fixtures import make_skill_dir  # noqa: E402
+
+from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
     estimate_body_words,
     load_frontmatter,
@@ -34,13 +36,10 @@ ERROR_CASES = (
 )
 
 
-def write_skill(fm_lines):
-    """Write a throwaway skill dir whose frontmatter is *fm_lines*."""
-    tmp = tempfile.TemporaryDirectory(prefix="fm-smoke-")
-    path = Path(tmp.name)
+def write_skill(fm_lines) -> Path:
+    """本测试的夹具：建一个 frontmatter 为 *fm_lines* 的临时 skill 目录。"""
     text = "---\n" + "\n".join(fm_lines) + "\n---\n" + BODY
-    (path / "SKILL.md").write_text(text)
-    return tmp, path
+    return make_skill_dir({"SKILL.md": text}, prefix="fm-smoke-")
 
 
 def cases():
@@ -93,14 +92,12 @@ def cases():
 
 def run_parse_cases(failures):
     for label, fm_lines, want_name, want_desc in cases():
-        tmp, path = write_skill(fm_lines)
+        path = write_skill(fm_lines)
         try:
             name, description, content = parse_skill_md(path)
         except Exception as e:  # a parse blow-up is itself the failure
             failures.append(f"parse {label}: raised {type(e).__name__}: {e}")
-            tmp.cleanup()
             continue
-        tmp.cleanup()
         if name != want_name:
             failures.append(f"parse {label}: name {name!r} != {want_name!r}")
         if description != want_desc:
@@ -111,10 +108,8 @@ def run_parse_cases(failures):
 
 def run_error_cases(failures):
     """Malformed frontmatter must raise, never return a half-parsed dict."""
-    tmp = tempfile.TemporaryDirectory(prefix="fm-smoke-err-")
-    path = Path(tmp.name)
     for label, text in ERROR_CASES:
-        (path / "SKILL.md").write_text(text)
+        path = make_skill_dir({"SKILL.md": text}, prefix="fm-smoke-err-")
         try:
             parse_skill_md(path)
             failures.append(f"error {label}: expected ValueError, got none")
@@ -122,22 +117,17 @@ def run_error_cases(failures):
             pass
         except Exception as e:
             failures.append(f"error {label}: expected ValueError, got {type(e).__name__}: {e}")
-    tmp.cleanup()
 
 
 def run_load_frontmatter_cases(failures) -> None:
     """load_frontmatter hands back the raw mapping — sibling keys (metadata /
     license) must survive intact, since other scripts read them from there."""
-    tmp, path = write_skill(
-        ["name: k", "description: 一句话。", "metadata:", "  author: me", "  modify time: 2026-01-01"]
-    )
+    path = write_skill(["name: k", "description: 一句话。", "metadata:", "  author: me", "  modify time: 2026-01-01"])
     try:
         data = load_frontmatter(path)
     except Exception as e:
         failures.append(f"load_frontmatter: raised {type(e).__name__}: {e}")
-        tmp.cleanup()
         return
-    tmp.cleanup()
     if data.get("name") != "k" or data.get("metadata", {}).get("author") != "me":
         failures.append(f"load_frontmatter: unexpected mapping {data!r}")
 

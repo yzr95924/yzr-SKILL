@@ -15,13 +15,15 @@ Exit 0 = all green, 1 = regression.
 import contextlib
 import io
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
-from scripts.utils import parse_skill_md  # noqa: E402
+from _fixtures import make_skill_dir  # noqa: E402
+
+from tools.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
+from tools.utils import parse_skill_md  # noqa: E402
 
 FM_TAIL = "metadata:\n  author: smoke\n  modify time: 2026-01-01\n"
 BODY = "\n# t\n\n## 输入 / 输出\n\n正文。\n"
@@ -35,11 +37,9 @@ LONG_DESCRIPTION = (
 
 
 def make_skill(description_line: str) -> Path:
-    """A throwaway skill whose frontmatter carries *description_line*."""
-    root = Path(tempfile.mkdtemp(prefix="apply-smoke-")) / "s"
-    root.mkdir()
-    (root / "SKILL.md").write_text("---\nname: s\n" + description_line + FM_TAIL + "---" + BODY)
-    return root
+    """本测试的夹具：建一个 frontmatter 带 *description_line* 的临时 skill 目录。"""
+    skill_md = "---\nname: s\n" + description_line + FM_TAIL + "---" + BODY
+    return make_skill_dir({"SKILL.md": skill_md}, prefix="apply-smoke-")
 
 
 def apply(root: Path, description: str, dry_run: bool = False) -> int:
@@ -106,9 +106,7 @@ def check_rejections(failures):
 
 
 def check_missing_key(failures):
-    root = Path(tempfile.mkdtemp(prefix="apply-smoke-")) / "s"
-    root.mkdir()
-    (root / "SKILL.md").write_text("---\nname: s\n" + FM_TAIL + "---" + BODY)
+    root = make_skill("")
     if apply(root, "触发：a。不适用：b。") == 0:
         failures.append("missing key: reported success without a description block")
 

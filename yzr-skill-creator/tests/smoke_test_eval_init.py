@@ -13,15 +13,16 @@ Exit 0 = all green, 1 = regression.
 """
 
 import json
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 from typing import Dict, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from scripts import (
+from _fixtures import make_tmp_dir  # noqa: E402
+
+from tools import (
     eval_init,  # noqa: E402
     eval_report,  # noqa: E402
 )
@@ -177,14 +178,11 @@ def case_round_trip(tmp: Path) -> None:
 
 
 def main() -> int:
-    tmp = Path(tempfile.mkdtemp(prefix="eval-init-smoke-"))
-    try:
-        case_old_skill_snapshot(tmp)
-        case_without_skill_and_prompts(tmp)
-        case_refusals(tmp)
-        case_round_trip(tmp)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    tmp = make_tmp_dir(prefix="eval-init-smoke-")
+    case_old_skill_snapshot(tmp)
+    case_without_skill_and_prompts(tmp)
+    case_refusals(tmp)
+    case_round_trip(tmp)
     if FAILURES:
         print(f"SMOKE FAIL: {len(FAILURES)} regression(s): {FAILURES}")
         return 1

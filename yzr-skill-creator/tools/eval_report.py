@@ -1,29 +1,5 @@
 #!/usr/bin/env python3
-"""Summarise one eval iteration — and reject malformed grading.json.
-
-Two jobs, in this order:
-
-1. **Schema check.** The grader writes ``<run>/grading.json`` by hand (or by an
-   LLM), and the field names are a contract: ``expectations[].text / passed /
-   evidence`` + ``summary.{passed,failed,total,pass_rate}``. A typo in a field
-   name used to be invisible — whoever tabulated it read a missing key as "0
-   passed" and reported a confident wrong number. Here it is an ERROR before any
-   number is shown. Also checked: summary arithmetic (it must match the
-   expectations array), and — when ``--evals`` is given — that every assertion
-   in ``eval/evals.json`` actually got graded (a grader that silently skips
-   assertions is the same class of bug).
-2. **Comparison table.** with_skill vs baseline (``without_skill`` for a new
-   skill, ``old_skill`` for an improvement) per eval case, plus the assertions
-   that flipped between the two sides. That is the whole tabulation step of
-   ref/eval-pipeline.md“第 3 步”; reading outputs and judging quality
-   stays with the agent.
-
-Numbers here are not a gate: exit 1 means "the data is malformed", never
-"your skill scored badly".
-
-Usage:
-    python3 -m scripts.eval_report <workspace>/iteration-1 [--evals <skill>/eval/evals.json] [--json]
-"""
+"""Summarise one eval iteration and reject malformed grading.json."""
 
 import argparse
 import json
@@ -31,25 +7,20 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Bootstrap so `from scripts.utils import ...` works both as a standalone
-# script and as `python -m scripts.eval_report`.
+# 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.utils import Finding, parse_skill_md  # noqa: E402
-
-# Side directories, in display order. A run has one baseline side; both are
-# listed so either layout validates.
-SIDES = ("with_skill", "without_skill", "old_skill")
+from tools.utils import SIDES, Finding, parse_skill_md  # noqa: E402
 
 _EXPECTATION_KEYS = ("text", "passed", "evidence")
 _SUMMARY_KEYS = ("passed", "failed", "total", "pass_rate")
 
-# pass_rate is recomputed from the array; tolerate rounding, nothing more.
 _RATE_TOLERANCE = 0.01
 _EVIDENCE_PREVIEW = 60
 
 
 def _load_json(path: Path) -> Tuple[Optional[Dict], List[Finding]]:
+    """读 JSON 对象；失败返回 (None, Finding)。"""
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError) as e:
@@ -60,16 +31,12 @@ def _load_json(path: Path) -> Tuple[Optional[Dict], List[Finding]]:
 
 
 def _schema_finding(rule: str, message: str, where: str, line: str = "", fix: str = "") -> Finding:
-    """ERROR-level schema finding — most call sites here share this shape."""
+    """构造 ERROR 级 schema Finding。"""
     return Finding(rule=rule, level="ERROR", evidence=message, file=where, line=line, fix=fix)
 
 
 def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Dict[str, Dict[str, bool]]]:
-    """Per-assertion field check. Returns (findings, {assertion text: passed}).
-
-    An expectation missing a contract field is dropped from the results rather
-    than counted as failed: a wrong field name must not silently become a 0.
-    """
+    """逐条校验 expectations 的字段与证据，返回 (Findings, 断言到通过的映射)。"""
     findings: List[Finding] = []
     results: Dict[str, Dict[str, bool]] = {}
     for i, item in enumerate(expectations):
@@ -120,7 +87,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
 
 
 def _check_summary(summary, rel: str, results: Dict[str, Dict[str, bool]]) -> List[Finding]:
-    """The summary block must be arithmetic the expectations array supports."""
+    """校验 summary 计数与 pass_rate 跟逐条结果一致。"""
     counts = {
         name: sum(1 for r in results.values() if r["passed"] == want)
         for name, want in (("passed", True), ("failed", False))
@@ -164,7 +131,7 @@ def _check_summary(summary, rel: str, results: Dict[str, Dict[str, bool]]) -> Li
 
 
 def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[str, Dict[str, bool]]]]:
-    """Validate one grading.json. Returns (findings, {assertion text: passed})."""
+    """校验一份 grading.json，返回 (Findings, 逐条结果)。"""
     data, findings = _load_json(path)
     if data is None:
         return findings, None
@@ -176,11 +143,7 @@ def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[st
 
 
 def evals_by_id(data: Dict, where: str) -> Tuple[Dict[int, List[str]], List[Finding]]:
-    """{eval id: [assertion texts]} from an evals.json document, with findings.
-
-    Takes the parsed dict (not a path) because check_evals() inspects the same
-    document for other things and must not parse it twice.
-    """
+    """从 evals.json 数据提取 id 到断言原文列表的映射。"""
     by_id: Dict[int, List[str]] = {}
     findings: List[Finding] = []
     if not isinstance(data.get("evals"), list):
@@ -195,7 +158,7 @@ def evals_by_id(data: Dict, where: str) -> Tuple[Dict[int, List[str]], List[Find
 
 
 def collect(iteration_dir: Path) -> Tuple[Dict[int, Dict[str, Dict[str, bool]]], List[Finding]]:
-    """{eval_id: {side: {assertion: {"passed": bool}}}} plus schema findings."""
+    """汇总一个 iteration 下全部用例与侧别的评分结果。"""
     runs: Dict[int, Dict[str, Dict[str, bool]]] = {}
     findings: List[Finding] = []
     for eval_dir in sorted(iteration_dir.glob("eval-*")):
@@ -237,6 +200,7 @@ def collect(iteration_dir: Path) -> Tuple[Dict[int, Dict[str, Dict[str, bool]]],
 
 
 def _cross_check_evals(runs, evals: Dict[int, List[str]], evals_path: Path) -> List[Finding]:
+    """交叉核对评分与 evals.json：漏评、多评、缺用例。"""
     findings = []
     for eval_id, sides in sorted(runs.items()):
         want = evals.get(eval_id)
@@ -278,7 +242,7 @@ def _cross_check_evals(runs, evals: Dict[int, List[str]], evals_path: Path) -> L
 
 
 def compare(runs) -> List[Dict]:
-    """One row per eval case: with_skill vs whichever baseline side exists."""
+    """生成 with_skill 与 baseline 的对照行（含翻转断言）。"""
     rows = []
     for eval_id, sides in sorted(runs.items()):
         baseline = next((s for s in sides if s != "with_skill"), None)
@@ -307,6 +271,7 @@ def compare(runs) -> List[Dict]:
 
 
 def _evals_from_file(path: Path) -> Tuple[Dict[int, List[str]], List[Finding]]:
+    """读 evals.json 文件并提取 id 到断言列表的映射。"""
     data, findings = _load_json(path)
     if data is None:
         return {}, findings
@@ -314,12 +279,11 @@ def _evals_from_file(path: Path) -> Tuple[Dict[int, List[str]], List[Finding]]:
 
 
 def _check_evals_identity(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
-    """The set must declare the skill it belongs to, or it drifts silently after
-    a rename (the grader and the outputs stop matching)."""
+    """校验 evals.json 的 skill_name 与 frontmatter 一致。"""
     try:
         name = parse_skill_md(skill_dir)[0]
     except (ValueError, OSError):
-        return []  # frontmatter is quick_validate's problem, not ours
+        return []
     if data.get("skill_name") == name:
         return []
     return [
@@ -334,8 +298,7 @@ def _check_evals_identity(data: Dict, skill_dir: Path, where: str) -> List[Findi
 
 
 def _check_eval_items(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
-    """Per-case checks: duplicate ``id`` (the workspace ``eval-<id>`` dirs would
-    overwrite each other) and declared input files that no longer exist."""
+    """校验用例 id 唯一、声明的输入文件存在。"""
     findings: List[Finding] = []
     seen = set()
     for item in data.get("evals", []):
@@ -369,12 +332,7 @@ def _check_eval_items(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
 
 
 def check_evals(skill_dir: Path) -> List[Finding]:
-    """Static checks on ``<skill>/eval/evals.json`` (run by verify.py).
-
-    An eval set is the contract for "is this skill better?" — a stale
-    ``skill_name``, a duplicated ``id``, or an input file that no longer exists
-    all quietly invalidate a round of evaluation.
-    """
+    """校验 skill 的 eval/evals.json（存在才查）。"""
     path = skill_dir / "eval" / "evals.json"
     if not path.is_file():
         return []
@@ -386,6 +344,7 @@ def check_evals(skill_dir: Path) -> List[Finding]:
 
 
 def _render_text(iteration_dir: Path, rows: List[Dict], findings: List[Finding], errors: List[Finding]) -> None:
+    """打印人类可读的对照表与校验结果。"""
     print(f"== {iteration_dir.name} ==")
     if not rows:
         print("  （没有用例产物）")
@@ -409,6 +368,7 @@ def _render_text(iteration_dir: Path, rows: List[Dict], findings: List[Finding],
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI 入口：校验 grading.json 并汇总一个 iteration。"""
     parser = argparse.ArgumentParser(description="Validate grading.json files and tabulate one eval iteration.")
     parser.add_argument("iteration_dir", help="path to <skill>-workspace/iteration-N/")
     parser.add_argument("--evals", default=None, help="eval/evals.json to cross-check assertion coverage")
