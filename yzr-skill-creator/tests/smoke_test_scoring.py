@@ -2,10 +2,11 @@
 """Four-quadrant + best-selection smoke test for the description-eval scoring.
 
 Catches the class of bug that static checks and the canary can't: pass-judgment
-logic (`== should_trigger`) and best-selection tie-break. A stubbed `claude`
-binary serves controlled judge responses and a synthetic skills pool stands in
-for ~/.claude/skills (absent on CI runners), so the run is deterministic and
-needs no model calls. Exit 0 = all green, 1 = regression.
+logic (`== should_trigger`), best-selection tie-break, and the `opencode run`
+invocation contract. A stubbed `opencode` binary serves controlled judge
+responses and a synthetic skills pool stands in for the host's skills dir
+(absent on CI runners), so the run is deterministic and needs no model calls.
+Exit 0 = all green, 1 = regression.
 
 Run: python3 tests/smoke_test_scoring.py  (from yzr-skill-creator/)
 """
@@ -14,6 +15,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -27,7 +29,13 @@ TARGET = "smoke-target-skill"
 STUB_SRC = """#!/usr/bin/env python3
 import json, os, sys
 cfg = json.load(open(os.environ["SMOKE_JUDGE_CONFIG"]))
-prompt = sys.stdin.read()
+capture = os.environ.get("SMOKE_STUB_CAPTURE")
+if capture:
+    json.dump(
+        {"argv": sys.argv[1:], "config_content": os.environ.get("OPENCODE_CONFIG_CONTENT")},
+        open(capture, "w"),
+    )
+prompt = " ".join(sys.argv[1:])
 for rule in cfg["rules"]:
     if rule["marker"] in prompt:
         print(json.dumps({"skill": rule["choice"]}), flush=True)
@@ -58,21 +66,22 @@ EXPECTED = {
 }
 
 
-def run_smoke_eval() -> dict:
+def run_smoke_eval() -> Tuple[dict, dict]:
     """Run the four-quadrant eval with the stubbed judge and a synthetic
     skills pool.
 
-    The pool (decoys + target) stands in for the host's real ~/.claude/skills
+    The pool (decoys + target) stands in for the host's real skills dir
     (absent on CI runners) and is passed explicitly as skills_dir — it also
     makes the judge pick the target out of a list, which is what the real
-    routing layer does.
+    routing layer does. Returns (eval result, captured opencode invocation).
     """
     td_path = make_tmp_dir(prefix="skill-smoke-")
-    stub = td_path / "claude"
+    stub = td_path / "opencode"
     stub.write_text(STUB_SRC)
     stub.chmod(0o755)
     config = td_path / "judge-config.json"
     config.write_text(json.dumps({"rules": RULES}))
+    capture_path = td_path / "capture.json"
     skills_dir = td_path / "skills"
     for name in (TARGET, "smoke-decoy-a", "smoke-decoy-b"):
         entry = skills_dir / name
@@ -81,10 +90,12 @@ def run_smoke_eval() -> dict:
 
     old_path = os.environ.get("PATH", "")
     old_config = os.environ.get("SMOKE_JUDGE_CONFIG")
+    old_capture = os.environ.get("SMOKE_STUB_CAPTURE")
     os.environ["PATH"] = str(td_path) + os.pathsep + old_path
     os.environ["SMOKE_JUDGE_CONFIG"] = str(config)
+    os.environ["SMOKE_STUB_CAPTURE"] = str(capture_path)
     try:
-        return optimize_description.run_eval(
+        result = optimize_description.run_eval(
             eval_set=QUERIES,
             skill_name=TARGET,
             description="smoke description",
@@ -93,10 +104,31 @@ def run_smoke_eval() -> dict:
         )
     finally:
         os.environ["PATH"] = old_path
-        if old_config is None:
-            os.environ.pop("SMOKE_JUDGE_CONFIG", None)
-        else:
-            os.environ["SMOKE_JUDGE_CONFIG"] = old_config
+        for key, old in (("SMOKE_JUDGE_CONFIG", old_config), ("SMOKE_STUB_CAPTURE", old_capture)):
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
+    captured = json.loads(capture_path.read_text()) if capture_path.is_file() else {}
+    return result, captured
+
+
+def check_contract(captured: dict) -> List[str]:
+    """Pin the opencode invocation contract: prompt via argv, text-only judge agent."""
+    issues = []
+    argv = captured.get("argv", [])
+    if "--agent" not in argv or argv[argv.index("--agent") + 1] != optimize_description._OPENCODE_AGENT:
+        issues.append("contract: --agent <judge> missing from opencode argv")
+    if not argv or not any(marker in argv[-1] for marker in EXPECTED):
+        issues.append("contract: prompt not delivered as the last argv element")
+    try:
+        agent = json.loads(captured.get("config_content") or "{}")["agent"][optimize_description._OPENCODE_AGENT]
+    except (KeyError, ValueError) as e:
+        issues.append(f"contract: OPENCODE_CONFIG_CONTENT missing judge agent ({e})")
+    else:
+        if agent.get("permission", {}).get("*") != "deny":
+            issues.append("contract: judge agent permission is not deny-all")
+    return issues
 
 
 def run_best_selection() -> dict:
@@ -125,11 +157,12 @@ def run_best_selection() -> dict:
 def main() -> int:
     failures = []
 
-    result = run_smoke_eval()
+    result, captured = run_smoke_eval()
     for r in result["results"]:
         key = next(marker for marker in EXPECTED if marker in r["query"])
         if r["pass"] != EXPECTED[key]:
             failures.append(f"{key}: pass={r['pass']}, expected={EXPECTED[key]}")
+    failures.extend(check_contract(captured))
 
     selection = run_best_selection()
     if selection["chosen_iteration"] != selection["expected_iteration"]:
@@ -146,7 +179,7 @@ def main() -> int:
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: 4/4 quadrants + best-selection (real function, both modes)")
+    print("SMOKE OK: 4/4 quadrants + best-selection + opencode contract (real function, both modes)")
     return 0
 
 

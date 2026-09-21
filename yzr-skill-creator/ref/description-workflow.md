@@ -4,6 +4,10 @@
 
 ## 命令流程
 
+前置：本机 `opencode run` 可用且已配置 provider——judge / improve 都走它；judge 模型默认取
+opencode 配置，可用 `--model provider/model` 覆盖；竞争池默认 `~/.agents/skills`，可
+`--skills-dir` 覆盖
+
 按[章节](#查询写作指南)写评估集 JSON（留存供轻量复用）→ 与用户过一遍 →
 `python -m tools.optimize_description --skill-path <skill-dir> --eval-set <json>` 跑优化循环（stdout 即 results JSON，
 留存供写回）→ 展示 before/after 分数 → 用户确认后写回：同命令加 `--apply <results.json> --dry-run` 看 diff，

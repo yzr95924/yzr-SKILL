@@ -20,7 +20,22 @@ from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md
 
 DEFAULT_HOLDOUT_RATIO = 0.4
 
-SKILLS_DIR = Path.home() / ".claude" / "skills"
+SKILLS_DIR = Path.home() / ".agents" / "skills"
+
+# judge / improve 走无工具判官 agent：OPENCODE_PERMISSION 通配实测拦不住 read，显式 deny 会挂起，
+# 故用 OPENCODE_CONFIG_CONTENT 内联一个全 deny 工具权限的 agent（agent 级 permission 优先级最高）。
+_OPENCODE_AGENT = "yzr-skill-judge"
+_OPENCODE_CONFIG_CONTENT = json.dumps(
+    {
+        "agent": {
+            _OPENCODE_AGENT: {
+                "description": "Text-only eval judge",
+                "mode": "primary",
+                "permission": {"*": "deny"},
+            }
+        }
+    }
+)
 
 CANARY_SKILL = {
     "name": "_canary_skill",
@@ -44,13 +59,14 @@ class EvalConfig(NamedTuple):
 
 
 class LoopConfig(NamedTuple):
-    """优化循环的配置：评估配置 + 轮数上限 / holdout / 输出。"""
+    """优化循环的配置：评估配置 + 轮数上限 / holdout / 输出 / 竞争池。"""
 
     eval: EvalConfig
     max_iterations: int = 5
     holdout: float = DEFAULT_HOLDOUT_RATIO
     verbose: bool = False
     log_dir: Optional[Path] = None
+    skills_dir: Optional[Path] = None
 
 
 class SkillContext(NamedTuple):
@@ -68,27 +84,37 @@ class SplitSets(NamedTuple):
     test: List[dict]
 
 
-def _call_claude(prompt: str, model: Optional[str], timeout: int = 300) -> str:
-    """调一次 `claude -p`，返回 stdout；非零退出抛 RuntimeError。"""
-    cmd = ["claude", "-p", "--output-format", "text"]
+def _call_opencode(prompt: str, model: Optional[str], timeout: int = 300) -> str:
+    """调一次 `opencode run`（无工具判官 agent），返回 stdout；非零退出抛 RuntimeError。"""
+    cmd = ["opencode", "run", "--pure", "--print-logs", "--dir", tempfile.gettempdir(), "--agent", _OPENCODE_AGENT]
+    cmd.extend(["--title", "skill-creator-eval"])
     if model:
-        cmd.extend(["--model", model])
+        cmd.extend(["-m", model])
+    cmd.append(prompt)
 
-    # 剥 CLAUDECODE 让子 CLI 像顶层调用；其余 env 全传（smoke_test_scoring 靠 SMOKE_JUDGE_CONFIG 注入桩）
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+    # 其余 env 全传（smoke_test_scoring 靠 PATH 上的 `opencode` 桩接管）
+    env = dict(os.environ)
+    env["OPENCODE_CONFIG_CONTENT"] = _OPENCODE_CONFIG_CONTENT
+    env["OPENCODE_DISABLE_AUTOUPDATE"] = "1"
 
-    result = subprocess.run(
-        cmd,
-        input=prompt,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        env=env,
-        cwd=tempfile.gettempdir(),
-        timeout=timeout,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            env=env,
+            cwd=tempfile.gettempdir(),
+            timeout=timeout,
+        )
+    except FileNotFoundError as e:
+        raise RuntimeError("opencode CLI not found on PATH; install opencode and configure a provider") from e
+    except subprocess.TimeoutExpired:
+        # 原异常链里嵌着完整 prompt，抑制它避免超时报错刷屏
+        raise RuntimeError(f"opencode run timed out after {timeout}s; retry with a larger --timeout") from None
     if result.returncode != 0:
-        raise RuntimeError(f"claude -p exited {result.returncode}\nstderr: {result.stderr}")
+        raise RuntimeError(f"opencode run exited {result.returncode}\nstderr: {result.stderr}")
     return result.stdout
 
 
@@ -98,7 +124,7 @@ def collect_skills(
     """收集 skills 目录下的 name 与 description，目标 skill 用候选描述替换。"""
     root = skills_dir or SKILLS_DIR
     if not root.is_dir():
-        raise RuntimeError(f"skills dir not found: {root}")
+        raise RuntimeError(f"skills dir not found: {root} (pass --skills-dir to override)")
     skills: List[Dict[str, str]] = []
     for entry in sorted(root.iterdir()):
         if not (entry / "SKILL.md").is_file():
@@ -134,7 +160,7 @@ def _judge_prompt(query: str, skills: List[Dict[str, str]]) -> str:
 
 def judge_query(query: str, skills: List[Dict[str, str]], target_name: str, config: EvalConfig) -> bool:
     """让 judge 选一个 skill，返回是否选中目标；响应不可解析时抛 RuntimeError。"""
-    text = _call_claude(_judge_prompt(query, skills), config.model, config.timeout)
+    text = _call_opencode(_judge_prompt(query, skills), config.model, config.timeout)
     match = _JUDGE_PATTERN.search(text)
     if not match:
         raise RuntimeError(f"judge returned unparseable response for query: {query[:60]!r}\nresponse: {text[:200]!r}")
@@ -304,7 +330,7 @@ def _rewrite_over_limit(prompt: str, description: str, config: LoopConfig) -> Tu
         f"important trigger words and intent coverage. Respond with only "
         f"the new description in <new_description> tags."
     )
-    shorten_text = _call_claude(shorten_prompt, config.eval.model, config.eval.timeout)
+    shorten_text = _call_opencode(shorten_prompt, config.eval.model, config.eval.timeout)
     return shorten_prompt, shorten_text, _extract_tagged_description(shorten_text)
 
 
@@ -321,9 +347,9 @@ def improve_description(
     config: LoopConfig,
     iteration: Optional[int] = None,
 ) -> str:
-    """调 claude 生成改进描述，超长自动重写，可落 transcript。"""
+    """调 opencode 生成改进描述，超长自动重写，可落 transcript。"""
     prompt = _build_improve_prompt(skill, eval_results, history)
-    text = _call_claude(prompt, config.eval.model, config.eval.timeout)
+    text = _call_opencode(prompt, config.eval.model, config.eval.timeout)
     description = _extract_tagged_description(text)
 
     transcript: dict = {
@@ -423,7 +449,7 @@ def _summarize(results: List[dict]) -> dict:
 
 
 def _eval_iteration(
-    split: SplitSets, name: str, description: str, config: EvalConfig
+    split: SplitSets, name: str, description: str, config: LoopConfig
 ) -> Tuple[dict, Optional[dict], float]:
     """跑一轮评估并按 train/test 拆汇总，返回 (train, test, 耗时)。"""
     t0 = time.time()
@@ -431,7 +457,8 @@ def _eval_iteration(
         eval_set=split.train + split.test,
         skill_name=name,
         description=description,
-        config=config,
+        config=config.eval,
+        skills_dir=config.skills_dir,
     )
     elapsed = time.time() - t0
     train_queries = {q["query"] for q in split.train}
@@ -530,7 +557,7 @@ def run_optimize_loop(
         if config.verbose:
             _print_iteration_header(iteration, skill.description, config)
         run_canary(config.eval)
-        train_results, test_results, eval_elapsed = _eval_iteration(split, skill.name, skill.description, config.eval)
+        train_results, test_results, eval_elapsed = _eval_iteration(split, skill.name, skill.description, config)
         history.append(_history_entry(iteration, skill.description, train_results, test_results))
         if config.verbose:
             _print_eval_stats("Train", train_results["results"], eval_elapsed)
@@ -741,7 +768,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-set", default=None, help="Path to eval set JSON file (loop mode)")
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--description", default=None, help="Override starting description")
-    parser.add_argument("--timeout", type=int, default=120, help="Timeout per claude -p call in seconds")
+    parser.add_argument("--timeout", type=int, default=120, help="Timeout per opencode run call in seconds")
     parser.add_argument("--max-iterations", type=int, default=5, help="Max improvement iterations")
     parser.add_argument("--runs-per-query", type=int, default=3, help="Number of runs per query")
     parser.add_argument("--trigger-threshold", type=float, default=0.5, help="Trigger rate threshold")
@@ -751,7 +778,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_HOLDOUT_RATIO,
         help=f"Fraction of eval set to hold out for testing (0 to disable, default: {DEFAULT_HOLDOUT_RATIO})",
     )
-    parser.add_argument("--model", default=None, help="Model to use for claude -p (default: user's configured model)")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model in provider/model form (default: the model opencode is configured with)",
+    )
+    parser.add_argument(
+        "--skills-dir",
+        type=Path,
+        default=None,
+        help="Skills pool for the routing judge (default: ~/.agents/skills)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Print progress to stderr")
     parser.add_argument(
         "--results-dir",
@@ -808,6 +845,7 @@ def main():
         holdout=args.holdout,
         verbose=args.verbose,
         log_dir=log_dir,
+        skills_dir=args.skills_dir,
     )
     output = run_optimize_loop(eval_set, skill_path, args.description, config)
     _print_final_summary(output)
