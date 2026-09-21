@@ -31,18 +31,18 @@ description: |
 ---
 # smoke-target
 
-## 输入 / 输出
+## 输入与输出
 
 | 方向 | 内容 |
 | --- | --- |
 | 输入 | a |
 | 输出 | b |
 
-## 执行原则 / 边界
+## 执行原则
 
 - 一条边界。
 
-## 工作流 / 步骤
+## 工作流
 
 1. 做 X。
 """
@@ -58,7 +58,7 @@ def rules(findings) -> List[str]:
 
 
 def check_when_not_section(failures: List[str]) -> None:
-    dirty_text = CLEAN_SKILL.replace("## 输入 / 输出", "## 何时不使用\n\n不该用本 skill。\n\n## 输入 / 输出")
+    dirty_text = CLEAN_SKILL.replace("## 输入与输出", "## 何时不使用\n\n不该用本 skill。\n\n## 输入与输出")
     dirty = make_skill({"SKILL.md": dirty_text})
     clean = make_skill({"SKILL.md": CLEAN_SKILL})
     hits = [f for f in quick_validate.check_no_when_not_section(dirty) if f.rule == "WHEN-NOT-SECTION"]

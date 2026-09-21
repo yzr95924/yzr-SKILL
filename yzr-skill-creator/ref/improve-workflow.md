@@ -27,7 +27,8 @@ python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 
 ### 第 2 步：同轮并行启动两个子 agent
 
-对 eval_init 打印的每段 prompt，在**同一轮**启动两个子 agent：一个带 skill、一个不带。**重要**：不要先启动 `with_skill`、再串行启动 `baseline`；并发启动让它们大致同时完成
+对 eval_init 打印的每段 prompt，在**同一轮**并行启动两个子 agent：一个带 skill、一个不带（并行指令已内嵌在
+prompt 里）——并发让两侧大致同时完成，串行会放大其间的时空漂移、污染对比
 
 **没有子 agent 的环境（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务（**跳过 baseline**：
 你写的 skill 你自己跑，独立性的损失由人工评审环节补偿），评估结果直接在对话里展示

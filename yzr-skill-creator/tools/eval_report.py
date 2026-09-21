@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import SIDES, Finding, parse_skill_md  # noqa: E402
+from tools.utils import SIDES, WITH_SKILL, Finding, parse_skill_md  # noqa: E402
 
 _EXPECTATION_KEYS = ("text", "passed", "evidence")
 _SUMMARY_KEYS = ("passed", "failed", "total", "pass_rate")
@@ -245,8 +245,8 @@ def compare(runs) -> List[Dict]:
     """生成 with_skill 与 baseline 的对照行（含翻转断言）。"""
     rows = []
     for eval_id, sides in sorted(runs.items()):
-        baseline = next((s for s in sides if s != "with_skill"), None)
-        with_skill = sides.get("with_skill")
+        baseline = next((s for s in sides if s != WITH_SKILL), None)
+        with_skill = sides.get(WITH_SKILL)
         row = {
             "eval": eval_id,
             "with_skill": None,

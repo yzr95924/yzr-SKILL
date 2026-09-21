@@ -277,9 +277,9 @@ def _format_history(history: List[dict]) -> str:
 def _build_improve_prompt(skill: SkillContext, eval_results: dict, history: List[dict]) -> str:
     """拼改进描述的完整 prompt（现状、失败、历史、原则）。"""
     train_score = f"{eval_results['summary']['passed']}/{eval_results['summary']['total']}"
-    prompt = f"""You are optimizing a skill description for a Claude Code skill called "{skill.name}". A "skill" is sort of like a prompt, but with progressive disclosure -- there's a title and description that Claude sees when deciding whether to use the skill, and then if it does use the skill, it reads the .md file which has lots more details and potentially links to other resources in the skill folder like helper files and scripts and additional documentation or examples.
+    prompt = f"""You are optimizing a skill description for an AI coding agent skill called "{skill.name}". A "skill" is sort of like a prompt, but with progressive disclosure -- there's a title and description that the agent sees when deciding whether to use the skill, and then if it does use the skill, it reads the .md file which has lots more details and potentially links to other resources in the skill folder like helper files and scripts and additional documentation or examples.
 
-The description appears in Claude's "available_skills" list. When a user sends a query, Claude decides whether to invoke the skill based solely on the title and on this description. Your goal is to write a description that triggers for relevant queries, and doesn't trigger for irrelevant ones.
+The description appears in the agent's "available_skills" list. When a user sends a query, the agent decides whether to invoke the skill based solely on the title and on this description. Your goal is to write a description that triggers for relevant queries, and doesn't trigger for irrelevant ones.
 
 Here's the current description:
 <current_description>

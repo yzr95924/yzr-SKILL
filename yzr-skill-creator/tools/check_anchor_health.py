@@ -333,7 +333,7 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
         if not include_templates and p.stem.endswith("-template"):
             continue
         files.append(p)
-    for sub in ("references", "ref", "scripts"):
+    for sub in ("references", "ref", "scripts", "tools"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
             for p in sorted(sub_root.rglob("*.md")):
@@ -349,7 +349,7 @@ def count_skipped_templates(skill_root: Path) -> int:
     """统计被跳过的 *-template.md 数量。"""
     skill_md = skill_root / "SKILL.md"
     n = sum(1 for p in skill_root.glob("*.md") if p.is_file() and p != skill_md and p.stem.endswith("-template"))
-    for sub in ("references", "ref", "scripts"):
+    for sub in ("references", "ref", "scripts", "tools"):
         sub_root = skill_root / sub
         if sub_root.is_dir():
             n += sum(1 for p in sub_root.rglob("*.md") if p.stem.endswith("-template"))
@@ -484,7 +484,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--include-templates",
         action="store_true",
-        help="audit *-template.md files too (default: skip — those are skeleton files copied into wikis, where their relative paths resolve differently)",
+        help="audit *-template.md files too (default: skip — those are skeleton files copied into new skill folders, where their relative paths resolve differently)",
     )
     args = parser.parse_args(argv)
 

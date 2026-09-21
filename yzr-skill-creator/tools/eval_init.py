@@ -11,6 +11,8 @@ from typing import Dict, List, Optional
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tools.utils import OLD_SKILL, WITH_SKILL, WITHOUT_SKILL  # noqa: E402
+
 SNAPSHOT_DIRNAME = "skill-snapshot"
 
 
@@ -65,29 +67,29 @@ def init(
         _fail(f"{iteration_dir} already exists and is not empty — use a fresh iteration number")
         return None
 
-    snapshot_dir = iteration_dir / SNAPSHOT_DIRNAME if baseline == "old_skill" else None
+    snapshot_dir = iteration_dir / SNAPSHOT_DIRNAME if baseline == OLD_SKILL else None
     if snapshot_dir is not None:
         shutil.copytree(str(skill_path), str(snapshot_dir))
 
     prompts: List[str] = []
     for item in evals:
         eval_dir = iteration_dir / f"eval-{item['id']}"
-        for side in ("with_skill", baseline):
+        for side in (WITH_SKILL, baseline):
             (eval_dir / side / "outputs").mkdir(parents=True, exist_ok=True)
         lines = [
             f"=== eval-{item['id']}：同一轮并行启动两个子 agent（不要串行）===",
-            "[with_skill]",
-            skill_prompt(skill_path, item, eval_dir / "with_skill" / "outputs"),
+            f"[{WITH_SKILL}]",
+            skill_prompt(skill_path, item, eval_dir / WITH_SKILL / "outputs"),
         ]
         if snapshot_dir is not None:
             lines += [
-                "[old_skill]（指向快照，不指当前版）",
-                skill_prompt(snapshot_dir, item, eval_dir / "old_skill" / "outputs"),
+                f"[{OLD_SKILL}]（指向快照，不指当前版）",
+                skill_prompt(snapshot_dir, item, eval_dir / OLD_SKILL / "outputs"),
             ]
         else:
             lines += [
-                "[without_skill]",
-                f"同 [with_skill]，但删去 Skill path 一行；Save outputs to: {eval_dir / 'without_skill' / 'outputs'}",
+                f"[{WITHOUT_SKILL}]",
+                f"同 [{WITH_SKILL}]，但删去 Skill path 一行；Save outputs to: {eval_dir / WITHOUT_SKILL / 'outputs'}",
             ]
         prompts.append("\n".join(lines) + "\n")
     return prompts
@@ -105,7 +107,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--baseline",
         required=True,
-        choices=("without_skill", "old_skill"),
+        choices=(WITHOUT_SKILL, OLD_SKILL),
         help="without_skill = creating a new skill; old_skill = improving one",
     )
     args = parser.parse_args(argv)
@@ -127,7 +129,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     print(f"workspace ready: iteration-{args.iteration}, {len(evals)} eval(s), baseline={args.baseline}")
-    if args.baseline == "old_skill":
+    if args.baseline == OLD_SKILL:
         print(f"snapshot: {Path(args.workspace).resolve() / f'iteration-{args.iteration}' / SNAPSHOT_DIRNAME}")
     for prompt in prompts:
         print()

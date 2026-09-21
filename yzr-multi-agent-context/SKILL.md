@@ -13,7 +13,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: project-config
-  modify time: 2026-08-22
+  modify time: 2026-09-22
 ---
 
 # AGENTS.md 作单一真源（CLAUDE.md 薄壳共存）
@@ -71,7 +71,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或按顶部强制 Read 指令读——Step 1 段落分层决策树见
 [`references/layering.md`](references/layering.md)。
 
-## 输入 / 输出
+## 输入与输出
 
 ### 输入
 
@@ -106,7 +106,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让不原生读 `AGENTS.md` 的 agent 也加载同一份内容。
 
-## 执行原则 / 边界
+## 执行原则
 
 - **只动上下文文件**（`CLAUDE.md` / `AGENTS.md` / `MEMORY/`）——不碰迁移权限
   （如 `.claude/settings.local.json`）、MCP 配置、`scripts/` / `references/`
@@ -141,7 +141,7 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 - **幂等**：重复运行覆盖已有 `AGENTS.md`，不产生重复文件；`.migration-backup/` 为临时快照目录，
   Step 5 收尾即删，不留在项目里
 
-## 工作流 / 步骤
+## 工作流
 
 > 贯穿全程：分类表（Step 1）、逃生舱内容（Step 4）两处**交互确认点**，不要静默决断。
 

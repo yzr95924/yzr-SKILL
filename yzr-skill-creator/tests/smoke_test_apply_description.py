@@ -26,7 +26,7 @@ from tools.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description
 from tools.utils import parse_skill_md  # noqa: E402
 
 FM_TAIL = "metadata:\n  author: smoke\n  modify time: 2026-01-01\n"
-BODY = "\n# t\n\n## 输入 / 输出\n\n正文。\n"
+BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
 
 LONG_DESCRIPTION = (
     "当用户处于 skill 生命周期时使用本 skill：从工作流 / 模板 / 流程创建新 skill、通过 eval-and-iterate 改进现有 skill、"
@@ -61,7 +61,7 @@ def check_round_trip(failures):
         failures.append("round-trip: block-scalar style not preserved")
     if "author: smoke" not in content or "modify time: 2026-01-01" not in content:
         failures.append("round-trip: sibling frontmatter keys lost")
-    if "## 输入 / 输出" not in content or "旧描述" in content:
+    if "## 输入与输出" not in content or "旧描述" in content:
         failures.append("round-trip: body / old value mismatch")
     for line in content.split("\n"):
         if line.startswith("  ") and len(line) > DESCRIPTION_WRAP_WIDTH + 2:

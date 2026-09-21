@@ -13,7 +13,7 @@ description: |
   写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-09-21
+  modify time: 2026-09-22
 ---
 # yzr-skill-creator
 

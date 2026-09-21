@@ -48,7 +48,7 @@
 | 不展开 `@import`（仅把 `@path` 当文本） | 由 AGENTS.md 顶部强制 Read 指令兜底——读 `MEMORY/MEMORY.md` 拿索引 |
 
 `MEMORY.md` 加 / 删条目时**只改一处**（`MEMORY/MEMORY.md`）；`AGENTS.md` 的 `@MEMORY/MEMORY.md` 一行
-不需要动。Step 5 `coverage.py::check_memory_sync` 校验 AGENTS.md 有 `@MEMORY/MEMORY.md` 引用 +
+不需要动。Step 5 的覆盖率脚本校验 AGENTS.md 有 `@MEMORY/MEMORY.md` 引用 +
 顶部强制 Read 指令存在 + `MEMORY/MEMORY.md` 文件存在——L2 索引不会与 AGENTS.md 漂移。
 
 路径 2 诊断时若发现"AGENTS.md 把记忆索引 inline 进正文"这种老形态，按 R2 改造为 `@MEMORY/MEMORY.md`

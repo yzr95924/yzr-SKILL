@@ -22,7 +22,14 @@ from tools import (  # noqa: E402
     eval_report,
     quick_validate,
 )
-from tools.utils import FINDING_LEVELS, Finding, discover_skill_dirs, format_findings, iter_unfenced_lines  # noqa: E402
+from tools.utils import (  # noqa: E402
+    CANONICAL_BODY_SECTIONS,
+    FINDING_LEVELS,
+    Finding,
+    discover_skill_dirs,
+    format_findings,
+    iter_unfenced_lines,
+)
 
 _ANCHOR_LEVEL = "ERROR"
 
@@ -106,16 +113,33 @@ def _capture_json(fn, argv: List[str]) -> Tuple[int, Optional[Dict]]:
 
 
 def _quick_validate_findings(skill_dir: Path, tier: str) -> List[Finding]:
-    """跑 quick_validate 的全部结构检查。"""
-    valid, message = quick_validate.validate_skill(skill_dir)
-    if not valid:
-        return [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
-    findings = quick_validate.check_body_structure(skill_dir, tier=tier)
-    findings += quick_validate.check_no_when_not_section(skill_dir)
-    findings += quick_validate.check_description_format(skill_dir)
-    findings += quick_validate.check_no_toc(skill_dir)
-    findings += quick_validate.check_body_length(skill_dir, tier=tier)
-    return findings
+    """跑 quick_validate 的全部结构检查（检查清单单一来源在 quick_validate.collect_findings）。"""
+    return quick_validate.collect_findings(skill_dir, tier)[2]
+
+
+_TEMPLATE_NAME = "skill-template.md"
+
+
+def _template_sync_findings(skill_dir: Path) -> List[Finding]:
+    """带 assets 模板的 skill：模板节名须与 CANONICAL_BODY_SECTIONS 一致（漂移会误导每个新 skill）。"""
+    tpl = skill_dir / "assets" / _TEMPLATE_NAME
+    if not tpl.is_file():
+        return []
+    norm = quick_validate.normalize_heading
+    want = {norm(h[3:]) for h, _ in CANONICAL_BODY_SECTIONS}
+    have = {norm(h) for h in re.findall(r"^## (.+)$", tpl.read_text(encoding="utf-8"), re.MULTILINE)}
+    if want == have:
+        return []
+    missing = "、".join(h for h, _ in CANONICAL_BODY_SECTIONS if norm(h[3:]) not in have) or "无"
+    extra = "、".join(f"`## {h}`" for h in sorted(have - want)) or "无"
+    return [
+        Finding(
+            rule="TEMPLATE-SECTION-DRIFT",
+            level="ERROR",
+            evidence=f"assets/{_TEMPLATE_NAME} 与节名清单不一致：模板缺 {missing}，模板多出 {extra}",
+            fix="以 assets/skill-template.md 为准对齐，检查器清单同步",
+        )
+    ]
 
 
 def _anchor_findings(skill_dir: Path) -> List[Finding]:
@@ -351,7 +375,7 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
             rule="DELIVERY-GATE",
             level=_ADVISORY_LEVEL,
             evidence=f"未提交 md 改动触及 {len(touched)} 个 H2 节：{listing}{more}",
-            fix="交付门禁：提议对目标 skill 跑全文审计（散文层转 yzr-writing-review，机制层按审计速查表），用户点头才执行",
+            fix="交付门禁：提议对目标 skill 跑全文审计（机制层走原则校验，散文层转 yzr-writing-review），用户点头才执行",
         )
     ]
 
@@ -359,6 +383,7 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
 def verify_skill(skill_dir: Path, tier: str, repo_root: Optional[Path]) -> Tuple[List[Finding], List[ToolResult]]:
     """跑一个 skill 的全部检查，返回 (findings, 工具状态)。"""
     findings = _quick_validate_findings(skill_dir, tier)
+    findings += _template_sync_findings(skill_dir)
     findings += _anchor_findings(skill_dir)
     findings += audit_prose.scan_skill(skill_dir)
     findings += eval_report.check_evals(skill_dir)
@@ -388,6 +413,8 @@ def _parse_args(argv: Optional[List[str]]):
     parser.add_argument("--json", action="store_true", help="emit a single JSON document")
     parser.add_argument("--strict-tools", action="store_true", help="turn MISSING tool states into errors")
     args = parser.parse_args(argv)
+    if args.repo_root is not None and args.skill_dirs:
+        raise UsageError("--repo-root scans the whole repo; give it instead of positional skill dirs, not with them")
     if args.repo_root is None and not args.skill_dirs:
         raise UsageError("give skill dirs or --repo-root")
     return args

@@ -172,15 +172,18 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     return name, description, content
 
 
-# 条目 = (H2 标题, 允许省略该节的 tier 集)；空集 = 各 tier 必填
+# 条目 = (H2 标题, 允许省略该节的 tier 集)；空集 = 各 tier 必填；assets/skill-template.md 须与此一致（verify 查漂移）
 CANONICAL_BODY_SECTIONS = (
-    ("## 输入 / 输出", frozenset()),
-    ("## 执行原则 / 边界", frozenset({"reference"})),
-    ("## 工作流 / 步骤", frozenset({"reference"})),
+    ("## 输入与输出", frozenset()),
+    ("## 执行原则", frozenset({"reference"})),
+    ("## 工作流", frozenset({"reference"})),
     ("## 参考样例", frozenset({"default", "reference", "meta"})),
 )
 
 
 SKILL_TIERS = ("default", "reference", "meta")
 
-SIDES = ("with_skill", "without_skill", "old_skill")
+WITH_SKILL = "with_skill"
+WITHOUT_SKILL = "without_skill"
+OLD_SKILL = "old_skill"
+SIDES = (WITH_SKILL, WITHOUT_SKILL, OLD_SKILL)

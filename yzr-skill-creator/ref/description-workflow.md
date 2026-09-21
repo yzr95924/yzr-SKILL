@@ -4,9 +4,7 @@
 
 ## 命令流程
 
-前置：本机 `opencode run` 可用且已配置 provider——judge / improve 都走它；judge 模型默认取
-opencode 配置，可用 `--model provider/model` 覆盖；竞争池默认 `~/.agents/skills`，可
-`--skills-dir` 覆盖
+前置：本机 `opencode run` 可用且已配置 provider（judge / improve 都走它）；模型、竞争池等参数的默认值与覆盖方式以 `--help` 为准
 
 按[章节](#查询写作指南)写评估集 JSON（留存供轻量复用）→ 与用户过一遍 →
 `python -m tools.optimize_description --skill-path <skill-dir> --eval-set <json>` 跑优化循环（stdout 即 results JSON，
@@ -68,8 +66,8 @@ agent 根据描述决定是否查阅该 skill。**agent 只在它自己不容易
   用中文）；③**不适用：** 负例
 - **写法基线**：祈使语气（"Use this skill for…" 而非 "this skill does…"）；聚焦用户意图而非实现
   细节；有辨识度：和别的 skill 争夺 agent 注意力，写得独特、一眼能认出来
-- **长度**：约 100–200 词（中文按 1 词 ≈ 1.5–2 字折算）；硬上限 `DESCRIPTION_MAX_CHARS`，
-  超出会被拒收并要求重写，留足余量
+- **长度**：约 100–200 词（中文词数折算口径归 verify，本文不抄折算规则）；超出上限 verify 会拒收并要求重写，
+  留足余量
 - **别过拟合到具体查询**：从失败里归纳更宽泛的"用户意图类别 / 适用场景"，不逐条列失败用例。
   description 被注入到**所有**查询里且 skill 可能很多，别在单个 description 上占太多篇幅
 - **agent 中立（默认不与具体 agent 强绑定）**：不点名 Claude Code / Qoder / Cursor 等，用泛指

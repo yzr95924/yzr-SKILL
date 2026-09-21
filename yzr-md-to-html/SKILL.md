@@ -13,7 +13,7 @@ description: |
   上传到 Outline Wiki。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-08-22
+  modify time: 2026-09-22
   category: document-conversion
 ---
 
@@ -23,7 +23,7 @@ metadata:
 里真出现 `$` 才会挂 KaTeX CDN；Mermaid 代码块默认转成 **ASCII 图离线渲染**（无需联网），
 只有转换失败 / 不支持的图类型才回退到 Mermaid CDN。普通文档零额外网络请求。
 
-## 输入 / 输出
+## 输入与输出
 
 - **输入**：一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`）
 - **输出**：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联，公式 / 图表按需渲染）
@@ -36,7 +36,7 @@ metadata:
 `{{ pygments_css }}`（代码高亮 CSS）、`{{ title }}`、`{{ lang }}`，
 以及布尔开关 `{{ has_math }}` / `{{ has_mermaid }}` / `{{ has_toc }}`（控制是否挂对应 CDN / 侧边栏）。
 
-## 执行原则 / 边界
+## 执行原则
 
 1. **直接跑脚本，不自创 HTML**：转换逻辑、主题、CDN 挂载都在 `scripts/md_to_html.py`，
    agent 不要现场拼 HTML 或现写 markdown 库调用——保证产物一致、主题统一、扩展行为可预期
@@ -48,7 +48,7 @@ metadata:
 4. **一次一份或一次一目录**：不做跨文档合并；多份想合成一个 HTML 请先拼成一个 `.md`
 5. **ASCII 转换可关**：不想转 ASCII 时用 `--no-mermaid-ascii` 强制走 Mermaid CDN
 
-## 工作流 / 步骤
+## 工作流
 
 ```text
 1. 确认输入 .md 路径（或目录）；首次使用确认依赖已装（见前置条件）

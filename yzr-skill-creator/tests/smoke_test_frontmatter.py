@@ -26,7 +26,7 @@ from tools.utils import (  # noqa: E402
     parse_skill_md,
 )
 
-BODY = "\n# t\n\n## 输入 / 输出\n\n正文。\n"
+BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
 
 # Malformed-frontmatter fixtures must raise, never return a half-parsed dict.
 ERROR_CASES = (

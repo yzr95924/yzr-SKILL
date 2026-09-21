@@ -33,23 +33,56 @@ def find_mentions(text: str, target_name: str) -> List[Tuple[int, str]]:
     return hits
 
 
+SOURCE_SUBDIRS = ("ref", "references", "assets", "tools", "scripts")
+
+SOURCE_SUFFIXES = (".md", ".py")
+
+
+def skill_sources(skill_dir: Path) -> List[Tuple[str, str]]:
+    """一个 skill 参与提及筛查的全部文本源：(相对路径, 内容) 列表。
+
+    只读 SKILL.md 会漏掉 ref/ 与脚本里的跨 skill 提及（经脚本消息、文档转交的环测不到）。
+    """
+    files: List[Path] = []
+    skill_md = skill_dir / "SKILL.md"
+    if skill_md.is_file():
+        files.append(skill_md)
+    for sub in SOURCE_SUBDIRS:
+        sub_root = skill_dir / sub
+        if sub_root.is_dir():
+            files.extend(sorted(p for p in sub_root.rglob("*") if p.is_file() and p.suffix in SOURCE_SUFFIXES))
+    return [(str(p.relative_to(skill_dir)), p.read_text(encoding="utf-8", errors="replace")) for p in files]
+
+
+def mentions_in(sources: List[Tuple[str, str]], target_name: str) -> List[Tuple[str, str]]:
+    """在全部源里找提及，返回 (相对路径:行号, 行内容) 列表。"""
+    hits: List[Tuple[str, str]] = []
+    for rel, text in sources:
+        for lineno, line in find_mentions(text, target_name):
+            hits.append((f"{rel}:{lineno}", line))
+    return hits
+
+
 def _render_json(
-    repo_root: Path, pairs: List[Tuple[str, str]], one_way: List[Tuple[str, str]], texts: Dict[str, str]
+    repo_root: Path,
+    pairs: List[Tuple[str, str]],
+    one_way: List[Tuple[str, str]],
+    sources: Dict[str, List[Tuple[str, str]]],
 ) -> None:
     """输出整份 JSON 报告。"""
     payload = {
         "repo_root": str(repo_root),
-        "skill_count": len(texts),
+        "skill_count": len(sources),
         "pairs": [
             {
                 "a": a,
                 "b": b,
-                "a_mentions_b": find_mentions(texts[a], b),
-                "b_mentions_a": find_mentions(texts[b], a),
+                "a_mentions_b": mentions_in(sources[a], b),
+                "b_mentions_a": mentions_in(sources[b], a),
             }
             for a, b in pairs
         ],
-        "one_way": [{"a": a, "b": b, "a_mentions_b": find_mentions(texts[a], b)} for a, b in one_way],
+        "one_way": [{"a": a, "b": b, "a_mentions_b": mentions_in(sources[a], b)} for a, b in one_way],
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
@@ -59,10 +92,10 @@ def _render_text(
     pairs: List[Tuple[str, str]],
     one_way: List[Tuple[str, str]],
     by_name: Dict[str, Path],
-    texts: Dict[str, str],
+    sources: Dict[str, List[Tuple[str, str]]],
 ) -> None:
     """输出人类可读报告。"""
-    print(f"Scanning {len(texts)} skill(s) under {repo_root}")
+    print(f"Scanning {len(sources)} skill(s) under {repo_root}")
     if not pairs:
         print("No mutual-mention pairs found.")
     else:
@@ -72,12 +105,10 @@ def _render_text(
         )
         for a, b in pairs:
             print(f"== {a}  <->  {b} ==")
-            print(f"  [{a} -> {b}]")
-            for lineno, line in find_mentions(texts[a], b):
-                print(f"    {by_name[a].name}/SKILL.md:{lineno}: {line}")
-            print(f"  [{b} -> {a}]")
-            for lineno, line in find_mentions(texts[b], a):
-                print(f"    {by_name[b].name}/SKILL.md:{lineno}: {line}")
+            for src, dst in ((a, b), (b, a)):
+                print(f"  [{src} -> {dst}]")
+                for loc, line in mentions_in(sources[src], dst):
+                    print(f"    {by_name[src].name}/{loc}: {line}")
             print("")
 
     if one_way:
@@ -88,8 +119,8 @@ def _render_text(
         )
         for a, b in one_way:
             print(f"  [{a} -> {b}]")
-            for lineno, line in find_mentions(texts[a], b):
-                print(f"    {by_name[a].name}/SKILL.md:{lineno}: {line}")
+            for loc, line in mentions_in(sources[a], b):
+                print(f"    {by_name[a].name}/{loc}: {line}")
             print("")
 
 
@@ -118,9 +149,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     for name, skill_dir in discover_skills(repo_root):
         by_name.setdefault(name, skill_dir)
     names = sorted(by_name)
-    texts: Dict[str, str] = {name: (by_name[name] / "SKILL.md").read_text() for name in names}
+    sources: Dict[str, List[Tuple[str, str]]] = {name: skill_sources(by_name[name]) for name in names}
 
-    edges: Dict[str, List[str]] = {a: [b for b in names if b != a and find_mentions(texts[a], b)] for a in names}
+    edges: Dict[str, List[str]] = {a: [b for b in names if b != a and mentions_in(sources[a], b)] for a in names}
     pairs: List[Tuple[str, str]] = [
         (a, b) for i, a in enumerate(names) for b in names[i + 1 :] if b in edges[a] and a in edges[b]
     ]
@@ -128,9 +159,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     one_way: List[Tuple[str, str]] = [(a, b) for a in names for b in edges[a] if frozenset((a, b)) not in mutual_set]
 
     if args.json:
-        _render_json(repo_root, pairs, one_way, texts)
+        _render_json(repo_root, pairs, one_way, sources)
     else:
-        _render_text(repo_root, pairs, one_way, by_name, texts)
+        _render_text(repo_root, pairs, one_way, by_name, sources)
     return 1 if pairs else 0
 
 

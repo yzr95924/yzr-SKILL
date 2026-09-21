@@ -93,8 +93,7 @@ def _missing_section_findings(canonical, found, tier):
                 Finding(
                     rule="BODY-SECTION-MISSING",
                     level="WARN",
-                    evidence=f"正文缺少规范节 `{heading}`，参照 assets/skill-template.md 补齐"
-                    "（节名 SSOT 在 tools/utils.py::CANONICAL_BODY_SECTIONS）",
+                    evidence=f"正文缺少规范节 `{heading}`，参照 assets/skill-template.md 补齐",
                     file="SKILL.md",
                 )
             )
@@ -166,7 +165,7 @@ def check_no_when_not_section(skill_path):
                 rule="WHEN-NOT-SECTION",
                 level="WARN",
                 evidence="正文含已废除的 `## 何时不使用` 节，selection 负例归 frontmatter description 的“不适用”槽"
-                "（口径见 ../SKILL.md“执行原则”（归位 / 机械操作归脚本））",
+                "（口径见 SKILL.md“执行原则”（归位 / 机械操作归脚本））",
                 file="SKILL.md",
                 line=str(offset + index),
             )
@@ -245,7 +244,7 @@ def check_body_length(skill_path, tier="default"):
                 rule="BODY-LENGTH",
                 level="WARN",
                 evidence=f"正文约 {words} 词（CJK/1.7 + ASCII token 估算），超硬上限 {BODY_WORD_LIMIT}"
-                "，按 ../SKILL.md“执行原则”（归位）查根因再抽层",
+                "，按 SKILL.md“执行原则”（归位）查根因再抽层",
                 file="SKILL.md",
             )
         ]
@@ -254,8 +253,8 @@ def check_body_length(skill_path, tier="default"):
             Finding(
                 rule="BODY-LENGTH",
                 level="WARN",
-                evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}，按“正文超长根因诊断”"
-                "查根因处置（重抄→删重留指针 / 未下放→抽 ref/；软目标不取代硬上限，仅供参考）",
+                evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}，按 SKILL.md“执行原则”（归位）"
+                "查根因处置（重抄→删重留指针 / 未下放→抽 ref/；软目标仅供参考，不取代硬上限）",
                 file="SKILL.md",
             )
         ]
@@ -342,8 +341,8 @@ def validate_skill(skill_path):
     return True, "Skill is valid!"
 
 
-def _collect_findings(skill_dir, tier):
-    """汇总一个 skill 的全部结构类 Finding。"""
+def collect_findings(skill_dir, tier="default"):
+    """汇总一个 skill 的全部结构类 Finding（verify 与本脚本 CLI 共用这一份清单）。"""
     valid, message = validate_skill(skill_dir)
     if not valid:
         return valid, message, [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
@@ -372,7 +371,7 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
     args = parser.parse_args()
 
-    valid, message, findings = _collect_findings(args.skill_dir, args.tier)
+    valid, message, findings = collect_findings(args.skill_dir, args.tier)
 
     if args.json:
         print(

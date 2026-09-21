@@ -30,7 +30,8 @@
     有 evals 时跑回归，不回归即实证
 11. **长度**：超软目标 → WARN 偏臃肿；超 `BODY_WORD_LIMIT` → 违反
 12. **时间性信息不内联**：自身演进史（版本记录 / 修复日志）内联 → 违反，演进史归 git
-13. **节名契约**：规范节名 / 顺序以 `assets/skill-template.md` 为准；`BODY-SECTION-MISSING` WARN 按已知债忽略
+13. **节名契约**：规范节名 / 顺序以 `assets/skill-template.md` 为准；verify 报 `TEMPLATE-SECTION-DRIFT` ERROR
+    = 检查器清单与模板漂移，以模板为准对齐后再继续
 
 ## 审查分工
 
