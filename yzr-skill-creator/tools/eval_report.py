@@ -115,7 +115,18 @@ def _check_summary(summary, rel: str, results: Dict[str, bool]) -> List[Finding]
             )
         )
     expected_rate = (counts["passed"] / total) if total else 0.0
-    if abs(float(summary.get("pass_rate", -1)) - expected_rate) > _RATE_TOLERANCE:
+    rate = summary.get("pass_rate", -1)
+    if not isinstance(rate, (int, float)):
+        findings.append(
+            _schema_finding(
+                "GRADING-SCHEMA",
+                f"summary.pass_rate 必须是数字，got {rate!r}",
+                rel,
+                "summary",
+                "pass_rate = passed / total",
+            )
+        )
+    elif abs(float(rate) - expected_rate) > _RATE_TOLERANCE:
         findings.append(
             _schema_finding(
                 "GRADING-ARITHMETIC",
@@ -151,7 +162,13 @@ def evals_by_id(data: Dict, where: str) -> Tuple[Dict[int, List[str]], List[Find
         if not isinstance(item, dict) or "id" not in item or not isinstance(item.get("expectations"), list):
             findings.append(_schema_finding("EVALS-SCHEMA", f"evals[{i}] 缺 id 或 expectations 数组", where, str(i)))
             continue
-        by_id[int(item["id"])] = [str(e) for e in item["expectations"]]
+        eval_id = item["id"]
+        if not isinstance(eval_id, int):
+            findings.append(
+                _schema_finding("EVALS-SCHEMA", f"evals[{i}].id 必须是整数，got {eval_id!r}", where, str(i))
+            )
+            continue
+        by_id[eval_id] = [str(e) for e in item["expectations"]]
     return by_id, findings
 
 

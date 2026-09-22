@@ -31,9 +31,10 @@ import json, os, sys
 cfg = json.load(open(os.environ["SMOKE_JUDGE_CONFIG"]))
 capture = os.environ.get("SMOKE_STUB_CAPTURE")
 if capture:
+    # per-pid：判官调用并发起多个桩进程，同一文件会被竞争写坏
     json.dump(
         {"argv": sys.argv[1:], "config_content": os.environ.get("OPENCODE_CONFIG_CONTENT")},
-        open(capture, "w"),
+        open(f"{capture}.{os.getpid()}", "w"),
     )
 prompt = " ".join(sys.argv[1:])
 for rule in cfg["rules"]:
@@ -109,7 +110,8 @@ def run_smoke_eval() -> Tuple[dict, dict]:
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = old
-    captured = json.loads(capture_path.read_text()) if capture_path.is_file() else {}
+    capture_files = sorted(td_path.glob(capture_path.name + ".*"))
+    captured = json.loads(capture_files[0].read_text()) if capture_files else {}
     return result, captured
 
 

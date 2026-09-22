@@ -6,7 +6,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, Iterator, List, NamedTuple, Optional, Tuple
 
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -79,25 +79,23 @@ def slugify_heading(text: str) -> str:
 
 
 def collect_heading_slugs(text: str) -> Dict[str, int]:
-    """收集全文标题 slug 到行号（同名取首个）。"""
+    """收集全文标题 slug 到行号（同名取首个；跳过围栏代码块，与链接提取口径一致）。"""
     slugs: Dict[str, int] = {}
     lines = text.splitlines()
     span = frontmatter_span(text)
     fm_end = span[1] + 1 if span else 0
-    for i, line in enumerate(lines):
+    for lineno, line in iter_unfenced_lines(text):
         atx_match = _ATX_HEADING_RE.match(line)
         if atx_match:
-            heading = atx_match.group(3)
-            slug = slugify_heading(heading)
-            if slug and slug not in slugs:
-                slugs[slug] = i + 1
-            continue
-
-        setext_text = _setext_heading_text(lines, i, fm_end)
-        if setext_text is not None:
-            slug = slugify_heading(setext_text)
-            if slug and slug not in slugs:
-                slugs[slug] = i
+            heading, line_no = atx_match.group(3), lineno
+        else:
+            heading = _setext_heading_text(lines, lineno - 1, fm_end)
+            if heading is None:
+                continue
+            line_no = lineno - 1
+        slug = slugify_heading(heading)
+        if slug and slug not in slugs:
+            slugs[slug] = line_no
     return slugs
 
 
@@ -327,40 +325,28 @@ def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str, issues: Lis
         )
 
 
-def find_markdown_files(skill_root: Path, include_templates: bool = False) -> List[Path]:
-    """列出要审计的 md（默认跳过 *-template.md）。"""
-    files: List[Path] = []
+def _iter_audited_md(skill_root: Path, include_templates: bool = False) -> Iterator[Path]:
+    """逐文件产出参与审计的 md（默认跳过 *-template.md）。"""
     skill_md = skill_root / "SKILL.md"
-    if skill_md.is_file():
-        files.append(skill_md)
-
-    for p in sorted(skill_root.glob("*.md")):
-        if not p.is_file() or p == skill_md:
-            continue
-        if not include_templates and p.stem.endswith("-template"):
-            continue
-        files.append(p)
+    candidates: List[Path] = [skill_md] if skill_md.is_file() else []
+    candidates += [p for p in sorted(skill_root.glob("*.md")) if p.is_file() and p != skill_md]
     for sub in _MD_SCAN_SUBDIRS:
         sub_root = skill_root / sub
         if sub_root.is_dir():
-            for p in sorted(sub_root.rglob("*.md")):
-                if not p.is_file():
-                    continue
-                if not include_templates and p.stem.endswith("-template"):
-                    continue
-                files.append(p)
-    return files
+            candidates += sorted(p for p in sub_root.rglob("*.md") if p.is_file())
+    for path in candidates:
+        if include_templates or not path.stem.endswith("-template"):
+            yield path
+
+
+def find_markdown_files(skill_root: Path, include_templates: bool = False) -> List[Path]:
+    """列出要审计的 md（默认跳过 *-template.md）。"""
+    return list(_iter_audited_md(skill_root, include_templates=include_templates))
 
 
 def count_skipped_templates(skill_root: Path) -> int:
     """统计被跳过的 *-template.md 数量。"""
-    skill_md = skill_root / "SKILL.md"
-    n = sum(1 for p in skill_root.glob("*.md") if p.is_file() and p != skill_md and p.stem.endswith("-template"))
-    for sub in _MD_SCAN_SUBDIRS:
-        sub_root = skill_root / sub
-        if sub_root.is_dir():
-            n += sum(1 for p in sub_root.rglob("*.md") if p.stem.endswith("-template"))
-    return n
+    return sum(1 for p in _iter_audited_md(skill_root, include_templates=True) if p.stem.endswith("-template"))
 
 
 class ScanTotals(NamedTuple):
@@ -392,7 +378,7 @@ def scan_skill(skill_root: Path, include_templates: bool = False) -> Tuple[ScanT
     return totals, all_issues
 
 
-def discover_skills(repo_root: Path) -> List[Path]:
+def parseable_skill_dirs(repo_root: Path) -> List[Path]:
     """列出 repo 下可解析 skill 的绝对路径。"""
     return [path.resolve() for path in discover_skill_dirs(repo_root, require_parseable=True)]
 
@@ -404,7 +390,7 @@ def _resolve_skill_dirs(args, parser) -> Optional[List[Path]]:
         if not repo_root.is_dir():
             print(f"error: repo root not found: {repo_root}", file=sys.stderr)
             return None
-        skill_dirs = discover_skills(repo_root)
+        skill_dirs = parseable_skill_dirs(repo_root)
         if not skill_dirs:
             print(f"error: no skills found under {repo_root}", file=sys.stderr)
             return None

@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.utils import SKILL_SOURCE_SUBDIRS, discover_skill_dirs, parse_skill_md  # noqa: E402
 
 
-def discover_skills(repo_root: Path) -> List[Tuple[str, Path]]:
+def discover_named_skills(repo_root: Path) -> List[Tuple[str, Path]]:
     """返回 repo 下可解析 skill 的 (name, 目录) 列表。"""
     skills: List[Tuple[str, Path]] = []
     for child in discover_skill_dirs(repo_root, require_parseable=True):
@@ -142,7 +142,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     by_name: Dict[str, Path] = {}
-    for name, skill_dir in discover_skills(repo_root):
+    for name, skill_dir in discover_named_skills(repo_root):
         by_name.setdefault(name, skill_dir)
     names = sorted(by_name)
     sources: Dict[str, List[Tuple[str, str]]] = {name: skill_sources(by_name[name]) for name in names}

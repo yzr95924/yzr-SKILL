@@ -335,6 +335,7 @@ def _sections_touched(diff_text: str, root: Path) -> set:
     """从 git diff 提取被改动的 (文件, H2 节)。"""
     touched = set()
     current = ""
+    spans_cache: Dict[str, List[Tuple[int, str]]] = {}
     for line in diff_text.splitlines():
         if line.startswith("+++ "):
             path = line[4:]
@@ -347,7 +348,9 @@ def _sections_touched(diff_text: str, root: Path) -> set:
         m = _HUNK_RE.match(line)
         if not m:
             continue
-        title = _enclosing_h2(_h2_spans(_read_repo_text(root, current)), int(m.group(1)))
+        if current not in spans_cache:
+            spans_cache[current] = _h2_spans(_read_repo_text(root, current))
+        title = _enclosing_h2(spans_cache[current], int(m.group(1)))
         if title:
             touched.add((current, title))
     return touched

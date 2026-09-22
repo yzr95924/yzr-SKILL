@@ -94,6 +94,21 @@ def check_arithmetic(failures: List[str]) -> None:
         failures.append(f"summary mismatch: expected GRADING-ARITHMETIC, got {got}")
 
 
+def check_malformed_types(failures: List[str]) -> None:
+    """Wrong types (string pass_rate / non-int id) must be findings, not tracebacks."""
+    bad_rate = good_grading(ASSERTIONS[:1])
+    bad_rate["summary"]["pass_rate"] = "50%"
+    root = make_tmp_dir(prefix="er-smoke-")
+    write_run(root, 0, "with_skill", bad_rate)
+    findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
+    if "GRADING-SCHEMA" not in rules(findings):
+        failures.append(f"string pass_rate: expected GRADING-SCHEMA, got {rules(findings)}")
+
+    _by_id, findings = evals_by_id({"evals": [{"id": "one", "prompt": "p", "expectations": ASSERTIONS}]}, "evals.json")
+    if "EVALS-SCHEMA" not in rules(findings):
+        failures.append(f"non-int id: expected EVALS-SCHEMA, got {rules(findings)}")
+
+
 def check_unreadable(failures: List[str]) -> None:
     root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", '{"expectations": [')
@@ -192,6 +207,7 @@ def main() -> int:
     check_good(failures, root)
     check_field_typo(failures)
     check_arithmetic(failures)
+    check_malformed_types(failures)
     check_unreadable(failures)
     check_missing_grading(failures)
     check_coverage(failures)

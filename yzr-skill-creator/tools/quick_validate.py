@@ -221,6 +221,12 @@ def check_no_toc(skill_path):
         """构造一条 HAND-TOC Finding。"""
         return Finding(rule="HAND-TOC", level="WARN", evidence=text, file=rel, line=str(line_no))
 
+    def run_finding(rel, run_start, run_len):
+        """连续 ≥ 3 行页内锚点列表按疑似手写目录报告，否则 None。"""
+        if run_len < 3:
+            return None
+        return flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表），{ssot}")
+
     for md_file in sorted(skill_path.rglob("*.md")):
         rel = str(md_file.relative_to(skill_path))
         run_start = None
@@ -233,12 +239,14 @@ def check_no_toc(skill_path):
                     run_start = lineno
                 run_len += 1
             elif run_len:
-                if run_len >= 3:
-                    findings.append(flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表），{ssot}"))
+                finding = run_finding(rel, run_start, run_len)
+                if finding:
+                    findings.append(finding)
                 run_start = None
                 run_len = 0
-        if run_len >= 3:
-            findings.append(flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表），{ssot}"))
+        finding = run_finding(rel, run_start, run_len)
+        if finding:
+            findings.append(finding)
     return findings
 
 

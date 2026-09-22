@@ -8,8 +8,9 @@ import shutil
 import subprocess
 import sys
 import time
+from functools import partial
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -120,6 +121,47 @@ def overlay_snapshot(iteration: Path, skill_in_sandbox: Path) -> None:
     shutil.copytree(str(snapshot), str(skill_in_sandbox))
 
 
+class RunContext(NamedTuple):
+    """一次 eval_run 运行所需的共享上下文。"""
+
+    iteration: Path
+    skill_path: Path
+    evals: Dict[int, Dict]
+    opencode: str
+    timeout: int
+    model: Optional[str]
+    force: bool
+    eval_ids: Optional[List[int]]
+
+
+def run_case(eval_dir: Path, ctx: RunContext) -> None:
+    """跑一个用例：建沙箱与 prompt，各侧并发起子 agent。"""
+    if not _is_selected(eval_dir, ctx.eval_ids):
+        return
+    item = ctx.evals.get(_eval_id_of(eval_dir))
+    if item is None:
+        print(f"  skip {eval_dir.name}: id not in evals.json", file=sys.stderr)
+        return
+    side_dirs = [s for s in _sides_of(eval_dir) if ctx.force or not (s / TRANSCRIPT_NAME).is_file()]
+    if not side_dirs:
+        print(f"  skip {eval_dir.name}: nothing to run (use --force to redo)")
+        return
+    prompts: Dict[Path, str] = {}
+    for s in side_dirs:
+        sandbox_repo = make_sandbox(ctx.skill_path.parent, s)
+        if s.name == OLD_SKILL:
+            overlay_snapshot(ctx.iteration, sandbox_repo / ctx.skill_path.name)
+        prompts[s] = build_prompt(s.name, item, s / "outputs", sandbox_repo / ctx.skill_path.name)
+    print(f"== {eval_dir.name}: {', '.join(s.name for s in side_dirs)} ==")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(side_dirs)) as pool:
+        futures = [pool.submit(run_side, s, ctx.opencode, prompts[s], ctx.timeout, ctx.model) for s in side_dirs]
+        for future in futures:
+            try:
+                future.result()
+            except Exception as e:
+                print(f"  side crashed: {e}", file=sys.stderr)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：用例按 --jobs 并发，每个用例内的各侧总是并发。"""
     parser = argparse.ArgumentParser(description="Run one eval iteration's sides with independent opencode sub-agents")
@@ -160,35 +202,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"error: old_skill side has no snapshot to overlay: {snapshot}", file=sys.stderr)
         return 2
 
-    def run_case(eval_dir: Path) -> None:
-        """跑一个用例：建沙箱与 prompt，各侧并发起子 agent。"""
-        if not _is_selected(eval_dir, args.eval_ids):
-            return
-        item = evals.get(_eval_id_of(eval_dir))
-        if item is None:
-            print(f"  skip {eval_dir.name}: id not in evals.json", file=sys.stderr)
-            return
-        side_dirs = [s for s in _sides_of(eval_dir) if args.force or not (s / TRANSCRIPT_NAME).is_file()]
-        if not side_dirs:
-            print(f"  skip {eval_dir.name}: nothing to run (use --force to redo)")
-            return
-        prompts: Dict[Path, str] = {}
-        for s in side_dirs:
-            sandbox_repo = make_sandbox(skill_path.parent, s)
-            if s.name == OLD_SKILL:
-                overlay_snapshot(iteration, sandbox_repo / skill_path.name)
-            prompts[s] = build_prompt(s.name, item, s / "outputs", sandbox_repo / skill_path.name)
-        print(f"== {eval_dir.name}: {', '.join(s.name for s in side_dirs)} ==")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(side_dirs)) as pool:
-            futures = [pool.submit(run_side, s, opencode, prompts[s], args.timeout, args.model) for s in side_dirs]
-            for future in futures:
-                try:
-                    future.result()
-                except Exception as e:
-                    print(f"  side crashed: {e}", file=sys.stderr)
-
+    ctx = RunContext(
+        iteration=iteration,
+        skill_path=skill_path,
+        evals=evals,
+        opencode=opencode,
+        timeout=args.timeout,
+        model=args.model,
+        force=args.force,
+        eval_ids=args.eval_ids,
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        list(pool.map(run_case, sorted(iteration.glob("eval-*"))))
+        list(pool.map(partial(run_case, ctx=ctx), sorted(iteration.glob("eval-*"))))
     return 0
 
 

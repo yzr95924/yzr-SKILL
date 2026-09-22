@@ -114,6 +114,14 @@ def check_anchor_extraction(failures: List[str]) -> None:
     bogus = [s for s in slugs_fm if "name" in s or "description" in s]
     if bogus:
         failures.append(f"frontmatter fence read as setext heading: {bogus}")
+    # Headings inside code fences are examples, not anchors: link extraction
+    # skips fences, slug collection must match it.
+    in_fence = "## Real\n\n```md\n## Example\n```\n"
+    slugs_code = check_anchor_health.collect_heading_slugs(in_fence)
+    if "example" in slugs_code:
+        failures.append(f"fenced heading collected as anchor: {sorted(slugs_code)}")
+    if "real" not in slugs_code:
+        failures.append(f"real heading lost next to fence: {sorted(slugs_code)}")
 
 
 def check_desc_format(failures: List[str]) -> None:

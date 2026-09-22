@@ -2,6 +2,8 @@
 """Optimize a skill description via a routing-judge eval + improve loop."""
 
 import argparse
+import concurrent.futures
+import difflib
 import json
 import os
 import random
@@ -16,13 +18,15 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md
+from tools.quick_validate import validate_skill  # noqa: E402
+from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md  # noqa: E402
 
 DEFAULT_TIMEOUT = 120
 DEFAULT_RUNS_PER_QUERY = 3
 DEFAULT_TRIGGER_THRESHOLD = 0.5
 DEFAULT_MAX_ITERATIONS = 5
 DEFAULT_HOLDOUT_RATIO = 0.4
+DEFAULT_JOBS = 4
 
 # 路由评估竞争池 = agent 实际可见的已部署集合（npx 分发落点）；与仓维护"vendor 副本不读"约定语境不同：
 # 那边管改源只认仓库，这边测的是真实触发面，默认 --skills-dir 可覆盖
@@ -56,12 +60,13 @@ _JUDGE_PATTERN = re.compile(r'"skill"\s*:\s*(?:"([^"]*)"|null)')
 
 
 class EvalConfig(NamedTuple):
-    """路由评估的配置：超时 / 每查询重复次数 / 触发阈值 / 模型。"""
+    """路由评估的配置：超时 / 每查询重复次数 / 触发阈值 / 模型 / 判官并发数。"""
 
     timeout: int = DEFAULT_TIMEOUT
     runs_per_query: int = DEFAULT_RUNS_PER_QUERY
     trigger_threshold: float = DEFAULT_TRIGGER_THRESHOLD
     model: Optional[str] = None
+    jobs: int = DEFAULT_JOBS
 
 
 class LoopConfig(NamedTuple):
@@ -185,6 +190,14 @@ def run_canary(config: EvalConfig) -> None:
             )
 
 
+def _judge_with_retry(query: str, skills: List[Dict[str, str]], target_name: str, config: EvalConfig) -> bool:
+    """判官调用瞬时失败重试一次；第二次仍失败照抛。"""
+    try:
+        return judge_query(query, skills, target_name, config)
+    except RuntimeError:
+        return judge_query(query, skills, target_name, config)
+
+
 def run_eval(
     eval_set: List[dict],
     skill_name: str,
@@ -192,20 +205,24 @@ def run_eval(
     config: EvalConfig,
     skills_dir: Optional[Path] = None,
 ) -> dict:
-    """对评估集跑一轮路由判定，返回逐条结果与汇总。"""
+    """对评估集跑一轮路由判定（判官调用按 config.jobs 并发），返回逐条结果与汇总。"""
     skills = collect_skills(skill_name, description, skills_dir)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, config.jobs)) as pool:
+        futures = [
+            pool.submit(_judge_with_retry, item["query"], skills, skill_name, config)
+            for item in eval_set
+            for _ in range(config.runs_per_query)
+        ]
+        outcomes = [future.result() for future in futures]
     results = []
-    for item in eval_set:
-        query = item["query"]
+    for index, item in enumerate(eval_set):
+        start = index * config.runs_per_query
+        triggers = sum(1 for hit in outcomes[start : start + config.runs_per_query] if hit)
         should_trigger = bool(item["should_trigger"])
-        triggers = 0
-        for _ in range(config.runs_per_query):
-            if judge_query(query, skills, skill_name, config):
-                triggers += 1
         passed = (triggers / config.runs_per_query >= config.trigger_threshold) == should_trigger
         results.append(
             {
-                "query": query,
+                "query": item["query"],
                 "should_trigger": should_trigger,
                 "triggers": triggers,
                 "runs": config.runs_per_query,
@@ -343,7 +360,9 @@ def _rewrite_over_limit(prompt: str, description: str, config: LoopConfig) -> Tu
 def _write_transcript(log_dir: Path, iteration: Optional[int], transcript: dict) -> None:
     """把一轮改进的完整 transcript 落盘。"""
     log_dir.mkdir(parents=True, exist_ok=True)
-    (log_dir / f"improve_iter_{iteration or 'unknown'}.json").write_text(json.dumps(transcript, indent=2))
+    (log_dir / f"improve_iter_{iteration or 'unknown'}.json").write_text(
+        json.dumps(transcript, ensure_ascii=False, indent=2)
+    )
 
 
 def improve_description(
@@ -548,10 +567,16 @@ def _train_only(history: List[dict]) -> List[dict]:
     return [{k: v for k, v in h.items() if not k.startswith("test_")} for h in history]
 
 
+def _aborted_reason(exc: Exception) -> str:
+    """把中止异常压成一行退出原因（完整错误由调用点打印）。"""
+    first_line = (str(exc).splitlines() or [exc.__class__.__name__])[0]
+    return f"aborted ({first_line[:80]})"
+
+
 def run_optimize_loop(
     eval_set: List[dict], skill_path: Path, description_override: Optional[str], config: LoopConfig
 ) -> dict:
-    """跑 canary、评估、改进的完整优化循环，返回结果 dict。"""
+    """跑 canary、评估、改进的完整优化循环；中途失败带着已完成轮次退出，不丢历史。"""
     name, original_description, content = parse_skill_md(skill_path)
     skill = SkillContext(name=name, content=content, description=description_override or original_description)
     split = _split_train_test(eval_set, config)
@@ -562,8 +587,16 @@ def run_optimize_loop(
     for iteration in range(1, config.max_iterations + 1):
         if config.verbose:
             _print_iteration_header(iteration, skill.description, config)
-        run_canary(config.eval)
-        train_results, test_results, eval_elapsed = _eval_iteration(split, skill.name, skill.description, config)
+        try:
+            run_canary(config.eval)
+            train_results, test_results, eval_elapsed = _eval_iteration(split, skill.name, skill.description, config)
+        except RuntimeError as e:
+            if not history:
+                raise
+            exit_reason = _aborted_reason(e)
+            if config.verbose:
+                print(f"\nAborted: {e}", file=sys.stderr)
+            break
         history.append(_history_entry(iteration, skill.description, train_results, test_results))
         if config.verbose:
             _print_eval_stats("Train", train_results["results"], eval_elapsed)
@@ -578,7 +611,13 @@ def run_optimize_loop(
         if config.verbose:
             print("\nImproving description...", file=sys.stderr)
         t0 = time.time()
-        new_description = improve_description(skill, train_results, _train_only(history), config, iteration)
+        try:
+            new_description = improve_description(skill, train_results, _train_only(history), config, iteration)
+        except RuntimeError as e:
+            exit_reason = _aborted_reason(e)
+            if config.verbose:
+                print(f"\nAborted: {e}", file=sys.stderr)
+            break
         if config.verbose:
             print(f"Proposed ({time.time() - t0:.1f}s): {new_description}", file=sys.stderr)
         skill = skill._replace(description=new_description)
@@ -682,10 +721,6 @@ def rewrite_description(text: str, new_description: str) -> str:
 
 def apply_description(skill_path: Path, new_description: str, dry_run: bool = False) -> int:
     """校验后把新描述写回 SKILL.md（dry_run 只打印 diff），返回退出码。"""
-    import difflib
-
-    from tools.quick_validate import validate_skill
-
     skill_md = skill_path / "SKILL.md"
     if not skill_md.is_file():
         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
@@ -777,6 +812,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout per opencode run call in seconds")
     parser.add_argument("--max-iterations", type=int, default=DEFAULT_MAX_ITERATIONS, help="Max improvement iterations")
     parser.add_argument("--runs-per-query", type=int, default=DEFAULT_RUNS_PER_QUERY, help="Number of runs per query")
+    parser.add_argument("--jobs", type=int, default=DEFAULT_JOBS, help="Concurrent judge calls (default: %(default)s)")
     parser.add_argument(
         "--trigger-threshold", type=float, default=DEFAULT_TRIGGER_THRESHOLD, help="Trigger rate threshold"
     )
@@ -824,8 +860,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             best = _load_best_description(Path(args.apply))
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-        sys.exit(apply_description(Path(args.skill_path), best, dry_run=args.dry_run))
+            return 2
+        return apply_description(Path(args.skill_path), best, dry_run=args.dry_run)
 
     if not args.eval_set:
         parser.error("--eval-set is required in loop mode (or use --apply)")
@@ -834,12 +870,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         eval_set = _load_eval_set(Path(args.eval_set))
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        return 2
 
     skill_path = Path(args.skill_path)
     if not (skill_path / "SKILL.md").exists():
         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
-        sys.exit(1)
+        return 2
 
     results_dir, log_dir = _prepare_results_dir(args.results_dir)
     config = LoopConfig(
@@ -848,6 +884,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             runs_per_query=args.runs_per_query,
             trigger_threshold=args.trigger_threshold,
             model=args.model,
+            jobs=args.jobs,
         ),
         max_iterations=args.max_iterations,
         holdout=args.holdout,
@@ -858,11 +895,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     output = run_optimize_loop(eval_set, skill_path, args.description, config)
     _print_final_summary(output)
 
-    print(json.dumps(output, indent=2))
+    print(json.dumps(output, ensure_ascii=False, indent=2))
     if results_dir:
-        (results_dir / "results.json").write_text(json.dumps(output, indent=2))
+        (results_dir / "results.json").write_text(json.dumps(output, ensure_ascii=False, indent=2))
         print(f"Results saved to: {results_dir}", file=sys.stderr)
-    return 0
+    return 1 if str(output["exit_reason"]).startswith("aborted") else 0
 
 
 if __name__ == "__main__":
