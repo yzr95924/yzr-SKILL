@@ -47,12 +47,12 @@ def _is_quoted(line: str, start: int, end: int) -> bool:
 
 
 def _markdown_files(skill_dir: Path) -> List[Path]:
-    """列出要扫的 md：SKILL.md 加 references/ref/assets 下的文件。"""
+    """列出要扫的 md：SKILL.md 加 ref/assets 下的文件。"""
     files: List[Path] = []
     skill_md = skill_dir / "SKILL.md"
     if skill_md.is_file():
         files.append(skill_md)
-    for sub in ("references", "ref", "assets"):
+    for sub in ("ref", "assets"):
         sub_root = skill_dir / sub
         if sub_root.is_dir():
             files.extend(sorted(p for p in sub_root.rglob("*.md") if p.is_file()))
@@ -129,28 +129,27 @@ _SELF_EXEMPT_RE = re.compile(r"^(AGENT_NAME_RE|_SELF_EXEMPT_RE)\s*=")
 def check_agent_names_in_code(skill_dir: Path) -> List[Finding]:
     """筛 tools/ 脚本里点名具体 agent 的字符串（判定清单"agent 中立"的脚本侧；例外由人判）。"""
     findings = []
-    for sub in ("tools", "scripts"):
-        sub_root = skill_dir / sub
-        if not sub_root.is_dir():
-            continue
-        for py in sorted(p for p in sub_root.rglob("*.py") if p.is_file()):
-            rel = str(py.relative_to(skill_dir))
-            for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), start=1):
-                if _SELF_EXEMPT_RE.match(line.strip()):
-                    continue
-                match = AGENT_NAME_RE.search(line)
-                if match:
-                    findings.append(
-                        Finding(
-                            rule="AGENT-NAME-CODE",
-                            level="INFO",
-                            evidence=f"脚本点名 agent：{match.group(0)!r}；{line.strip()[:_EVIDENCE_SNIPPET]}",
-                            file=rel,
-                            line=str(lineno),
-                            fix="可泛化改泛指（"
-                            '"AI coding agent"）；针对该 agent 特有机制设计的可保留（口径见 ref/audit-workflow.md“判定清单”）',
-                        )
+    sub_root = skill_dir / "tools"
+    if not sub_root.is_dir():
+        return findings
+    for py in sorted(p for p in sub_root.rglob("*.py") if p.is_file()):
+        rel = str(py.relative_to(skill_dir))
+        for lineno, line in enumerate(py.read_text(encoding="utf-8").splitlines(), start=1):
+            if _SELF_EXEMPT_RE.match(line.strip()):
+                continue
+            match = AGENT_NAME_RE.search(line)
+            if match:
+                findings.append(
+                    Finding(
+                        rule="AGENT-NAME-CODE",
+                        level="INFO",
+                        evidence=f"脚本点名 agent：{match.group(0)!r}；{line.strip()[:_EVIDENCE_SNIPPET]}",
+                        file=rel,
+                        line=str(lineno),
+                        fix="可泛化改泛指（"
+                        '"AI coding agent"）；针对该 agent 特有机制设计的可保留（口径见 ref/audit-workflow.md“判定清单”）',
                     )
+                )
     return findings
 
 

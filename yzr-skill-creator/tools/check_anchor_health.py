@@ -201,7 +201,7 @@ def _is_checkable_path(token: str) -> bool:
 
 _ANCHOR_PREFIX_MATCH = 5
 _CANDIDATE_DISPLAY_LIMIT = 5
-_MD_SCAN_SUBDIRS = ("references", "ref", "scripts", "tools")
+_MD_SCAN_SUBDIRS = ("ref", "tools")
 
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a skill's frontmatter and SKILL.md body."""
+"""Validate a skill's frontmatter, directory naming, and SKILL.md body."""
 
 import re
 import sys
@@ -13,6 +13,7 @@ from tools.utils import (  # noqa: E402
     CANONICAL_BODY_SECTIONS,
     DESCRIPTION_MAX_CHARS,
     KEBAB_NAME_RE,
+    LEGACY_SUBDIR_RENAMES,
     SKILL_TIERS,
     SOFT_WORD_TARGETS,
     Finding,
@@ -382,6 +383,24 @@ def check_tier_metadata(skill_path):
     ]
 
 
+def check_dir_naming(skill_path):
+    """检出旧目录名（references/ / scripts/），返回 Finding 列表。"""
+    skill_path = Path(skill_path)
+    findings = []
+    for legacy, standard in LEGACY_SUBDIR_RENAMES.items():
+        if (skill_path / legacy).is_dir():
+            findings.append(
+                Finding(
+                    rule="DIR-LEGACY",
+                    level="ERROR",
+                    evidence=f"目录 `{legacy}/` 不受支持，标准名为 `{standard}/`",
+                    file=f"{legacy}/",
+                    fix=f"重命名 {legacy}/ → {standard}/，并同步更新引用路径",
+                )
+            )
+    return findings
+
+
 def collect_findings(skill_dir, tier=None):
     """汇总一个 skill 的全部结构类 Finding（tier=None = 读 frontmatter metadata.tier，缺省 default）。"""
     valid, message = validate_skill(skill_dir)
@@ -389,6 +408,7 @@ def collect_findings(skill_dir, tier=None):
         return valid, message, [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
     resolved = skill_tier(Path(skill_dir), tier)
     findings = check_tier_metadata(skill_dir)
+    findings += check_dir_naming(skill_dir)
     findings += check_body_structure(skill_dir, tier=resolved)
     findings += check_no_when_not_section(skill_dir)
     findings += check_description_format(skill_dir)
@@ -402,7 +422,7 @@ if __name__ == "__main__":
     import json
 
     parser = argparse.ArgumentParser(
-        description="Validate a skill's frontmatter, body structure, description format, TOC ban, and length"
+        description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, and length"
     )
     parser.add_argument("skill_dir", help="Path to the skill directory")
     parser.add_argument(

@@ -138,7 +138,7 @@ def check_desc_format(failures: List[str]) -> None:
 
 
 def check_cross_skill_path(failures: List[str]) -> None:
-    dirty = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `../../sibling/references/x.md`。\n"})
+    dirty = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `../../sibling/ref/x.md`。\n"})
     findings = verify._anchor_findings(dirty)
     if "CROSS-SKILL-PATH" not in rules(findings):
         failures.append("CROSS-SKILL-PATH: escaping backticked path not reported")
@@ -147,12 +147,19 @@ def check_cross_skill_path(failures: List[str]) -> None:
         failures.append("CROSS-SKILL-PATH: level is not ERROR, so it would never gate")
     # The legal forms must stay silent: a skill-root-relative path that resolves,
     # and a cross-skill *name* (topic mention, not a path).
-    legit = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `references/guide.md`。\n", "references/guide.md": "# g\n"})
+    legit = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `ref/guide.md`。\n", "ref/guide.md": "# g\n"})
     if "CROSS-SKILL-PATH" in rules(verify._anchor_findings(legit)):
         failures.append("CROSS-SKILL-PATH: legit in-skill path reported")
-    legit_ref = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `ref/guide.md`。\n", "ref/guide.md": "# g\n"})
-    if "CROSS-SKILL-PATH" in rules(verify._anchor_findings(legit_ref)):
-        failures.append("CROSS-SKILL-PATH: legit ref/ path reported")
+
+
+def check_dir_legacy(failures: List[str]) -> None:
+    dirty = make_skill({"SKILL.md": CLEAN_SKILL, "references/a.md": "# a\n", "scripts/x.py": ""})
+    findings = quick_validate.check_dir_naming(dirty)
+    if sorted(rules(findings)) != ["DIR-LEGACY", "DIR-LEGACY"] or any(f.level != "ERROR" for f in findings):
+        failures.append(f"DIR-LEGACY: 旧目录名未全部报 ERROR：{findings}")
+    clean = make_skill({"SKILL.md": CLEAN_SKILL, "ref/a.md": "# a\n", "tools/x.py": ""})
+    if rules(quick_validate.check_dir_naming(clean)):
+        failures.append("DIR-LEGACY: 标准目录名被误报")
 
 
 def check_missing_section_tiers(failures: List[str]) -> None:
@@ -188,7 +195,7 @@ def check_bare_metric(failures: List[str]) -> None:
     skill = make_skill(
         {
             "SKILL.md": spread,
-            "references/a.md": "# a\n\n上限 40 行。\n",
+            "ref/a.md": "# a\n\n上限 40 行。\n",
         }
     )
     if "BARE-METRIC" not in rules(audit_prose.check_bare_metrics(skill)):
@@ -199,7 +206,7 @@ def check_bare_metric(failures: List[str]) -> None:
     quoted = make_skill(
         {
             "SKILL.md": spread,
-            "references/a.md": '# a\n\n例："上限 40 行" 只是示例。\n',
+            "ref/a.md": '# a\n\n例："上限 40 行" 只是示例。\n',
         }
     )
     if "BARE-METRIC" in rules(audit_prose.check_bare_metrics(quoted)):
@@ -210,8 +217,8 @@ def check_bare_metric(failures: List[str]) -> None:
     annotated = make_skill(
         {
             "SKILL.md": CLEAN_SKILL,
-            "references/a.md": "# a\n\n上限 40 行(对齐 rubric)。\n",
-            "references/rubric.md": "# rubric\n\n- 上限 40 行\n",  # 唯一权威源，无标注
+            "ref/a.md": "# a\n\n上限 40 行(对齐 rubric)。\n",
+            "ref/rubric.md": "# rubric\n\n- 上限 40 行\n",  # 唯一权威源，无标注
         }
     )
     if "BARE-METRIC" in rules(audit_prose.check_bare_metrics(annotated)):
@@ -219,7 +226,7 @@ def check_bare_metric(failures: List[str]) -> None:
     unannotated_second = make_skill(
         {
             "SKILL.md": CLEAN_SKILL + "\n上限 40 行。\n",
-            "references/rubric.md": "# rubric\n\n- 上限 40 行\n",
+            "ref/rubric.md": "# rubric\n\n- 上限 40 行\n",
         }
     )
     if "BARE-METRIC" not in rules(audit_prose.check_bare_metrics(unannotated_second)):
@@ -228,7 +235,7 @@ def check_bare_metric(failures: List[str]) -> None:
     ranges = make_skill(
         {
             "SKILL.md": CLEAN_SKILL + "\n测试集 5–40 行。\n",
-            "references/a.md": "# a\n\n查询 8–40 行。\n",
+            "ref/a.md": "# a\n\n查询 8–40 行。\n",
         }
     )
     if "BARE-METRIC" in rules(audit_prose.check_bare_metrics(ranges)):
@@ -252,9 +259,10 @@ def check_clean_skill_is_quiet(failures: List[str]) -> None:
     Without this direction the suite would pass even if every rule fired on
     everything.
     """
-    skill = make_skill({"SKILL.md": CLEAN_SKILL, "references/guide.md": "# guide\n\n正文。\n"})
+    skill = make_skill({"SKILL.md": CLEAN_SKILL, "ref/guide.md": "# guide\n\n正文。\n"})
     findings = quick_validate.check_body_structure(skill) + quick_validate.check_no_when_not_section(skill)
     findings += quick_validate.check_description_format(skill) + quick_validate.check_no_toc(skill)
+    findings += quick_validate.check_dir_naming(skill)
     findings += audit_prose.scan_skill(skill) + verify._anchor_findings(skill)
     loud = [f for f in findings if f.level in ("ERROR", "WARN")]
     if loud:
@@ -270,6 +278,7 @@ def main() -> int:
         check_desc_format,
         check_anchor_extraction,
         check_cross_skill_path,
+        check_dir_legacy,
         check_bare_metric,
         check_version_history,
         check_missing_section_tiers,

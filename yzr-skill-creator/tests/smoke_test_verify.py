@@ -101,7 +101,7 @@ def check_tool_states(failures: List[str]) -> None:
 
     skip = verify.Run(
         per_skill=[(skill, [])],
-        tools=[verify.ToolResult("s", "ruff", verify.TOOL_SKIP, "skill has no scripts/")],
+        tools=[verify.ToolResult("s", "ruff", verify.TOOL_SKIP, "skill has no tools/ tests/")],
         advisory=[],
     )
     if verify._gate(skip, strict_tools=True):

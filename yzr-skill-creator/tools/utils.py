@@ -196,8 +196,11 @@ def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
     return tier if tier in SKILL_TIERS else "default"
 
 
-# skill 内容子目录全集（新旧标准双兼容）；检查器按用途取子集
-SKILL_SOURCE_SUBDIRS = ("ref", "references", "assets", "tools", "scripts")
+# skill 内容子目录全集；检查器按用途取子集
+SKILL_SOURCE_SUBDIRS = ("ref", "assets", "tools")
+
+# 旧目录名 → 标准名；出现旧名报 DIR-LEGACY ERROR（见 quick_validate.check_dir_naming）
+LEGACY_SUBDIR_RENAMES = {"references": "ref", "scripts": "tools"}
 
 WITH_SKILL = "with_skill"
 WITHOUT_SKILL = "without_skill"

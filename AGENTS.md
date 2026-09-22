@@ -18,9 +18,8 @@
 ## 仓库规约
 
 - 每个 skill 必备 `SKILL.md`，frontmatter `name` = 目录名（kebab-case）；可选子目录
-  `ref/` `tools/` `tests/` `assets/` `eval/`。新标准名 `ref/` + `tools/`；存量 skill 仍是
-  `references/` + `scripts/`，工具双兼容（verify 的 ruff 扫 scripts / tools / tests 三者），
-  不要为统一而迁移存量目录。
+  `ref/` `tools/` `tests/` `assets/` `eval/`；目录名只认这套，`references/` 与 `scripts/`
+  报 `DIR-LEGACY` ERROR（verify 的 ruff 扫 tools / tests 两者）。
 - 正文节名 / 顺序 / 可选性标准：`yzr-skill-creator/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）；
   检查器清单是其代码侧镜像，verify 自动查两者漂移。共享数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，utils.py 已有的数值别处不重抄（文件局部常量允许定义在所在文件）。
 - 改 skill 一律改仓库源；vendor 副本（`~/.agents/skills/` 等）是 npx 派生物，会被覆盖，

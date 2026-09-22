@@ -272,12 +272,12 @@ def _ruff_run(
 
 
 def _ruff(skill_dir: Path, repo_root: Optional[Path]) -> Tuple[List[Finding], List[ToolResult]]:
-    """对 skill 的 scripts/tools/tests 跑 ruff check 与 format --check。"""
+    """对 skill 的 tools/tests 跑 ruff check 与 format --check。"""
     name = skill_dir.name
 
-    sub_dirs = [skill_dir / sub for sub in ("scripts", "tools", "tests") if (skill_dir / sub).is_dir()]
+    sub_dirs = [skill_dir / sub for sub in ("tools", "tests") if (skill_dir / sub).is_dir()]
     if not sub_dirs:
-        return [], [ToolResult(name, "ruff", TOOL_SKIP, "skill has no scripts/ tools/ tests/")]
+        return [], [ToolResult(name, "ruff", TOOL_SKIP, "skill has no tools/ tests/")]
     binary = shutil.which("ruff")
     if binary is None:
         return [], [ToolResult(name, "ruff", TOOL_MISSING, "not installed")]

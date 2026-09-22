@@ -72,8 +72,8 @@ def case_cross_file_anchor_positive_negative(failures: List[str]) -> None:
     root = make_skill(
         {
             "SKILL.md": "---\nname: s\ndescription: d\n---\n\n"
-            "好 [a](references/r.md#深层节) 坏 [b](references/r.md#gone) 缺 [c](references/none.md)。\n",
-            "references/r.md": "## 深层节\n",
+            "好 [a](ref/r.md#深层节) 坏 [b](ref/r.md#gone) 缺 [c](ref/none.md)。\n",
+            "ref/r.md": "## 深层节\n",
         }
     )
     got = statuses(root)
@@ -81,26 +81,13 @@ def case_cross_file_anchor_positive_negative(failures: List[str]) -> None:
         failures.append(f"cross-file anchors: {got}")
 
 
-def case_ref_dir_is_scanned(failures: List[str]) -> None:
-    # ref/ 是本仓新标准目录名，扫描面与 references/ 等价（双兼容）
-    root = make_skill(
-        {
-            "SKILL.md": "---\nname: s\ndescription: d\n---\n\n好 [a](ref/r.md#深层节) 坏 [b](ref/r.md#gone)。\n",
-            "ref/r.md": "## 深层节\n",
-        }
-    )
-    got = statuses(root)
-    if got.count("ANCHOR-DRIFT") != 1:
-        failures.append(f"ref/ scan: {got}")
-
-
 def case_backtick_path_resolves_from_skill_root(failures: List[str]) -> None:
-    # operational ref inside a references/ file, written skill-root-relative
+    # operational ref inside a ref/ file, written skill-root-relative
     root = make_skill(
         {
-            "SKILL.md": "---\nname: s\ndescription: d\n---\n\nsee [r](references/r.md)\n",
-            "references/r.md": "跑 `scripts/x.py`。\n",
-            "scripts/x.py": "",
+            "SKILL.md": "---\nname: s\ndescription: d\n---\n\nsee [r](ref/r.md)\n",
+            "ref/r.md": "跑 `tools/x.py`。\n",
+            "tools/x.py": "",
         }
     )
     got = statuses(root)
@@ -109,7 +96,7 @@ def case_backtick_path_resolves_from_skill_root(failures: List[str]) -> None:
 
 
 def case_backtick_path_missing_reports(failures: List[str]) -> None:
-    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n`scripts/gone.py`\n"})
+    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n`tools/gone.py`\n"})
     got = statuses(root)
     if got != ["PATH-MISSING"]:
         failures.append(f"missing path: {got}")
@@ -152,7 +139,6 @@ def main() -> int:
         case_slug_backticks_stripped,
         case_same_file_anchor_positive_negative,
         case_cross_file_anchor_positive_negative,
-        case_ref_dir_is_scanned,
         case_backtick_path_resolves_from_skill_root,
         case_backtick_path_missing_reports,
         case_explicit_anchor_accepted,
