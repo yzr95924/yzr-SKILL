@@ -110,6 +110,44 @@ def corner_quote_negative_inside_fence():
 
 
 @case
+def section_sign_positive_prose_hit():
+    text = "配置细节详见 §3.2 的说明。\n"
+    hits = scan_text(text, "a.md")
+    assert len(hits) == 1 and hits[0].pid == "SECTION-SIGN" and hits[0].count == 1, hits
+
+
+@case
+def section_sign_negative_inline_code():
+    text = "参数 `§3.2` 照抄。\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def section_sign_negative_inside_fence():
+    text = "```md\n§ 引用块\n```\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def arrow_positive_prose_hit():
+    text = "引入缓存 → 延迟下降。\n"
+    hits = scan_text(text, "a.md")
+    assert len(hits) == 1 and hits[0].pid == "ARROW" and hits[0].count == 1, hits
+
+
+@case
+def arrow_negative_inline_code():
+    text = "写法 `现象 → 修法` 是旧格式。\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def arrow_negative_inside_fence():
+    text = "```md\nA → B\n```\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
 def cli_contract():
     with tempfile.TemporaryDirectory() as td:
         md = Path(td) / "doc.md"
