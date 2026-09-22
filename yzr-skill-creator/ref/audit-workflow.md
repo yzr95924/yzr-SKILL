@@ -35,4 +35,5 @@
 
 ## 审查分工
 
-本清单与机械项只管**机制合规**：md 散文质量归 yzr-writing-review，`tools/` 代码审查归 yzr-coding-review，`description` 触发质量归入口 3（有独立评估机制），各自转交
+本清单与机械项只管**机制合规**：md 散文质量归 yzr-writing-review，`tools/` 代码审查归 yzr-coding-review，
+`description` 触发质量归入口 3（有独立评估机制），各自转交；转交时给整个文件集，不只单文件
