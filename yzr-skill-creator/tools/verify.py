@@ -445,15 +445,15 @@ def _resolve_targets(args) -> Tuple[List[Path], Optional[Path], bool]:
     return targets, _repo_root(first), False
 
 
-def _run_checks(targets: List[Path], tier: str, root: Optional[Path], repo_mode: bool) -> Run:
-    """依次跑目标 skill 的检查并汇总成 Run。"""
+def _run_checks(targets: List[Path], tier: str, root: Optional[Path]) -> Run:
+    """依次跑目标 skill 的检查并汇总成 Run；依赖筛查探测到仓根时总是附带。"""
     per_skill: List[Tuple[Path, List[Finding]]] = []
     tools: List[ToolResult] = []
     for skill_dir in targets:
         findings, tool_results = verify_skill(skill_dir, tier, root)
         per_skill.append((skill_dir, findings))
         tools += tool_results
-    advisory = _dependency_findings(root) if repo_mode and root is not None else []
+    advisory = _dependency_findings(root) if root is not None else []
     return Run(per_skill=per_skill, tools=tools, advisory=advisory)
 
 
@@ -524,7 +524,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except UsageError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    run = _run_checks(targets, args.tier, root, repo_mode)
+    run = _run_checks(targets, args.tier, root)
     errors = _gate(run, args.strict_tools)
     if args.json:
         _render_json(run, root, repo_mode, errors)

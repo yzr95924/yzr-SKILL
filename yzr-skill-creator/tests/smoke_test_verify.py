@@ -165,6 +165,35 @@ def check_run_tool_exec_guard(failures: List[str]) -> None:
         failures.append(f"exec guard: rc={rc} out={out!r}")
 
 
+def check_dependency_screen_in_single_skill_mode(failures: List[str]) -> None:
+    """Single-skill mode carries the dependency advisory too; no repo root -> no screen."""
+    skill = make_skill()
+    calls = []
+
+    def fake_dep(root):
+        calls.append(root)
+        return []
+
+    def fake_checks(skill_dir, tier, root):
+        return [], []
+
+    original_dep = verify._dependency_findings
+    original_checks = verify.verify_skill
+    verify._dependency_findings = fake_dep
+    verify.verify_skill = fake_checks
+    try:
+        verify._run_checks([skill], "default", Path("/tmp"))
+        if calls != [Path("/tmp")]:
+            failures.append(f"single-skill mode skipped the dependency screen: {calls}")
+        calls.clear()
+        verify._run_checks([skill], "default", None)
+        if calls:
+            failures.append("dependency screen ran without a repo root")
+    finally:
+        verify._dependency_findings = original_dep
+        verify.verify_skill = original_checks
+
+
 def main() -> int:
     failures: List[str] = []
     check_dependency_channel(failures)
@@ -173,6 +202,7 @@ def main() -> int:
     check_usage_errors(failures)
     check_end_to_end(failures)
     check_run_tool_exec_guard(failures)
+    check_dependency_screen_in_single_skill_mode(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
