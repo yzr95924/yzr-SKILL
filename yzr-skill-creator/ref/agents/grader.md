@@ -37,7 +37,7 @@ evals 本身（弱断言上的"通过"比无用更糟：制造虚假信心）
 
 ## 输出格式
 
-> 完整 JSON schema 与字段说明的 SSOT 在 [章节](../schemas.md#gradingjson)，spawn prompt 会附该文件路径
+> 完整 JSON schema 与字段说明的 SSOT 在 [章节](../schemas.md#gradingjson)，启动子 agent 的 prompt 会附该文件路径
 > 字段名必须精确匹配（下游汇总按字段名读取，错字段名 = 静默出 0）。此处只给骨架：
 
 ```json
