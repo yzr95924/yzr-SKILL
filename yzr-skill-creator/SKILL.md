@@ -14,6 +14,7 @@ description: |
 metadata:
   author: Zuoru YANG
   modify time: 2026-09-22
+  tier: meta
 ---
 # yzr-skill-creator
 

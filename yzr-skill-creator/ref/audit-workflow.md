@@ -4,8 +4,8 @@
 
 ## 步骤
 
-1. **机械项**：`python -m tools.verify <skill-dir> --tier <default|reference|meta>`（tier 按目标 skill 类型：
-   纯参考 → `reference`、元 / 多入口 → `meta`、其余 `default`；三型定义见 `assets/skill-template.md`）
+1. **机械项**：`python -m tools.verify <skill-dir>`（tier 读 frontmatter `metadata.tier`，缺省 `default`；
+   `--tier` 可覆盖；三型定义见 `assets/skill-template.md`）
 2. **全量精读不抽样**：目标 skill 的 `SKILL.md` + `ref/` + `tools/` + `assets/` + `eval/` 每个文件逐行读，
    对照本 skill 的执行原则与本文件判定清单 → 逐项给结论（结果词见判定清单），证据 = 文件 + 原文引用
 3. **报告只活在对话里**：不建 `audit-*.md` 归档文件（无人维护的第二真源）；逐项等用户确认；报告分两小节：违反项（按清单 / 原则）与待删候选（按保留门槛逐节扫，无则写"无"）

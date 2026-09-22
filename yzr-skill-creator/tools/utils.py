@@ -183,6 +183,19 @@ CANONICAL_BODY_SECTIONS = (
 
 SKILL_TIERS = ("default", "reference", "meta")
 
+
+def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
+    """解析结构 tier：显式 override > frontmatter metadata.tier > default；非法值回落 default。"""
+    if override:
+        return override
+    try:
+        metadata = load_frontmatter(skill_path).get("metadata") or {}
+    except (ValueError, OSError):
+        return "default"
+    tier = metadata.get("tier") if isinstance(metadata, dict) else None
+    return tier if tier in SKILL_TIERS else "default"
+
+
 # skill 内容子目录全集（新旧标准双兼容）；检查器按用途取子集
 SKILL_SOURCE_SUBDIRS = ("ref", "references", "assets", "tools", "scripts")
 

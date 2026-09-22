@@ -9,7 +9,7 @@
       "expectations": [
         "产出 SKILL.md 的正文含全部必填规范 H2 节且顺序一致（节名以 assets/skill-template.md 为准）",
         "产出 SKILL.md 的 frontmatter 含 name / description，description 描述具体触发场景且写\"主动\"",
-        "`python -m tools.verify <skill-dir> --tier default` 对产出无 WARN（额外路由节 INFO 可接受）",
+        "`python -m tools.verify <skill-dir>` 对产出无 WARN（额外路由节 INFO 可接受）",
         "产出 SKILL.md 引用了 assets/skill-template.md 骨架对应的规范节名，而不是自创节名",
         "verify 输出不含 BODY-LENGTH：正文词数守在 default 档软目标内（数字口径以 verify 输出为准，本条不重抄）",
         "产出正文无\"通用背景铺垫\"常识段（如 \"X is a common file format\" / 大段文件格式科普）",

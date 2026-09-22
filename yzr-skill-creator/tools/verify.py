@@ -114,7 +114,7 @@ def _capture_json(fn, argv: List[str]) -> Tuple[int, Optional[Dict]]:
         return rc, None
 
 
-def _quick_validate_findings(skill_dir: Path, tier: str) -> List[Finding]:
+def _quick_validate_findings(skill_dir: Path, tier: Optional[str]) -> List[Finding]:
     """跑 quick_validate 的全部结构检查（检查清单单一来源在 quick_validate.collect_findings）。"""
     return quick_validate.collect_findings(skill_dir, tier)[2]
 
@@ -386,7 +386,9 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
     ]
 
 
-def verify_skill(skill_dir: Path, tier: str, repo_root: Optional[Path]) -> Tuple[List[Finding], List[ToolResult]]:
+def verify_skill(
+    skill_dir: Path, tier: Optional[str], repo_root: Optional[Path]
+) -> Tuple[List[Finding], List[ToolResult]]:
     """跑一个 skill 的全部检查，返回 (findings, 工具状态)。"""
     findings = _quick_validate_findings(skill_dir, tier)
     findings += _template_sync_findings(skill_dir)
@@ -413,8 +415,8 @@ def _parse_args(argv: Optional[List[str]]):
     parser.add_argument(
         "--tier",
         choices=quick_validate.SKILL_TIERS,
-        default="default",
-        help="skill tier for structure / length checks (default: %(default)s)",
+        default=None,
+        help="Override every target's frontmatter metadata.tier (default: per-skill metadata.tier, fallback 'default')",
     )
     parser.add_argument("--json", action="store_true", help="emit a single JSON document")
     parser.add_argument("--strict-tools", action="store_true", help="turn MISSING tool states into errors")
@@ -445,7 +447,7 @@ def _resolve_targets(args) -> Tuple[List[Path], Optional[Path], bool]:
     return targets, _repo_root(first), False
 
 
-def _run_checks(targets: List[Path], tier: str, root: Optional[Path]) -> Run:
+def _run_checks(targets: List[Path], tier: Optional[str], root: Optional[Path]) -> Run:
     """依次跑目标 skill 的检查并汇总成 Run；依赖筛查探测到仓根时总是附带。"""
     per_skill: List[Tuple[Path, List[Finding]]] = []
     tools: List[ToolResult] = []

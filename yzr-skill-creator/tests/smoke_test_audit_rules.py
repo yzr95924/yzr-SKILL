@@ -147,6 +147,34 @@ def check_cross_skill_path(failures: List[str]) -> None:
         failures.append("CROSS-SKILL-PATH: legit ref/ path reported")
 
 
+def check_missing_section_tiers(failures: List[str]) -> None:
+    """全 tier 可省略的节缺失零信息量，不报；必填节缺失照旧 WARN。"""
+    quiet = rules(quick_validate.check_body_structure(make_skill({"SKILL.md": CLEAN_SKILL})))
+    if "BODY-SECTION-MISSING" in quiet:
+        failures.append(f"全豁免节缺失被报：{quiet}")
+    partial = CLEAN_SKILL.replace("## 执行原则\n\n- 一条边界。\n\n", "")
+    findings = quick_validate.check_body_structure(make_skill({"SKILL.md": partial}))
+    got = [f for f in findings if f.rule == "BODY-SECTION-MISSING"]
+    if not got or got[0].level != "WARN":
+        failures.append(f"必填节缺失未报 WARN：{got}")
+
+
+def check_tier_resolution(failures: List[str]) -> None:
+    """tier 从 frontmatter metadata.tier 解析：meta 路由节不报、default 同结构报；非法值 WARN 且回落。"""
+    routed = CLEAN_SKILL.replace("## 输入与输出", "## 入口\n\n先分类。\n\n## 输入与输出", 1)
+    meta_fm = routed.replace("---\n# smoke-target", "metadata:\n  tier: meta\n---\n# smoke-target")
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": meta_fm}))[2])
+    if "BODY-EXTRA" in got:
+        failures.append(f"meta tier 未从 frontmatter 生效：{got}")
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": routed}))[2])
+    if "BODY-EXTRA" not in got:
+        failures.append("default 下路由节未报 BODY-EXTRA")
+    bad_fm = routed.replace("---\n# smoke-target", "metadata:\n  tier: metta\n---\n# smoke-target")
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": bad_fm}))[2])
+    if "TIER-METADATA" not in got or "BODY-EXTRA" not in got:
+        failures.append(f"非法 tier 未 WARN 或未回落 default：{got}")
+
+
 def check_bare_metric(failures: List[str]) -> None:
     spread = CLEAN_SKILL + "\n阈值 40 行。\n"
     skill = make_skill(
@@ -236,6 +264,8 @@ def main() -> int:
         check_cross_skill_path,
         check_bare_metric,
         check_version_history,
+        check_missing_section_tiers,
+        check_tier_resolution,
         check_clean_skill_is_quiet,
     )
     for check in checks:

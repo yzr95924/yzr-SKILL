@@ -21,6 +21,7 @@ from tools.utils import (  # noqa: E402
     frontmatter_span,
     iter_unfenced_lines,
     load_frontmatter,
+    skill_tier,
 )
 
 WHEN_NOT_SECTION_RE = re.compile(r"^##\s+何时不使用")
@@ -82,10 +83,12 @@ def check_body_structure(skill_path, tier="default"):
 
 
 def _missing_section_findings(canonical, found, tier):
-    """为缺失的规范节生成 Finding（该 tier 可省略的降为 INFO）。"""
+    """为缺失的规范节生成 Finding（该 tier 可省略的降为 INFO；全 tier 可省略的不报）。"""
     findings = []
     for norm, heading, exempt_tiers in canonical:
         if norm in found:
+            continue
+        if exempt_tiers >= set(SKILL_TIERS):
             continue
         if tier in exempt_tiers:
             findings.append(
@@ -349,16 +352,40 @@ def validate_skill(skill_path):
     return True, "Skill is valid!"
 
 
-def collect_findings(skill_dir, tier="default"):
-    """汇总一个 skill 的全部结构类 Finding（verify 与本脚本 CLI 共用这一份清单）。"""
+def check_tier_metadata(skill_path):
+    """metadata.tier 存在但非法时报 WARN（将回落 default，防 typo 静默）。"""
+    try:
+        metadata = load_frontmatter(Path(skill_path)).get("metadata") or {}
+    except (ValueError, OSError):
+        return []
+    if not isinstance(metadata, dict):
+        return []
+    tier = metadata.get("tier")
+    if tier is None or tier in SKILL_TIERS:
+        return []
+    return [
+        Finding(
+            rule="TIER-METADATA",
+            level="WARN",
+            evidence=f"metadata.tier={tier!r} 不在 {SKILL_TIERS}，已回落 default",
+            file="SKILL.md",
+            fix="改成合法 tier 或删掉该键",
+        )
+    ]
+
+
+def collect_findings(skill_dir, tier=None):
+    """汇总一个 skill 的全部结构类 Finding（tier=None = 读 frontmatter metadata.tier，缺省 default）。"""
     valid, message = validate_skill(skill_dir)
     if not valid:
         return valid, message, [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
-    findings = check_body_structure(skill_dir, tier=tier)
+    resolved = skill_tier(Path(skill_dir), tier)
+    findings = check_tier_metadata(skill_dir)
+    findings += check_body_structure(skill_dir, tier=resolved)
     findings += check_no_when_not_section(skill_dir)
     findings += check_description_format(skill_dir)
     findings += check_no_toc(skill_dir)
-    findings += check_body_length(skill_dir, tier=tier)
+    findings += check_body_length(skill_dir, tier=resolved)
     return valid, message, findings
 
 
@@ -373,8 +400,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tier",
         choices=SKILL_TIERS,
-        default="default",
-        help="Skill tier for the body-structure and length checks (default: %(default)s)",
+        default=None,
+        help="Override the skill's frontmatter metadata.tier (default: read from SKILL.md, fallback 'default')",
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
     args = parser.parse_args()
@@ -386,7 +413,7 @@ if __name__ == "__main__":
             json.dumps(
                 {
                     "skill_dir": str(args.skill_dir),
-                    "tier": args.tier,
+                    "tier": skill_tier(Path(args.skill_dir), args.tier),
                     "valid": valid,
                     "message": message,
                     "findings": [f.to_dict() for f in findings],

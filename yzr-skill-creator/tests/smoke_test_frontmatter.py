@@ -24,6 +24,7 @@ from tools.utils import (  # noqa: E402
     estimate_body_words,
     load_frontmatter,
     parse_skill_md,
+    skill_tier,
 )
 
 BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
@@ -158,18 +159,34 @@ def run_estimate_cases(failures) -> int:
     return len(checks) + 1  # + the hard-limit-over pin
 
 
+def run_skill_tier_cases(failures) -> int:
+    """skill_tier precedence: override > metadata.tier > default; invalid falls back to default."""
+    cases = [
+        ("override-wins", ["name: t", "description: d", "metadata:", "  tier: meta"], "reference", "reference"),
+        ("metadata-read", ["name: t", "description: d", "metadata:", "  tier: meta"], None, "meta"),
+        ("default-fallback", ["name: t", "description: d"], None, "default"),
+        ("invalid-fallback", ["name: t", "description: d", "metadata:", "  tier: metta"], None, "default"),
+    ]
+    for label, fm_lines, override, want in cases:
+        got = skill_tier(write_skill(fm_lines), override)
+        if got != want:
+            failures.append(f"skill_tier {label}: {got!r} != {want!r}")
+    return len(cases)
+
+
 def main():
     failures = []
     run_parse_cases(failures)
     run_error_cases(failures)
     run_load_frontmatter_cases(failures)
     est_pins = run_estimate_cases(failures)
+    tier_pins = run_skill_tier_cases(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
     print(
         f"SMOKE OK: frontmatter {len(cases())} shapes + {len(ERROR_CASES)} error paths"
-        f" + raw mapping + {est_pins} estimator pins"
+        f" + raw mapping + {est_pins} estimator pins + {tier_pins} tier pins"
     )
     return 0
 
