@@ -11,5 +11,7 @@
 
 - [SKILL 的 md 不写代码实现细节](no-code-detail-in-skill-md.md)：分发面（SKILL.md/ref/assets/eval）标准只指
   md 产物或工具可见输出，禁 `*.py::符号` / 常量名；仓库维护文档（AGENTS.md / MEMORY）豁免
+- [skill 分工按判据来源划](skill-boundary-by-judgment-source.md)：制品规约归 yzr-skill-creator，
+  读者与语言归 yzr-writing-review；判据需查文本外证据的只报现象标存疑，不下删除判决
 
 （2026-09 重建：旧条目已随重建清空，随新沉淀回补。）

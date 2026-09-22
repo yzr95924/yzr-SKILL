@@ -34,10 +34,10 @@ class Pattern(NamedTuple):
 
 
 PATTERNS = [
-    Pattern("DASH", DASH, "catalog AI 腔指纹表“破折号”行"),
-    Pattern("CORNER-QUOTE", CORNER_QUOTE, "catalog AI 腔指纹表“CJK 角引号”行"),
-    Pattern("SECTION-SIGN", SECTION_SIGN, "catalog AI 腔指纹表“§ 章节符号”行"),
-    Pattern("ARROW", ARROW, "catalog AI 腔指纹表“→ 箭头”行"),
+    Pattern("DASH", DASH, "catalog AI 腔指纹“破折号”行"),
+    Pattern("CORNER-QUOTE", CORNER_QUOTE, "catalog AI 腔指纹“CJK 角引号”行"),
+    Pattern("SECTION-SIGN", SECTION_SIGN, "catalog AI 腔指纹“§ 章节符号”行"),
+    Pattern("ARROW", ARROW, "catalog AI 腔指纹“→ 箭头”行"),
 ]
 
 FENCE = re.compile(r"^\s*```")
