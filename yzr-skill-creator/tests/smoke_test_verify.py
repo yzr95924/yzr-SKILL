@@ -50,12 +50,12 @@ def fake_dependency_main(payload, garbage: bool = False):
     return run
 
 
-def with_dependencies(payload=None, garbage=False):
+def with_dependencies(payload=None, garbage=False, scope=None):
     """Call verify._dependency_findings against a stubbed screen."""
     original = verify.check_skill_dependencies.main
     verify.check_skill_dependencies.main = fake_dependency_main(payload, garbage)
     try:
-        return verify._dependency_findings(Path("/tmp"))
+        return verify._dependency_findings(Path("/tmp"), scope)
     finally:
         verify.check_skill_dependencies.main = original
 
@@ -166,12 +166,12 @@ def check_run_tool_exec_guard(failures: List[str]) -> None:
 
 
 def check_dependency_screen_in_single_skill_mode(failures: List[str]) -> None:
-    """Single-skill mode carries the dependency advisory too; no repo root -> no screen."""
+    """Single-skill mode carries the dependency advisory scoped to the target; repo mode unscoped; no root -> no screen."""
     skill = make_skill()
     calls = []
 
-    def fake_dep(root):
-        calls.append(root)
+    def fake_dep(root, scope=None):
+        calls.append((root, scope))
         return []
 
     def fake_checks(skill_dir, tier, root):
@@ -182,16 +182,43 @@ def check_dependency_screen_in_single_skill_mode(failures: List[str]) -> None:
     verify._dependency_findings = fake_dep
     verify.verify_skill = fake_checks
     try:
-        verify._run_checks([skill], "default", Path("/tmp"))
-        if calls != [Path("/tmp")]:
-            failures.append(f"single-skill mode skipped the dependency screen: {calls}")
+        verify._run_checks([skill], "default", Path("/tmp"), False)
+        if calls != [(Path("/tmp"), frozenset({"probe-skill"}))]:
+            failures.append(f"single-skill mode screen call/scope wrong: {calls}")
         calls.clear()
-        verify._run_checks([skill], "default", None)
+        verify._run_checks([skill], "default", Path("/tmp"), True)
+        if calls != [(Path("/tmp"), None)]:
+            failures.append(f"repo mode must not scope the screen: {calls}")
+        calls.clear()
+        verify._run_checks([skill], "default", None, False)
         if calls:
             failures.append("dependency screen ran without a repo root")
     finally:
         verify._dependency_findings = original_dep
         verify.verify_skill = original_checks
+
+
+def check_dependency_scope_filter(failures: List[str]) -> None:
+    """Scoped screen keeps only edges touching the target; unscoped keeps all."""
+    payload = {
+        "pairs": [{"a": "other-a", "b": "other-b", "a_mentions_b": [], "b_mentions_a": []}],
+        "one_way": [
+            {"a": "probe-skill", "b": "other-a", "a_mentions_b": []},
+            {"a": "other-b", "b": "other-a", "a_mentions_b": []},
+        ],
+        "skill_count": 3,
+        "repo_root": "/tmp",
+    }
+    scoped = with_dependencies(payload, scope=frozenset({"probe-skill"}))
+    evidence = scoped[0].evidence if scoped else ""
+    if "1 条单向提及" not in evidence or "互提候选对" in evidence:
+        failures.append(f"scoped screen did not filter to the target edge: {evidence!r}")
+    if "仅目标 skill 相关" not in evidence:
+        failures.append(f"scoped screen evidence lacks the scope marker: {evidence!r}")
+    full = with_dependencies(payload)
+    evidence = full[0].evidence if full else ""
+    if "1 组互提候选对" not in evidence or "2 条单向提及" not in evidence:
+        failures.append(f"unscoped screen must keep every edge: {evidence!r}")
 
 
 def main() -> int:
@@ -203,6 +230,7 @@ def main() -> int:
     check_end_to_end(failures)
     check_run_tool_exec_guard(failures)
     check_dependency_screen_in_single_skill_mode(failures)
+    check_dependency_scope_filter(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1

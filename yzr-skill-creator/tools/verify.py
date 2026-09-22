@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, FrozenSet, List, NamedTuple, Optional, Tuple
 
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -29,6 +29,7 @@ from tools.utils import (  # noqa: E402
     discover_skill_dirs,
     format_findings,
     iter_unfenced_lines,
+    parse_skill_md,
 )
 
 _ANCHOR_LEVEL = "ERROR"
@@ -160,8 +161,8 @@ def _anchor_findings(skill_dir: Path) -> List[Finding]:
     ]
 
 
-def _dependency_findings(repo_root: Path) -> List[Finding]:
-    """跑跨 skill 提及筛查，产出建议级 Finding。"""
+def _dependency_findings(repo_root: Path, scope: Optional[FrozenSet[str]] = None) -> List[Finding]:
+    """跑跨 skill 提及筛查，产出建议级 Finding；scope 非空时只保留涉及这些 skill 的提及边。"""
     rc, payload = _capture_json(check_skill_dependencies.main, [str(repo_root), "--json"])
     broken = payload is None or not all(key in payload for key in ("pairs", "one_way"))
     if broken:
@@ -174,18 +175,25 @@ def _dependency_findings(repo_root: Path) -> List[Finding]:
             )
         ]
     pairs, one_way = payload["pairs"], payload["one_way"]
+    if scope is not None:
+        pairs = [p for p in pairs if p["a"] in scope or p["b"] in scope]
+        one_way = [e for e in one_way if e["a"] in scope or e["b"] in scope]
     if not pairs and not one_way:
-        return [Finding(rule="CROSS-SKILL-MENTION", level=_ADVISORY_LEVEL, evidence="跨 skill 提及：零")]
+        label = "目标 skill 跨 skill 提及：零" if scope is not None else "跨 skill 提及：零"
+        return [Finding(rule="CROSS-SKILL-MENTION", level=_ADVISORY_LEVEL, evidence=label)]
     lines = []
     if pairs:
         lines.append(f"{len(pairs)} 组互提候选对（" + "、".join(f"{p['a']}<->{p['b']}" for p in pairs) + "）")
     if one_way:
         lines.append(f"{len(one_way)} 条单向提及")
+    evidence = "；".join(lines) + "；互提 ≠ 互依，方向需读正文判"
+    if scope is not None:
+        evidence = "（仅目标 skill 相关）" + evidence
     return [
         Finding(
             rule="CROSS-SKILL-MENTION",
             level=_ADVISORY_LEVEL,
-            evidence="；".join(lines) + "；互提 ≠ 互依，方向需读正文判",
+            evidence=evidence,
             fix=f"逐条证据：python3 -m tools.check_skill_dependencies {repo_root}",
         )
     ]
@@ -447,15 +455,27 @@ def _resolve_targets(args) -> Tuple[List[Path], Optional[Path], bool]:
     return targets, _repo_root(first), False
 
 
-def _run_checks(targets: List[Path], tier: Optional[str], root: Optional[Path]) -> Run:
-    """依次跑目标 skill 的检查并汇总成 Run；依赖筛查探测到仓根时总是附带。"""
+def _target_name(skill_dir: Path) -> str:
+    """目标 skill 的筛查名：frontmatter name，解析失败回落目录名。"""
+    try:
+        name = parse_skill_md(skill_dir)[0]
+    except (ValueError, OSError):
+        name = ""
+    return name or skill_dir.name
+
+
+def _run_checks(targets: List[Path], tier: Optional[str], root: Optional[Path], repo_mode: bool) -> Run:
+    """依次跑目标 skill 的检查并汇总成 Run；依赖筛查有仓根时总是附带，单 skill 模式过滤到目标。"""
     per_skill: List[Tuple[Path, List[Finding]]] = []
     tools: List[ToolResult] = []
     for skill_dir in targets:
         findings, tool_results = verify_skill(skill_dir, tier, root)
         per_skill.append((skill_dir, findings))
         tools += tool_results
-    advisory = _dependency_findings(root) if root is not None else []
+    advisory: List[Finding] = []
+    if root is not None:
+        scope = None if repo_mode else frozenset(_target_name(skill_dir) for skill_dir in targets)
+        advisory = _dependency_findings(root, scope)
     return Run(per_skill=per_skill, tools=tools, advisory=advisory)
 
 
@@ -526,7 +546,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except UsageError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    run = _run_checks(targets, args.tier, root)
+    run = _run_checks(targets, args.tier, root, repo_mode)
     errors = _gate(run, args.strict_tools)
     if args.json:
         _render_json(run, root, repo_mode, errors)

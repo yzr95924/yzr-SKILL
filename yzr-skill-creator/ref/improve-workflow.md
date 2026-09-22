@@ -28,8 +28,8 @@ baseline，对比失去意义）
 
 `python -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
 对照侧（`without_skill` / `old_skill`）各起一个独立 `opencode run` 子 agent，开关以 `--help` 为准。两侧并发让
-任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同入口 3（本机 `opencode run` 可用且已配置
-provider）。会嵌套再跑循环的用例（如入口 3 的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
+任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同入口 3。
+会嵌套再跑循环的用例（如入口 3 的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
 
 **没有子 agent 的环境（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务（**跳过 baseline**：
 你写的 skill 你自己跑，独立性的损失由人工评审环节补偿），评估结果直接在对话里展示
