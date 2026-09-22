@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan markdown for enumerable AI-style fingerprints (literal matches only).
+"""Scan markdown for enumerable AI-style fingerprints (literal or regex matches only).
 
 Findings are INFO candidates: detection is mechanical, the fix is reviewer
 judgment (quote / meta-mention exemptions stay human).
@@ -25,12 +25,15 @@ DASH = "\u2014\u2014"  # 中文双破折号"——"
 CORNER_QUOTE = "\u300c"  # 中文左角引号"「"（成对符号，开侧计一次）
 SECTION_SIGN = "\u00a7"  # 章节符号"§"
 ARROW = "\u2192"  # 箭头"→"
+# 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
+EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
 
 
 class Pattern(NamedTuple):
     pid: str
     literal: str
     rule: str
+    regex: Optional[str] = None  # 置位时按正则计数，literal 留空
 
 
 PATTERNS = [
@@ -38,6 +41,7 @@ PATTERNS = [
     Pattern("CORNER-QUOTE", CORNER_QUOTE, "catalog AI 腔指纹“CJK 角引号”行"),
     Pattern("SECTION-SIGN", SECTION_SIGN, "catalog AI 腔指纹“§ 章节符号”行"),
     Pattern("ARROW", ARROW, "catalog AI 腔指纹“→ 箭头”行"),
+    Pattern("EMOJI", "", "catalog AI 腔指纹“emoji 点缀”行", EMOJI_RE),
 ]
 
 FENCE = re.compile(r"^\s*```")
@@ -72,7 +76,7 @@ def scan_text(text: str, rel: str) -> List[Hit]:
             continue
         hay = mask_code_spans(raw)
         for pat in PATTERNS:
-            count = hay.count(pat.literal)
+            count = len(re.findall(pat.regex, hay)) if pat.regex else hay.count(pat.literal)
             if count:
                 snippet = raw.strip()
                 if len(snippet) > 80:

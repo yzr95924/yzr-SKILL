@@ -21,7 +21,7 @@ from typing import List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.scan_fingerprints import DASH, scan_text  # noqa: E402
+from tools.scan_fingerprints import DASH, PATTERNS, scan_text  # noqa: E402
 
 CASES: List = []
 
@@ -145,6 +145,53 @@ def arrow_negative_inline_code():
 def arrow_negative_inside_fence():
     text = "```md\nA → B\n```\n"
     assert scan_text(text, "a.md") == []
+
+
+@case
+def emoji_positive_prose_hit():
+    text = "🚀 快速开始：先跑安装命令。\n"
+    hits = scan_text(text, "a.md")
+    assert len(hits) == 1 and hits[0].pid == "EMOJI" and hits[0].count == 1, hits
+
+
+@case
+def emoji_positive_bullet_lead():
+    text = "- ✨ 亮点\n"
+    hits = scan_text(text, "a.md")
+    assert len(hits) == 1 and hits[0].pid == "EMOJI", hits
+
+
+@case
+def emoji_negative_midline():
+    # 规则面（段落开头）比脚本面宽：行中装饰 emoji 由 reviewer 补齐，不进候选
+    text = "文中提到 🚀 命令。\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def emoji_negative_table_symbols():
+    text = "| a | ✅ |\n跑完 ✓ 检查。\n★ 推荐\n⚠ 注意\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def emoji_negative_inline_code():
+    text = "参数 `--icon 🚀` 照抄。\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def emoji_negative_inside_fence():
+    text = "```md\n🚀 标题\n```\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def rule_pointers_resolve_in_catalog():
+    catalog = (Path(__file__).resolve().parent.parent / "ref" / "catalog.md").read_text(encoding="utf-8")
+    for pat in PATTERNS:
+        name = pat.rule.split("\u201c")[1].split("\u201d")[0]
+        assert "- **" + name in catalog, pat
 
 
 @case
