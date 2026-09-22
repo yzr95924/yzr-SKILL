@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import List, NamedTuple, Optional
 
 DASH = "\u2014\u2014"  # 中文双破折号"——"
+CORNER_QUOTE = "\u300c"  # 中文左角引号"「"（成对符号，开侧计一次）
 
 
 class Pattern(NamedTuple):
@@ -32,6 +33,7 @@ class Pattern(NamedTuple):
 
 PATTERNS = [
     Pattern("DASH", DASH, "catalog 第六组 标点与排版指纹“破折号”行"),
+    Pattern("CORNER-QUOTE", CORNER_QUOTE, "catalog 第六组 标点与排版指纹“CJK 角引号”行"),
 ]
 
 FENCE = re.compile(r"^\s*```")

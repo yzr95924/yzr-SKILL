@@ -91,6 +91,25 @@ def positive_clean_text_zero():
 
 
 @case
+def corner_quote_positive_prose_hit():
+    text = "别的入口用「按该节执行」式指针复用。\n"
+    hits = scan_text(text, "a.md")
+    assert len(hits) == 1 and hits[0].pid == "CORNER-QUOTE" and hits[0].count == 1, hits
+
+
+@case
+def corner_quote_negative_inline_code():
+    text = "参数 `--tier「default」` 照抄。\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
+def corner_quote_negative_inside_fence():
+    text = "```md\n「引用块」\n```\n"
+    assert scan_text(text, "a.md") == []
+
+
+@case
 def cli_contract():
     with tempfile.TemporaryDirectory() as td:
         md = Path(td) / "doc.md"
