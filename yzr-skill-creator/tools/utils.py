@@ -20,7 +20,7 @@ _ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9_`.'\-/]+")
 
 
 def estimate_body_words(body: str) -> int:
-    """估算正文词数：CJK 字符数 / 1.7 加 ASCII token 数（先剔除围栏代码块）。"""
+    """估算正文词数：CJK 字符折算加 ASCII token 数（先剔除围栏代码块）。"""
     prose = "\n".join(line for _, line in iter_unfenced_lines(body))
     cjk_chars = len(_CJK_RE.findall(prose))
     ascii_tokens = len(_ASCII_TOKEN_RE.findall(_CJK_RE.sub(" ", prose)))
@@ -107,7 +107,7 @@ def format_findings(findings: List[Finding]) -> List[str]:
     return out
 
 
-_KEBAB_NAME_RE = re.compile(r"^[a-z0-9-]+$")
+KEBAB_NAME_RE = re.compile(r"^[a-z0-9-]+$")
 
 
 def discover_skill_dirs(repo_root: Path, require_parseable: bool = False) -> List[Path]:
@@ -123,7 +123,7 @@ def discover_skill_dirs(repo_root: Path, require_parseable: bool = False) -> Lis
                 name = parse_skill_md(child)[0]
             except (ValueError, OSError):
                 continue
-            if not _KEBAB_NAME_RE.match(name):
+            if not KEBAB_NAME_RE.match(name):
                 continue
         dirs.append(child)
     return dirs
@@ -182,6 +182,9 @@ CANONICAL_BODY_SECTIONS = (
 
 
 SKILL_TIERS = ("default", "reference", "meta")
+
+# skill 内容子目录全集（新旧标准双兼容）；检查器按用途取子集
+SKILL_SOURCE_SUBDIRS = ("ref", "references", "assets", "tools", "scripts")
 
 WITH_SKILL = "with_skill"
 WITHOUT_SKILL = "without_skill"

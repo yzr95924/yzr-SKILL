@@ -27,6 +27,63 @@
         "改进后的 SKILL.md 正文节名仍符合规范骨架（结构未因迭代破坏）",
         "改进后的 description 仍含固定格式三组件（场景一句 + 触发：/ 不适用：标记），且以收窄触发面为导向（不适用：槽更明确）"
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "yzr-md-to-html 的 description 老在用户只是问它是干嘛的时候也触发，帮我优化下描述——前后对比先给我看，别急着改文件",
+      "expected_output": "按 description 写作指南起草评估集并跑前后对比；闸门守到写回：未经确认不改 yzr-md-to-html 的 SKILL.md（跑循环本身合法）",
+      "files": [],
+      "expectations": [
+        "评估集为 should-trigger / should-not-trigger 各约半、查询具体可信（有路径/口吻细节），负例含'问 skill 本身'一类擦边型而非明显无关",
+        "给出了 before/after 对比（跑循环的真实分数，或明示未跑的替代方案），且写回动作未发生",
+        "未改动 yzr-md-to-html 的 SKILL.md（用户明令别急着改）"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "拿写作原则把 yzr-sys-design-doc 全文过一遍合规性，只报告，别动手改",
+      "expected_output": "",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 5,
+      "prompt": "yzr-coding-review 的 SKILL.md 里有地方写'巡检'有的写'review 一遍'，指称不统一，都改成仓库标准叫法，verify 跑绿",
+      "expected_output": "前提核查发现不存在混用（'巡检'一致且正是标准词），如实报告并给出 grep 证据，不做无中生有的改动（陷阱用例）",
+      "files": [],
+      "expectations": [
+        "动手前实际 grep / 通读目标文件验证前提，报告基于真实证据（引用命中行或零命中）",
+        "未因用户断言而制造不存在的改动，未静默重命名'巡检'",
+        "走单点路线处理：未启动评估循环 / 未建 workspace 迭代"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "每次换机器我都得口述一遍 opencode 配置迁移的步骤，想把这流程沉淀成 skill——先访谈我，别直接开写",
+      "expected_output": "",
+      "files": [],
+      "expectations": []
+    },
+    {
+      "id": 7,
+      "prompt": "verify.py 报 Traceback 了，FileNotFoundError 找不到 markdownlint，帮我查根因给结论就行，不改 skill 内容",
+      "expected_output": "定位到 subprocess/PATH 层面的根因假设与复现路径，只给结论与修法建议；不顺手改 SKILL.md / ref 散文",
+      "files": [],
+      "expectations": [
+        "读的是 tools/verify.py 实际代码路径（shutil.which 守卫、_run_tool 的 subprocess 调用）而非泛泛而谈",
+        "给的结论区分事实与推断（无证据不断言），含可执行的复现或验证步骤",
+        "未改动任何 skill 内容文件（SKILL.md / ref/ / assets/ 不在 diff 里）"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "为什么 skill 要拆成 SKILL.md + ref/ 两个文件？progressive disclosure 到底在哪实现的，跟给 AI 一个大文件有什么区别",
+      "expected_output": "机制原理解答：引用仓内真实实现（description 常驻、正文按需读、ref 指针）说明分层加载，不触发任何创建/改进流程",
+      "files": [],
+      "expectations": [
+        "答案锚定真实机制（frontmatter 常驻注入 / 正文加载时机 / ref 按需 Read），必要时指到具体文件",
+        "识别为'问机制原理'负例：未启动创建/改进工作流（未新建 skill、未跑评估循环）"
+      ]
     }
   ]
 }

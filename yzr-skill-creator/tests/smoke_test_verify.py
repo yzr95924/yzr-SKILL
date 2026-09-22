@@ -158,6 +158,13 @@ def check_end_to_end(failures: List[str]) -> None:
         failures.append("human render missing its summary line")
 
 
+def check_run_tool_exec_guard(failures: List[str]) -> None:
+    """_run_tool survives exec failure (vanishing binary / broken shebang) instead of Traceback."""
+    rc, out = verify._run_tool(["definitely-missing-tool-xyz"], Path.cwd())
+    if rc != 127 or "definitely-missing-tool-xyz" not in out:
+        failures.append(f"exec guard: rc={rc} out={out!r}")
+
+
 def main() -> int:
     failures: List[str] = []
     check_dependency_channel(failures)
@@ -165,6 +172,7 @@ def main() -> int:
     check_markdownlint_placement(failures)
     check_usage_errors(failures)
     check_end_to_end(failures)
+    check_run_tool_exec_guard(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1

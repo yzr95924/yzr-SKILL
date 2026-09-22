@@ -22,36 +22,35 @@ def _fail(message: str) -> int:
     return 2
 
 
-def load_evals(evals_path: Path) -> Optional[List[Dict]]:
-    """读取并校验 evals.json；失败时打印错误并返回 None。"""
+def load_evals(evals_path: Path) -> List[Dict]:
+    """读取并校验 evals.json；非法时抛 ValueError（消息可直接给用户）。"""
     try:
         data = json.loads(evals_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        _fail(f"cannot read evals.json: {exc}")
-        return None
+        raise ValueError(f"cannot read evals.json: {exc}") from exc
     evals = data.get("evals") if isinstance(data, dict) else None
     if not isinstance(evals, list) or not evals:
-        _fail("evals.json must be a JSON object with a non-empty `evals` array")
-        return None
+        raise ValueError("evals.json must be a JSON object with a non-empty `evals` array")
     for item in evals:
         if not isinstance(item, dict) or not isinstance(item.get("id"), int) or not item.get("prompt"):
-            _fail(f"every eval needs integer `id` and non-empty `prompt` (got: {item!r})")
-            return None
+            raise ValueError(f"every eval needs integer `id` and non-empty `prompt` (got: {item!r})")
     return evals
 
 
-def skill_prompt(skill_path: Path, item: Dict, out_dir: Path) -> str:
-    """拼一条子 agent 任务提示（skill 路径、任务、输入文件、产出目录）。"""
+def skill_prompt(skill_path: Optional[Path], item: Dict, out_dir: Path) -> str:
+    """拼一条子 agent 任务提示（skill_path 为 None = 不带 skill 侧），含任务、输入文件、产出目录。"""
     files = item.get("files") or []
     files_line = ", ".join(str(f) for f in files) if files else "none"
-    return (
-        "Execute this task:\n"
-        f"- Skill path: {skill_path}\n"
-        f"- Task: {item['prompt']}\n"
-        f"- Input files: {files_line}\n"
-        f"- Save outputs to: {out_dir}\n"
-        '- Outputs to save: <what the user cares about — e.g. "the .docx file", "the final CSV">'
-    )
+    lines = ["Execute this task:"]
+    if skill_path is not None:
+        lines.append(f"- Skill path: {skill_path}")
+    lines += [
+        f"- Task: {item['prompt']}",
+        f"- Input files: {files_line}",
+        f"- Save outputs to: {out_dir}",
+        '- Outputs to save: <what the user cares about — e.g. "the .docx file", "the final CSV">',
+    ]
+    return "\n".join(lines)
 
 
 def init(
@@ -60,12 +59,11 @@ def init(
     skill_path: Path,
     evals: List[Dict],
     baseline: str,
-) -> Optional[List[str]]:
-    """建 iteration 工作区与目录骨架，返回每用例的提示文本；工作区已存在非空时返回 None。"""
+) -> List[str]:
+    """建 iteration 工作区与目录骨架，返回每用例的提示文本；目标已存在非空时抛 ValueError。"""
     iteration_dir = workspace / f"iteration-{iteration}"
     if iteration_dir.exists() and any(iteration_dir.iterdir()):
-        _fail(f"{iteration_dir} already exists and is not empty — use a fresh iteration number")
-        return None
+        raise ValueError(f"{iteration_dir} already exists and is not empty — use a fresh iteration number")
 
     snapshot_dir = iteration_dir / SNAPSHOT_DIRNAME if baseline == OLD_SKILL else None
     if snapshot_dir is not None:
@@ -121,12 +119,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not evals_path.is_file():
         return _fail(f"evals.json not found: {evals_path}")
 
-    evals = load_evals(evals_path)
-    if evals is None:
-        return 2
-    prompts = init(Path(args.workspace).resolve(), args.iteration, skill_path, evals, args.baseline)
-    if prompts is None:
-        return 2
+    try:
+        evals = load_evals(evals_path)
+        prompts = init(Path(args.workspace).resolve(), args.iteration, skill_path, evals, args.baseline)
+    except ValueError as e:
+        return _fail(str(e))
 
     print(f"workspace ready: iteration-{args.iteration}, {len(evals)} eval(s), baseline={args.baseline}")
     if args.baseline == OLD_SKILL:

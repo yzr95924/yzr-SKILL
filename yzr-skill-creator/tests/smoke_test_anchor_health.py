@@ -131,6 +131,18 @@ def case_fenced_and_externals_ignored(failures: List[str]) -> None:
         failures.append(f"fenced/external: {got}")
 
 
+def case_yzr_prefix_exempt_for_bare_name_only(failures: List[str]) -> None:
+    # 裸 `yzr-x` 是题材提及豁免；`yzr-x/y.md` 是跨 skill 路径，必须仍进检查（曾整前缀豁免留兜底空洞）
+    if check_anchor_health._is_checkable_path("yzr-md-to-html"):
+        failures.append("bare yzr- name should stay exempt")
+    if not check_anchor_health._is_checkable_path("yzr-md-to-html/SKILL.md"):
+        failures.append("yzr- prefixed path should be checkable")
+    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n见 `yzr-md-to-html/SKILL.md`\n"})
+    got = statuses(root)
+    if got != ["PATH-MISSING"]:
+        failures.append(f"yzr- prefixed path scan: {got}")
+
+
 def main() -> int:
     failures: List[str] = []
     checks = (
@@ -145,6 +157,7 @@ def main() -> int:
         case_backtick_path_missing_reports,
         case_explicit_anchor_accepted,
         case_fenced_and_externals_ignored,
+        case_yzr_prefix_exempt_for_bare_name_only,
     )
     for check in checks:
         check(failures)

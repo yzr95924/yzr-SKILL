@@ -59,6 +59,9 @@ def _markdown_files(skill_dir: Path) -> List[Path]:
     return files
 
 
+_EVIDENCE_SNIPPET = 70
+
+
 def check_version_history(skill_dir: Path) -> List[Finding]:
     """筛内联的自身版本演进史（引号或代码段内的除外）。"""
     findings = []
@@ -72,7 +75,7 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
                     Finding(
                         rule="VERSION-HISTORY-INLINE",
                         level="INFO",
-                        evidence=f"自身版本演进史内联：{match.group(0)!r}；{line.strip()[:70]}",
+                        evidence=f"自身版本演进史内联：{match.group(0)!r}；{line.strip()[:_EVIDENCE_SNIPPET]}",
                         file=rel,
                         line=str(lineno),
                         fix="演进叙事挪 git commit message，正文最多留一句路标"
@@ -141,7 +144,7 @@ def check_agent_names_in_code(skill_dir: Path) -> List[Finding]:
                         Finding(
                             rule="AGENT-NAME-CODE",
                             level="INFO",
-                            evidence=f"脚本点名 agent：{match.group(0)!r}；{line.strip()[:70]}",
+                            evidence=f"脚本点名 agent：{match.group(0)!r}；{line.strip()[:_EVIDENCE_SNIPPET]}",
                             file=rel,
                             line=str(lineno),
                             fix="可泛化改泛指（"

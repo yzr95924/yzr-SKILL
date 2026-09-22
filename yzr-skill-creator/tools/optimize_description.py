@@ -18,8 +18,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md
 
+DEFAULT_TIMEOUT = 120
+DEFAULT_RUNS_PER_QUERY = 3
+DEFAULT_TRIGGER_THRESHOLD = 0.5
+DEFAULT_MAX_ITERATIONS = 5
 DEFAULT_HOLDOUT_RATIO = 0.4
 
+# 路由评估竞争池 = agent 实际可见的已部署集合（npx 分发落点）；与仓维护"vendor 副本不读"约定语境不同：
+# 那边管改源只认仓库，这边测的是真实触发面，默认 --skills-dir 可覆盖
 SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 # judge / improve 走无工具判官 agent：OPENCODE_PERMISSION 通配实测拦不住 read，显式 deny 会挂起，
@@ -52,9 +58,9 @@ _JUDGE_PATTERN = re.compile(r'"skill"\s*:\s*(?:"([^"]*)"|null)')
 class EvalConfig(NamedTuple):
     """路由评估的配置：超时 / 每查询重复次数 / 触发阈值 / 模型。"""
 
-    timeout: int = 120
-    runs_per_query: int = 3
-    trigger_threshold: float = 0.5
+    timeout: int = DEFAULT_TIMEOUT
+    runs_per_query: int = DEFAULT_RUNS_PER_QUERY
+    trigger_threshold: float = DEFAULT_TRIGGER_THRESHOLD
     model: Optional[str] = None
 
 
@@ -62,7 +68,7 @@ class LoopConfig(NamedTuple):
     """优化循环的配置：评估配置 + 轮数上限 / holdout / 输出 / 竞争池。"""
 
     eval: EvalConfig
-    max_iterations: int = 5
+    max_iterations: int = DEFAULT_MAX_ITERATIONS
     holdout: float = DEFAULT_HOLDOUT_RATIO
     verbose: bool = False
     log_dir: Optional[Path] = None
@@ -84,7 +90,7 @@ class SplitSets(NamedTuple):
     test: List[dict]
 
 
-def _call_opencode(prompt: str, model: Optional[str], timeout: int = 300) -> str:
+def _call_opencode(prompt: str, model: Optional[str], timeout: int) -> str:
     """调一次 `opencode run`（无工具判官 agent），返回 stdout；非零退出抛 RuntimeError。"""
     cmd = ["opencode", "run", "--pure", "--print-logs", "--dir", tempfile.gettempdir(), "--agent", _OPENCODE_AGENT]
     cmd.extend(["--title", "skill-creator-eval"])
@@ -768,10 +774,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-set", default=None, help="Path to eval set JSON file (loop mode)")
     parser.add_argument("--skill-path", required=True, help="Path to skill directory")
     parser.add_argument("--description", default=None, help="Override starting description")
-    parser.add_argument("--timeout", type=int, default=120, help="Timeout per opencode run call in seconds")
-    parser.add_argument("--max-iterations", type=int, default=5, help="Max improvement iterations")
-    parser.add_argument("--runs-per-query", type=int, default=3, help="Number of runs per query")
-    parser.add_argument("--trigger-threshold", type=float, default=0.5, help="Trigger rate threshold")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout per opencode run call in seconds")
+    parser.add_argument("--max-iterations", type=int, default=DEFAULT_MAX_ITERATIONS, help="Max improvement iterations")
+    parser.add_argument("--runs-per-query", type=int, default=DEFAULT_RUNS_PER_QUERY, help="Number of runs per query")
+    parser.add_argument(
+        "--trigger-threshold", type=float, default=DEFAULT_TRIGGER_THRESHOLD, help="Trigger rate threshold"
+    )
     parser.add_argument(
         "--holdout",
         type=float,
@@ -806,10 +814,10 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：loop 模式或 --apply 模式。"""
     parser = _build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.apply:
         try:
@@ -854,6 +862,7 @@ def main():
     if results_dir:
         (results_dir / "results.json").write_text(json.dumps(output, indent=2))
         print(f"Results saved to: {results_dir}", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

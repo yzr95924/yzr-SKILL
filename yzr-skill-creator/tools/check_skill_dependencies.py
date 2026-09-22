@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import discover_skill_dirs, parse_skill_md  # noqa: E402
+from tools.utils import SKILL_SOURCE_SUBDIRS, discover_skill_dirs, parse_skill_md  # noqa: E402
 
 
 def discover_skills(repo_root: Path) -> List[Tuple[str, Path]]:
@@ -33,21 +33,17 @@ def find_mentions(text: str, target_name: str) -> List[Tuple[int, str]]:
     return hits
 
 
-SOURCE_SUBDIRS = ("ref", "references", "assets", "tools", "scripts")
-
 SOURCE_SUFFIXES = (".md", ".py")
 
 
 def skill_sources(skill_dir: Path) -> List[Tuple[str, str]]:
-    """一个 skill 参与提及筛查的全部文本源：(相对路径, 内容) 列表。
-
-    只读 SKILL.md 会漏掉 ref/ 与脚本里的跨 skill 提及（经脚本消息、文档转交的环测不到）。
-    """
+    """一个 skill 参与提及筛查的全部文本源：(相对路径, 内容) 列表。"""
+    # 只读 SKILL.md 会漏掉 ref/ 与脚本里的跨 skill 提及（经脚本消息、文档转交的环测不到）
     files: List[Path] = []
     skill_md = skill_dir / "SKILL.md"
     if skill_md.is_file():
         files.append(skill_md)
-    for sub in SOURCE_SUBDIRS:
+    for sub in SKILL_SOURCE_SUBDIRS:
         sub_root = skill_dir / sub
         if sub_root.is_dir():
             files.extend(sorted(p for p in sub_root.rglob("*") if p.is_file() and p.suffix in SOURCE_SUFFIXES))
@@ -114,8 +110,8 @@ def _render_text(
     if one_way:
         print(
             f"\n{len(one_way)} one-directional mention(s) (info — every mention must justify "
-            "itself: real functional dependency = keep explicit; anything else = blur to XX "
-            "or delete; baseline expectation is zero):\n"
+            "itself: real functional dependency = keep explicit; anything else = vague it down "
+            "to the skill name or delete; baseline expectation is zero):\n"
         )
         for a, b in one_way:
             print(f"  [{a} -> {b}]")

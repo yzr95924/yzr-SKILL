@@ -22,7 +22,7 @@
   `references/` + `scripts/`，工具双兼容（verify 的 ruff 扫 scripts / tools / tests 三者），
   不要为统一而迁移存量目录。
 - 正文节名 / 顺序 / 可选性标准：`yzr-skill-creator/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）；
-  检查器清单是其代码侧镜像，verify 自动查两者漂移。数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，别处不抄数值。
+  检查器清单是其代码侧镜像，verify 自动查两者漂移。共享数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，utils.py 已有的数值别处不重抄（文件局部常量允许定义在所在文件）。
 - 改 skill 一律改仓库源；vendor 副本（`~/.agents/skills/` 等）是 npx 派生物，会被覆盖，
   不读、不改、不对比。
 - Python：唯一工具链配置在根 `pyproject.toml`，target py37（注解用 Optional / List / Tuple，
@@ -113,7 +113,7 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 ## 注意事项
 
 - `yzr-skill-creator/tools/optimize_description.py` 按标题抽取 `ref/description-workflow.md` 的
-  「## description 优化原则」正文——该标题不得改。它调 `opencode run` 子进程跑评估
+  "## description 优化原则"正文——该标题不得改。它调 `opencode run` 子进程跑评估
   （judge / improve）：需本机 opencode 可用且已配置 provider；judge 走全 deny 工具权限的内联
   agent（`OPENCODE_CONFIG_CONTENT`），不加载工具。
 - 创建 / 改进 / 描述优化 / 审计的执行细节在

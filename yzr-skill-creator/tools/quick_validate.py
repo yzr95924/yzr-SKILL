@@ -12,16 +12,20 @@ from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
     CANONICAL_BODY_SECTIONS,
     DESCRIPTION_MAX_CHARS,
+    KEBAB_NAME_RE,
     SKILL_TIERS,
     SOFT_WORD_TARGETS,
     Finding,
     estimate_body_words,
     format_findings,
     frontmatter_span,
+    iter_unfenced_lines,
     load_frontmatter,
 )
 
 WHEN_NOT_SECTION_RE = re.compile(r"^##\s+何时不使用")
+
+H2_RE = re.compile(r"^##\s+(.+)$")
 
 ALLOWED_PROPERTIES = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 
@@ -63,7 +67,11 @@ def check_body_structure(skill_path, tier="default"):
             )
         ]
 
-    headings = re.findall(r"^##\s+(.+)$", body, re.MULTILINE)
+    headings = []
+    for _, line in iter_unfenced_lines(body):
+        m = H2_RE.match(line)
+        if m:
+            headings.append(m.group(1).strip())
     found = {normalize_heading(h): h for h in headings}
     canonical = [(normalize_heading(h[3:]), h, t) for h, t in CANONICAL_BODY_SECTIONS]
     canonical_found = [norm for norm, _, _ in canonical if norm in found]
@@ -157,7 +165,7 @@ def check_no_when_not_section(skill_path):
         return []
     offset = _frontmatter_line_offset(skill_path)
     findings = []
-    for index, line in enumerate(body.split("\n"), start=1):
+    for index, line in iter_unfenced_lines(body):
         if not WHEN_NOT_SECTION_RE.match(line):
             continue
         findings.append(
@@ -214,7 +222,7 @@ def check_no_toc(skill_path):
         rel = str(md_file.relative_to(skill_path))
         run_start = None
         run_len = 0
-        for lineno, line in enumerate(md_file.read_text().splitlines(), start=1):
+        for lineno, line in iter_unfenced_lines(md_file.read_text(encoding="utf-8")):
             if heading_re.match(line):
                 findings.append(flag(rel, lineno, f"手写目录节 `{line.strip()}`，{ssot}"))
             if anchor_re.match(line):
@@ -243,7 +251,7 @@ def check_body_length(skill_path, tier="default"):
             Finding(
                 rule="BODY-LENGTH",
                 level="WARN",
-                evidence=f"正文约 {words} 词（CJK/1.7 + ASCII token 估算），超硬上限 {BODY_WORD_LIMIT}"
+                evidence=f"正文约 {words} 词（估算），超硬上限 {BODY_WORD_LIMIT}"
                 "，按 SKILL.md“执行原则”（归位）查根因再抽层",
                 file="SKILL.md",
             )
@@ -269,7 +277,7 @@ def _check_name(frontmatter):
     name = name.strip()
     if not name:
         return "Name must not be empty"
-    if not re.match(r"^[a-z0-9-]+$", name):
+    if not KEBAB_NAME_RE.match(name):
         return f"Name '{name}' should be kebab-case (lowercase letters, digits, and hyphens only)"
     if name.startswith("-") or name.endswith("-") or "--" in name:
         return f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"

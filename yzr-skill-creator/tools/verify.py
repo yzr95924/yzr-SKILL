@@ -38,6 +38,8 @@ _TOOL_LEVEL = "ERROR"
 
 _ADVISORY_LEVEL = "INFO"
 
+_TOUCHED_LIST_LIMIT = 6
+
 _CONFIG_FILE = ".markdownlint.jsonc"
 
 
@@ -190,14 +192,18 @@ def _dependency_findings(repo_root: Path) -> List[Finding]:
 
 
 def _run_tool(cmd: List[str], cwd: Path) -> Tuple[int, str]:
-    """跑外部命令，返回 (退出码, stdout 与 stderr 合并输出)。"""
-    result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        universal_newlines=True,
-        cwd=str(cwd),
-    )
+    """跑外部命令，返回 (退出码, stdout 与 stderr 合并输出)；exec 失败按 127 报告不抛 Traceback。"""
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            cwd=str(cwd),
+        )
+    except FileNotFoundError as e:
+        # which() 之后二进制消失、或绝对路径 shebang 的解释器缺失：报 127 交上层降级为 FAIL 行
+        return 127, f"FileNotFoundError: {cmd[0]!r} (vanishing binary or missing shebang interpreter: {e})"
     return result.returncode, result.stdout
 
 
@@ -368,8 +374,8 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
             touched.add((rel, "(新文件)"))
     if len(touched) < 2:
         return []
-    listing = "；".join(f"{f} § {s}" for f, s in sorted(touched)[:6])
-    more = f"（共 {len(touched)} 处）" if len(touched) > 6 else ""
+    listing = "；".join(f"{f} § {s}" for f, s in sorted(touched)[:_TOUCHED_LIST_LIMIT])
+    more = f"（共 {len(touched)} 处）" if len(touched) > _TOUCHED_LIST_LIMIT else ""
     return [
         Finding(
             rule="DELIVERY-GATE",

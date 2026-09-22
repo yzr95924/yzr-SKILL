@@ -35,10 +35,10 @@ def _schema_finding(rule: str, message: str, where: str, line: str = "", fix: st
     return Finding(rule=rule, level="ERROR", evidence=message, file=where, line=line, fix=fix)
 
 
-def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Dict[str, Dict[str, bool]]]:
-    """逐条校验 expectations 的字段与证据，返回 (Findings, 断言到通过的映射)。"""
+def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Dict[str, bool]]:
+    """逐条校验 expectations 的字段与证据，返回 (Findings, 断言原文到是否通过的映射)。"""
     findings: List[Finding] = []
-    results: Dict[str, Dict[str, bool]] = {}
+    results: Dict[str, bool] = {}
     for i, item in enumerate(expectations):
         if not isinstance(item, dict):
             findings.append(_schema_finding("GRADING-SCHEMA", f"expectations[{i}] is not an object", rel, str(i)))
@@ -71,7 +71,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
                     line=str(i),
                 )
             )
-        results[text] = {"passed": bool(item["passed"])}
+        results[text] = item["passed"]
         if not str(item.get("evidence", "")).strip():
             findings.append(
                 Finding(
@@ -86,12 +86,10 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
     return findings, results
 
 
-def _check_summary(summary, rel: str, results: Dict[str, Dict[str, bool]]) -> List[Finding]:
+def _check_summary(summary, rel: str, results: Dict[str, bool]) -> List[Finding]:
     """校验 summary 计数与 pass_rate 跟逐条结果一致。"""
-    counts = {
-        name: sum(1 for r in results.values() if r["passed"] == want)
-        for name, want in (("passed", True), ("failed", False))
-    }
+    n_passed = sum(1 for r in results.values() if r)
+    counts = {"passed": n_passed, "failed": len(results) - n_passed}
     total = len(results)
     if not isinstance(summary, dict) or any(k not in summary for k in _SUMMARY_KEYS):
         missing = [k for k in _SUMMARY_KEYS if k not in (summary or {})]
@@ -130,8 +128,8 @@ def _check_summary(summary, rel: str, results: Dict[str, Dict[str, bool]]) -> Li
     return findings
 
 
-def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[str, Dict[str, bool]]]]:
-    """校验一份 grading.json，返回 (Findings, 逐条结果)。"""
+def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[str, bool]]]:
+    """校验一份 grading.json，返回 (Findings, 逐条是否通过)。"""
     data, findings = _load_json(path)
     if data is None:
         return findings, None
@@ -256,15 +254,15 @@ def compare(runs) -> List[Dict]:
             "flips_to_baseline": [],
         }
         if with_skill is not None:
-            row["with_skill"] = f"{sum(r['passed'] for r in with_skill.values())}/{len(with_skill)}"
+            row["with_skill"] = f"{sum(with_skill.values())}/{len(with_skill)}"
         if baseline is not None and with_skill is not None:
             base = sides[baseline]
-            row["baseline_pass"] = f"{sum(r['passed'] for r in base.values())}/{len(base)}"
+            row["baseline_pass"] = f"{sum(base.values())}/{len(base)}"
             for text, res in with_skill.items():
-                if res["passed"] and not base.get(text, {}).get("passed"):
+                if res and not base.get(text, False):
                     row["flips_to_with_skill"].append(text)
             for text, res in base.items():
-                if res["passed"] and not with_skill.get(text, {}).get("passed"):
+                if res and not with_skill.get(text, False):
                     row["flips_to_baseline"].append(text)
         rows.append(row)
     return rows

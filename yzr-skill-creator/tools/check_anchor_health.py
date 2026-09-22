@@ -191,12 +191,19 @@ def _is_checkable_link(target: str) -> bool:
 
 
 def _is_checkable_path(token: str) -> bool:
-    """该反引号 token 是否需要按路径检查（排除主题文件名、跨仓提及与占位符）。"""
+    """该反引号 token 是否需要按路径检查（排除主题文件名、跨 skill 裸名提及与占位符）。"""
     if "/" not in token and token in _TOPIC_FILENAMES:
         return False
-    if token.startswith("MEMORY/") or token.startswith("yzr-"):
+    if token.startswith("MEMORY/"):
+        return False
+    if "/" not in token and token.startswith("yzr-"):
         return False
     return not is_placeholder_path(token)
+
+
+_ANCHOR_PREFIX_MATCH = 5
+_CANDIDATE_DISPLAY_LIMIT = 5
+_MD_SCAN_SUBDIRS = ("references", "ref", "scripts", "tools")
 
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
@@ -206,8 +213,8 @@ def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
     explicit_ids = collect_explicit_anchor_ids(text)
     if anchor in slugs or anchor in explicit_ids:
         return None
-    candidates = [s for s in slugs if anchor[:5] in s or s[:5] in anchor]
-    hint = f"; similar slugs: {candidates[:5]}" if candidates else ""
+    candidates = [s for s in slugs if anchor[:_ANCHOR_PREFIX_MATCH] in s or s[:_ANCHOR_PREFIX_MATCH] in anchor]
+    hint = f"; similar slugs: {candidates[:_CANDIDATE_DISPLAY_LIMIT]}" if candidates else ""
     return (
         f"anchor #{anchor} not found in {target.name}"
         f" ({len(slugs)} heading slug(s), {len(explicit_ids)} explicit anchor(s))" + hint
@@ -333,7 +340,7 @@ def find_markdown_files(skill_root: Path, include_templates: bool = False) -> Li
         if not include_templates and p.stem.endswith("-template"):
             continue
         files.append(p)
-    for sub in ("references", "ref", "scripts", "tools"):
+    for sub in _MD_SCAN_SUBDIRS:
         sub_root = skill_root / sub
         if sub_root.is_dir():
             for p in sorted(sub_root.rglob("*.md")):
@@ -349,7 +356,7 @@ def count_skipped_templates(skill_root: Path) -> int:
     """统计被跳过的 *-template.md 数量。"""
     skill_md = skill_root / "SKILL.md"
     n = sum(1 for p in skill_root.glob("*.md") if p.is_file() and p != skill_md and p.stem.endswith("-template"))
-    for sub in ("references", "ref", "scripts", "tools"):
+    for sub in _MD_SCAN_SUBDIRS:
         sub_root = skill_root / sub
         if sub_root.is_dir():
             n += sum(1 for p in sub_root.rglob("*.md") if p.stem.endswith("-template"))

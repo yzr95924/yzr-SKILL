@@ -18,17 +18,20 @@ python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
   --skill-path <skill-dir> --baseline without_skill|old_skill
 ```
 
-一条命令备好整轮迭代：`iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/` 目录树（即 `tools/eval_report.py` 读回的
-布局契约，round-trip 由 `tests/smoke_test_eval_init.py` 钉死）、`old_skill` 场景的**逐迭代**旧版快照（快照 = 跑 init 时的
-当前版，即上一轮迭代结果，**必须先于应用本轮改动跑**，先改后跑会把新版快照成 baseline，对比失去意义）、以及逐用例
-填好路径的子 agent prompt（模板单一来源在脚本）
+一条命令备好整轮迭代：`iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/` 目录树、`old_skill` 场景的**逐迭代**
+旧版快照（快照 = 跑 init 时的当前版，即上一轮迭代结果，**必须先于应用本轮改动跑**，先改后跑会把新版快照成
+baseline，对比失去意义）、以及逐用例填好路径的子 agent prompt
 
 ### 第 1 步：应用改动
 
-### 第 2 步：同轮并行启动两个子 agent
+### 第 2 步：独立子 agent 运行
 
-对 eval_init 打印的每段 prompt，在**同一轮**并行启动两个子 agent：一个带 skill、一个不带（并行指令已内嵌在
-prompt 里）——并发让两侧大致同时完成，串行会放大其间的时空漂移、污染对比
+`python -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with/without
+两侧各起一个独立 `opencode run` 子 agent（脚本负责：整仓拷成两侧沙箱、两侧隔离前言、同用例两侧并发、
+transcript 落盘；已有 transcript 默认跳过，`--force` 重跑；用例间默认 2 路并发可调 `--jobs`）。两侧并发让任务大致同时完成，串行会放大其间的
+时空漂移、污染对比。前置同入口 3（本机 `opencode run` 可用且已配置 provider）；baseline 暂只支持
+`without_skill`。会嵌套再跑循环的用例（如入口 3 的评估循环）是墙钟大头，单独 `--eval` 跑并配大
+`--timeout`
 
 **没有子 agent 的环境（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务（**跳过 baseline**：
 你写的 skill 你自己跑，独立性的损失由人工评审环节补偿），评估结果直接在对话里展示

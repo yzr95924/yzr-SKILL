@@ -66,7 +66,7 @@ def check_good(failures: List[str], root: Path) -> None:
     sides = runs[0]
     if set(sides) != {"with_skill", "old_skill"}:
         failures.append(f"good run: unexpected sides {sorted(sides)}")
-    if sum(r["passed"] for r in sides["with_skill"].values()) != 3:
+    if sum(sides["with_skill"].values()) != 3:
         failures.append("good run: with_skill should score 3/3")
 
 
