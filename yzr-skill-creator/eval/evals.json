@@ -19,10 +19,10 @@
     {
       "id": 2,
       "prompt": "把我这个 yzr-md-to-html skill 改进一下：它有时不该触发时也触发",
-      "expected_output": "改进后的 skill + iteration-N/ 评估产物（with-skill vs baseline），且改进前先 cp -r 快照旧版",
+      "expected_output": "改进后的 skill + iteration-N/ 评估产物（with_skill vs baseline），且改动前先由 eval_init 生成 skill-snapshot/ 旧版快照",
       "files": [],
       "expectations": [
-        "编辑前存在 skill-snapshot/ 或旧版副本（cp -r 快照）",
+        "编辑前存在 skill-snapshot/ 快照（eval_init 生成，指向改进前版本）",
         "workspace 存在 iteration-N/eval-<ID>/{with_skill,old_skill} 目录结构，输出存 outputs/、评分存 grading.json",
         "改进后的 SKILL.md 正文节名仍符合规范骨架（结构未因迭代破坏）",
         "改进后的 description 仍含固定格式三组件（场景一句 + 触发：/ 不适用：标记），且以收窄触发面为导向（不适用：槽更明确）"
@@ -42,9 +42,13 @@
     {
       "id": 4,
       "prompt": "拿写作原则把 yzr-sys-design-doc 全文过一遍合规性，只报告，别动手改",
-      "expected_output": "",
+      "expected_output": "对照执行原则与判定清单全量精读后在对话里给分级结论（通过 / 违反 / WARN / 标注）与证据；不建归档文件、不写回",
       "files": [],
-      "expectations": []
+      "expectations": [
+        "报告分违反项与待删候选两小节，逐项带文件 + 原文证据",
+        "未改动目标 skill 的任何文件（用户明令只报告）",
+        "未启动评估循环 / 未建 workspace（审计不跑 eval 迭代）"
+      ]
     },
     {
       "id": 5,
@@ -60,9 +64,12 @@
     {
       "id": 6,
       "prompt": "每次换机器我都得口述一遍 opencode 配置迁移的步骤，想把这流程沉淀成 skill——先访谈我，别直接开写",
-      "expected_output": "",
+      "expected_output": "先按创建流程第 1 步提问（能力 / 触发时机 / 输出格式 / 边界），等用户回答；未直接起草 SKILL.md",
       "files": [],
-      "expectations": []
+      "expectations": [
+        "先访谈（提出要确认的问题清单），未直接开写 SKILL.md",
+        "未新建 skill 目录 / 未进入裸跑或评估循环"
+      ]
     },
     {
       "id": 7,

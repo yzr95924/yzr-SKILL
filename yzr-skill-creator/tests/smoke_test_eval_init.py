@@ -5,8 +5,8 @@ The class of bug this pins: the writer half drifting from the reader half —
 eval_init creates a layout eval_report cannot read back, or the old-skill
 snapshot silently missing (a missing baseline reads as "no comparison" and
 kills quantification). Every case has both directions — the broken path must
-refuse, the good path must produce the exact tree + prompts. The final case
-pins the round-trip: init -> synthetic grading.json -> eval_report green.
+refuse, the good path must produce the exact tree. The final case pins the
+round-trip: init -> synthetic grading.json -> eval_report green.
 
 Run: python3 tests/smoke_test_eval_init.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
@@ -53,7 +53,7 @@ EVALS = [
 
 
 def case_old_skill_snapshot(tmp: Path) -> None:
-    print("[case] old_skill: tree + per-iteration snapshot + prompts")
+    print("[case] old_skill: tree + per-iteration snapshot")
     skill = make_skill(tmp / "s1", EVALS)
     ws = tmp / "s1" / "demo-skill-workspace"
     rc = eval_init.main(
@@ -70,8 +70,8 @@ def case_old_skill_snapshot(tmp: Path) -> None:
     check("snapshot is a copy, not the live skill", snap.resolve() != skill.resolve())
 
 
-def case_without_skill_and_prompts(tmp: Path) -> None:
-    print("[case] without_skill: no snapshot; prompts carry paths + tasks")
+def case_without_skill_tree(tmp: Path) -> None:
+    print("[case] without_skill: no snapshot; both side dirs scaffolded")
     skill = make_skill(tmp / "s2", EVALS)
     ws = tmp / "s2" / "demo-skill-workspace"
     rc = eval_init.main(
@@ -80,36 +80,8 @@ def case_without_skill_and_prompts(tmp: Path) -> None:
     check("exit 0", rc == 0, f"rc={rc}")
     it = ws / "iteration-1"
     check("no snapshot for without_skill", not (it / "skill-snapshot").exists())
+    check("with_skill outputs dir exists", (it / "eval-1" / "with_skill" / "outputs").is_dir())
     check("without_skill outputs dir exists", (it / "eval-1" / "without_skill" / "outputs").is_dir())
-
-    import io
-    from contextlib import redirect_stdout
-
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        eval_init.main(
-            [
-                "--workspace",
-                str(tmp / "s2" / "demo-skill-workspace-w"),
-                "--iteration",
-                "2",
-                "--skill-path",
-                str(skill),
-                "--baseline",
-                "old_skill",
-            ]
-        )
-    out = buf.getvalue()
-    check(
-        "prompt has with_skill section pointing at live skill",
-        f"Skill path: {skill.resolve()}" in out and "[with_skill]" in out,
-    )
-    check(
-        "prompt has old_skill section pointing at snapshot",
-        "iteration-2/skill-snapshot" in out.replace("\\", "/") and "[old_skill]" in out,
-    )
-    check("prompt carries the task text and files", "把 A 转成 B" in out and "a.pdf" in out)
-    check("prompt carries the parallel-start discipline", "同一轮并行" in out)
 
 
 def case_refusals(tmp: Path) -> None:
@@ -180,7 +152,7 @@ def case_round_trip(tmp: Path) -> None:
 def main() -> int:
     tmp = make_tmp_dir(prefix="eval-init-smoke-")
     case_old_skill_snapshot(tmp)
-    case_without_skill_and_prompts(tmp)
+    case_without_skill_tree(tmp)
     case_refusals(tmp)
     case_round_trip(tmp)
     if FAILURES:

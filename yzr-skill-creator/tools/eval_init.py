@@ -48,7 +48,6 @@ def skill_prompt(skill_path: Optional[Path], item: Dict, out_dir: Path) -> str:
         f"- Task: {item['prompt']}",
         f"- Input files: {files_line}",
         f"- Save outputs to: {out_dir}",
-        '- Outputs to save: <what the user cares about — e.g. "the .docx file", "the final CSV">',
     ]
     return "\n".join(lines)
 
@@ -59,8 +58,8 @@ def init(
     skill_path: Path,
     evals: List[Dict],
     baseline: str,
-) -> List[str]:
-    """建 iteration 工作区与目录骨架，返回每用例的提示文本；目标已存在非空时抛 ValueError。"""
+) -> None:
+    """建 iteration 工作区与目录骨架；目标已存在非空时抛 ValueError。"""
     iteration_dir = workspace / f"iteration-{iteration}"
     if iteration_dir.exists() and any(iteration_dir.iterdir()):
         raise ValueError(f"{iteration_dir} already exists and is not empty — use a fresh iteration number")
@@ -69,28 +68,10 @@ def init(
     if snapshot_dir is not None:
         shutil.copytree(str(skill_path), str(snapshot_dir))
 
-    prompts: List[str] = []
     for item in evals:
         eval_dir = iteration_dir / f"eval-{item['id']}"
         for side in (WITH_SKILL, baseline):
             (eval_dir / side / "outputs").mkdir(parents=True, exist_ok=True)
-        lines = [
-            f"=== eval-{item['id']}：同一轮并行启动两个子 agent（不要串行）===",
-            f"[{WITH_SKILL}]",
-            skill_prompt(skill_path, item, eval_dir / WITH_SKILL / "outputs"),
-        ]
-        if snapshot_dir is not None:
-            lines += [
-                f"[{OLD_SKILL}]（指向快照，不指当前版）",
-                skill_prompt(snapshot_dir, item, eval_dir / OLD_SKILL / "outputs"),
-            ]
-        else:
-            lines += [
-                f"[{WITHOUT_SKILL}]",
-                f"同 [{WITH_SKILL}]，但删去 Skill path 一行；Save outputs to: {eval_dir / WITHOUT_SKILL / 'outputs'}",
-            ]
-        prompts.append("\n".join(lines) + "\n")
-    return prompts
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -121,16 +102,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         evals = load_evals(evals_path)
-        prompts = init(Path(args.workspace).resolve(), args.iteration, skill_path, evals, args.baseline)
+        init(Path(args.workspace).resolve(), args.iteration, skill_path, evals, args.baseline)
     except ValueError as e:
         return _fail(str(e))
 
     print(f"workspace ready: iteration-{args.iteration}, {len(evals)} eval(s), baseline={args.baseline}")
     if args.baseline == OLD_SKILL:
         print(f"snapshot: {Path(args.workspace).resolve() / f'iteration-{args.iteration}' / SNAPSHOT_DIRNAME}")
-    for prompt in prompts:
-        print()
-        print(prompt)
     return 0
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run eval iterations with independent opencode sub-agents (with_skill vs without_skill baseline)."""
+"""Run eval iterations with independent opencode sub-agents (with_skill vs without_skill / old_skill baseline)."""
 
 import argparse
 import concurrent.futures
@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import eval_init  # noqa: E402
-from tools.utils import WITH_SKILL, WITHOUT_SKILL  # noqa: E402
+from tools.utils import OLD_SKILL, SIDES, WITHOUT_SKILL  # noqa: E402
 
 DEFAULT_TIMEOUT = 600
 SANDBOX_DIRNAME = "run"
@@ -42,8 +42,9 @@ _HEADLESS_NOTE = (
 
 def build_prompt(side: str, item: Dict, out_dir: Path, skill_in_sandbox: Optional[Path]) -> str:
     """按侧别拼独立 agent 的完整 prompt（隔离前言 + 任务块 + headless 声明）。"""
-    task = eval_init.skill_prompt(skill_in_sandbox if side == WITH_SKILL else None, item, out_dir)
-    return (_WITH_PREAMBLE if side == WITH_SKILL else _WITHOUT_PREAMBLE) + task + _HEADLESS_NOTE
+    task = eval_init.skill_prompt(skill_in_sandbox if side != WITHOUT_SKILL else None, item, out_dir)
+    preamble = _WITHOUT_PREAMBLE if side == WITHOUT_SKILL else _WITH_PREAMBLE
+    return preamble + task + _HEADLESS_NOTE
 
 
 def _to_text(data) -> str:
@@ -91,13 +92,36 @@ def run_side(side_dir: Path, opencode: str, prompt: str, timeout: int, model: Op
     return rc
 
 
+def _eval_id_of(eval_dir: Path) -> Optional[int]:
+    """从 eval-<id> 目录名解析 id；不合规范返回 None。"""
+    try:
+        return int(eval_dir.name.split("-", 1)[1])
+    except ValueError:
+        return None
+
+
+def _is_selected(eval_dir: Path, eval_ids: Optional[List[int]]) -> bool:
+    """该用例目录是否在 --eval 筛选范围内（目录名不合规范一律不选）。"""
+    eval_id = _eval_id_of(eval_dir)
+    return eval_id is not None and (not eval_ids or eval_id in eval_ids)
+
+
 def _sides_of(eval_dir: Path) -> List[Path]:
     """该用例已建好的可跑侧别目录。"""
-    return [eval_dir / s for s in (WITH_SKILL, WITHOUT_SKILL) if (eval_dir / s).is_dir()]
+    return [eval_dir / s for s in SIDES if (eval_dir / s).is_dir()]
+
+
+def overlay_snapshot(iteration: Path, skill_in_sandbox: Path) -> None:
+    """把 old_skill 侧沙箱里的 skill 换成该轮迭代的旧版快照。"""
+    snapshot = iteration / eval_init.SNAPSHOT_DIRNAME
+    if not snapshot.is_dir():
+        raise FileNotFoundError(f"old_skill baseline needs a snapshot, none at {snapshot}")
+    shutil.rmtree(str(skill_in_sandbox))
+    shutil.copytree(str(snapshot), str(skill_in_sandbox))
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：用例按 --jobs 并发，每个用例内 with/without 两侧总是并发。"""
+    """CLI 入口：用例按 --jobs 并发，每个用例内的各侧总是并发。"""
     parser = argparse.ArgumentParser(description="Run one eval iteration's sides with independent opencode sub-agents")
     parser.add_argument("--iteration", required=True, help="path to <skill>-workspace/iteration-N/")
     parser.add_argument("--skill-path", required=True, help="skill directory under verification")
@@ -118,17 +142,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("error: iteration dir or skill path invalid", file=sys.stderr)
         return 2
 
-    evals = {int(item["id"]): item for item in eval_init.load_evals(skill_path / "eval" / "evals.json")}
+    try:
+        evals = {int(item["id"]): item for item in eval_init.load_evals(skill_path / "eval" / "evals.json")}
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+
+    snapshot = iteration / eval_init.SNAPSHOT_DIRNAME
+    needs_snapshot = [
+        d
+        for d in sorted(iteration.glob("eval-*"))
+        if _is_selected(d, args.eval_ids)
+        and (d / OLD_SKILL).is_dir()
+        and (args.force or not (d / OLD_SKILL / TRANSCRIPT_NAME).is_file())
+    ]
+    if needs_snapshot and not snapshot.is_dir():
+        print(f"error: old_skill side has no snapshot to overlay: {snapshot}", file=sys.stderr)
+        return 2
 
     def run_case(eval_dir: Path) -> None:
-        """跑一个用例：建沙箱与 prompt，两侧并发起子 agent。"""
-        try:
-            eval_id = int(eval_dir.name.split("-", 1)[1])
-        except ValueError:
+        """跑一个用例：建沙箱与 prompt，各侧并发起子 agent。"""
+        if not _is_selected(eval_dir, args.eval_ids):
             return
-        if args.eval_ids and eval_id not in args.eval_ids:
-            return
-        item = evals.get(eval_id)
+        item = evals.get(_eval_id_of(eval_dir))
         if item is None:
             print(f"  skip {eval_dir.name}: id not in evals.json", file=sys.stderr)
             return
@@ -138,8 +174,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         prompts: Dict[Path, str] = {}
         for s in side_dirs:
-            sandbox = make_sandbox(skill_path.parent, s)
-            prompts[s] = build_prompt(s.name, item, s / "outputs", sandbox / skill_path.name)
+            sandbox_repo = make_sandbox(skill_path.parent, s)
+            if s.name == OLD_SKILL:
+                overlay_snapshot(iteration, sandbox_repo / skill_path.name)
+            prompts[s] = build_prompt(s.name, item, s / "outputs", sandbox_repo / skill_path.name)
         print(f"== {eval_dir.name}: {', '.join(s.name for s in side_dirs)} ==")
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(side_dirs)) as pool:
             futures = [pool.submit(run_side, s, opencode, prompts[s], args.timeout, args.model) for s in side_dirs]

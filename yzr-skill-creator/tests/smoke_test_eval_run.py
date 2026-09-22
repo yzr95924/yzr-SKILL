@@ -35,21 +35,21 @@ def case(fn):
     return fn
 
 
-def make_repo(tmp: Path) -> Path:
+def make_repo(tmp: Path, sides=("with_skill", "without_skill")) -> Path:
     """最小可跑的仓副本：一个 skill + evals.json + iteration-1 骨架。"""
     root = tmp / "repo"
     skill = root / "s1"
     (skill / "eval").mkdir(parents=True)
-    (skill / "SKILL.md").write_text("---\nname: s1\ndescription: |\n  d\n---\n# s1\n", encoding="utf-8")
+    (skill / "SKILL.md").write_text("---\nname: s1\ndescription: |\n  LIVE-VERSION\n---\n# s1\n", encoding="utf-8")
     (skill / "eval" / "evals.json").write_text(
         json.dumps({"skill_name": "s1", "evals": [{"id": 1, "prompt": "做 X", "files": []}]}), encoding="utf-8"
     )
-    for side in ("with_skill", "without_skill"):
+    for side in sides:
         (skill.parent / "s1-workspace" / "iteration-1" / "eval-1" / side / "outputs").mkdir(parents=True)
     return root
 
 
-def run_with_stub(tmp: Path, argv: List[str], rc: str = "0", sleep: str = "0") -> List[List[str]]:
+def run_with_stub(tmp: Path, argv: List[str], rc: str = "0", sleep: str = "0", expect_rc: int = 0) -> List[List[str]]:
     """PATH 前置打桩 opencode 跑 eval_run.main，返回桩收到的 argv 调用列表。"""
     bin_dir = tmp / "bin"
     bin_dir.mkdir(exist_ok=True)
@@ -74,7 +74,7 @@ def run_with_stub(tmp: Path, argv: List[str], rc: str = "0", sleep: str = "0") -
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = old[k]
-    assert code == 0, code
+    assert code == expect_rc, code
     return [json.loads(line) for line in capture.read_text(encoding="utf-8").splitlines()] if capture.is_file() else []
 
 
@@ -145,6 +145,41 @@ def case_missing_opencode_exits_2(tmp: Path) -> None:
     finally:
         os.environ["PATH"] = old
     assert code == 2, code
+
+
+@case
+def case_old_skill_side_gets_snapshot_overlay(tmp: Path) -> None:
+    print("[case] old_skill side: sandbox skill replaced by snapshot, prompt points in-sandbox")
+    root = make_repo(tmp, sides=("with_skill", "old_skill"))
+    iteration = root / "s1-workspace" / "iteration-1"
+    snapshot = iteration / "skill-snapshot"
+    snapshot.mkdir()
+    (snapshot / "SKILL.md").write_text(
+        "---\nname: s1\ndescription: |\n  SNAPSHOT-VERSION\n---\n# s1\n", encoding="utf-8"
+    )
+    calls = run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--timeout", "30"])
+    assert len(calls) == 2, calls
+    old_side = iteration / "eval-1" / "old_skill"
+    live_side = iteration / "eval-1" / "with_skill"
+
+    def sandbox_skill(side: Path) -> Path:
+        return side / eval_run.SANDBOX_DIRNAME / "repo" / "s1" / "SKILL.md"
+
+    assert "SNAPSHOT-VERSION" in sandbox_skill(old_side).read_text(), "old_skill 沙箱未覆盖为快照"
+    assert "SNAPSHOT-VERSION" not in sandbox_skill(live_side).read_text(), "with_skill 沙箱被快照污染"
+    old_prompt = next((c[-1] for c in calls if str(old_side) in c[-1]), "")
+    assert "You MUST follow" in old_prompt, old_prompt[:200]
+    assert str(old_side / eval_run.SANDBOX_DIRNAME / "repo" / "s1") in old_prompt, "prompt 未指向沙箱内快照"
+    assert (old_side / eval_run.TRANSCRIPT_NAME).is_file(), "old_skill transcript 未落盘"
+
+
+@case
+def case_old_skill_missing_snapshot_refused(tmp: Path) -> None:
+    print("[case] old_skill side without snapshot -> rc 2, nothing run")
+    root = make_repo(tmp, sides=("with_skill", "old_skill"))
+    iteration = root / "s1-workspace" / "iteration-1"
+    calls = run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1")], expect_rc=2)
+    assert calls == [], calls
 
 
 def main() -> int:
