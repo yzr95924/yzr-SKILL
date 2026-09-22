@@ -51,7 +51,7 @@ python3 scripts/install-dev-deps.py
 - **代码评审 / 重构**：
   - `yzr-coding-review` —— 交互式代码 review（合理性审视 + 重构场景 catalog；语言中立；默认对话式结论，可出分级报告 / 逐条过，不主动改文件）
 - **写作 / 审查**：
-  - `yzr-writing-review` —— 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 / 跨文档 SSOT；默认对话式结论，可出分级报告 / 逐条过，确认后承接改写）
+  - `yzr-writing-review` —— 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 / 跨文档 SSOT；默认对话式结论，可出报告 / 逐条过，确认后承接改写）
 - **元 skill**（项目上下文 / skill 本体工程）：
   - `yzr-multi-agent-context` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
