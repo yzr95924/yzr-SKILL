@@ -7,9 +7,9 @@ judgment (quote / meta-mention exemptions stay human).
 Extension contract for PATTERNS: literal or regex only (no judgment),
 near-zero false positives on the real corpus, positive + negative fixtures in
 tests/smoke_test_scan_fingerprints.py, rule text stays in
-references/catalog.md.
+ref/catalog.md.
 
-Usage: python3 scripts/scan_fingerprints.py <file-or-dir> [--json]
+Usage: python3 tools/scan_fingerprints.py <file-or-dir> [--json]
 A directory scans **/*.md. Fence blocks and inline code spans are skipped;
 meta-mentions are deliberately reported. Exit code is always 0.
 """

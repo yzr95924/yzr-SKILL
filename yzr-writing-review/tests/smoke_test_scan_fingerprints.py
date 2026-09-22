@@ -21,7 +21,7 @@ from typing import List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.scan_fingerprints import DASH, scan_text  # noqa: E402
+from tools.scan_fingerprints import DASH, scan_text  # noqa: E402
 
 CASES: List = []
 
@@ -114,7 +114,7 @@ def cli_contract():
     with tempfile.TemporaryDirectory() as td:
         md = Path(td) / "doc.md"
         md.write_text("句子" + DASH + "尾巴。\n", encoding="utf-8")
-        script = Path(__file__).resolve().parent.parent / "scripts" / "scan_fingerprints.py"
+        script = Path(__file__).resolve().parent.parent / "tools" / "scan_fingerprints.py"
         for extra, check in ((["--json"], "DASH"), ([], "INFO")):
             proc = subprocess.run(
                 [sys.executable, str(script), str(md)] + extra,

@@ -34,7 +34,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["scripts"]
+known-first-party = ["tools"]
 
 [tool.ruff.format]
 # 默认：双引号、自动换行、保留 trailing comma 触发 magic line。

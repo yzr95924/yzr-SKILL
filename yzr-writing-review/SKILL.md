@@ -16,6 +16,9 @@ metadata:
 
 # yzr-writing-review
 
+把“文字 review”约束成**发现可追溯（每条映射 catalog 卡片）、结论可执行**的产物：默认
+对话式分析回答，按需出分级报告或逐条过。
+
 ## 输入与输出
 
 **输入**（任一形态）：
@@ -63,15 +66,15 @@ metadata:
 
 ### Step 2: 加载参考
 
-必读 `references/catalog.md`（八组场景卡，细则自含，含 SSOT 组；第八组“指令文档”按被审
+必读 `ref/catalog.md`（八组场景卡，细则自含，含 SSOT 组；第八组“指令文档”按被审
 对象类型启用）；按需读
-`references/severity-rubric.md`（判定严重度时）。
+`ref/severity-rubric.md`（判定严重度时）。
 
 ### Step 3: 走 catalog 补齐
 
-可枚举的指纹先跑机械扫描拿候选：`python3 scripts/scan_fingerprints.py <目标文件 | 目录>`（从 skill 根运行）
+可枚举的指纹先跑机械扫描拿候选：`python3 tools/scan_fingerprints.py <目标文件 | 目录>`（从 skill 根运行）
 （命中按对应场景卡处置，元提及 / 引文由审查者人工豁免；收录哪些模式以脚本 docstring
-的契约为准：零误报字面匹配才进表）。随后 LLM 用 catalog 场景卡补齐各维度的发现；每条
+的契约为准）。随后 LLM 用 catalog 场景卡补齐各维度的发现；每条
 映射到 ≥ 1 个卡片名 / 规则号。SSOT 组只在有参照输入时启用；无参照输入时在结论里明确
 "本次只审文档内"。
 
@@ -100,13 +103,13 @@ metadata:
 ### Step 6: 报告形态
 
 开头先给一段**整体理解**（口径同 [Step 5](#step-5-对话式分析回答默认) 第 1 步，不超过一段），再按
-`references/report-template.md` 两档输出；严重度查 `references/severity-rubric.md`；
+`ref/report-template.md` 两档输出；严重度查 `ref/severity-rubric.md`；
 末尾问用户要不要细化 / 跳过 / 改判 / 切对话逐条过 / 进入改写。
 
 ## 改写承接（确认后）
 
 用户对发现项点头后进入改写：**对每条接受的发现，执行对应 catalog 卡片的“方案”**。
-用户显式说"直接改，不用审"时跳过 review——静默对照 `references/catalog.md` 定位问题
+用户显式说"直接改，不用审"时跳过 review——静默对照 `ref/catalog.md` 定位问题
 （不出结论），再按方案改；输出说明以一句对原文的精简理解开头（计入 3 行说明额度）。
 **未确认前永不改写**。
 
