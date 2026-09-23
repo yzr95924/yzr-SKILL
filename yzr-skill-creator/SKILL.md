@@ -57,7 +57,7 @@ metadata:
 
 ### 创建一个 skill
 
-先 Read `ref/create-workflow.md` 再动手（访谈、裸跑、起草、测试、评估五步）
+先 Read `ref/create-workflow.md` 再动手（访谈、裸跑、起草、测试、评估）
 
 ### 改进 skill
 

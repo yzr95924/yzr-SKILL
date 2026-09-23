@@ -402,6 +402,8 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
     ]
 
 
+# 审计 md 范围含 assets/ 与 *-template.md，与锚点扫描的 check_anchor_health._MD_SCAN_SUBDIRS 有意不同
+# （后者服务链接解析，跳过模板）
 _AUDIT_MD_SUBDIRS = ("ref", "tools", "assets", "eval")
 
 
