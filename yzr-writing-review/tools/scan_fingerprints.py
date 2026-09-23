@@ -2,16 +2,12 @@
 """Scan markdown for enumerable AI-style fingerprints (literal or regex matches only).
 
 Findings are INFO candidates: detection is mechanical, the fix is reviewer
-judgment (quote / meta-mention exemptions stay human).
-
-Extension contract for PATTERNS: literal or regex only (no judgment),
+judgment. Extension contract for PATTERNS: literal or regex only (no judgment),
 near-zero false positives on the real corpus, positive + negative fixtures in
-tests/smoke_test_scan_fingerprints.py, rule text stays in
-ref/catalog.md.
+tests/smoke_test_scan_fingerprints.py, rule text stays in ref/catalog.md.
+Meta-mentions are deliberately reported; the reviewer exempts them.
 
 Usage: python3 tools/scan_fingerprints.py <file-or-dir> [--json]
-A directory scans **/*.md. Fence blocks and inline code spans are skipped;
-meta-mentions are deliberately reported. Exit code is always 0.
 """
 
 import argparse
