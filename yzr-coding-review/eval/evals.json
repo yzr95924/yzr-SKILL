@@ -4,9 +4,10 @@
     {
       "id": 1,
       "prompt": "帮我 review 一下 src/parser.py,看看有什么可重构的",
-      "expected_output": "默认对话式分析回答:结论先行(有没有优化空间)+ 按代码位置要点;不修改源文件;LLM 走 catalog + 合理性审视规则",
+      "expected_output": "默认对话式分析回答:理解复述 + 结论先行(有没有优化空间)+ 按代码位置要点;不修改源文件;agent 走 catalog + 合理性审视规则",
       "files": [],
       "expectations": [
+        "理解复述:先用 2-4 句讲清代码功能意图与结构",
         "结论先行:第一句给出'有/没有优化空间'的明确判断",
         "每条发现按代码位置顺序排列,并映射到至少 1 个 catalog 规则名(如 函数粒度 / 魔法值)",
         "未修改源文件(outputs 里无 src/parser.py 改写产物)"
@@ -15,7 +16,7 @@
     {
       "id": 2,
       "prompt": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
-      "expected_output": "默认对话式分析回答:结论先行 + 按代码位置要点;LLM 走 catalog + 合理性审视规则",
+      "expected_output": "默认对话式分析回答:结论先行 + 按代码位置要点;agent 走 catalog + 合理性审视规则",
       "files": [],
       "expectations": [
         "结论先行 + 按代码位置顺序列要点",
@@ -68,7 +69,7 @@
     {
       "id": 7,
       "prompt": "这个 monorepo 包含 Python(src/)和 Go(internal/)代码,review 整个项目",
-      "expected_output": "大范围体检 → 报告形态(完整档),语言仅作报告头部元信息",
+      "expected_output": "大范围体检路由到报告形态(完整档),语言仅作报告头部元信息",
       "files": [],
       "expectations": [
         "大范围体检路由到报告形态完整档(轻量档内容 + 总结段 + 不报告项)",
@@ -79,7 +80,7 @@
     {
       "id": 8,
       "prompt": "能给个 markdown 表格的报告吗?(review src/utils.py)",
-      "expected_output": "用户明确要报告 → 报告形态轻量档(头部 + 主表 + 一句话收尾);不偏离模板列结构",
+      "expected_output": "用户明确要报告时进报告形态轻量档(头部 + 主表 + 一句话收尾);不偏离模板列结构",
       "files": [],
       "expectations": [
         "输出报告形态轻量档:头部 + 主表 + 一句话收尾",
@@ -132,10 +133,10 @@
     {
       "id": 22,
       "prompt": "review 一下这段代码,有没有明显的性能问题",
-      "expected_output": "触发本 skill;计算逻辑经济性维度审视(计算经济性规则),默认对话式回答;指出缺陷 + 给方向,不展开调优(profile / benchmark 走专项)",
+      "expected_output": "触发本 skill;计算经济性维度审视(计算经济性规则),默认对话式回答;指出缺陷 + 给方向,不展开调优(profile / benchmark 走专项)",
       "files": [],
       "expectations": [
-        "计算逻辑经济性维度审视,映射到 计算经济性 规则",
+        "计算经济性维度审视,映射到 计算经济性 规则",
         "指出缺陷 + 给方向,不展开 profile / benchmark 调优(提示走专项)",
         "默认对话式回答,结论先行"
       ]
