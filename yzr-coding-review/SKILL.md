@@ -12,10 +12,12 @@ description: |
 metadata:
   author: Zuoru YANG
   category: code-quality
-  modify time: 2026-09-22
+  modify time: 2026-09-23
 ---
 
 # yzr-coding-review
+
+把代码 review 约束成**发现可追溯、结论可执行**的产物。
 
 ## 输入与输出
 
@@ -54,13 +56,13 @@ metadata:
 
 ### Step 2: 加载参考
 
-必读 `references/catalog.md`(场景表);按需读 `references/severity-rubric.md`(判定严重度时)。
+必读 `ref/catalog.md`(场景表);按需读 `ref/severity-rubric.md`(判定严重度时)。
 
 ### Step 3: 走 catalog 补充
 
 LLM 用 catalog 重构场景卡 + 合理性审视卡片补齐设计层问题;每条映射到 ≥ 1 个场景名 / 卡片名。
 数值阈值项(函数长度 / 嵌套层数 / 参数个数 / 重复块规模等)先现场 grep / AST 速算拿客观计数,
-再进判断层定严重度,不凭目测;阈值数值只在 `references/severity-rubric.md` 给,本节不复述。
+再进判断层定严重度,不凭目测;阈值数值只在 `ref/severity-rubric.md` 给,本节不复述。
 
 ### Step 4: 形态路由
 
@@ -80,8 +82,8 @@ LLM 用 catalog 重构场景卡 + 合理性审视卡片补齐设计层问题;每
 
 ### Step 6: 报告形态
 
-开头先给一段**整体理解**(口径同 [Step 5](#step-5-对话式分析回答默认) 第 1 步,不超过一段),再按 `references/report-template.md`
-两档输出;严重度查 `references/severity-rubric.md`;末尾问用户要不要细化 / 跳过 / 改判 / 切对话逐条过。
+开头先给一段**整体理解**(口径同 [Step 5](#step-5-对话式分析回答默认) 第 1 步,不超过一段),再按 `ref/report-template.md`
+两档输出;严重度查 `ref/severity-rubric.md`;末尾问用户要不要细化 / 跳过 / 改判 / 切对话逐条过。
 
 ## 参考样例
 
