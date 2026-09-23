@@ -221,6 +221,33 @@ def check_dependency_scope_filter(failures: List[str]) -> None:
         failures.append(f"unscoped screen must keep every edge: {evidence!r}")
 
 
+def check_audit_scope_channel(failures: List[str]) -> None:
+    """--audit lists every shipped md (assets walked, templates kept); and only then."""
+    skill = make_skill()
+    (skill / "ref").mkdir()
+    (skill / "ref" / "guide.md").write_text("# g\n\n正文\n", encoding="utf-8")
+    (skill / "ref" / "skeleton-template.md").write_text("# t\n\n正文\n", encoding="utf-8")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "skill-template.md").write_text("# s\n\n正文\n", encoding="utf-8")
+
+    def audit_evidence(skill_dir: Path, *extra: str) -> str:
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            verify.main([str(skill_dir), "--json", *extra])
+        payload = json.loads(buffer.getvalue())
+        return next((f["evidence"] for f in payload["findings"] if f["rule"] == "AUDIT-SCOPE"), "")
+
+    evidence = audit_evidence(skill, "--audit")
+    if not evidence:
+        failures.append("--audit did not emit AUDIT-SCOPE")
+    else:
+        for rel in ("SKILL.md", "ref/guide.md", "ref/skeleton-template.md", "assets/skill-template.md"):
+            if rel not in evidence:
+                failures.append(f"audit list missing {rel}: {evidence!r}")
+    if audit_evidence(skill):
+        failures.append("AUDIT-SCOPE leaked without --audit")
+
+
 def main() -> int:
     failures: List[str] = []
     check_dependency_channel(failures)
@@ -231,6 +258,7 @@ def main() -> int:
     check_run_tool_exec_guard(failures)
     check_dependency_screen_in_single_skill_mode(failures)
     check_dependency_scope_filter(failures)
+    check_audit_scope_channel(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1

@@ -402,6 +402,26 @@ def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
     ]
 
 
+_AUDIT_MD_SUBDIRS = ("ref", "tools", "assets", "eval")
+
+
+def _audit_scope_findings(skill_dir: Path) -> List[Finding]:
+    """--audit 模式：列出参与审计的 md 清单（顶层与 ref/ tools/ assets/ eval/ 下全部，含模板）。"""
+    paths = list(skill_dir.glob("*.md"))
+    for sub in _AUDIT_MD_SUBDIRS:
+        sub_root = skill_dir / sub
+        if sub_root.is_dir():
+            paths += list(sub_root.rglob("*.md"))
+    files = "、".join(str(p.relative_to(skill_dir)) for p in sorted(paths))
+    return [
+        Finding(
+            rule="AUDIT-SCOPE",
+            level=_ADVISORY_LEVEL,
+            evidence=f"参与审计的 md 清单：{files}",
+        )
+    ]
+
+
 def verify_skill(
     skill_dir: Path, tier: Optional[str], repo_root: Optional[Path]
 ) -> Tuple[List[Finding], List[ToolResult]]:
@@ -437,6 +457,9 @@ def _parse_args(argv: Optional[List[str]]):
     )
     parser.add_argument("--json", action="store_true", help="emit a single JSON document")
     parser.add_argument("--strict-tools", action="store_true", help="turn MISSING tool states into errors")
+    parser.add_argument(
+        "--audit", action="store_true", help="add each target's audited markdown file list (audit workflow)"
+    )
     args = parser.parse_args(argv)
     if args.repo_root is not None and args.skill_dirs:
         raise UsageError("--repo-root scans the whole repo; give it instead of positional skill dirs, not with them")
@@ -473,12 +496,16 @@ def _target_name(skill_dir: Path) -> str:
     return name or skill_dir.name
 
 
-def _run_checks(targets: List[Path], tier: Optional[str], root: Optional[Path], repo_mode: bool) -> Run:
+def _run_checks(
+    targets: List[Path], tier: Optional[str], root: Optional[Path], repo_mode: bool, audit: bool = False
+) -> Run:
     """依次跑目标 skill 的检查并汇总成 Run；依赖筛查有仓根时总是附带，单 skill 模式过滤到目标。"""
     per_skill: List[Tuple[Path, List[Finding]]] = []
     tools: List[ToolResult] = []
     for skill_dir in targets:
         findings, tool_results = verify_skill(skill_dir, tier, root)
+        if audit:
+            findings = findings + _audit_scope_findings(skill_dir)
         per_skill.append((skill_dir, findings))
         tools += tool_results
     advisory: List[Finding] = []
@@ -555,7 +582,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except UsageError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    run = _run_checks(targets, args.tier, root, repo_mode)
+    run = _run_checks(targets, args.tier, root, repo_mode, args.audit)
     errors = _gate(run, args.strict_tools)
     if args.json:
         _render_json(run, root, repo_mode, errors)

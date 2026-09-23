@@ -4,8 +4,8 @@
 
 ## 单点（正文措辞 / typo / 指称 / 注释）
 
-直接改 → 改完对照[章节](../SKILL.md#执行原则)自查 → `python -m tools.verify <skill-dir>` 全绿
-（动过 `tools/` 加跑 `python3 tests/smoke_test_*.py`）→ 汇报分类与一句理由
+直接改；改完对照[章节](../SKILL.md#执行原则)自查，再 `python -m tools.verify <skill-dir>` 全绿
+（动过 `tools/` 加跑 `python3 tests/smoke_test_*.py`）；最后汇报分类与一句理由
 
 ## 评估循环
 
@@ -18,9 +18,8 @@ python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
   --skill-path <skill-dir> --baseline without_skill|old_skill
 ```
 
-一条命令备好整轮迭代：`iteration-<N>/eval-<id>/{with_skill,<baseline>}/outputs/` 目录树、`old_skill` 场景的**逐迭代**
-旧版快照（快照 = 跑 init 时的当前版，即上一轮迭代结果）。**必须先于应用本轮改动跑**，先改后跑会把新版快照成
-baseline，对比失去意义
+备好整轮迭代：两侧沙箱目录 + `old_skill` 场景的**逐迭代**旧版快照（快照 = 跑 init 时的当前版，即上一轮迭代
+结果）；先改后跑会把新版快照成 baseline、对比失去意义
 
 ### 第 1 步：应用改动
 
@@ -52,4 +51,4 @@ baseline，对比失去意义
    结论仍由 agent 读文件判**，把数字 + 差异 + 自己的判断一起给用户，请反馈
 3. **借口记录**：本轮新出现的 agent 借口**原样**摘抄（只记实际说过的，不预写假想借口），改写时写进对应禁令
 
-按用户反馈（以及对比暴露出的明显缺陷）改写 skill → 跑新 `iteration-<N+1>/`（`--baseline old_skill`）。循环至用户满意或反馈为空
+按用户反馈（以及对比暴露出的明显缺陷）改写 skill，再跑新 `iteration-<N+1>/`（`--baseline old_skill`）。循环至用户满意或反馈为空
