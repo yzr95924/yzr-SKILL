@@ -32,12 +32,12 @@
 ## 第 3 步：起草 SKILL.md
 
 frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 三组件格式与写法原则见[章节](description-workflow.md#description-优化原则)；
-非 default 型 skill 把 tier 写进 `metadata.tier`（纯参考 → `reference`、元 / 多入口 → `meta`，default 省略）
+非 default 型 skill 把 tier 写进 `metadata.tier`（三型定义见 `assets/skill-template.md`）
 
 正文：骨架从模板拷贝，**先填全再删节**（格式统一靠的是这份骨架，不是临场发挥）：
 
 - 节名 / 顺序 / 各类型可选性以模板为准
-- 展开超一屏就下放 `ref/` 只留路标
+- 正文与 `ref/` 的切分口径见 [章节](../SKILL.md#执行原则) 的“归位”
 - 所有参考文件从 `SKILL.md` 直接挂
 - 一个流程的正文只写进一个 `ref/`，别的入口用"按该节执行"式指针复用，抄成两份禁止，"权威定义在 b"式指路可以
 

@@ -180,7 +180,7 @@ def check_no_when_not_section(skill_path):
                 rule="WHEN-NOT-SECTION",
                 level="WARN",
                 evidence="正文含已废除的 `## 何时不使用` 节，selection 负例归 frontmatter description 的“不适用”槽"
-                "（口径见 SKILL.md“执行原则”（归位 / 机械操作归脚本））",
+                "（口径见 ref/audit-workflow.md“判定清单”的“触发语不回正文”）",
                 file="SKILL.md",
                 line=str(offset + index),
             )
