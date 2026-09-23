@@ -8,7 +8,7 @@
       "files": [],
       "expectations": [
         "结论先行:第一句给出'有/没有优化空间'的明确判断",
-        "每条发现按严重度从高到低排列,并映射到至少 1 个 catalog 场景名 / 卡片名(如 Extract Method / Magic Literal)",
+        "每条发现按严重度从高到低排列,并映射到至少 1 个 catalog 卡片名(如 Extract Method / Magic Literal)",
         "未修改源文件(outputs 里无 src/parser.py 改写产物)"
       ]
     },
@@ -19,7 +19,7 @@
       "files": [],
       "expectations": [
         "结论先行 + 按严重度从高到低列要点",
-        "每条发现映射到 catalog 场景名 / 卡片名",
+        "每条发现映射到 catalog 卡片名",
         "语言(Python / Go)仅作元信息,不改变流程或输出结构"
       ]
     },
@@ -72,7 +72,7 @@
       "files": [],
       "expectations": [
         "大范围体检路由到报告形态完整档(轻量档内容 + 总结段 + 不报告项)",
-        "主表 5 列固定(位置 / 场景·卡片 / 严重度 / 建议),不偏离 report-template.md",
+        "主表 5 列固定(# / 位置 / 卡片名 / 严重度 / 建议),不偏离 report-template.md",
         "语言仅作报告头部元信息"
       ]
     },
@@ -83,7 +83,7 @@
       "files": [],
       "expectations": [
         "输出报告形态轻量档:头部 + 主表 + 一句话收尾",
-        "主表列与 report-template.md 一致(# / 位置 / 场景·卡片 / 严重度 / 建议)",
+        "主表列与 report-template.md 一致(# / 位置 / 卡片名 / 严重度 / 建议)",
         "严重度取值 Blocker / Major / Minor / Nitpick,判定依据 severity-rubric.md"
       ]
     },
@@ -112,10 +112,10 @@
     {
       "id": 19,
       "prompt": "这段代码的职责划分有问题吗?看看 internal/order 模块",
-      "expected_output": "触发本 skill;设计意图与职责维度审视 + 对应场景卡片,默认对话式回答",
+      "expected_output": "触发本 skill;设计意图与职责维度审视 + 对应卡片,默认对话式回答",
       "files": [],
       "expectations": [
-        "设计意图与职责维度审视,映射到对应场景卡片(如 Extract Class / God Object 相关)",
+        "设计意图与职责维度审视,映射到对应卡片(如 Extract Class / God Object 相关)",
         "默认对话式回答,结论先行"
       ]
     },
