@@ -4,10 +4,10 @@
     {
       "id": 1,
       "prompt": "帮我把项目根目录的 README.md 转成一个好看的 HTML，我想发给同事看",
-      "expected_output": "调用 scripts/md_to_html.py README.md，生成同名 README.html",
+      "expected_output": "调用 tools/md_to_html.py README.md，生成同名 README.html",
       "files": [],
       "expectations": [
-        "调用 scripts/md_to_html.py（不自创 HTML）",
+        "调用 tools/md_to_html.py（不自创 HTML）",
         "输入为单个 .md 文件，输出为同名 .html 路径",
         "告知用户产物路径（双击可浏览）"
       ]
@@ -18,7 +18,7 @@
       "expected_output": "调用脚本转换，产物公式按需挂 KaTeX CDN、mermaid 默认转 ASCII 离线渲染（无需联网）；提醒含公式需联网加载 KaTeX",
       "files": [],
       "expectations": [
-        "调用 scripts/md_to_html.py 转换",
+        "调用 tools/md_to_html.py 转换",
         "提到 mermaid 默认转 ASCII 离线渲染（不挂 Mermaid CDN）",
         "提醒首次打开需联网加载 KaTeX CDN（公式部分）"
       ]

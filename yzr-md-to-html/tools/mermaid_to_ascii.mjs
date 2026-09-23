@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Mermaid 源码 → ASCII 图转换 wrapper（供 md_to_html.py subprocess 调用）。
 //
-// 用法：echo '<mermaid 源码>' | node scripts/mermaid_to_ascii.mjs
+// 用法：echo '<mermaid 源码>' | node tools/mermaid_to_ascii.mjs
 // 成功：ASCII 图写 stdout，退出码 0。
 // 失败（不支持的图类型 / 语法错误 / 缺依赖）：原因写 stderr，退出码非 0。
 //
@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const SKILL_ROOT = fileURLToPath(new URL('..', import.meta.url));
-// 版本号单一来源（SKILL.md 前置条件引用此常量）
+// 版本号单一来源（SKILL.md 引用此常量）
 const BEAUTIFUL_MERMAID_VERSION = '^1.1.3';
 
 let renderMermaidASCII;

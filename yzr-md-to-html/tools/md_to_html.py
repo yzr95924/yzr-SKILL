@@ -7,7 +7,7 @@
 
 Python >= 3.7。Python 依赖：markdown / pymdown-extensions / pygments / jinja2。
 含 Mermaid 且未加 --no-mermaid-ascii 时需要 Node + beautiful-mermaid
-（安装命令见 SKILL.md 前置条件；缺依赖时脚本打印同一条命令）。
+（缺依赖时脚本 / wrapper 打印安装命令）。
 资源（模板 / 样式）相对本脚本解析，vendored 副本同样可用。
 """
 
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-# 资源目录相对脚本定位：scripts/ 的上一级 yzr-md-to-html/assets/
+# 资源目录相对脚本定位：tools/ 的上一级 yzr-md-to-html/assets/
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 DEFAULT_TEMPLATE = ASSETS_DIR / "template.html"
 DEFAULT_STYLE = ASSETS_DIR / "style.css"

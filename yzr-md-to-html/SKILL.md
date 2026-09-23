@@ -13,7 +13,7 @@ description: |
   上传到 Outline Wiki。
 metadata:
   author: Zuoru YANG
-  modify time: 2026-09-22
+  modify time: 2026-09-23
   category: document-conversion
 ---
 
@@ -27,9 +27,13 @@ metadata:
 
 - **输入**：一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`）
 - **输出**：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联，公式 / 图表按需渲染）
-- **参数与默认值以 `python3 scripts/md_to_html.py --help`（从 skill 根运行）为单一来源**（argparse 定义，此处不
+- **参数与默认值以 `python3 tools/md_to_html.py --help`（从 skill 根运行）为单一来源**（argparse 定义，此处不
   重抄）：文件输入默认生成同名 `.html`；目录输入默认就地生成，`--title` 默认取首个 `#`
   一级标题再退回文件名
+- **前置条件**：Python ≥ 3.7，无需 pandoc；依赖清单以 `tools/md_to_html.py` 的 `DEPENDENCIES`
+  常量为准，缺依赖时脚本打印 `pip install` 命令。含 Mermaid 且未加 `--no-mermaid-ascii` 时另需
+  Node + `beautiful-mermaid`（缺时 wrapper 打印含版本号的 npm 安装命令，版本 SSOT：
+  `tools/mermaid_to_ascii.mjs` 的 `BEAUTIFUL_MERMAID_VERSION`）；不含 Mermaid 的文档不需要 Node。
 
 **自定义模板可用变量**（`--template` 传入的 Jinja2 模板里用，不在 `--help` 范围内）：
 `{{ content }}`（正文 HTML）、`{{ toc }}`（目录 HTML）、`{{ styles }}`（默认主题 CSS）、
@@ -38,7 +42,7 @@ metadata:
 
 ## 执行原则
 
-1. **直接跑脚本，不自创 HTML**：转换逻辑、主题、CDN 挂载都在 `scripts/md_to_html.py`，
+1. **直接跑脚本，不自创 HTML**：转换逻辑、主题、CDN 挂载都在 `tools/md_to_html.py`，
    agent 不要现场拼 HTML 或现写 markdown 库调用——保证产物一致、主题统一、扩展行为可预期
 2. **按需挂 CDN**：脚本检测到 `$` 才挂 KaTeX CDN；Mermaid 默认转 ASCII（离线），只有
    转换失败 / 不支持的图类型（gantt / mindmap 等）才回退挂 Mermaid CDN；
@@ -51,57 +55,37 @@ metadata:
 ## 工作流
 
 ```text
-1. 确认输入 .md 路径（或目录）；首次使用确认依赖已装（见前置条件）
+1. 确认输入 .md 路径（或目录）；首次使用确认依赖已装（见「输入与输出」）
 2. 跑脚本：
-     python3 yzr-md-to-html/scripts/md_to_html.py <input.md> [-o <output.html>]
+     python3 yzr-md-to-html/tools/md_to_html.py <input.md> [-o <output.html>]
    批量：把 <input.md> 换成目录路径即可
 3. 把生成的 .html 路径告诉用户（双击即可浏览）
 4. 提醒联网事项：源文档含公式时首次打开需联网加载 KaTeX CDN；有 Mermaid 块转 ASCII
    失败回退 CDN 时同理需联网（全部转成功则完全离线）
+5. 上传 / 分享（可选）：产物本是本地自包含文件、不需要上传；用户要分享且 agent 已配置
+   `agent-html-drop` MCP 时，调用其上传工具推 `.html` 即可——不提供其他上传方式（不经
+   rsync 推 server、不写部署配置）；未配置就把本地路径交给用户
 ```
-
-## 上传产物（agent-html-drop MCP）
-
-转换得到的 `.html` 是**本地自包含文件**，双击即可在浏览器打开，本身不需要上传。
-
-若用户想把产物上传 / 分享出去，**仅当 agent 已配置 `agent-html-drop` MCP 服务时**才考虑上传——
-直接调用该 MCP 提供的上传工具把 `.html` 推上去即可。当前**不提供**其他上传方式（不经 rsync 推
-server、不写部署配置）；`agent-html-drop` 未配置时，把本地 `.html` 路径交给用户自行处理。
 
 ## 参考样例
 
 ### 样例一：单篇技术文档（最常见）
 
 ```bash
-python3 yzr-md-to-html/scripts/md_to_html.py docs/design.md
+python3 yzr-md-to-html/tools/md_to_html.py docs/design.md
 # → 生成 docs/design.html：深色主题 + 侧边栏目录 + 代码高亮
 ```
 
 ### 样例二：带公式和流程图的论文草稿
 
 ```bash
-python3 yzr-md-to-html/scripts/md_to_html.py draft.md -o draft.html
+python3 yzr-md-to-html/tools/md_to_html.py draft.md -o draft.html
 # draft.md 含 $E=mc^2$ 与 mermaid 块 → 产物公式走 KaTeX CDN、mermaid 转 ASCII 离线渲染
 ```
 
 ### 样例三：批量转换整个目录
 
 ```bash
-python3 yzr-md-to-html/scripts/md_to_html.py notes/
+python3 yzr-md-to-html/tools/md_to_html.py notes/
 # → notes/ 下每个 .md 就地生成同名 .html
 ```
-
-## 前置条件
-
-- Python ≥ 3.7，无需 pandoc
-- Python 依赖清单的**单一来源**：`scripts/md_to_html.py` 的 `DEPENDENCIES` 常量
-- 直接跑脚本即可；缺 Python 包时脚本报错并列出 `pip install` 命令（不抛裸 ImportError 栈）
-- 含 Mermaid 且未用 `--no-mermaid-ascii` 时需 **Node** + `beautiful-mermaid`（npm 包）。
-  首次使用执行（`<skill目录>` 为 skill 实际安装位置）：
-
-  ```bash
-  npm install beautiful-mermaid --prefix <skill目录>
-  ```
-
-  版本以 `scripts/mermaid_to_ascii.mjs` 的 `BEAUTIFUL_MERMAID_VERSION` 常量为准；
-  缺依赖时脚本会打印含版本号的完整安装命令。不含 Mermaid 的文档完全不需要 Node
