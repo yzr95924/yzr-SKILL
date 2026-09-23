@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit markdown cross-references: link targets, anchors, backticked paths."""
+"""Audit markdown cross-references: link targets, anchors, link labels, backticked paths."""
 
 import argparse
 import json
@@ -202,6 +202,7 @@ def _is_checkable_path(token: str) -> bool:
 _ANCHOR_PREFIX_MATCH = 5
 _CANDIDATE_DISPLAY_LIMIT = 5
 _MD_SCAN_SUBDIRS = ("ref", "tools")
+_LINK_LABEL = "章节"
 
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
@@ -220,7 +221,7 @@ def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
 
 
 def _scan_links(md_path: Path, skill_root: Path, text: str, issues: List[Dict[str, str]]) -> None:
-    """把链接问题（死链 / 锚点漂移）追加进 issues。"""
+    """把链接问题（死链 / 锚点漂移 / 标签不符）追加进 issues。"""
     for lineno, link_text, raw_target in extract_links(text):
         if not _is_checkable_link(raw_target):
             continue
@@ -235,6 +236,9 @@ def _scan_links(md_path: Path, skill_root: Path, text: str, issues: List[Dict[st
         elif anchor:
             reason = _anchor_drift_reason(resolved, anchor) or ""
             status = "ANCHOR-DRIFT" if reason else ""
+            if not status and link_text != _LINK_LABEL:
+                status = "LINK-LABEL"
+                reason = f'anchor link text must be "{_LINK_LABEL}", got "{link_text}"'
         if not status:
             continue
         issues.append(

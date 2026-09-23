@@ -32,13 +32,13 @@ LONG_DESCRIPTION = (
     "当用户处于 skill 生命周期时使用本 skill：从工作流 / 模板 / 流程创建新 skill、通过 eval-and-iterate 改进现有 skill、"
     "独立优化某个 skill 的触发 description、或拿写作原则审计 skill 合规性（只报告、不改写）。"
     "触发：“帮我做一个 X 的 skill”/“改进 XX 这个 skill”/“评估 / 迭代 XX skill”/“检查 XX skill 全文”；"
-    "用户反馈触发不准或行为不对；想跑评估。不适用：单步问询；问 skill 机制原理；写普通代码。"
+    "用户反馈触发不准或行为不对；想跑评估。不适用：单步问询；问 skill 机制原理；写普通代码"
 )
 
 
 def make_skill(description_line: str) -> Path:
     """本测试的夹具：建一个 frontmatter 带 *description_line* 的临时 skill 目录。"""
-    skill_md = "---\nname: s\n" + description_line + FM_TAIL + "---" + BODY
+    skill_md = "---\nname: smoke-target\n" + description_line + FM_TAIL + "---" + BODY
     return make_skill_dir({"SKILL.md": skill_md}, prefix="apply-smoke-")
 
 
@@ -57,7 +57,7 @@ def check_round_trip(failures):
     _, got, content = parse_skill_md(root)
     if " ".join(LONG_DESCRIPTION.split()) != got:
         failures.append("round-trip: description came back different")
-    if not content.startswith("---\nname: s\ndescription: |\n"):
+    if not content.startswith("---\nname: smoke-target\ndescription: |\n"):
         failures.append("round-trip: block-scalar style not preserved")
     if "author: smoke" not in content or "modify time: 2026-01-01" not in content:
         failures.append("round-trip: sibling frontmatter keys lost")
@@ -88,6 +88,7 @@ def check_rejections(failures):
     for label, value in (
         ("angle brackets", "触发：做 <placeholder> 的事。不适用：其它。"),
         ("over-long", "触发：a。不适用：b。" + "很长的描述" * 300),
+        ("trailing period", "触发：a。不适用：b。"),
     ):
         root = make_skill("description: |\n  原描述。触发：x。不适用：y。\n")
         before = (root / "SKILL.md").read_text()
@@ -120,7 +121,7 @@ def main() -> int:
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: apply_description round-trip + idempotency + 3 rejection paths")
+    print("SMOKE OK: apply_description round-trip + idempotency + 4 rejection paths")
     return 0
 
 

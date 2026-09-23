@@ -18,7 +18,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.quick_validate import validate_skill  # noqa: E402
+from tools.quick_validate import check_description_format, validate_skill  # noqa: E402
 from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md  # noqa: E402
 
 DEFAULT_TIMEOUT = 120
@@ -742,10 +742,22 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
         return 1
 
     with tempfile.TemporaryDirectory(prefix="skill-apply-") as tmp:
-        (Path(tmp) / "SKILL.md").write_text(updated)
-        valid, message = validate_skill(Path(tmp))
+        # validate_skill 校验 name 与目录名一致，探测目录须沿用原 skill 名
+        probe = Path(tmp) / skill_path.name
+        probe.mkdir()
+        (probe / "SKILL.md").write_text(updated)
+        valid, message = validate_skill(probe)
+        period_error = None
+        if valid:
+            period_error = next((f for f in check_description_format(probe) if f.rule == "DESC-TRAILING-PERIOD"), None)
     if not valid:
         print(f"Error: 新 frontmatter 未通过校验，SKILL.md 未改动：{message}", file=sys.stderr)
+        return 1
+    if period_error is not None:
+        print(
+            f"Error: 新 description {period_error.evidence}（{period_error.fix}），SKILL.md 未改动",
+            file=sys.stderr,
+        )
         return 1
 
     if dry_run:

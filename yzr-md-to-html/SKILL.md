@@ -10,7 +10,7 @@ description: |
   也务必使用本 skill。
   不适用：从零写网页 / 前端页面、文档站 / 静态站点生成与部署发布（要托管上线
   的在线网页）、Markdown → PDF 或其它格式、HTML → Markdown 反向、实时预览 / 在线编辑器、
-  上传到 Outline Wiki。
+  上传到 Outline Wiki
 metadata:
   author: Zuoru YANG
   modify time: 2026-09-23

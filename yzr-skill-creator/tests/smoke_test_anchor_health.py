@@ -61,7 +61,7 @@ def case_slug_backticks_stripped(failures: List[str]) -> None:
 
 
 def case_same_file_anchor_positive_negative(failures: List[str]) -> None:
-    body = "## 目标节\n\n见好 [x](#目标节) 和坏 [y](#不存在)。\n"
+    body = "## 目标节\n\n见好 [章节](#目标节) 和坏 [章节](#不存在)。\n"
     root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
     got = statuses(root)
     if got.count("ANCHOR-DRIFT") != 1 or "DEAD-LINK" in got:
@@ -72,13 +72,21 @@ def case_cross_file_anchor_positive_negative(failures: List[str]) -> None:
     root = make_skill(
         {
             "SKILL.md": "---\nname: s\ndescription: d\n---\n\n"
-            "好 [a](ref/r.md#深层节) 坏 [b](ref/r.md#gone) 缺 [c](ref/none.md)。\n",
+            "好 [章节](ref/r.md#深层节) 坏 [章节](ref/r.md#gone) 缺 [章节](ref/none.md)。\n",
             "ref/r.md": "## 深层节\n",
         }
     )
     got = statuses(root)
     if got.count("ANCHOR-DRIFT") != 1 or got.count("DEAD-LINK") != 1:
         failures.append(f"cross-file anchors: {got}")
+
+
+def case_anchor_link_label_unified(failures: List[str]) -> None:
+    body = "## 目标节\n\n好 [章节](#目标节) 坏 [x](#目标节)\n"
+    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
+    got = statuses(root)
+    if got != ["LINK-LABEL"]:
+        failures.append(f"link label: {got}")
 
 
 def case_backtick_path_resolves_from_skill_root(failures: List[str]) -> None:
@@ -103,7 +111,7 @@ def case_backtick_path_missing_reports(failures: List[str]) -> None:
 
 
 def case_explicit_anchor_accepted(failures: List[str]) -> None:
-    body = '<a id="stable"></a>\n\n## 任意标题\n\n[t](#stable) [u](#nope-missing)\n'
+    body = '<a id="stable"></a>\n\n## 任意标题\n\n[章节](#stable) [章节](#nope-missing)\n'
     root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
     got = statuses(root)
     if got != ["ANCHOR-DRIFT"]:  # only #nope-missing is drift
@@ -139,6 +147,7 @@ def main() -> int:
         case_slug_backticks_stripped,
         case_same_file_anchor_positive_negative,
         case_cross_file_anchor_positive_negative,
+        case_anchor_link_label_unified,
         case_backtick_path_resolves_from_skill_root,
         case_backtick_path_missing_reports,
         case_explicit_anchor_accepted,

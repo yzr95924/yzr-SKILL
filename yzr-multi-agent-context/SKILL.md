@@ -9,7 +9,7 @@ description: |
   触发："把 CLAUDE.md 改成薄壳引用 AGENTS.md" / "帮我规范化这个项目的 AGENTS.md" /
   "CLAUDE.md 和 AGENTS.md 内容重复了，合并一下"。
   不适用：裸项目（先用 /init）/ 不读 AGENTS.md、只认自家专属格式的 agent（先手动转）/ 改权限 /
-  MCP / scripts。
+  MCP / scripts
 metadata:
   author: Zuoru YANG
   category: project-config

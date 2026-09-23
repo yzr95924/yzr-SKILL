@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a skill's frontmatter, directory naming, and SKILL.md body."""
+"""Validate a skill's frontmatter, directory naming, body, and bundled-doc prose."""
 
 import re
 import sys
@@ -14,14 +14,17 @@ from tools.utils import (  # noqa: E402
     DESCRIPTION_MAX_CHARS,
     KEBAB_NAME_RE,
     LEGACY_SUBDIR_RENAMES,
+    SKILL_SUBDIRS,
     SKILL_TIERS,
     SOFT_WORD_TARGETS,
     Finding,
     estimate_body_words,
+    find_code_spans,
     format_findings,
     frontmatter_span,
     iter_unfenced_lines,
     load_frontmatter,
+    skill_markdown_files,
     skill_tier,
 )
 
@@ -186,7 +189,7 @@ def check_no_when_not_section(skill_path):
 
 
 def check_description_format(skill_path):
-    """检查 description 是否含“触发：”与“不适用：”两个标记。"""
+    """检查 description：含“触发：”与“不适用：”标记，且不以句号收尾。"""
     try:
         frontmatter = load_frontmatter(Path(skill_path))
     except (ValueError, OSError):
@@ -207,6 +210,110 @@ def check_description_format(skill_path):
                     file="SKILL.md",
                 )
             )
+    if description.endswith("。"):
+        findings.append(
+            Finding(
+                rule="DESC-TRAILING-PERIOD",
+                level="ERROR",
+                evidence="description 以「。」收尾",
+                file="SKILL.md",
+                fix="删去末尾句号（与正文 block 末统一不加句号）",
+            )
+        )
+    return findings
+
+
+_EVIDENCE_SNIPPET = 70
+
+_BLANK, _HEADING, _TABLE, _LIST, _QUOTE, _TEXT = range(6)
+
+_HEADING_LINE_RE = re.compile(r"^ {0,3}#{1,6}\s")
+_TABLE_LINE_RE = re.compile(r"^\s*\|")
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
+_QUOTE_LINE_RE = re.compile(r"^\s*>")
+
+# block 末行判定用；句号后只允许行尾修饰（粗体 / 引号 / 括号 / 反引号）
+_TRAILING_PERIOD_RE = re.compile(r"。[\s*_`\"'）)\]】”’]*$")
+
+
+def _line_kind(line):
+    """把 md 行粗分成 block 边界类型，供 block 末行判定。"""
+    stripped = line.strip()
+    if not stripped:
+        return _BLANK
+    if _HEADING_LINE_RE.match(line):
+        return _HEADING
+    if _TABLE_LINE_RE.match(line):
+        return _TABLE
+    if _LIST_ITEM_RE.match(line):
+        return _LIST
+    if _QUOTE_LINE_RE.match(line):
+        return _QUOTE
+    return _TEXT
+
+
+def _block_final_lines(pairs):
+    """返回 block 末行行号：段落 / 列表项 / 引用块的最后一行；标题与表格行自成 block。"""
+    finals = []
+    last = None
+    prev_kind = _BLANK
+    for lineno, line in pairs:
+        kind = _line_kind(line)
+        if kind == _BLANK:
+            if last is not None:
+                finals.append(last)
+                last = None
+        elif kind in (_HEADING, _TABLE):
+            if last is not None:
+                finals.append(last)
+                last = None
+            finals.append(lineno)
+        elif kind == _LIST:
+            if last is not None:
+                finals.append(last)
+            last = lineno
+        elif kind == _QUOTE:
+            if last is not None and prev_kind != _QUOTE:
+                finals.append(last)
+            last = lineno
+        else:
+            indented = line[:1] in (" ", "\t")
+            if last is not None and not indented and prev_kind != _TEXT:
+                finals.append(last)
+            last = lineno
+        prev_kind = kind
+    if last is not None:
+        finals.append(last)
+    return finals
+
+
+def check_no_trailing_period(skill_dir):
+    """扫 SKILL.md / ref/ / assets/：block 末行以「。」收尾报 ERROR（句中句号与折行续行不报）。"""
+    skill_dir = Path(skill_dir)
+    findings = []
+    for md in skill_markdown_files(skill_dir):
+        rel = str(md.relative_to(skill_dir))
+        text = md.read_text(encoding="utf-8")
+        span = frontmatter_span(text)
+        cutoff = span[1] + 1 if span else 0
+        pairs = [(lineno, line) for lineno, line in iter_unfenced_lines(text) if lineno > cutoff]
+        finals = set(_block_final_lines(pairs))
+        for lineno, line in pairs:
+            if lineno not in finals:
+                continue
+            match = _TRAILING_PERIOD_RE.search(line)
+            if not match or any(start <= match.start() < end for start, end in find_code_spans(line)):
+                continue
+            findings.append(
+                Finding(
+                    rule="TRAILING-PERIOD",
+                    level="ERROR",
+                    evidence=f"block 末句号：{line.strip()[:_EVIDENCE_SNIPPET]}",
+                    file=rel,
+                    line=str(lineno),
+                    fix="删去行末「。」；句中句号与折行续行保留",
+                )
+            )
     return findings
 
 
@@ -214,7 +321,7 @@ def check_no_toc(skill_path):
     """扫描全部 md：手写目录节与连续页内锚点列表。"""
     skill_path = Path(skill_path)
     ssot = "ref/audit-workflow.md“判定清单”的“参考文件禁手写目录”"
-    heading_re = re.compile(r"^##\s+(?:TOC|目录)\s*$")
+    heading_re = re.compile(r"^##\s+(?:TOC|目录|参考文件)\s*$")
     anchor_re = re.compile(r"^\s*[-*]\s+\[[^\]]+\]\(#")
     findings = []
 
@@ -234,7 +341,8 @@ def check_no_toc(skill_path):
         run_len = 0
         for lineno, line in iter_unfenced_lines(md_file.read_text(encoding="utf-8")):
             if heading_re.match(line):
-                findings.append(flag(rel, lineno, f"手写目录节 `{line.strip()}`，{ssot}"))
+                label = "参考文件索引节" if "参考文件" in line else "手写目录节"
+                findings.append(flag(rel, lineno, f"{label} `{line.strip()}`，{ssot}"))
             if anchor_re.match(line):
                 if run_start is None:
                     run_start = lineno
@@ -358,6 +466,9 @@ def validate_skill(skill_path):
         error = check(frontmatter)
         if error:
             return False, error
+    name = str(frontmatter.get("name", "")).strip()
+    if name != skill_path.name:
+        return False, f"Name '{name}' must match the skill directory name '{skill_path.name}'"
     return True, "Skill is valid!"
 
 
@@ -384,7 +495,7 @@ def check_tier_metadata(skill_path):
 
 
 def check_dir_naming(skill_path):
-    """检出旧目录名（references/ / scripts/），返回 Finding 列表。"""
+    """检出旧目录名（references/ / scripts/）与非规范顶层子目录，返回 Finding 列表。"""
     skill_path = Path(skill_path)
     findings = []
     for legacy, standard in LEGACY_SUBDIR_RENAMES.items():
@@ -398,6 +509,20 @@ def check_dir_naming(skill_path):
                     fix=f"重命名 {legacy}/ → {standard}/，并同步更新引用路径",
                 )
             )
+    for child in sorted(skill_path.iterdir()):
+        if not child.is_dir() or child.name.startswith(".") or child.name == "node_modules":
+            continue
+        if child.name in LEGACY_SUBDIR_RENAMES or child.name in SKILL_SUBDIRS:
+            continue
+        findings.append(
+            Finding(
+                rule="DIR-UNKNOWN",
+                level="ERROR",
+                evidence=f"目录 `{child.name}/` 不在规范子目录（{'、'.join(SKILL_SUBDIRS)}）中",
+                file=f"{child.name}/",
+                fix="改用规范子目录或移出 skill 目录",
+            )
+        )
     return findings
 
 
@@ -413,6 +538,7 @@ def collect_findings(skill_dir, tier=None):
     findings += check_no_when_not_section(skill_dir)
     findings += check_description_format(skill_dir)
     findings += check_no_toc(skill_dir)
+    findings += check_no_trailing_period(skill_dir)
     findings += check_body_length(skill_dir, tier=resolved)
     return valid, message, findings
 
@@ -422,7 +548,7 @@ if __name__ == "__main__":
     import json
 
     parser = argparse.ArgumentParser(
-        description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, and length"
+        description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, length, and trailing periods"
     )
     parser.add_argument("skill_dir", help="Path to the skill directory")
     parser.add_argument(

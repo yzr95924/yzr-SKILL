@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""把一份 Markdown 转成自包含、可双击浏览的 HTML。
-
-默认深色阅读主题 + 侧边栏目录（TOC）+ 离线代码高亮（Pygments），
-公式按需挂 KaTeX CDN；Mermaid 图表默认转 ASCII 离线渲染（不走 CDN），
-只有转换失败 / 不支持的图类型才回退到 Mermaid CDN。
-
-Python >= 3.7。Python 依赖：markdown / pymdown-extensions / pygments / jinja2。
-含 Mermaid 且未加 --no-mermaid-ascii 时需要 Node + beautiful-mermaid
-（缺依赖时脚本 / wrapper 打印安装命令）。
-资源（模板 / 样式）相对本脚本解析，vendored 副本同样可用。
-"""
+"""把 Markdown 转成自包含、可双击浏览的 HTML（深色主题 + 侧边栏 + 离线高亮 / 公式 / Mermaid ASCII）。"""
 
 import argparse
 import html
@@ -70,6 +60,7 @@ def render_html(
     lang: str,
     want_mermaid_ascii: bool = True,
 ) -> Tuple[str, List[Tuple[int, str]]]:
+    """渲染 HTML，返回 (页面全文, mermaid 回退记录 [(块号, 原因)])。"""
     import markdown
     from jinja2 import Template
     from pygments.formatters import HtmlFormatter
@@ -84,6 +75,7 @@ def render_html(
     block_no = [0]
 
     def mermaid_ascii_format(source, language, css_class, options, md, **kwargs):
+        """mermaid 围栏格式器：优先转 ASCII，失败或缺 node 时回退 CDN 并记录原因。"""
         block_no[0] += 1
         if not want_mermaid_ascii:
             return fence_div_format(source, language, css_class, options, md, **kwargs)
@@ -183,6 +175,7 @@ def convert_file(
     lang: str,
     want_mermaid_ascii: bool,
 ) -> Tuple[Path, List[Tuple[Path, int, str]]]:
+    """转换单个文件，返回 (输出路径, mermaid 回退记录)。"""
     text = src.read_text(encoding="utf-8")
     if title is None:
         title = derive_title(text, src)
@@ -202,6 +195,7 @@ def convert_dir(
     want_toc: bool,
     want_mermaid_ascii: bool,
 ) -> Tuple[int, List[Tuple[Path, int, str]]]:
+    """批量转换目录下全部 md，返回 (转换数, mermaid 回退记录)。"""
     files = sorted(src_dir.rglob("*.md"))
     if not files:
         sys.exit(f"目录下没有 .md 文件: {src_dir}")
@@ -217,6 +211,7 @@ def convert_dir(
 
 
 def main(argv=None) -> None:
+    """CLI 入口：解析参数、转换文件或目录、打印产物与回退摘要。"""
     parser = argparse.ArgumentParser(description="把 Markdown 转成自包含、深色主题的可浏览 HTML。")
     parser.add_argument("input", help="Markdown 文件，或目录（批量转该目录下所有 *.md）")
     parser.add_argument("-o", "--output", default=None, help="输出 .html（文件输入）或输出目录（目录输入）")

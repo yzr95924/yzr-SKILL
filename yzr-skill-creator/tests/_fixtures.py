@@ -22,3 +22,9 @@ def make_skill_dir(files: Dict[str, str], prefix: str = "smoke-", name: str = "s
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
     return root
+
+
+def expect(cond, msg: str = "") -> None:
+    """条件不成立时抛 AssertionError；显式 raise 替代 assert（python -O 不吞）。"""
+    if not cond:
+        raise AssertionError(msg)

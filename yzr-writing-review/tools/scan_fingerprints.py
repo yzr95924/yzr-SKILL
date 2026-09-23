@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Scan markdown for enumerable AI-style fingerprints (literal or regex matches only).
-
-Findings are INFO candidates: detection is mechanical, the fix is reviewer
-judgment. Extension contract for PATTERNS: literal or regex only (no judgment),
-near-zero false positives on the real corpus, positive + negative fixtures in
-tests/smoke_test_scan_fingerprints.py, rule text stays in ref/catalog.md.
-Meta-mentions are deliberately reported; the reviewer exempts them.
-
-Usage: python3 tools/scan_fingerprints.py <file-or-dir> [--json]
-"""
+"""扫描 Markdown 里的 AI 腔指纹，输出 INFO 候选（仅字面 / 正则命中）。"""
 
 import argparse
 import json
@@ -24,8 +15,14 @@ ARROW = "\u2192"  # 箭头"→"
 # 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
 EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
 
+# 扩展契约：PATTERNS 只收字面 / 正则命中（不做判断），新增模式须配正反夹具
+# （tests/smoke_test_scan_fingerprints.py），规则文案归 ref/catalog.md；
+# 元提及（讨论符号本身的行）有意上报，由 reviewer 豁免。
+
 
 class Pattern(NamedTuple):
+    """一条指纹模式：pid / 字面 / catalog 规则文案，regex 置位时按正则计数。"""
+
     pid: str
     literal: str
     rule: str
@@ -46,6 +43,8 @@ CODE_SPANS = (re.compile(r"``[^`\n]+``"), re.compile(r"`[^`\n]*`"))
 
 
 class Hit(NamedTuple):
+    """一条候选命中：文件 / 行 / 指纹 / 计数 / 证据片段 / 规则文案。"""
+
     file: str
     line: int
     pid: str
@@ -55,13 +54,14 @@ class Hit(NamedTuple):
 
 
 def mask_code_spans(line: str) -> str:
+    """把行内代码段替换为等长空格，避免代码内容计入命中。"""
     for span in CODE_SPANS:
         line = span.sub(lambda m: " " * len(m.group(0)), line)
     return line
 
 
 def scan_text(text: str, rel: str) -> List[Hit]:
-    """Scan markdown text; returns candidate hits. Fence and inline code are skipped."""
+    """扫描一段 Markdown，返回候选命中；围栏与行内代码跳过。"""
     hits: List[Hit] = []
     in_fence = False
     for lineno, raw in enumerate(text.splitlines(), 1):
@@ -82,12 +82,14 @@ def scan_text(text: str, rel: str) -> List[Hit]:
 
 
 def iter_targets(root: Path) -> List[Path]:
+    """文件直接返回，目录则递归列出全部 md。"""
     if root.is_file():
         return [root]
     return sorted(root.rglob("*.md"))
 
 
 def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
+    """对多个路径跑扫描，rel 相对 cwd 计算（失败时用原路径）。"""
     cwd = cwd or Path.cwd()
     hits: List[Hit] = []
     for p in paths:
@@ -103,6 +105,7 @@ def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """CLI 入口：打印候选（--json 机器可读）；始终退出 0（候选不是门禁）。"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="+", help="markdown file(s) or directory to scan")
     parser.add_argument("--json", action="store_true", dest="as_json", help="machine-readable output")

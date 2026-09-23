@@ -32,7 +32,7 @@ from _fixtures import make_skill_dir, make_tmp_dir  # noqa: E402
 
 from tools import verify  # noqa: E402
 
-SKILL_BODY = "---\nname: probe-skill\ndescription: 场景。触发：x。不适用：y。\n---\n# t\n\n## 输入与输出\n\n正文。\n"
+SKILL_BODY = "---\nname: probe-skill\ndescription: 场景。触发：x。不适用：y\n---\n# t\n\n## 输入与输出\n\n正文\n"
 
 
 def make_skill(name: str = "probe-skill") -> Path:

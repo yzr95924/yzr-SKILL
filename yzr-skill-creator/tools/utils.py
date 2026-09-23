@@ -196,8 +196,24 @@ def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
     return tier if tier in SKILL_TIERS else "default"
 
 
+def skill_markdown_files(skill_dir: Path) -> List[Path]:
+    """列出 skill 内容 md：SKILL.md 加 ref/ 与 assets/ 下的全部 md。"""
+    files: List[Path] = []
+    skill_md = skill_dir / "SKILL.md"
+    if skill_md.is_file():
+        files.append(skill_md)
+    for sub in ("ref", "assets"):
+        sub_root = skill_dir / sub
+        if sub_root.is_dir():
+            files.extend(sorted(p for p in sub_root.rglob("*.md") if p.is_file()))
+    return files
+
+
 # skill 内容子目录全集；检查器按用途取子集
 SKILL_SOURCE_SUBDIRS = ("ref", "assets", "tools")
+
+# skill 顶层子目录白名单；其余顶层目录报 DIR-UNKNOWN ERROR（见 quick_validate.check_dir_naming）
+SKILL_SUBDIRS = ("ref", "tools", "tests", "assets", "eval")
 
 # 旧目录名 → 标准名；出现旧名报 DIR-LEGACY ERROR（见 quick_validate.check_dir_naming）
 LEGACY_SUBDIR_RENAMES = {"references": "ref", "scripts": "tools"}

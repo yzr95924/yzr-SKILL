@@ -17,20 +17,14 @@
 
 ## 仓库规约
 
-- 每个 skill 必备 `SKILL.md`，frontmatter `name` = 目录名（kebab-case）；可选子目录
-  `ref/` `tools/` `tests/` `assets/` `eval/`；目录名只认这套，`references/` 与 `scripts/`
-  报 `DIR-LEGACY` ERROR（verify 的 ruff 扫 tools / tests 两者）。
-- 正文节名 / 顺序 / 可选性标准：`yzr-skill-creator/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）；
-  检查器清单是其代码侧镜像，verify 自动查两者漂移。共享数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，utils.py 已有的数值别处不重抄（文件局部常量允许定义在所在文件）。
+- 正文节名 / 顺序 / 可选性标准：`yzr-skill-creator/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）。
+  共享数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，utils.py 已有的数值别处不重抄（文件局部常量允许定义在所在文件）。
 - 改 skill 一律改仓库源；vendor 副本（`~/.agents/skills/` 等）是 npx 派生物，会被覆盖，
   不读、不改、不对比。
-- Python：唯一工具链配置在根 `pyproject.toml`，target py37（注解用 Optional / List / Tuple，
-  禁 PEP 604/585）、行宽 120、规则族 E/W/F/I/B/UP。UP021/UP022 在 ignore 里——subprocess 的
+- Python：唯一工具链配置在根 `pyproject.toml`。UP021/UP022 在 ignore 里——subprocess 的
   `universal_newlines=True` / `stdout=PIPE` 旧写法是刻意的，别"修正"。
-- docstring 政策（`yzr-skill-creator/tools/`）：函数 / 类全挂一行中文 docstring，模块 docstring
-  一行；行内注释只写代码表达不了的坑与契约，不复述代码。
-- Markdown：行宽 ≤ 120（`.markdownlint.jsonc`，代码块 / 表格豁免）；跨文件 / 跨节引用一律
-  markdown 链接（旧节名指针机制已退役）。frontmatter 解析唯一实现
+- 注释只写代码表达不了的坑与契约，不复述代码。
+- Markdown：跨文件 / 跨节引用一律 markdown 链接。frontmatter 解析唯一实现
   `yzr-skill-creator/tools/utils.py::frontmatter_span`，别再写解析器。
 - `tests/` 仅供开发期 / CI，运行时 agent 不读；eval 工作区 `<skill>-workspace/` 与 skill 同级
   且已 gitignore。
@@ -51,7 +45,7 @@
 ### 校验 skill
 
 ```bash
-# 全仓总入口（= CI 第 1 步）：frontmatter / 结构 / 锚点存活 / 启发式 / markdownlint / ruff
+# 全仓总入口（= CI 第 1 步）
 python3 yzr-skill-creator/tools/verify.py --repo-root . --strict-tools
 
 # 单 skill
@@ -117,6 +111,5 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
   agent（`OPENCODE_CONFIG_CONTENT`），不加载工具。
 - 创建 / 改进 / 描述优化 / 审计的执行细节在
   `yzr-skill-creator/ref/{create,improve,description,audit}-workflow.md`，`SKILL.md` 入口表负责指路。
-- 冒烟风格：failures 列表收尾 exit 1，不用裸 assert（`python -O` 会吞）；每个冒烟头部注明 cwd
-  与跑法。skill-creator 脚本两种入口都行（文件内 sys.path 引导）：
+- skill-creator 脚本两种入口都行（文件内 sys.path 引导）：
   `python3 yzr-skill-creator/tools/x.py` 或 `cd yzr-skill-creator && python3 -m tools.x`。

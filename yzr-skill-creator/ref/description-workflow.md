@@ -1,6 +1,6 @@
 # `description` 优化的完整流程
 
-> 本文件承载[入口 3](../SKILL.md#description-优化)的完整流程、触发原理与写作指南
+> 本文件承载[章节](../SKILL.md#description-优化)的完整流程、触发原理与写作指南
 
 ## 命令流程
 
@@ -22,12 +22,12 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
   它能用基础工具直接处理，不必绕道查阅
 - 复杂、多步、或专门的请求，只要描述对得上，通常会稳定触发 skill
 
-→ 评估查询要足够实质性，agent 才真正会想查阅 skill；"读文件 X" 式一句话查询，不管
+因此评估查询要足够实质性，agent 才真正会想查阅 skill；"读文件 X" 式一句话查询，不管
 描述写得多好都不会触发，是无效测试用例
 
 ## 查询写作指南
 
-生成约 20 条评估查询，should-trigger 与 should-not-trigger 各半（边界用例可微调），存为 JSON：
+生成评估查询，should-trigger 与 should-not-trigger 各半（边界用例可微调），存为 JSON：
 
 ```json
 [

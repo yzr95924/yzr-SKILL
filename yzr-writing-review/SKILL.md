@@ -7,7 +7,7 @@ description: |
   一股 AI 味 / less AI-sounding / 帮我过一遍"；润色类（"润色 / 改写 / 精简 / polish /
   rewrite / shorten"）同样触发本 skill。
   不适用：翻译、事实核查（只指出存疑不验证）、从零写作、内容意图变更（加观点 / 改结论）、
-  代码 review。
+  代码 review
 metadata:
   author: Zuoru YANG
   category: writing

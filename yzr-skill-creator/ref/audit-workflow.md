@@ -1,11 +1,10 @@
 # 原则校验的完整流程
 
-> 本文件承载[入口 4](../SKILL.md#原则校验)的执行细节
+> 本文件承载[章节](../SKILL.md#原则校验)的执行细节
 
 ## 步骤
 
-1. **机械项**：`python -m tools.verify <skill-dir>`（tier 读 frontmatter `metadata.tier`，缺省 `default`；
-   `--tier` 可覆盖；三型定义见 `assets/skill-template.md`）
+1. **机械项**：`python -m tools.verify <skill-dir>`（三型定义见 `assets/skill-template.md`）
 2. **全量精读不抽样**：目标 skill 的 `SKILL.md` + `ref/` + `tools/` + `assets/` + `eval/` 每个文件逐行读，
    对照本 skill 的执行原则与本文件判定清单 → 逐项给结论（结果词见判定清单），证据 = 文件 + 原文引用
 3. **报告只活在对话里**：不建 `audit-*.md` 归档文件（无人维护的第二真源）；逐项等用户确认；报告分两小节：违反项（按清单 / 原则）与待删候选（按保留门槛逐节扫，无则写"无"）
@@ -29,10 +28,7 @@
     （含称职 agent 本来就会做的常识规定；没把握时查溯源佐证：自体声明的动机、git blame、evals）；
     不会且非结构必需（路由 / 闸门 / 槽位）→ 标注"待删候选"，只标不删、用户裁定；实删转入口 2，
     有 evals 时跑回归，不回归即实证
-11. **长度**：超软目标 → WARN 偏臃肿；超 `BODY_WORD_LIMIT` → 违反
-12. **时间性信息不内联**：自身演进史（版本记录 / 修复日志）内联 → 违反，演进史归 git，正文最多留一句路标
-13. **节名契约**：规范节名 / 顺序以 `assets/skill-template.md` 为准；verify 报 `TEMPLATE-SECTION-DRIFT` ERROR
-    = 检查器清单与模板漂移，以模板为准对齐后再继续
+11. **时间性信息不内联**：自身演进史（版本记录 / 修复日志）内联 → 违反，演进史归 git，正文最多留一句路标
 
 ## 审查分工
 

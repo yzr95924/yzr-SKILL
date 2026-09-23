@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools import (  # noqa: E402
     audit_prose,
     check_anchor_health,
+    check_python_style,
     check_skill_dependencies,
     eval_report,
     quick_validate,
@@ -148,17 +149,21 @@ def _template_sync_findings(skill_dir: Path) -> List[Finding]:
 def _anchor_findings(skill_dir: Path) -> List[Finding]:
     """跑锚点与链接审计并转成 Finding。"""
     _totals, issues = check_anchor_health.scan_skill(skill_dir)
-    return [
-        Finding(
-            rule=issue.get("status", "ANCHOR"),
-            level=_ANCHOR_LEVEL,
-            evidence=issue.get("reason", ""),
-            file=issue.get("file", ""),
-            line=issue.get("line", ""),
-            fix="修链接 / 路径或补齐目标标题（脚本：tools/check_anchor_health.py）",
+    findings: List[Finding] = []
+    for issue in issues:
+        status = issue.get("status", "ANCHOR")
+        fix = "锚点链接文字统一为「章节」" if status == "LINK-LABEL" else "修链接 / 路径或补齐目标标题"
+        findings.append(
+            Finding(
+                rule=status,
+                level=_ANCHOR_LEVEL,
+                evidence=issue.get("reason", ""),
+                file=issue.get("file", ""),
+                line=issue.get("line", ""),
+                fix=f"{fix}（脚本：tools/check_anchor_health.py）",
+            )
         )
-        for issue in issues
-    ]
+    return findings
 
 
 def _dependency_findings(repo_root: Path, scope: Optional[FrozenSet[str]] = None) -> List[Finding]:
@@ -405,6 +410,7 @@ def verify_skill(
     findings += _template_sync_findings(skill_dir)
     findings += _anchor_findings(skill_dir)
     findings += audit_prose.scan_skill(skill_dir)
+    findings += check_python_style.scan_skill(skill_dir)
     findings += eval_report.check_evals(skill_dir)
     findings += _delivery_gate_findings(skill_dir)
     md_findings, md_result = _markdownlint(skill_dir, repo_root)

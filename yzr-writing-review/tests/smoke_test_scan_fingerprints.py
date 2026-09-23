@@ -26,6 +26,12 @@ from tools.scan_fingerprints import DASH, PATTERNS, scan_text  # noqa: E402
 CASES: List = []
 
 
+def expect(cond, msg="") -> None:
+    """条件不成立时抛 AssertionError；显式 raise 替代 assert（python -O 不吞）。"""
+    if not cond:
+        raise AssertionError(msg)
+
+
 def case(fn):
     CASES.append(fn)
     return fn
@@ -35,45 +41,45 @@ def case(fn):
 def positive_prose_hit():
     text = "先判断用户属于哪一种——再介入。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].line == 1 and hits[0].pid == "DASH", hits
+    expect(len(hits) == 1 and hits[0].line == 1 and hits[0].pid == "DASH", hits)
 
 
 @case
 def positive_multiple_on_one_line():
     text = "A——B——C\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].count == 2, hits
+    expect(len(hits) == 1 and hits[0].count == 2, hits)
 
 
 @case
 def negative_single_em_dash_not_matched():
     text = "范围 1—10 之间。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def negative_inline_code_span():
     text = "输出格式 `LEVEL: 文件:行 证据 —— 修法` 是契约。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def negative_double_backtick_span():
     text = "示例 ``" + DASH + "`` 属字面串。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def negative_inside_fence():
     text = "```bash\ngrep foo —— bar\n```\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def positive_after_fence_resumes():
     text = "```python\n# " + DASH + "\n```\n" + "正文" + DASH + "继续。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].line == 4, hits
+    expect(len(hits) == 1 and hits[0].line == 4, hits)
 
 
 @case
@@ -81,109 +87,109 @@ def positive_meta_mention_reported():
     # fingerprint row talking about the symbol itself: deliberately a candidate
     text = "- **破折号" + chr(0x201C) + DASH + chr(0x201D) + "/ em-dash**：默认一律换常规标点\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1, hits
+    expect(len(hits) == 1, hits)
 
 
 @case
 def positive_clean_text_zero():
     text = "正常句子，用逗号：冒号、括号（如这些）。\n\n另一段。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def corner_quote_positive_prose_hit():
     text = "别的入口用「按该节执行」式指针复用。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].pid == "CORNER-QUOTE" and hits[0].count == 1, hits
+    expect(len(hits) == 1 and hits[0].pid == "CORNER-QUOTE" and hits[0].count == 1, hits)
 
 
 @case
 def corner_quote_negative_inline_code():
     text = "参数 `--tier「default」` 照抄。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def corner_quote_negative_inside_fence():
     text = "```md\n「引用块」\n```\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def section_sign_positive_prose_hit():
     text = "配置细节详见 §3.2 的说明。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].pid == "SECTION-SIGN" and hits[0].count == 1, hits
+    expect(len(hits) == 1 and hits[0].pid == "SECTION-SIGN" and hits[0].count == 1, hits)
 
 
 @case
 def section_sign_negative_inline_code():
     text = "参数 `§3.2` 照抄。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def section_sign_negative_inside_fence():
     text = "```md\n§ 引用块\n```\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def arrow_positive_prose_hit():
     text = "引入缓存 → 延迟下降。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].pid == "ARROW" and hits[0].count == 1, hits
+    expect(len(hits) == 1 and hits[0].pid == "ARROW" and hits[0].count == 1, hits)
 
 
 @case
 def arrow_negative_inline_code():
     text = "写法 `现象 → 修法` 是旧格式。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def arrow_negative_inside_fence():
     text = "```md\nA → B\n```\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def emoji_positive_prose_hit():
     text = "🚀 快速开始：先跑安装命令。\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].pid == "EMOJI" and hits[0].count == 1, hits
+    expect(len(hits) == 1 and hits[0].pid == "EMOJI" and hits[0].count == 1, hits)
 
 
 @case
 def emoji_positive_bullet_lead():
     text = "- ✨ 亮点\n"
     hits = scan_text(text, "a.md")
-    assert len(hits) == 1 and hits[0].pid == "EMOJI", hits
+    expect(len(hits) == 1 and hits[0].pid == "EMOJI", hits)
 
 
 @case
 def emoji_negative_midline():
     # 规则面（段落开头）比脚本面宽：行中装饰 emoji 由 reviewer 补齐，不进候选
     text = "文中提到 🚀 命令。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def emoji_negative_table_symbols():
     text = "| a | ✅ |\n跑完 ✓ 检查。\n★ 推荐\n⚠ 注意\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def emoji_negative_inline_code():
     text = "参数 `--icon 🚀` 照抄。\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
 def emoji_negative_inside_fence():
     text = "```md\n🚀 标题\n```\n"
-    assert scan_text(text, "a.md") == []
+    expect(scan_text(text, "a.md") == [])
 
 
 @case
@@ -191,7 +197,7 @@ def rule_pointers_resolve_in_catalog():
     catalog = (Path(__file__).resolve().parent.parent / "ref" / "catalog.md").read_text(encoding="utf-8")
     for pat in PATTERNS:
         name = pat.rule.split("\u201c")[1].split("\u201d")[0]
-        assert "- **" + name in catalog, pat
+        expect("- **" + name in catalog, pat)
 
 
 @case
@@ -207,11 +213,11 @@ def cli_contract():
                 text=True,
                 universal_newlines=True,
             )
-            assert proc.returncode == 0, proc  # candidates, never a gate
-            assert check in proc.stdout, (extra, proc.stdout)
+            expect(proc.returncode == 0, proc)  # candidates, never a gate
+            expect(check in proc.stdout, (extra, proc.stdout))
         proc = subprocess.run([sys.executable, str(script), str(md), "--json"], capture_output=True, text=True)
         data = json.loads(proc.stdout)
-        assert data[0]["file"] == str(md) and data[0]["count"] == 1, data
+        expect(data[0]["file"] == str(md) and data[0]["count"] == 1, data)
 
 
 def main() -> int:

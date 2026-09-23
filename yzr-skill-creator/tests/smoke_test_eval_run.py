@@ -14,7 +14,7 @@ from typing import Dict, List
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import make_tmp_dir  # noqa: E402
+from _fixtures import expect, make_tmp_dir  # noqa: E402
 
 from tools import eval_run  # noqa: E402
 
@@ -74,7 +74,7 @@ def run_with_stub(tmp: Path, argv: List[str], rc: str = "0", sleep: str = "0", e
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = old[k]
-    assert code == expect_rc, code
+    expect(code == expect_rc, code)
     return [json.loads(line) for line in capture.read_text(encoding="utf-8").splitlines()] if capture.is_file() else []
 
 
@@ -84,22 +84,22 @@ def case_happy_path_isolation_and_sandbox(tmp: Path) -> None:
     root = make_repo(tmp)
     iteration = root / "s1-workspace" / "iteration-1"
     calls = run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--timeout", "30"])
-    assert len(calls) == 2, calls
+    expect(len(calls) == 2, calls)
     by_prompt = {c[-1]: c for c in calls}
     with_p = next((p for p in by_prompt if "Capability test" not in p), None)
     out_p = next((p for p in by_prompt if "Capability test" in p), None)
-    assert with_p and out_p, "两侧 prompt 未区分"
-    assert "Skill path:" in with_p and "You MUST follow" in with_p, with_p[:200]
-    assert "Skill path:" not in out_p, out_p[:200]
-    assert all("headless" in p for p in by_prompt), "headless 声明缺失"
+    expect(with_p and out_p, "两侧 prompt 未区分")
+    expect("Skill path:" in with_p and "You MUST follow" in with_p, with_p[:200])
+    expect("Skill path:" not in out_p, out_p[:200])
+    expect(all("headless" in p for p in by_prompt), "headless 声明缺失")
     for c in calls:
-        assert "--pure" in c and "--dir" in c and c[c.index("--dir") + 1].endswith("run"), c
+        expect("--pure" in c and "--dir" in c and c[c.index("--dir") + 1].endswith("run"), c)
     side = iteration / "eval-1" / "with_skill"
-    assert (side / eval_run.TRANSCRIPT_NAME).is_file(), "transcript 未落盘"
-    assert "STUB-OUTPUT" in (side / eval_run.TRANSCRIPT_NAME).read_text(), "transcript 缺 stdout"
+    expect((side / eval_run.TRANSCRIPT_NAME).is_file(), "transcript 未落盘")
+    expect("STUB-OUTPUT" in (side / eval_run.TRANSCRIPT_NAME).read_text(), "transcript 缺 stdout")
     sandbox_skill = side / eval_run.SANDBOX_DIRNAME / "repo" / "s1" / "SKILL.md"
-    assert sandbox_skill.is_file(), "沙箱未拷贝仓"
-    assert not (side / eval_run.SANDBOX_DIRNAME / "repo" / ".git").exists(), "沙箱不应含 .git"
+    expect(sandbox_skill.is_file(), "沙箱未拷贝仓")
+    expect(not (side / eval_run.SANDBOX_DIRNAME / "repo" / ".git").exists(), "沙箱不应含 .git")
 
 
 @case
@@ -108,9 +108,9 @@ def case_skip_existing_transcript_and_force(tmp: Path) -> None:
     root = make_repo(tmp)
     iteration = root / "s1-workspace" / "iteration-1"
     argv = ["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--timeout", "30"]
-    assert len(run_with_stub(tmp, argv)) == 2
-    assert len(run_with_stub(tmp, argv)) == 2, "第二轮应跳过（capture 不追加）"
-    assert len(run_with_stub(tmp, argv + ["--force"])) == 4, "--force 未重跑"
+    expect(len(run_with_stub(tmp, argv)) == 2)
+    expect(len(run_with_stub(tmp, argv)) == 2, "第二轮应跳过（capture 不追加）")
+    expect(len(run_with_stub(tmp, argv + ["--force"])) == 4, "--force 未重跑")
 
 
 @case
@@ -121,7 +121,7 @@ def case_side_rc_recorded(tmp: Path) -> None:
     # capture 追加会累积，这里只断言 rc=3 标记进了运行输出（stdout 无法捕获则断 transcript）
     run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1")], rc="3")
     t = (iteration / "eval-1" / "with_skill" / eval_run.TRANSCRIPT_NAME).read_text()
-    assert "STUB-OUTPUT" in t
+    expect("STUB-OUTPUT" in t)
 
 
 @case
@@ -131,7 +131,7 @@ def case_timeout_writes_transcript_and_survives(tmp: Path) -> None:
     iteration = root / "s1-workspace" / "iteration-1"
     run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--timeout", "1"], sleep="3")
     t = (iteration / "eval-1" / "with_skill" / eval_run.TRANSCRIPT_NAME).read_text()
-    assert "TIMEOUT after 1s" in t, t[-200:]
+    expect("TIMEOUT after 1s" in t, t[-200:])
 
 
 @case
@@ -144,7 +144,7 @@ def case_missing_opencode_exits_2(tmp: Path) -> None:
         code = eval_run.main(["--iteration", str(tmp), "--skill-path", str(tmp)])
     finally:
         os.environ["PATH"] = old
-    assert code == 2, code
+    expect(code == 2, code)
 
 
 @case
@@ -158,19 +158,19 @@ def case_old_skill_side_gets_snapshot_overlay(tmp: Path) -> None:
         "---\nname: s1\ndescription: |\n  SNAPSHOT-VERSION\n---\n# s1\n", encoding="utf-8"
     )
     calls = run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--timeout", "30"])
-    assert len(calls) == 2, calls
+    expect(len(calls) == 2, calls)
     old_side = iteration / "eval-1" / "old_skill"
     live_side = iteration / "eval-1" / "with_skill"
 
     def sandbox_skill(side: Path) -> Path:
         return side / eval_run.SANDBOX_DIRNAME / "repo" / "s1" / "SKILL.md"
 
-    assert "SNAPSHOT-VERSION" in sandbox_skill(old_side).read_text(), "old_skill 沙箱未覆盖为快照"
-    assert "SNAPSHOT-VERSION" not in sandbox_skill(live_side).read_text(), "with_skill 沙箱被快照污染"
+    expect("SNAPSHOT-VERSION" in sandbox_skill(old_side).read_text(), "old_skill 沙箱未覆盖为快照")
+    expect("SNAPSHOT-VERSION" not in sandbox_skill(live_side).read_text(), "with_skill 沙箱被快照污染")
     old_prompt = next((c[-1] for c in calls if str(old_side) in c[-1]), "")
-    assert "You MUST follow" in old_prompt, old_prompt[:200]
-    assert str(old_side / eval_run.SANDBOX_DIRNAME / "repo" / "s1") in old_prompt, "prompt 未指向沙箱内快照"
-    assert (old_side / eval_run.TRANSCRIPT_NAME).is_file(), "old_skill transcript 未落盘"
+    expect("You MUST follow" in old_prompt, old_prompt[:200])
+    expect(str(old_side / eval_run.SANDBOX_DIRNAME / "repo" / "s1") in old_prompt, "prompt 未指向沙箱内快照")
+    expect((old_side / eval_run.TRANSCRIPT_NAME).is_file(), "old_skill transcript 未落盘")
 
 
 @case
@@ -179,7 +179,7 @@ def case_old_skill_missing_snapshot_refused(tmp: Path) -> None:
     root = make_repo(tmp, sides=("with_skill", "old_skill"))
     iteration = root / "s1-workspace" / "iteration-1"
     calls = run_with_stub(tmp, ["--iteration", str(iteration), "--skill-path", str(root / "s1")], expect_rc=2)
-    assert calls == [], calls
+    expect(calls == [], calls)
 
 
 def main() -> int:

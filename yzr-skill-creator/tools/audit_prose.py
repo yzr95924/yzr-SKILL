@@ -18,6 +18,7 @@ from tools.utils import (  # noqa: E402
     find_code_spans,
     format_findings,
     iter_unfenced_lines,
+    skill_markdown_files,
 )
 
 METRIC_RE = re.compile(r"(?<![\w.])(?:\d+\s*[–—-]\s*)?\d+(?:\.\d+)?\s*(词|字|行|条|轮|次|秒|天)\b")
@@ -46,26 +47,13 @@ def _is_quoted(line: str, start: int, end: int) -> bool:
     return any(a <= start and end <= b for a, b in _quote_spans(line))
 
 
-def _markdown_files(skill_dir: Path) -> List[Path]:
-    """列出要扫的 md：SKILL.md 加 ref/assets 下的文件。"""
-    files: List[Path] = []
-    skill_md = skill_dir / "SKILL.md"
-    if skill_md.is_file():
-        files.append(skill_md)
-    for sub in ("ref", "assets"):
-        sub_root = skill_dir / sub
-        if sub_root.is_dir():
-            files.extend(sorted(p for p in sub_root.rglob("*.md") if p.is_file()))
-    return files
-
-
 _EVIDENCE_SNIPPET = 70
 
 
 def check_version_history(skill_dir: Path) -> List[Finding]:
     """筛内联的自身版本演进史（引号或代码段内的除外）。"""
     findings = []
-    for md in _markdown_files(skill_dir):
+    for md in skill_markdown_files(skill_dir):
         rel = str(md.relative_to(skill_dir))
         for lineno, line in iter_unfenced_lines(md.read_text()):
             for match in VERSION_HISTORY_RE.finditer(line):
@@ -88,7 +76,7 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
 def check_bare_metrics(skill_dir: Path) -> List[Finding]:
     """筛散落在两个以上文件的裸指标（行内已声明出处的除外）。"""
     occurrences: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
-    for md in _markdown_files(skill_dir):
+    for md in skill_markdown_files(skill_dir):
         rel = str(md.relative_to(skill_dir))
         for lineno, line in iter_unfenced_lines(md.read_text()):
             if DECLARED_SOURCE_RE.search(line):
