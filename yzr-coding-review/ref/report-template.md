@@ -2,7 +2,7 @@
 
 # 代码审查报告模板(SSOT)
 
-主表 5 列固定,严重度 4 级,不允许 agent 自创新列
+主表 5 列固定,不允许 agent 自创新列
 
 ## 两档规则
 
@@ -20,30 +20,25 @@
 
 ## 发现项(主表)
 
-| # | 位置(file:line) | 卡片名 | 严重度 | 建议 |
+| # | 位置(file:line) | 规则 | 问题 | 建议 |
 | --- | --- | --- | --- | --- |
-| 1 | src/parser.py:42 | Extract Method | Major | 抽 `parse_header()` 出来 |
-| 2 | src/parser.py:55 | Magic Literal | Minor | `0x0D` → `CR` 常量 |
+| 1 | src/parser.py:42 | 函数粒度 | `process()` 内嵌 3 个语义段 | 抽 `parse_header()` 出来 |
+| 2 | src/parser.py:55 | 魔法值 | `0x0D` 裸字面量表回车符 | 提为 `CR` 常量 |
 | 3 | ... | ... | ... | ... |
 
-每条规则:
+**列口径**:
 
 - **位置**: 精确到 file:line(范围 review 写 file:line-line)
-- **卡片名**: 映射到 `catalog.md` 卡片名
-- **严重度**: Blocker / Major / Minor / Nitpick,判定查 `severity-rubric.md`
+- **规则**: 映射到 `catalog.md` 规则名
+- **问题**: 一句话说明现象(不要泛泛"代码不佳")
 - **建议**: 一句话具体怎么做(不要泛泛"重构 X")
 
-**收尾**(轻量档必写,一句话): <一句结论,如 "共 3 条发现,2 Major 1 Minor,建议先处理 Extract Method。">
+**收尾**(轻量档必写,一句话): <一句结论,如 "共 3 条发现,集中在 process() 的职责拆分与常量提取。">
 
 ## 总结(仅完整档)
 
 - **总发现项**: N
-- **按严重度分布**: Blocker X / Major Y / Minor Z / Nitpick W
-- **优先 top-3**:
-  1. <最优先项 + 原因>
-  2. ...
-  3. ...
-- **风险点**: <如有:跨模块影响 / 公共 API / 测试覆盖不足等>
+- **风险点**: <如有:循环依赖 / 公共 API 破坏性变更 / 跨模块影响 / 测试覆盖不足等>
 
 ## 不报告项(仅完整档)
 

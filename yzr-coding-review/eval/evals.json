@@ -4,22 +4,22 @@
     {
       "id": 1,
       "prompt": "帮我 review 一下 src/parser.py,看看有什么可重构的",
-      "expected_output": "默认对话式分析回答:结论先行(有没有优化空间)+ 按严重度要点;不修改源文件;LLM 走 catalog + 合理性卡片",
+      "expected_output": "默认对话式分析回答:结论先行(有没有优化空间)+ 按代码位置要点;不修改源文件;LLM 走 catalog + 合理性审视规则",
       "files": [],
       "expectations": [
         "结论先行:第一句给出'有/没有优化空间'的明确判断",
-        "每条发现按严重度从高到低排列,并映射到至少 1 个 catalog 卡片名(如 Extract Method / Magic Literal)",
+        "每条发现按代码位置顺序排列,并映射到至少 1 个 catalog 规则名(如 函数粒度 / 魔法值)",
         "未修改源文件(outputs 里无 src/parser.py 改写产物)"
       ]
     },
     {
       "id": 2,
       "prompt": "看看这个 Go 文件 internal/handler/order.go 有什么代码味",
-      "expected_output": "默认对话式分析回答:结论先行 + 按严重度要点;LLM 走 catalog + 合理性卡片",
+      "expected_output": "默认对话式分析回答:结论先行 + 按代码位置要点;LLM 走 catalog + 合理性审视规则",
       "files": [],
       "expectations": [
-        "结论先行 + 按严重度从高到低列要点",
-        "每条发现映射到 catalog 卡片名",
+        "结论先行 + 按代码位置顺序列要点",
+        "每条发现映射到 catalog 规则名",
         "语言(Python / Go)仅作元信息,不改变流程或输出结构"
       ]
     },
@@ -51,7 +51,7 @@
       "files": [],
       "expectations": [
         "review 基于 diff 的改动行(附必要上下文),不审全文件无关部分",
-        "默认对话式回答,结论先行 + 按严重度要点"
+        "默认对话式回答,结论先行 + 按代码位置要点"
       ]
     },
     {
@@ -72,7 +72,7 @@
       "files": [],
       "expectations": [
         "大范围体检路由到报告形态完整档(轻量档内容 + 总结段 + 不报告项)",
-        "主表 5 列固定(# / 位置 / 卡片名 / 严重度 / 建议),不偏离 report-template.md",
+        "主表 5 列固定(# / 位置 / 规则 / 问题 / 建议),不偏离 report-template.md",
         "语言仅作报告头部元信息"
       ]
     },
@@ -83,8 +83,8 @@
       "files": [],
       "expectations": [
         "输出报告形态轻量档:头部 + 主表 + 一句话收尾",
-        "主表列与 report-template.md 一致(# / 位置 / 卡片名 / 严重度 / 建议)",
-        "严重度取值 Blocker / Major / Minor / Nitpick,判定依据 severity-rubric.md"
+        "主表列与 report-template.md 一致(# / 位置 / 规则 / 问题 / 建议)",
+        "未使用严重度分级标签(Blocker / Major / Minor / Nitpick)"
       ]
     },
     {
@@ -94,17 +94,17 @@
       "files": [],
       "expectations": [
         "合理性维度审视覆盖:设计意图与职责 / 边界条件与错误处理 / 可读性",
-        "结论先行 + 按严重度要点",
-        "每条发现映射到 catalog 卡片名(含第八组合理性卡片)"
+        "结论先行 + 按代码位置要点",
+        "每条发现映射到 catalog 规则名(含合理性审视规则)"
       ]
     },
     {
       "id": 18,
       "prompt": "逐条过一下 review 结果,我不想看一整份报告",
-      "expected_output": "触发本 skill;按严重度从高到低逐条呈现,等用户确认 / 改判 / 跳过",
+      "expected_output": "触发本 skill;按代码位置顺序逐条呈现,等用户确认 / 改判 / 跳过",
       "files": [],
       "expectations": [
-        "逐条呈现时按严重度从高到低",
+        "逐条呈现时按代码位置顺序",
         "每条等用户表态(确认 / 改判 / 跳过 / 追问)后再进入下一条",
         "全部过完后输出汇总(接受 / 改判 / 跳过计数 + 采纳清单)"
       ]
@@ -112,10 +112,10 @@
     {
       "id": 19,
       "prompt": "这段代码的职责划分有问题吗?看看 internal/order 模块",
-      "expected_output": "触发本 skill;设计意图与职责维度审视 + 对应卡片,默认对话式回答",
+      "expected_output": "触发本 skill;设计意图与职责维度审视 + 对应规则,默认对话式回答",
       "files": [],
       "expectations": [
-        "设计意图与职责维度审视,映射到对应卡片(如 Extract Class / God Object 相关)",
+        "设计意图与职责维度审视,映射到对应规则(如 职责与归属)",
         "默认对话式回答,结论先行"
       ]
     },
@@ -132,10 +132,10 @@
     {
       "id": 22,
       "prompt": "review 一下这段代码,有没有明显的性能问题",
-      "expected_output": "触发本 skill;计算逻辑经济性维度审视(复杂度形态 / 重复昂贵调用卡片),默认对话式回答;指出缺陷 + 给方向,不展开调优(profile / benchmark 走专项)",
+      "expected_output": "触发本 skill;计算逻辑经济性维度审视(计算经济性规则),默认对话式回答;指出缺陷 + 给方向,不展开调优(profile / benchmark 走专项)",
       "files": [],
       "expectations": [
-        "计算逻辑经济性维度审视,映射到 Inefficient Algorithmic Shape / Repeated Expensive Call 卡片",
+        "计算逻辑经济性维度审视,映射到 计算经济性 规则",
         "指出缺陷 + 给方向,不展开 profile / benchmark 调优(提示走专项)",
         "默认对话式回答,结论先行"
       ]
