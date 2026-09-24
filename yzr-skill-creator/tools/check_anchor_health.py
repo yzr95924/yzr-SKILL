@@ -207,7 +207,7 @@ _LINK_LABEL = "章节"
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
     """锚点在目标文件中不存在时返回带候选提示的原因，存在返回 None。"""
-    text = target.read_text()
+    text = target.read_text(encoding="utf-8")
     slugs = collect_heading_slugs(text)
     explicit_ids = collect_explicit_anchor_ids(text)
     if anchor in slugs or anchor in explicit_ids:
@@ -257,7 +257,7 @@ def _scan_links(md_path: Path, skill_root: Path, text: str, issues: List[Dict[st
 def scan_file(md_path: Path, skill_root: Path) -> List[Dict[str, str]]:
     """扫单个 md：死链、锚点漂移、反引号路径问题。"""
     issues: List[Dict[str, str]] = []
-    text = md_path.read_text()
+    text = md_path.read_text(encoding="utf-8")
     _scan_links(md_path, skill_root, text, issues)
     _scan_backtick_paths(md_path, skill_root, text, issues)
     return issues
@@ -369,7 +369,7 @@ def scan_skill(skill_root: Path, include_templates: bool = False) -> Tuple[ScanT
     links_checked = 0
     paths_checked = 0
     for md_file in files:
-        text = md_file.read_text()
+        text = md_file.read_text(encoding="utf-8")
         links_checked += sum(1 for _, _, target in extract_links(text) if _is_checkable_link(target))
         paths_checked += sum(1 for _, token in extract_backtick_paths(text) if _is_checkable_path(token))
         all_issues.extend(scan_file(md_file, skill_root))

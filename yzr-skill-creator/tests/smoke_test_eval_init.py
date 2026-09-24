@@ -55,6 +55,10 @@ EVALS = [
 def case_old_skill_snapshot(tmp: Path) -> None:
     print("[case] old_skill: tree + per-iteration snapshot")
     skill = make_skill(tmp / "s1", EVALS)
+    (skill / "node_modules" / "dep").mkdir(parents=True)
+    (skill / "node_modules" / "dep" / "index.js").write_text("// vendor junk\n", encoding="utf-8")
+    (skill / "__pycache__").mkdir()
+    (skill / "__pycache__" / "x.pyc").write_bytes(b"\x00")
     ws = tmp / "s1" / "demo-skill-workspace"
     rc = eval_init.main(
         ["--workspace", str(ws), "--iteration", "1", "--skill-path", str(skill), "--baseline", "old_skill"]
@@ -68,6 +72,10 @@ def case_old_skill_snapshot(tmp: Path) -> None:
     snap = it / "skill-snapshot"
     check("snapshot exists inside iteration dir", (snap / "SKILL.md").is_file())
     check("snapshot is a copy, not the live skill", snap.resolve() != skill.resolve())
+    check(
+        "snapshot skips node_modules / __pycache__",
+        not (snap / "node_modules").exists() and not (snap / "__pycache__").exists(),
+    )
 
 
 def case_without_skill_tree(tmp: Path) -> None:
@@ -130,6 +138,17 @@ def case_refusals(tmp: Path) -> None:
     check("non-skill path refused", rc == 2, f"rc={rc}")
 
 
+def case_duplicate_id(tmp: Path) -> None:
+    print("[case] duplicate eval id: refused at load, before any scaffolding")
+    dup = [{"id": 1, "prompt": "a"}, {"id": 1, "prompt": "b"}]
+    skill = make_skill(tmp / "s5", dup)
+    ws = tmp / "s5" / "demo-skill-workspace"
+    rc = eval_init.main(
+        ["--workspace", str(ws), "--iteration", "1", "--skill-path", str(skill), "--baseline", "without_skill"]
+    )
+    check("duplicate id refused (exit 2, nothing created)", rc == 2 and not ws.exists(), f"rc={rc}")
+
+
 def case_round_trip(tmp: Path) -> None:
     print("[case] round-trip: init layout -> synthetic grading.json -> eval_report green")
     skill = make_skill(tmp / "s4", EVALS)
@@ -154,6 +173,7 @@ def main() -> int:
     case_old_skill_snapshot(tmp)
     case_without_skill_tree(tmp)
     case_refusals(tmp)
+    case_duplicate_id(tmp)
     case_round_trip(tmp)
     if FAILURES:
         print(f"SMOKE FAIL: {len(FAILURES)} regression(s): {FAILURES}")

@@ -361,7 +361,7 @@ def _write_transcript(log_dir: Path, iteration: Optional[int], transcript: dict)
     """把一轮改进的完整 transcript 落盘。"""
     log_dir.mkdir(parents=True, exist_ok=True)
     (log_dir / f"improve_iter_{iteration or 'unknown'}.json").write_text(
-        json.dumps(transcript, ensure_ascii=False, indent=2)
+        json.dumps(transcript, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
 
@@ -725,7 +725,7 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
     if not skill_md.is_file():
         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
         return 1
-    original = skill_md.read_text()
+    original = skill_md.read_text(encoding="utf-8")
     try:
         current = parse_skill_md(skill_path)[1]
     except ValueError as e:
@@ -745,7 +745,7 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
         # validate_skill 校验 name 与目录名一致，探测目录须沿用原 skill 名
         probe = Path(tmp) / skill_path.name
         probe.mkdir()
-        (probe / "SKILL.md").write_text(updated)
+        (probe / "SKILL.md").write_text(updated, encoding="utf-8")
         valid, message = validate_skill(probe)
         period_error = None
         if valid:
@@ -769,7 +769,7 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
         return 0
 
     tmp_path = skill_md.with_name(skill_md.name + ".tmp-apply")
-    tmp_path.write_text(updated)
+    tmp_path.write_text(updated, encoding="utf-8")
     os.replace(str(tmp_path), str(skill_md))
     print(f"已写入 {skill_md}（description {len(current)} → {len(new_description.strip())} 字符）", file=sys.stderr)
     return 0
@@ -778,7 +778,7 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
 def _load_best_description(path: Path) -> str:
     """从 results.json 读取 best_description；读不到或缺失时抛 ValueError。"""
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise ValueError(f"cannot read results json {path}: {e}") from e
     best = data.get("best_description") if isinstance(data, dict) else None
@@ -790,7 +790,7 @@ def _load_best_description(path: Path) -> str:
 def _load_eval_set(path: Path) -> List[dict]:
     """读入 eval set：缺字段或同 query 冲突时抛 ValueError（消息可直接给用户）。"""
     try:
-        eval_set = json.loads(path.read_text())
+        eval_set = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise ValueError(f"cannot read eval set {path}: {e}") from e
     for i, item in enumerate(eval_set):
@@ -909,7 +909,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print(json.dumps(output, ensure_ascii=False, indent=2))
     if results_dir:
-        (results_dir / "results.json").write_text(json.dumps(output, ensure_ascii=False, indent=2))
+        (results_dir / "results.json").write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Results saved to: {results_dir}", file=sys.stderr)
     return 1 if str(output["exit_reason"]).startswith("aborted") else 0
 

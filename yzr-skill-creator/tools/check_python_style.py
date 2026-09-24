@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """Python shape screens: docstring policy (tools/) and smoke-test form (tests/)."""
 
-import argparse
 import ast
-import json
 import re
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import Finding, discover_skill_dirs, format_findings  # noqa: E402
+from tools.utils import Finding, run_screen  # noqa: E402
 
 _CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
@@ -151,60 +149,14 @@ def scan_skill(skill_dir: Path) -> List[Finding]:
     return findings
 
 
-def _collect_targets(args, parser) -> Tuple[List[Path], int]:
-    """解析扫描目标，返回 (目标列表, 退出码)。"""
-    if args.repo_root:
-        root = Path(args.repo_root).resolve()
-        if not root.is_dir():
-            print(f"error: repo root not found: {root}", file=sys.stderr)
-            return [], 2
-        return discover_skill_dirs(root), 0
-    if args.skill_dir:
-        skill_dir = Path(args.skill_dir).resolve()
-        if not (skill_dir / "SKILL.md").is_file():
-            print(f"error: no SKILL.md under: {skill_dir}", file=sys.stderr)
-            return [], 2
-        return [skill_dir], 0
-    parser.error("give a skill dir or --repo-root")
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：输出 Python 形态 Finding；有命中时退出码 1。"""
-    parser = argparse.ArgumentParser(
-        description="Python shape screens for a skill: docstring policy (tools/) and smoke-test form (tests/)."
+    return run_screen(
+        "Python shape screens for a skill: docstring policy (tools/) and smoke-test form (tests/).",
+        scan_skill,
+        argv,
+        "finding(s).",
     )
-    parser.add_argument("skill_dir", nargs="?", default=None, help="path to one skill directory")
-    parser.add_argument("--repo-root", default=None, help="scan every skill dir under this repo root")
-    parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
-    args = parser.parse_args(argv)
-
-    targets, code = _collect_targets(args, parser)
-    if code:
-        return code
-    findings: List[Finding] = []
-    for skill_dir in targets:
-        for finding in scan_skill(skill_dir):
-            if len(targets) > 1:
-                finding = finding._replace(evidence=f"[{skill_dir.name}] {finding.evidence}")
-            findings.append(finding)
-
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "targets": [str(t) for t in targets],
-                    "finding_count": len(findings),
-                    "findings": [f.to_dict() for f in findings],
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-    else:
-        for line in format_findings(findings):
-            print(line)
-        print(f"\nScanned {len(targets)} skill(s); {len(findings)} finding(s).")
-    return 1 if findings else 0
 
 
 if __name__ == "__main__":

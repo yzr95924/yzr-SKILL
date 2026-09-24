@@ -22,8 +22,6 @@ DEFAULT_TIMEOUT = 600
 SANDBOX_DIRNAME = "run"
 TRANSCRIPT_NAME = "transcript.txt"
 
-_SANDBOX_IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "*-workspace")
-
 _WITH_PREAMBLE = (
     "You MUST follow the skill given under 'Skill path' below: first Read its SKILL.md in full, "
     "then act exactly as it instructs (including any files it tells you to read). An installed "
@@ -62,7 +60,7 @@ def make_sandbox(repo_root: Path, side_dir: Path) -> Path:
         shutil.rmtree(sandbox)
     sandbox.mkdir(parents=True)
     target = sandbox / repo_root.name
-    shutil.copytree(str(repo_root), str(target), ignore=_SANDBOX_IGNORE)
+    shutil.copytree(str(repo_root), str(target), ignore=eval_init.SANDBOX_IGNORE)
     return target
 
 

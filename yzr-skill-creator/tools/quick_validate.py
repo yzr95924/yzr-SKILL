@@ -34,6 +34,10 @@ H2_RE = re.compile(r"^##\s+(.+)$")
 
 ALLOWED_PROPERTIES = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 
+# frontmatter 字段硬上限（数值口径归这里，消息用 f-string 引用）
+NAME_MAX_CHARS = 64
+COMPATIBILITY_MAX_CHARS = 500
+
 
 def normalize_heading(text):
     """归一化标题用于比较：删掉全部空白。"""
@@ -42,7 +46,7 @@ def normalize_heading(text):
 
 def _body(skill_path):
     """返回 frontmatter 之后的正文；无完整 frontmatter 时返回 None。"""
-    content = (Path(skill_path) / "SKILL.md").read_text()
+    content = (Path(skill_path) / "SKILL.md").read_text(encoding="utf-8")
     span = frontmatter_span(content)
     if span is None:
         return None
@@ -51,7 +55,7 @@ def _body(skill_path):
 
 def _frontmatter_line_offset(skill_path):
     """返回正文起始行号（1-based），供 Finding 行号换算。"""
-    span = frontmatter_span((skill_path / "SKILL.md").read_text())
+    span = frontmatter_span((skill_path / "SKILL.md").read_text(encoding="utf-8"))
     return span[1] + 1 if span else 0
 
 
@@ -401,8 +405,8 @@ def _check_name(frontmatter):
         return f"Name '{name}' should be kebab-case (lowercase letters, digits, and hyphens only)"
     if name.startswith("-") or name.endswith("-") or "--" in name:
         return f"Name '{name}' cannot start/end with hyphen or contain consecutive hyphens"
-    if len(name) > 64:
-        return f"Name is too long ({len(name)} characters). Maximum is 64 characters."
+    if len(name) > NAME_MAX_CHARS:
+        return f"Name is too long ({len(name)} characters). Maximum is {NAME_MAX_CHARS} characters."
     return None
 
 
@@ -430,8 +434,11 @@ def _check_compatibility(frontmatter):
         return None
     if not isinstance(compatibility, str):
         return f"Compatibility must be a string, got {type(compatibility).__name__}"
-    if len(compatibility) > 500:
-        return f"Compatibility is too long ({len(compatibility)} characters). Maximum is 500 characters."
+    if len(compatibility) > COMPATIBILITY_MAX_CHARS:
+        return (
+            f"Compatibility is too long ({len(compatibility)} characters). "
+            f"Maximum is {COMPATIBILITY_MAX_CHARS} characters."
+        )
     return None
 
 

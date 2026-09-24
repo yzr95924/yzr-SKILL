@@ -1,6 +1,9 @@
 """Shared helpers for the tools scripts."""
 
+import argparse
+import json
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
@@ -129,6 +132,56 @@ def discover_skill_dirs(repo_root: Path, require_parseable: bool = False) -> Lis
     return dirs
 
 
+def run_screen(description: str, scan_fn, argv: Optional[List[str]], summary_tail: str) -> int:
+    """筛查类 CLI 共享骨架：解析目标 → 逐目标跑 scan_fn → JSON/文本渲染 → 有 Finding 退 1。"""
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("skill_dir", nargs="?", default=None, help="path to one skill directory")
+    parser.add_argument("--repo-root", default=None, help="scan every skill dir under this repo root")
+    parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
+    args = parser.parse_args(argv)
+
+    if args.repo_root:
+        root = Path(args.repo_root).resolve()
+        if not root.is_dir():
+            print(f"error: repo root not found: {root}", file=sys.stderr)
+            return 2
+        targets = discover_skill_dirs(root)
+    elif args.skill_dir:
+        skill_dir = Path(args.skill_dir).resolve()
+        if not (skill_dir / "SKILL.md").is_file():
+            print(f"error: no SKILL.md under: {skill_dir}", file=sys.stderr)
+            return 2
+        targets = [skill_dir]
+    else:
+        parser.error("give a skill dir or --repo-root")  # 抛 SystemExit(2)
+        return 2
+
+    findings: List[Finding] = []
+    for target in targets:
+        for finding in scan_fn(target):
+            if len(targets) > 1:
+                finding = finding._replace(evidence=f"[{target.name}] {finding.evidence}")
+            findings.append(finding)
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "targets": [str(t) for t in targets],
+                    "finding_count": len(findings),
+                    "findings": [f.to_dict() for f in findings],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        for line in format_findings(findings):
+            print(line)
+        print(f"\nScanned {len(targets)} skill(s); {len(findings)} {summary_tail}")
+    return 1 if findings else 0
+
+
 def frontmatter_span(text: str) -> Optional[Tuple[int, int]]:
     """返回 frontmatter 围栏的 (起始行, 结束行) 索引（0-based）；不以 --- 开头或未闭合时返回 None。"""
     lines = text.split("\n")
@@ -142,7 +195,7 @@ def frontmatter_span(text: str) -> Optional[Tuple[int, int]]:
 
 def load_frontmatter(skill_path: Path) -> Dict:
     """读取 SKILL.md 的 YAML frontmatter；缺失或非法时抛 ValueError。"""
-    content = (skill_path / "SKILL.md").read_text()
+    content = (skill_path / "SKILL.md").read_text(encoding="utf-8")
     span = frontmatter_span(content)
     if span is None:
         reason = "no opening ---" if content.split("\n", 1)[0].strip() != "---" else "no closing ---"
@@ -168,7 +221,7 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     frontmatter = load_frontmatter(skill_path)
     name = str(frontmatter.get("name", "") or "").strip()
     description = " ".join(str(frontmatter.get("description", "") or "").split())
-    content = (skill_path / "SKILL.md").read_text()
+    content = (skill_path / "SKILL.md").read_text(encoding="utf-8")
     return name, description, content
 
 

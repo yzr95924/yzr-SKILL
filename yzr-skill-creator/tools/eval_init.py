@@ -15,6 +15,9 @@ from tools.utils import OLD_SKILL, WITH_SKILL, WITHOUT_SKILL  # noqa: E402
 
 SNAPSHOT_DIRNAME = "skill-snapshot"
 
+# 沙箱 / 快照复制排除集（eval_run 的沙箱与此共用）：git 对象、缓存、评估工作区、vendor 依赖
+SANDBOX_IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "*-workspace", "node_modules")
+
 
 def _fail(message: str) -> int:
     """打印错误并返回退出码 2。"""
@@ -31,9 +34,13 @@ def load_evals(evals_path: Path) -> List[Dict]:
     evals = data.get("evals") if isinstance(data, dict) else None
     if not isinstance(evals, list) or not evals:
         raise ValueError("evals.json must be a JSON object with a non-empty `evals` array")
+    seen = set()
     for item in evals:
         if not isinstance(item, dict) or not isinstance(item.get("id"), int) or not item.get("prompt"):
             raise ValueError(f"every eval needs integer `id` and non-empty `prompt` (got: {item!r})")
+        if item["id"] in seen:
+            raise ValueError(f"duplicate eval id {item['id']} (eval-<id> dirs would overwrite each other)")
+        seen.add(item["id"])
     return evals
 
 
@@ -66,7 +73,7 @@ def init(
 
     snapshot_dir = iteration_dir / SNAPSHOT_DIRNAME if baseline == OLD_SKILL else None
     if snapshot_dir is not None:
-        shutil.copytree(str(skill_path), str(snapshot_dir))
+        shutil.copytree(str(skill_path), str(snapshot_dir), ignore=SANDBOX_IGNORE)
 
     for item in evals:
         eval_dir = iteration_dir / f"eval-{item['id']}"

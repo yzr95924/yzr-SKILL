@@ -22,7 +22,7 @@ _EVIDENCE_PREVIEW = 60
 def _load_json(path: Path) -> Tuple[Optional[Dict], List[Finding]]:
     """读 JSON 对象；失败返回 (None, Finding)。"""
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         return None, [_schema_finding("GRADING-SCHEMA", f"cannot read JSON: {e}", str(path))]
     if not isinstance(data, dict):

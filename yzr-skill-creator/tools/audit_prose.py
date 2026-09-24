@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Prose-level heuristic screens for skill audits."""
 
-import argparse
-import json
 import re
 import sys
 from collections import defaultdict
@@ -14,10 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.utils import (  # noqa: E402
     Finding,
-    discover_skill_dirs,
     find_code_spans,
-    format_findings,
     iter_unfenced_lines,
+    run_screen,
     skill_markdown_files,
 )
 
@@ -55,7 +52,7 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
     findings = []
     for md in skill_markdown_files(skill_dir):
         rel = str(md.relative_to(skill_dir))
-        for lineno, line in iter_unfenced_lines(md.read_text()):
+        for lineno, line in iter_unfenced_lines(md.read_text(encoding="utf-8")):
             for match in VERSION_HISTORY_RE.finditer(line):
                 if _is_quoted(line, match.start(), match.end()):
                     continue
@@ -78,7 +75,7 @@ def check_bare_metrics(skill_dir: Path) -> List[Finding]:
     occurrences: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
     for md in skill_markdown_files(skill_dir):
         rel = str(md.relative_to(skill_dir))
-        for lineno, line in iter_unfenced_lines(md.read_text()):
+        for lineno, line in iter_unfenced_lines(md.read_text(encoding="utf-8")):
             if DECLARED_SOURCE_RE.search(line):
                 continue
             for match in METRIC_RE.finditer(line):
@@ -149,71 +146,14 @@ def scan_skill(skill_dir: Path) -> List[Finding]:
     return findings
 
 
-def _collect_targets(args, parser) -> Tuple[List[Path], int]:
-    """解析扫描目标，返回 (目标列表, 退出码)。"""
-    if args.repo_root:
-        root = Path(args.repo_root).resolve()
-        if not root.is_dir():
-            print(f"error: repo root not found: {root}", file=sys.stderr)
-            return [], 2
-        return discover_skill_dirs(root), 0
-    if args.skill_dir:
-        skill_dir = Path(args.skill_dir).resolve()
-        if not (skill_dir / "SKILL.md").is_file():
-            print(f"error: no SKILL.md under: {skill_dir}", file=sys.stderr)
-            return [], 2
-        return [skill_dir], 0
-
-    # parser.error 抛 SystemExit(2)，下面不会执行
-    parser.error("give a skill dir or --repo-root")
-
-
-def scan_all(targets: List[Path]) -> List[Finding]:
-    """多目标时给每条 Finding 加 skill 名前缀。"""
-    findings: List[Finding] = []
-    for skill_dir in targets:
-        for finding in scan_skill(skill_dir):
-            if len(targets) > 1:
-                finding = finding._replace(evidence=f"[{skill_dir.name}] {finding.evidence}")
-            findings.append(finding)
-    return findings
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：输出启发式候选清单；有候选时退出码 1。"""
-    parser = argparse.ArgumentParser(
-        description="Heuristic prose screens for skill audits (candidate list, not verdicts)."
+    return run_screen(
+        "Heuristic prose screens for skill audits (candidate list, not verdicts).",
+        scan_skill,
+        argv,
+        "candidate finding(s) — INFO level: screens, not verdicts; the agent confirms 违反 / 豁免 per row.",
     )
-    parser.add_argument("skill_dir", nargs="?", default=None, help="path to one skill directory")
-    parser.add_argument("--repo-root", default=None, help="scan every skill dir under this repo root")
-    parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
-    args = parser.parse_args(argv)
-
-    targets, code = _collect_targets(args, parser)
-    if code:
-        return code
-    findings = scan_all(targets)
-
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "targets": [str(t) for t in targets],
-                    "finding_count": len(findings),
-                    "findings": [f.to_dict() for f in findings],
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-    else:
-        for line in format_findings(findings):
-            print(line)
-        print(
-            f"\nScanned {len(targets)} skill(s); {len(findings)} candidate finding(s) — "
-            "INFO level: screens, not verdicts; the agent confirms 违反 / 豁免 per row."
-        )
-    return 1 if findings else 0
 
 
 if __name__ == "__main__":
