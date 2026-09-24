@@ -17,28 +17,28 @@ metadata:
   category: document-conversion
 ---
 
-把一份本地 Markdown 转成**自包含、双击即可在浏览器浏览**的 HTML 文件。默认套一套
-**深色阅读主题**（GitHub-dark 风格，纯深色），自带侧边栏目录 TOC、离线代码
-语法高亮（Pygments），并按需自动启用数学公式（KaTeX）与 Mermaid 图表：只有源文件
-里真出现 `$` 才会挂 KaTeX CDN；Mermaid 代码块默认转成 **ASCII 图离线渲染**（无需联网），
-只有转换失败 / 不支持的图类型才回退到 Mermaid CDN。普通文档零额外网络请求。
+# yzr-md-to-html
+
+把本地 Markdown 转成**自包含、双击即可浏览**的 HTML：深色阅读主题 + 侧边栏目录 + 离线代码高亮，
+公式 / Mermaid 按需才联网（完整口径见执行原则 2）
 
 ## 输入与输出
 
 - **输入**：一个 `.md` 文件，或一个目录（批量转该目录下所有 `*.md`）
 - **输出**：单个自包含 `.html`（CSS 与 Pygments 高亮全部内联，公式 / 图表按需渲染）
-- **参数与默认值以 `python3 tools/md_to_html.py --help`（从 skill 根运行）为单一来源**（argparse 定义，此处不
-  重抄）：文件输入默认生成同名 `.html`；目录输入默认就地生成，`--title` 默认取首个 `#`
+- **参数与默认值以 `python3 tools/md_to_html.py --help` 为单一来源**（argparse 定义，此处不
+  重抄）；脚本按自身路径定位 assets / wrapper，任意 cwd 可调用。文件输入默认生成同名 `.html`；
+  目录输入默认就地生成，`--title` 默认取首个 `#`
   一级标题再退回文件名
 - **前置条件**：Python ≥ 3.7，无需 pandoc；依赖清单以 `tools/md_to_html.py` 的 `DEPENDENCIES`
   常量为准，缺依赖时脚本打印 `pip install` 命令。含 Mermaid 且未加 `--no-mermaid-ascii` 时另需
   Node + `beautiful-mermaid`（缺时 wrapper 打印含版本号的 npm 安装命令，版本 SSOT：
-  `tools/mermaid_to_ascii.mjs` 的 `BEAUTIFUL_MERMAID_VERSION`）；不含 Mermaid 的文档不需要 Node。
+  `tools/mermaid_to_ascii.mjs` 的 `BEAUTIFUL_MERMAID_VERSION`）；不含 Mermaid 的文档不需要 Node
 
 **自定义模板可用变量**（`--template` 传入的 Jinja2 模板里用，不在 `--help` 范围内）：
 `{{ content }}`（正文 HTML）、`{{ toc }}`（目录 HTML）、`{{ styles }}`（默认主题 CSS）、
 `{{ pygments_css }}`（代码高亮 CSS）、`{{ title }}`、`{{ lang }}`，
-以及布尔开关 `{{ has_math }}` / `{{ has_mermaid }}` / `{{ has_toc }}`（控制是否挂对应 CDN / 侧边栏）。
+以及布尔开关 `{{ has_math }}` / `{{ has_mermaid }}` / `{{ has_toc }}`（控制是否挂对应 CDN / 侧边栏）
 
 ## 执行原则
 
@@ -57,11 +57,10 @@ metadata:
 ```text
 1. 确认输入 .md 路径（或目录）；首次使用确认依赖已装（见「输入与输出」）
 2. 跑脚本：
-     python3 yzr-md-to-html/tools/md_to_html.py <input.md> [-o <output.html>]
+     python3 tools/md_to_html.py <input.md> [-o <output.html>]
    批量：把 <input.md> 换成目录路径即可
 3. 把生成的 .html 路径告诉用户（双击即可浏览）
-4. 提醒联网事项：源文档含公式时首次打开需联网加载 KaTeX CDN；有 Mermaid 块转 ASCII
-   失败回退 CDN 时同理需联网（全部转成功则完全离线）
+4. 脚本输出含公式 / Mermaid 回退需联网的通知时，原样转达用户（通知由脚本自己检测打印，不必复述口径）
 5. 上传 / 分享（可选）：产物本是本地自包含文件、不需要上传；用户要分享且 agent 已配置
    `agent-html-drop` MCP 时，调用其上传工具推 `.html` 即可——不提供其他上传方式（不经
    rsync 推 server、不写部署配置）；未配置就把本地路径交给用户
@@ -72,20 +71,13 @@ metadata:
 ### 样例一：单篇技术文档（最常见）
 
 ```bash
-python3 yzr-md-to-html/tools/md_to_html.py docs/design.md
+python3 tools/md_to_html.py docs/design.md
 # → 生成 docs/design.html：深色主题 + 侧边栏目录 + 代码高亮
 ```
 
-### 样例二：带公式和流程图的论文草稿
+### 样例二：批量转换整个目录
 
 ```bash
-python3 yzr-md-to-html/tools/md_to_html.py draft.md -o draft.html
-# draft.md 含 $E=mc^2$ 与 mermaid 块 → 产物公式走 KaTeX CDN、mermaid 转 ASCII 离线渲染
-```
-
-### 样例三：批量转换整个目录
-
-```bash
-python3 yzr-md-to-html/tools/md_to_html.py notes/
+python3 tools/md_to_html.py notes/
 # → notes/ 下每个 .md 就地生成同名 .html
 ```

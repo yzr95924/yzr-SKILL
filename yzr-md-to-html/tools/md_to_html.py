@@ -43,9 +43,13 @@ def ensure_deps() -> None:
         sys.exit(f"缺少依赖: {', '.join(missing_pip)}\n请先安装:\n    {DEP_INSTALL_HINT}")
 
 
+# 围栏块整体：取标题时先剔除，避免 bash 围栏的 `# 注释` 行被当成 H1
+FENCE_BLOCK_RE = re.compile(r"^(?:```|~~~).*?^(?:```|~~~)[ \t]*$", re.DOTALL | re.MULTILINE)
+
+
 def derive_title(text: str, src_path: Path) -> str:
-    """标题取首个 # 一级标题，退回文件名 stem。"""
-    m = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
+    """标题取首个 # 一级标题（跳过代码围栏），退回文件名 stem。"""
+    m = re.search(r"^#\s+(.+?)\s*$", FENCE_BLOCK_RE.sub("", text), re.MULTILINE)
     if m:
         return m.group(1).strip()
     return src_path.stem
@@ -174,8 +178,8 @@ def convert_file(
     want_toc: bool,
     lang: str,
     want_mermaid_ascii: bool,
-) -> Tuple[Path, List[Tuple[Path, int, str]]]:
-    """转换单个文件，返回 (输出路径, mermaid 回退记录)。"""
+) -> Tuple[Path, List[Tuple[Path, int, str]], bool]:
+    """转换单个文件，返回 (输出路径, mermaid 回退记录, 是否含公式)。"""
     text = src.read_text(encoding="utf-8")
     if title is None:
         title = derive_title(text, src)
@@ -183,7 +187,7 @@ def convert_file(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html_out, encoding="utf-8")
     # 与 convert_dir 统一为 (源文件, 块号, 原因) 3 元组
-    return out, [(src, block_no, reason) for block_no, reason in failures]
+    return out, [(src, block_no, reason) for block_no, reason in failures], MATH_HINT in text
 
 
 def convert_dir(
@@ -194,20 +198,24 @@ def convert_dir(
     lang: str,
     want_toc: bool,
     want_mermaid_ascii: bool,
-) -> Tuple[int, List[Tuple[Path, int, str]]]:
-    """批量转换目录下全部 md，返回 (转换数, mermaid 回退记录)。"""
+) -> Tuple[int, List[Tuple[Path, int, str]], int]:
+    """批量转换目录下全部 md，返回 (转换数, mermaid 回退记录, 含公式的文件数)。"""
     files = sorted(src_dir.rglob("*.md"))
     if not files:
         sys.exit(f"目录下没有 .md 文件: {src_dir}")
     out_dir.mkdir(parents=True, exist_ok=True)
     count = 0
+    math_files = 0
     failures = []
     for f in files:
         rel = f.relative_to(src_dir).with_suffix(".html")
-        _, file_failures = convert_file(f, out_dir / rel, None, template, style, want_toc, lang, want_mermaid_ascii)
+        _, file_failures, has_math = convert_file(
+            f, out_dir / rel, None, template, style, want_toc, lang, want_mermaid_ascii
+        )
         failures.extend(file_failures)
+        math_files += has_math
         count += 1
-    return count, failures
+    return count, failures, math_files
 
 
 def main(argv=None) -> None:
@@ -244,17 +252,21 @@ def main(argv=None) -> None:
 
     if src.is_dir():
         out_dir = Path(args.output) if args.output else src
-        n, failures = convert_dir(src, out_dir, template, style, args.lang, not args.no_toc, want_mermaid_ascii)
+        n, failures, math_files = convert_dir(
+            src, out_dir, template, style, args.lang, not args.no_toc, want_mermaid_ascii
+        )
         print(f"已批量转换 {n} 个文件 → {out_dir}/")
+        math_note = f"{math_files} 个文件含公式" if math_files else ""
     else:
         out = Path(args.output) if args.output else src.with_suffix(".html")
-        _, failures = convert_file(
+        _, failures, has_math = convert_file(
             src, out, args.title, template, style, not args.no_toc, args.lang, want_mermaid_ascii
         )
         print(f"已生成: {out}")
-        source_text = src.read_text(encoding="utf-8")
-        if MATH_HINT in source_text:
-            print("（含公式，首次打开需联网加载 KaTeX CDN）")
+        math_note = "含公式" if has_math else ""
+
+    if math_note:
+        print(f"（{math_note}，首次打开需联网加载 KaTeX CDN）")
 
     if failures:
         print(f"（{len(failures)} 个 Mermaid 块转 ASCII 失败，已回退为 CDN 渲染，需联网加载）")
