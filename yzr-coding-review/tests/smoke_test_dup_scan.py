@@ -163,6 +163,32 @@ def directory_scan_filters_by_extension():
 
 
 @case
+def directory_scan_prunes_vendor_dirs():
+    text = "\n".join(BLOCK) + "\n"
+    with tempfile.TemporaryDirectory() as td:
+        (Path(td) / "a.py").write_text(text, encoding="utf-8")
+        (Path(td) / "node_modules" / "dep.py").parent.mkdir(parents=True)
+        (Path(td) / "node_modules" / "dep.py").write_text(text, encoding="utf-8")
+        (Path(td) / ".git" / "hooks" / "h.py").parent.mkdir(parents=True)
+        (Path(td) / ".git" / "hooks" / "h.py").write_text(text, encoding="utf-8")
+        files, groups = scan([td], (".py",), 5, False)
+    expect([f.name for f in files] == ["a.py"], files)
+    expect(groups == [], groups)
+
+
+@case
+def explicit_file_under_vendor_dir_still_scanned():
+    text = "\n".join(BLOCK) + "\n"
+    with tempfile.TemporaryDirectory() as td:
+        dep = Path(td) / "node_modules" / "dep.py"
+        dep.parent.mkdir(parents=True)
+        dep.write_text(text, encoding="utf-8")
+        (Path(td) / "b.py").write_text(text, encoding="utf-8")
+        files, _ = scan([str(dep), str(Path(td) / "b.py")], (".py",), 5, False)
+    expect(len(files) == 2, files)
+
+
+@case
 def explicit_file_ignores_extension():
     text = "\n".join(BLOCK) + "\n"
     with tempfile.TemporaryDirectory() as td:

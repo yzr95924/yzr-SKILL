@@ -2,6 +2,7 @@
 """语言中立重复块扫描：归一化代码行后滑窗匹配，输出候选重复组（不做判定，始终退出 0）。"""
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -33,6 +34,9 @@ DEFAULT_EXTS = (
 )
 # 整行注释 / 块注释边界行按行首前缀跳过；行尾注释不剥离（复制粘贴通常连同注释一起带走）
 COMMENT_PREFIXES = ("#", "//", "*", "/*", "*/")
+
+# 目录递归在 vendor / 产物目录处剪枝；显式点名的路径（文件或目录本身）不过滤
+DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", "venv", ".venv"}
 
 STR_RE = re.compile(r'"(?:[^"\\]|\\.)*"' + r"|'(?:[^'\\]|\\.)*'")
 NUM_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
@@ -76,14 +80,19 @@ def load_code_lines(path: Path, fuzzy: bool) -> List[Tuple[int, str]]:
 
 
 def iter_code_files(paths: Sequence[str], exts: Sequence[str]) -> List[Path]:
-    """显式文件不查扩展名；目录递归按扩展名过滤。"""
+    """显式文件不查扩展名；目录递归按扩展名过滤并在 vendor 目录处剪枝（不进入其子树）。"""
     found: List[Path] = []
     for p in paths:
         target = Path(p)
         if target.is_file():
             found.append(target)
-        else:
-            found.extend(f for f in target.rglob("*") if f.is_file() and f.suffix in exts)
+            continue
+        for root, dirs, files in os.walk(target):
+            dirs[:] = sorted(d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS)
+            for name in files:
+                f = Path(root) / name
+                if f.suffix in exts:
+                    found.append(f)
     return sorted(set(found))
 
 
