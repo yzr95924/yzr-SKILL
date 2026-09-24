@@ -53,7 +53,6 @@ python3 scripts/install-dev-deps.py
 - **写作 / 审查**：
   - `yzr-writing-review` —— 文档内容 review（逻辑 / 结构 / 冗余 / AI 腔 / 风格语气 / 跨文档 SSOT；默认对话式结论，可出报告 / 逐条过，确认后承接改写）
 - **元 skill**（项目上下文 / skill 本体工程）：
-  - `yzr-multi-agent-context` —— `CLAUDE.md` → `AGENTS.md` 单源 + `CLAUDE.md` 薄壳改造
   - `yzr-skill-creator` —— 创建 / 改进 / 评估 skill 本体
 
 外部 skill（按需）：`gemini-api-dev` / `gemini-live-api-dev` / `gemini-interactions-api`

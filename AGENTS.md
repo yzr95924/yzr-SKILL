@@ -6,12 +6,11 @@
 ## 项目定位
 
 个人自定义 AI skills 合集：每个 `yzr-*/` 子目录是一个独立 skill，经 npx 分发；本仓同时是"造 skill"
-的元仓。六个 skill：
+的元仓。五个 skill：
 
 - `yzr-skill-creator`（元）：创建 / 改进 / 评估 / 校验 skill 本身
 - `yzr-coding-review`：代码 review（合理性审视 + 重构场景，语言中立，默认不改文件）
 - `yzr-writing-review`：文档 review（逻辑 / 结构 / 冗余 / AI 腔 / SSOT；确认后承接改写）
-- `yzr-multi-agent-context`：`CLAUDE.md` → `AGENTS.md` 单源 + 薄壳改造
 - `yzr-md-to-html`：本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
 - `yzr-sys-design-doc`：系统设计文档写作（full / lite 两档 + 实施任务书）
 

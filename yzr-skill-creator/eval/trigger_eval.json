@@ -4,7 +4,7 @@
   {"query": "这个 yzr-writing-review 的 description 好像老是该触发的时候不触发，帮我优化一下", "should_trigger": true},
   {"query": "yzr-md-to-html 这个 skill 的正文有点长，agent 读起来不聚焦，帮我瘦身", "should_trigger": true},
   {"query": "帮我改一下 yzr-skill-creator 里 quick_validate.py 的输出格式，现在太啰嗦了", "should_trigger": true},
-  {"query": "给 yzr-multi-agent-context 加个新功能：支持检测 CLAUDE.md 里的硬编码路径", "should_trigger": true},
+  {"query": "给 yzr-md-to-html 加个新功能：支持导出时切换浅色主题", "should_trigger": true},
   {"query": "用户反馈说 yzr-coding-review 有时候该触发不触发，行为不太对，帮我看看", "should_trigger": true},
   {"query": "帮我评估一下 yzr-sys-design-doc 这个 skill 到底有没有用，值不值得维护", "should_trigger": true},
   {"query": "上次审计完 yzr-skill-creator 的写作原则符合度，发现几个违反项，帮我修一下", "should_trigger": true},
