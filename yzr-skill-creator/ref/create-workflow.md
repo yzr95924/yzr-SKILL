@@ -40,6 +40,9 @@ frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 
 - 正文与 `ref/` 的切分口径见 [章节](../SKILL.md#执行原则) 的"归位"
 - 所有参考文件从 `SKILL.md` 直接挂
 - 一个流程的正文只写进一个 `ref/`，别的入口用"按该节执行"式指针复用，抄成两份禁止，"权威定义在 b"式指路可以
+- 标点基线：中文语境一律全角 `（）`、`，`、`；`、`：`；半角保留在 `Step N:` 式标题、英文标签
+  （`**Reviewer**:`）、`file:line` 类技术写法与 URL / 锚点；frontmatter、代码跨度 / 围栏、markdown
+  链接语法不动。批量替换要防跨行配对误伤，改后逐处过 diff
 
 第 1 步标注的机械项此时落 `tools/` 清单，逐条过两问：
 
