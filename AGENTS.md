@@ -6,13 +6,7 @@
 ## 项目定位
 
 个人自定义 AI skills 合集：每个 `yzr-*/` 子目录是一个独立 skill，经 npx 分发；本仓同时是"造 skill"
-的元仓。五个 skill：
-
-- `yzr-skill-creator`（元）：创建 / 改进 / 评估 / 校验 skill 本身
-- `yzr-coding-review`：代码 review（合理性审视 + 重构场景，语言中立，默认不改文件）
-- `yzr-writing-review`：文档 review（逻辑 / 结构 / 冗余 / AI 腔 / SSOT；确认后承接改写）
-- `yzr-md-to-html`：本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
-- `yzr-sys-design-doc`：系统设计文档写作（full / lite 两档 + 实施任务书）
+的元仓。skill 名单与简介见 [README.md](./README.md)，此处不另立副本。
 
 ## 仓库规约
 
@@ -85,12 +79,12 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 .
 ├── AGENTS.md / CLAUDE.md        # 项目上下文 SSOT + Claude 薄壳（@AGENTS.md + 逃生舱）
 ├── MEMORY/                      # 跨会话"为什么 + 边界"（MEMORY.md 索引，条目正文同级）
-├── README.md                    # 设计原则 / 依赖 / skill 分类
+├── README.md                    # 门面入口：定位 / SKILLs 名单 / 快速开始 / 设计原则
 ├── pyproject.toml               # ruff 唯一配置（py37 + 120 列）
 ├── .markdownlint.jsonc          # MD013 放宽到 120；MD041 / MD060 关闭
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
 ├── .github/workflows/ci.yml     # CI = verify --strict-tools + 仓库级 markdownlint + 冒烟循环
-└── yzr-*/                       # 六个 skill；yzr-skill-creator 内部：
+└── yzr-*/                       # 各 skill 目录；yzr-skill-creator 内部：
     ├── SKILL.md                 #   入口表（4 个入口）
     ├── tools/                   #   verify / quick_validate / check_* / audit_prose / eval_* / optimize_description
     ├── tests/                   #   smoke_test_*（打桩冒烟）+ _fixtures.py（共享夹具）
