@@ -1,12 +1,12 @@
 # 改写规则 R1–R6
 
 > 本文件是“迁移时怎么改写每段内容”的 SSOT。Step 2 / 3 改写、Step 4 生成薄壳时读它。
-> SKILL.md 只给摘要 + 指针，不重抄。
+> SKILL.md 只给摘要 + 指针，不重抄
 
 ## R1 — 工具无关化（去品牌绑定）
 
 **原则：不改事实，只去品牌。** 去掉对 Claude Code 的专有称呼，换成工具无关说法，让 AGENTS.md
-对任何 agent 都成立。
+对任何 agent 都成立
 
 | 原文 | 替换为 | 备注 |
 |------|-------|------|
@@ -20,17 +20,17 @@
 
 **判断是否需要保留工具名**：如果去掉工具名后，读者无法理解约束的来源（比如某个 workaround 是因为
 特定 agent 的 bug），用 `部分 agent` / `某些 agent` 替代具体名字，保留可追溯性，而不是硬删。
-一句话测试：**"另一个 agent 的用户读到这句，能不能照样执行？"** 能 → 去品牌；不能 → 考虑 R5 逃生舱。
+一句话测试：**"另一个 agent 的用户读到这句，能不能照样执行？"** 能 → 去品牌；不能 → 考虑 R5 逃生舱
 
-> R1 不动的事实：命令名（`python3 -m tools.optimize_description`）、文件路径（`yzr-skill-creator/tools/`）、
-> 工具行为（"截断 MCP 多 block"）都保留，只换对工具的称呼。
+> R1 不动的事实：命令名（如 `python3 -m <包>.<模块>`）、文件路径（如 `<同级 skill>/tools/`）、
+> 工具行为（"截断 MCP 多 block"）都保留，只换对工具的称呼
 
 ## R2 — 记忆索引 `@import` 收口（不回退内联）
 
 `MEMORY.md` 是 L2 索引的**唯一**真源。`AGENTS.md` 的“跨会话记忆（索引）”段用**单行
 `@MEMORY/MEMORY.md`** 引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**
 （见 `layering.md` 骨架）兜底，段内不再单挂指引。**不**内联索引行——内联会踩"双写漂移 / L1
-膨胀 / 真源分裂"三个坑，理由详见 SKILL.md“设计与原理”L2 段（此处不重抄）。
+膨胀 / 真源分裂"三个坑，完整理由见 [`layering.md`](layering.md)"L2 索引收口"一节（此处不重抄）
 
 完整段落模板（顶部强制 Read 指令见 `layering.md` 骨架，逐字拷到 AGENTS.md 顶部；本段只剩引用一行）：
 
@@ -49,35 +49,35 @@
 
 `MEMORY.md` 加 / 删条目时**只改一处**（`MEMORY/MEMORY.md`）；`AGENTS.md` 的 `@MEMORY/MEMORY.md` 一行
 不需要动。Step 5 的覆盖率脚本校验 AGENTS.md 有 `@MEMORY/MEMORY.md` 引用 +
-顶部强制 Read 指令存在 + `MEMORY/MEMORY.md` 文件存在——L2 索引不会与 AGENTS.md 漂移。
+顶部强制 Read 指令存在 + `MEMORY/MEMORY.md` 文件存在——L2 索引不会与 AGENTS.md 漂移
 
 路径 2 诊断时若发现"AGENTS.md 把记忆索引 inline 进正文"这种老形态，按 R2 改造为 `@MEMORY/MEMORY.md`
-一行；切勿两套并存（内联 + `@import` 同时存在会让 L1 词数翻倍，且不知道哪家真源赢）。
+一行；切勿两套并存（内联 + `@import` 同时存在会让 L1 词数翻倍，且不知道哪家真源赢）
 
 ### 写统一（默认，见 R6）
 
-R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一——agent 把新记忆写到 `MEMORY/` 而非
-私有 memory——已由“可选”升为**默认**，连同“MEMORY 仓 repo-local + 不存在则在 repo 下建”一起收口到
-**R6**（禁私有 memory 理由 + 最小 `MEMORY.md` 模板 + 写入规约均在那里）。本节不再单挂，避免与 R6 双写漂移。
+R2 只管**读**统一（MEMORY 索引怎么挂到 AGENTS.md）；**写**统一——agent 把新记忆写到 `MEMORY/` 而非
+私有 memory——连同"MEMORY 仓 repo-local + 不存在则在 repo 下建"一起收口在 **R6**（禁私有 memory 理由 +
+最小 `MEMORY.md` 模板 + 写入规约均在那里），本节不单挂规则，避免与 R6 双写漂移
 
 ## R3 — 行宽不变
 
 原文遵守的行宽约束（本仓库示例：`.markdownlint.jsonc` MD013）在改写后继续遵守。
-改写时若加了文字，注意回行；最后 Step 5 跑 `markdownlint` 复核 0 error。
+改写时若加了文字，注意回行；最后 Step 5 跑 `markdownlint` 复核 0 error
 
 ## R4 — MEMORY 改写
 
 `MEMORY/` 下所有文件（`MEMORY.md` 索引 + 各 `<slug>.md` 正文）的品牌引用按 R1 改写。
 **目录结构和文件数量不变**——只改措辞，不合并 / 拆分 / 删除条目。自检：
-`grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤"CC"作缩写）。
+`grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤"CC"作缩写）
 
 ## R5 — 不可泛化内容的逃生舱
 
 如果某段内容**确实无法泛化为工具无关表述**（比如 `~/.claude/skills/<name>` 是 vendored 副本软链、
 `.claude/settings.local.json` 预批准权限这类路径硬依赖，去掉 `.claude` 读者就无法执行），处理方式：
 
-1. 在 `AGENTS.md` 中写**泛化版本**：`评估脚本通过 agent CLI 子进程运行`。
-2. 在 `CLAUDE.md` 薄壳尾部追加**具体实现**（见下方逃生舱格式）。
+1. 在 `AGENTS.md` 中写**泛化版本**：`评估脚本通过 agent CLI 子进程运行`
+2. 在 `CLAUDE.md` 薄壳尾部追加**具体实现**（见下方逃生舱格式）
 
 **逃生舱内容的判定标准**：去掉工具名后，读者无法执行该操作。典型场景：
 
@@ -86,7 +86,7 @@ R2 解决**读**统一（MEMORY 索引怎么挂到 AGENTS.md）。**写**统一�
 - Claude Code 特有 MCP 行为（如截断多 block）需要点名才能定位
 
 **不要**把"只是提到 Claude Code 名字"的内容塞进逃生舱——那些 R1 去品牌后归 L1 即可。逃生舱只收
-"点名才能执行"的硬依赖。
+"点名才能执行"的硬依赖
 
 ### CLAUDE.md 薄壳模板（Step 4 用）
 
@@ -106,7 +106,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 > “薄壳声明”是**结构性指针**（指向 SSOT + 提醒勿编辑共用部分），不是被迁移的内容，不违反"薄壳不放大段正文"。
 > 它让任何打开 CLAUDE.md 的人/agent 一眼知道：真源在 AGENTS.md、这里别动。Claude Code 加载时会把它和
-> `@AGENTS.md` 展开内容一起读入，相当于一句"接下来这段是 AGENTS.md 的内容"的引导。
+> `@AGENTS.md` 展开内容一起读入，相当于一句"接下来这段是 AGENTS.md 的内容"的引导
 
 ### 逃生舱内容格式
 
@@ -133,11 +133,11 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 **原则：跨会话记忆真源是 repo 根 `MEMORY/`，不写 agent 私有 memory。** 私有 memory（如 `~/.claude/...`、
 `~/.config/...` 等会话级路径）有三个硬伤：不随仓迁移（换机器 / clone 即丢）、不进 git（无法 review /
-回滚）、多 agent 各写各的会分裂成 N 份。故 L2 记忆仓必须落在 repo 里，跟着代码走。
+回滚）、多 agent 各写各的会分裂成 N 份。故 L2 记忆仓必须落在 repo 里，跟着代码走
 
 **存在性：迁前无 `MEMORY/` → 在 repo 下新建，不跳过、不省略记忆段。** 经本 skill 迁移的 repo 一律
 拥有 repo-local L2 记忆仓。新建时只建最小索引 `MEMORY/MEMORY.md`（模板见下），不预造
-`<slug>.md`（按需再建）。
+`<slug>.md`（按需再建）
 
 最小 `MEMORY/MEMORY.md` 模板（迁前无 MEMORY/ 时 LLM 建）：
 
@@ -151,16 +151,16 @@ This file provides guidance to Claude Code when working with code in this reposi
 **写位置（写统一，默认）：AGENTS.md“仓库规约”段默认含“记忆写入规约”。** 持久化的"为什么 / 边界规则"
 写 `MEMORY/`（`MEMORY.md` 索引 + `MEMORY/<slug>.md` 正文），**禁写** agent 私有 memory。两种条目形式
 （完整带 frontmatter 三件套 `name` / `description` / `metadata.type` / 短 memory 索引行）的模板见
-[`layering.md`](layering.md) 骨架“仓库规约”段——本规则只管"写哪 / 不写哪"，条目格式细节不重抄。
+[`layering.md`](layering.md) 骨架“仓库规约”段——本规则只管"写哪 / 不写哪"，条目格式细节不重抄
 
 > 写统一在本 skill 内是**默认**：用户明确要“记忆跟 repo 走”。各 agent 对"执行 AGENTS.md 写入
 > 指令"的程度仍不一——本规则保证**指令在场且明确**（生成的 AGENTS.md 必含写入规约 + 禁私有
-> memory），至于单个 agent 是否照办是其执行层问题，不在本 skill 上下文。
+> memory），至于单个 agent 是否照办是其执行层问题，不在本 skill 上下文
 
 **自检**：
 
-- `test -f MEMORY/MEMORY.md` 应存在（迁前无 MEMORY/ 的项目迁后必有）。
-- AGENTS.md“仓库规约”段含“不写私有 memory”/“写 `MEMORY/`”类措辞。
+- `test -f MEMORY/MEMORY.md` 应存在（迁前无 MEMORY/ 的项目迁后必有）
+- AGENTS.md“仓库规约”段含“不写私有 memory”/“写 `MEMORY/`”类措辞
 
 ## 路径 2 规范化诊断清单（Step 1 路径 2 用）
 
@@ -177,7 +177,7 @@ Step 1 不扫描段落分层，而是对现有 AGENTS.md 跑这份诊断，逐�
 | 工具专属内容混在正文 | 正文有"点名才能执行"硬依赖（如 `claude -p`） | 按 R5 抽进 CLAUDE.md 薄壳逃生舱，AGENTS.md 留泛化版 |
 
 诊断结果输出一张表（诊断项 → 现状 → 动作），展示给用户确认。**不破坏性覆盖**：Step 0 已就覆盖 / 合并
-策略征得用户同意。
+策略征得用户同意
 
 > 诊断项"记忆段是旧内联形态"命中时：索引行**迁回** `MEMORY.md`（L2 真源已有副本就直接删 AGENTS.md
-> 那批；没有就以 `MEMORY.md` 当前内容为准）。两套并存时删内联、留 `@import`。
+> 那批；没有就以 `MEMORY.md` 当前内容为准）。两套并存时删内联、留 `@import`

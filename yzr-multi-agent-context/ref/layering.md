@@ -1,9 +1,9 @@
 # 内容分层模型（L1 / L2）
 
 > 本文件是“迁移时每段内容该落到哪里”的 SSOT。Step 1 给段落分类、Step 2 组织 AGENTS.md 时读它。
-> SKILL.md 只给摘要 + 指针，不重抄。
+> SKILL.md 只给摘要 + 指针，不重抄
 
-所有内容按"加载频率"分两层，决定它放在哪个文件。
+所有内容按"加载频率"分两层，决定它放在哪个文件
 
 ## 两层定义
 
@@ -14,7 +14,18 @@
 
 > 只有这两层。本 skill **不生成任何 agent 专属的触发式 rule 文件**（如部分 agent 的自家触发式 rule 目录）——
 > 那类机制官方多未文档化，且 `AGENTS.md` 主路径已让读它的 agent 兼容；触发式拆分交给用户在目标
-> agent 的 IDE 里自行配置。本 skill 只负责产出工具无关的 `AGENTS.md` + 薄壳 `CLAUDE.md` + `MEMORY/`。
+> agent 的 IDE 里自行配置。本 skill 只负责产出工具无关的 `AGENTS.md` + 薄壳 `CLAUDE.md` + `MEMORY/`
+
+## L2 索引收口（为什么 `@import` + 顶部 Read 指令，不内联）
+
+`MEMORY.md`（索引）放 `MEMORY/` 下，AGENTS.md 只用 `@MEMORY/MEMORY.md` 单行引入。agent 按是否自动
+展开 `@import` 分两类：展开的（递归 import / 原生支持 `@path`）会把索引正文展开进上下文；不展开的
+仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read 指令**（见下方骨架，对所有 agent 一视同仁）：
+凡 `@` 引用都用 Read 读——不展开的据此拿到索引，展开的读了也无害
+
+不把索引内联进 AGENTS.md 正文：内联要双写（`MEMORY.md` 改一处就得回贴 AGENTS.md，必漂移）、推高
+L1 词数、把记忆 SSOT 从 `MEMORY.md` 分裂成"MEMORY.md + AGENTS.md"双源；而自动展开的 agent 本就
+把索引读入，不展开的由顶部指令补回——不值得为不展开的少数内联
 
 ## 段落分层决策树（Step 1 用）
 
@@ -43,7 +54,7 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 | CAUTION | 注意事项 / tip / warning | 就近合并到 L1 |
 
 > `TOOL_SPECIFIC` 是唯一可能进逃生舱的类型——判定标准见 [`rewrite-rules.md`](rewrite-rules.md) R5：
-> "去掉工具名后读者无法执行该操作"才进逃生舱；否则 R1 去品牌后归 L1。
+> "去掉工具名后读者无法执行该操作"才进逃生舱；否则 R1 去品牌后归 L1
 
 ## AGENTS.md 骨架（Step 2 用）
 
@@ -52,7 +63,7 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 
 > **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具按需
 > 读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
-<!-- ↑ 顶部强制 Read 指令（H1 后、首个 `##` 前必放；有导语则放导语后）。逐字拷入,不内联到段内。 -->
+<!-- ↑ 顶部强制 Read 指令（H1 后、首个 `##` 前必放；有导语则放导语后）。逐字拷入，不内联到段内。 -->
 
 ## 项目定位                          ← IDENTITY (L1)
 
@@ -92,4 +103,4 @@ Q1: 这段内容在 > 50% 的 session 中都需要吗？
 **L1 词数控制**：正文总词数守 L1 预算（§两层定义），记忆索引段只占 1 行（`@MEMORY/MEMORY.md`），
 **不**计入 L1 词数预算——索引真实数据走 `MEMORY/MEMORY.md`，AGENTS.md 这段本质是引用 + fallback，不是内容。
 如果 L1 内容超出 L1 预算，说明描述太详细——把“为什么”类设计决策下沉到 L2（`MEMORY/<slug>.md`），
-L1 只保留摘要。索引本身无条数上限——索引只活在 `MEMORY/MEMORY.md`，AGENTS.md 只引用不计数。
+L1 只保留摘要。索引本身无条数上限——索引只活在 `MEMORY/MEMORY.md`，AGENTS.md 只引用不计数

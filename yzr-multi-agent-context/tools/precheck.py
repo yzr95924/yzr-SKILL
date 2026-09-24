@@ -1,25 +1,13 @@
 #!/usr/bin/env python3
-"""
-Step 0 前置检查 + 路径判定：报告项目状态并路由到两条归约路径之一（① CLAUDE.md 迁移 /
-② 已有 AGENTS.md 规范化），统一收敛到“AGENTS.md 单一真源”。
-
-裸项目（既无 CLAUDE.md 又无 AGENTS.md）不在本 skill 范围——请先用 agent 的 /init 生成初始上下文。
-
-用法：
-    python3 scripts/precheck.py [project-root]     # 默认 cwd
-
-退出码：
-    0  两条路径之一成立（即使有需用户确认的项也算通过——本脚只报告、不拦阻）
-    1  硬阻塞（项目根无效，或既无 CLAUDE.md 又无 AGENTS.md——走 /init）
-"""
+"""Step 0 前置检查 + 路径判定：报告项目状态并路由两条归约路径之一；只报告不拦阻，裸项目退出码 1。"""
 
 import re
 import sys
 from pathlib import Path
 from typing import List, Tuple
 
-# Bootstrap sys.path so `python3 -m scripts.precheck` (从 skill 根) 也能跑，
-# 与 `python3 scripts/precheck.py`（独立）行为一致。本脚本无包内 import，
+# Bootstrap sys.path so `python3 -m tools.precheck` (从 skill 根) 也能跑，
+# 与 `python3 tools/precheck.py`（独立）行为一致。本脚本无包内 import，
 # bootstrap 仅保持调用形式一致。
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -88,9 +76,10 @@ def check_project(root: Path) -> Tuple[List[str], bool]:
 
 
 def main() -> int:
+    """CLI 入口：打印项目状态与路径判定；就绪退 0，硬阻塞退 1，用法错误退 2。"""
     root_str = "." if len(sys.argv) <= 1 else sys.argv[1]
     if len(sys.argv) > 2 or root_str in ("-h", "--help"):
-        print("用法: python3 scripts/precheck.py [project-root]")
+        print("用法: python3 tools/precheck.py [project-root]")
         return 2
     lines, ready = check_project(Path(root_str).resolve())
     print("\n[precheck] Step 0 前置检查")

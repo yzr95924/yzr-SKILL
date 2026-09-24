@@ -20,33 +20,25 @@ metadata:
 
 把一个工程的项目上下文归约成“**AGENTS.md 作单一真源（SSOT）、对多个 agent 兼容**”——`CLAUDE.md`
 或已有的 `AGENTS.md` 经两条路径收敛到同一份工具无关的 `AGENTS.md`，各 agent 各用各的入口加载它
-（原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md → @AGENTS.md` 的），不必维护两份。
+（原生读 AGENTS.md 的 / 经薄壳 `CLAUDE.md → @AGENTS.md` 的），不必维护两份
 
 ## 设计与原理
 
 核心是让 **`AGENTS.md` 成为单一真源**：所有项目上下文只在这里维护一份，`CLAUDE.md` 退化成引入它的
 薄壳（加少量 Claude 专属逃生舱）。`AGENTS.md` 是跨 agent 的事实标准——原生读它的 agent 都**原生识别**，
 无需额外配置；不原生读 `AGENTS.md` 的 agent 则经薄壳 `CLAUDE.md → @AGENTS.md` 引入同一份内容，
-且支持**递归** `@import`，故 AGENTS.md 内的 `@MEMORY/MEMORY.md` 也会被自动展开。
+且支持**递归** `@import`，故 AGENTS.md 内的 `@MEMORY/MEMORY.md` 也会被自动展开
 
-**L2 记忆层用 `@MEMORY/MEMORY.md` 收口**（R2；此理由只在此讲一次，Step 2（组织 AGENTS.md）/ Step 3（MEMORY）均引用本段）：
-`MEMORY.md`（索引文件）放在 `MEMORY/` 下，AGENTS.md 用 `@MEMORY/MEMORY.md` 单行引入——会自动展开
-`@import` 的 agent（递归 import / 原生支持 `@path`）会把索引正文展开到上下文；不展开 `@import` 的
-agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
-指令**（对所有 agent 一视同仁）：凡 `@` 引用都用 Read 读——不展开的据此 `Read MEMORY/MEMORY.md` 拿到
-索引，展开的读了也无害（从“段内逐点补指引”升级为“一条通则兜底”，不再绑定具体 agent）。
+**L2 记忆层用 `@MEMORY/MEMORY.md` 收口**（R2）：AGENTS.md 单行引入索引 + **顶部强制 Read 指令**通吃
+展开与否两类 agent——一条通则，不绑定具体 agent、段内不再单挂指引；为什么不把索引内联进正文、
+展开行为怎么分类，完整理由见 [`ref/layering.md`](ref/layering.md)"L2 索引收口"一节
 
-为什么不把 MEMORY.md 索引内联进 AGENTS.md 正文：内联要双写（MEMORY.md 改一处就得回贴 AGENTS.md，
-必漂移）、推高 L1 词数、把记忆 SSOT 从 MEMORY.md 分裂成“MEMORY.md + AGENTS.md”双源。而自动展开
-`@import` 的 agent 本就把索引读入，不展开的由顶部指令补回——不值得为不展开的少数内联。
+**记忆跟 repo 走**（R6）：跨会话记忆真源是 repo 根 `MEMORY/`，禁写 agent 私有 memory；迁前无
+`MEMORY/` 时在 repo 下新建最小 `MEMORY/MEMORY.md` 索引，不跳过、不省略记忆段（私有路径三个硬伤见 R6）
 
-**记忆跟 repo 走**（R6）：跨会话记忆的真源是 repo 根 `MEMORY/`，不是 agent 私有 memory（如
-`~/.claude/...`）——私有路径不随仓迁移 / 不进 git / 多 agent 各写分裂。故迁前无 `MEMORY/` 时在 repo 下
-新建最小 `MEMORY/MEMORY.md` 索引（R6），不跳过、不省略记忆段。
-
-完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见 [`references/layering.md`](references/layering.md)
+完整分层模型（L1 常驻 / L2 记忆）与**段落分层决策树**见 [`ref/layering.md`](ref/layering.md)
 ——Step 1 给段落分类时读它；改写规则 R1–R6 + 路径 2 诊断清单见
-[`references/rewrite-rules.md`](references/rewrite-rules.md)——Step 2 / 3 / 4（生成 AGENTS.md / MEMORY / 薄壳）对照执行。
+[`ref/rewrite-rules.md`](ref/rewrite-rules.md)——Step 2 / 3 / 4（生成 AGENTS.md / MEMORY / 薄壳）对照执行
 
 兼容性矩阵（按加载行为分类，不逐家点名——是否自动展开 `@import` 已由顶部强制 Read 指令通吃）：
 
@@ -57,7 +49,7 @@ agent 仅把它当文本。故 AGENTS.md **顶部**挂一条**强制 Read
 | L2 记忆正文 | 按需 Read | 按需 Read |
 | 触发式 rule | 不涉及（全读）；部分 agent 自家触发式 rule 目录本 skill 不生成 | 同左 |
 
-薄壳结构 + 三家信息流：
+薄壳结构 + 信息流：
 
 ```text
 AGENTS.md                    唯一真源（工具无关，人工维护的唯一目标）
@@ -67,9 +59,6 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
   ├── @AGENTS.md             引入全部共用内容（递归展开里面的 @MEMORY/MEMORY.md）
   └── <!-- Claude Code 专属 -->  几行无法泛化的工具绑定内容（如有）
 ```
-
-任一 agent 启动 → 读 `AGENTS.md` → L2 按上表展开或按顶部强制 Read 指令读——Step 1 段落分层决策树见
-[`references/layering.md`](references/layering.md)。
 
 ## 输入与输出
 
@@ -101,15 +90,15 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 | 项目状态 | 路径 | 前半段（源提取） |
 |---|---|---|
 | 有 `CLAUDE.md`，无 `AGENTS.md` | **1 迁移** | 扫描 CLAUDE.md 段落分类 → 去品牌（现有流程） |
-| 有 `AGENTS.md`（可能 +`CLAUDE.md`） | **2 规范化** | 诊断现有 AGENTS.md（品牌残留？记忆段形式？）+ 合并并存 CLAUDE.md，冲突让用户裁定；清单见 [`references/rewrite-rules.md`](references/rewrite-rules.md) |
+| 有 `AGENTS.md`（可能 +`CLAUDE.md`） | **2 规范化** | 诊断现有 AGENTS.md（品牌残留？记忆段形式？）+ 合并并存 CLAUDE.md，冲突让用户裁定；清单见 [`ref/rewrite-rules.md`](ref/rewrite-rules.md) |
 | 都没有（裸项目） | 硬阻塞 | 不在本 skill 范围——先用 agent 的 `/init` 生成初始 `CLAUDE.md` / `AGENTS.md` 再来 |
 
-两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让不原生读 `AGENTS.md` 的 agent 也加载同一份内容。
+两条都收敛到同一份工具无关 `AGENTS.md` SSOT，并产出 `CLAUDE.md` 薄壳让不原生读 `AGENTS.md` 的 agent 也加载同一份内容
 
 ## 执行原则
 
 - **只动上下文文件**（`CLAUDE.md` / `AGENTS.md` / `MEMORY/`）——不碰迁移权限
-  （如 `.claude/settings.local.json`）、MCP 配置、`scripts/` / `references/`
+  （如 `.claude/settings.local.json`）、MCP 配置、目标项目的 `scripts/` / `references/` 等非上下文文件
 - **不删 `CLAUDE.md`**——本 skill 保留薄壳共存；彻底删需用户显式确认
 - **不生成 agent 专属触发式 rule 文件**（如 `.qoder/rules/`）——官方多未文档化，交给用户在
   目标 agent IDE 配置
@@ -117,24 +106,24 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 ### 改写规则 R1–R6（摘要）
 
 - **R1 工具无关化**：去品牌、不改事实。完整替换表（`Claude Code` → `AI coding agent`、`claude -p` →
-  `agent CLI` 等，含"何时保留工具名"判定）见 [`references/rewrite-rules.md`](references/rewrite-rules.md)——
-  Step 2 / 3 改写时对照。
+  `agent CLI` 等，含"何时保留工具名"判定）见 [`ref/rewrite-rules.md`](ref/rewrite-rules.md)——
+  Step 2 / 3 改写时对照
 - **R2 记忆索引 `@import` 收口**：AGENTS.md 的 `## 跨会话记忆（索引）` 段用单行 `@MEMORY/MEMORY.md`
   引入索引——不展开 `@import` 的 agent 由 AGENTS.md **顶部强制 Read 指令**兜底（见 `layering.md` 骨架），
-  段内不再单挂指引。**不**内联索引行——理由见上方 [章节](#设计与原理) 的 L2 记忆层段（Step 2 引用同一 R2 模板）。
+  段内不再单挂指引。**不**内联索引行——理由见上方 [章节](#设计与原理) 的 L2 记忆层段（Step 2 引用同一 R2 模板）
 - **记忆写统一（默认，见 R6）**：R2 解决**读**统一；**写**统一（agent 把新记忆写 `MEMORY/` 而非私有
   memory）是默认，连同 repo-local + 存在性一起收口到 R6（禁私有 memory + 最小 `MEMORY.md` 模板 +
-  写入规约）。详见 `references/rewrite-rules.md` R6。
+  写入规约）。详见 `ref/rewrite-rules.md` R6
 - **R3 行宽不变**：保持原文行宽约束（如 `.markdownlint.jsonc` MD013）——完整约束见
-  [`references/rewrite-rules.md`](references/rewrite-rules.md) R3。
+  [`ref/rewrite-rules.md`](ref/rewrite-rules.md) R3
 - **R4 MEMORY 改写**：MEMORY 正文按 R1 去品牌，目录结构 / 文件数不变（仅改措辞，不合并 / 拆分 /
-  删除条目）——完整约束见 [`references/rewrite-rules.md`](references/rewrite-rules.md) R4。
+  删除条目）——完整约束见 [`ref/rewrite-rules.md`](ref/rewrite-rules.md) R4
 - **R5 逃生舱**：无法泛化的工具专属内容（如脚本硬编码 `claude -p` 子进程），在 AGENTS.md 写泛化版、
-  在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱。
+  在 CLAUDE.md 薄壳尾部追加具体实现。**判定标准**：去掉工具名后读者无法执行该操作 → 进逃生舱
 - **R6 MEMORY 仓 repo-local + 存在性**：跨会话记忆真源 = repo 根 `MEMORY/`，禁写 agent 私有 memory
   （`~/.claude/...`）。迁前无 `MEMORY/` → 在 repo 下建 `MEMORY/MEMORY.md` 最小索引（不跳过、不省略
   记忆段）；“仓库规约”段默认含写入规约。完整约束 + 模板见
-  [`references/rewrite-rules.md`](references/rewrite-rules.md) R6。
+  [`ref/rewrite-rules.md`](ref/rewrite-rules.md) R6
 
 ### 运行约束
 
@@ -143,42 +132,42 @@ CLAUDE.md                    薄壳（自动生成，不需要人工维护）
 
 ## 工作流
 
-> 贯穿全程：分类表（Step 1）、逃生舱内容（Step 4）两处**交互确认点**，不要静默决断。
+> 贯穿全程：分类表（Step 1）、逃生舱内容（Step 4）两处**交互确认点**，不要静默决断
 
-### Step 0：前置检查 + 路径判定（跑 `scripts/precheck.py`，从 skill 根）
+### Step 0：前置检查 + 路径判定（跑 `tools/precheck.py`，从 skill 根）
 
 ```bash
-python3 scripts/precheck.py <project-root>
+python3 tools/precheck.py <project-root>
 ```
 
 报告项目状态并按上方路由表判定路径；同时报告 `MEMORY/` 是否存在。**路径 2 修改现有 `AGENTS.md`
-（规范化 / 合并并存 `CLAUDE.md`）时停下来让用户确认合并策略**，绝不静默覆盖。
+（规范化 / 合并并存 `CLAUDE.md`）时停下来让用户确认合并策略**，绝不静默覆盖
 
 ### Step 1：快照 + 源提取（按路径分支）
 
 1. 快照源文件到 `.migration-backup/`（路径 1 快照 `CLAUDE.md`；路径 2 快照原 `AGENTS.md`，并存
    `CLAUDE.md` 时一并快照）——Step 5 覆盖率比对要用，这是**唯一机会**；该目录仅为临时用途，
-   Step 5 收尾时删除。
+   Step 5 收尾时删除
 2. 按路径提取源内容：
-   - **路径 1**：解析 `CLAUDE.md` 所有 `##` 段落，跑 [`references/layering.md`](references/layering.md) 分层决策树。
-   - **路径 2**：对现有 `AGENTS.md` 跑 [`references/rewrite-rules.md`](references/rewrite-rules.md) 的**规范化诊断清单**
-     （品牌残留？有无 L2 记忆内联？有无 MEMORY 支持？）；若 `CLAUDE.md` 并存，一并解析按层决策树合并。
-3. 输出分类 / 诊断表，**展示给用户确认 / 调整**再继续。
+   - **路径 1**：解析 `CLAUDE.md` 所有 `##` 段落，跑 [`ref/layering.md`](ref/layering.md) 分层决策树
+   - **路径 2**：对现有 `AGENTS.md` 跑 [`ref/rewrite-rules.md`](ref/rewrite-rules.md) 的**规范化诊断清单**
+     （品牌残留？有无 L2 记忆内联？有无 MEMORY 支持？）；若 `CLAUDE.md` 并存，一并解析按层决策树合并
+3. 输出分类 / 诊断表，**展示给用户确认 / 调整**再继续
 
 ### Step 2：生成 AGENTS.md（LLM，核心步）
 
-1. 按 [`references/layering.md`](references/layering.md) 的 AGENTS.md 骨架组织 L1 内容
-   （项目定位 / 仓库规约 / 常用命令 / 高层结构 / 注意事项）。
-   - **路径 1**：CLAUDE.md 段落去品牌改写入骨架。
+1. 按 [`ref/layering.md`](ref/layering.md) 的 AGENTS.md 骨架组织 L1 内容
+   （项目定位 / 仓库规约 / 常用命令 / 高层结构 / 注意事项）
+   - **路径 1**：CLAUDE.md 段落去品牌改写入骨架
    - **路径 2**：在现有 AGENTS.md 基础上规范化（改记忆段为 `@MEMORY/MEMORY.md`、去品牌残留、
-     合并 CLAUDE.md 内容去重），冲突口径让用户裁定。
+     合并 CLAUDE.md 内容去重），冲突口径让用户裁定
 2. 加 `## 跨会话记忆（索引）` 段落（R2）：**单行 `@MEMORY/MEMORY.md`**——段内不再挂段内指引（不展开
    `@import` 的 agent 由顶部强制 Read 指令兜底）。**无 `MEMORY/` 时先在 repo 下建 `MEMORY/MEMORY.md`
-   最小索引（R6）再放本段**——不再因“无 MEMORY/”省略。完整段落模板见
-   [`references/rewrite-rules.md`](references/rewrite-rules.md) R2。
-3. 应用 R1（去品牌）+ R3（行宽）。
-4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`references/layering.md`](references/layering.md)）；
-   超出把详细内容下沉到 L2（`MEMORY/`）。
+   最小索引（R6）再放本段**。完整段落模板见
+   [`ref/rewrite-rules.md`](ref/rewrite-rules.md) R2
+3. 应用 R1（去品牌）+ R3（行宽）
+4. 控制 L1 正文词数（预算 + 记忆索引不计入的规则见 [`ref/layering.md`](ref/layering.md)）；
+   超出把详细内容下沉到 L2（`MEMORY/`）
 5. 自检：
    - `grep -iE "claude code|\.claude/" AGENTS.md` 应无命中（去品牌通过）
    - `grep -nE '^@MEMORY/MEMORY\.md$' AGENTS.md` 应有 1 行命中（R2 引用；MEMORY/ 现为默认存在，见 R6）
@@ -187,37 +176,37 @@ python3 scripts/precheck.py <project-root>
 ### Step 3：MEMORY（LLM）——存在则去品牌，不存在则建仓
 
 - **存在**：应用 R4——MEMORY 正文按 R1 去品牌，目录结构 / 文件数量不变。自检
-  `grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤缩写）。
+  `grep -riE "claude code|Claude Code|\bCC\b" MEMORY/` 应无命中（`\bCC\b` 避免误伤缩写）
 - **不存在**：应用 R6——在 repo 下新建 `MEMORY/MEMORY.md` 最小索引（模板见
-  [`references/rewrite-rules.md`](references/rewrite-rules.md) R6）。新文件无品牌可去，只建仓。
+  [`ref/rewrite-rules.md`](ref/rewrite-rules.md) R6）。新文件无品牌可去，只建仓
 
 ### Step 4：生成 CLAUDE.md 薄壳
 
 让不原生读 `AGENTS.md` 的 agent（经 `CLAUDE.md` 加载）也能用上同一份：有现有 `CLAUDE.md`（路径 1；路径 2 并存场景）则改写成薄壳；
-纯 `AGENTS.md` 项目（路径 2 无 CLAUDE.md）则新建最小薄壳。按 [`references/rewrite-rules.md`](references/rewrite-rules.md)
+纯 `AGENTS.md` 项目（路径 2 无 CLAUDE.md）则新建最小薄壳。按 [`ref/rewrite-rules.md`](ref/rewrite-rules.md)
 的薄壳模板：顶部“薄壳声明”（点明 AGENTS.md 是单一真源、勿在此编辑共用部分）+ `@AGENTS.md` +
 `<!-- Claude Code 专属 -->` 逃生舱（Step 2 识别出的 TOOL_SPECIFIC 内容，按 R5 处理）。没有逃生舱内容就省略注释块。
 **逃生舱内容展示给用户确认。** 自检口径（行数上限、`@AGENTS.md` 存在、薄壳声明、无大段正文）见
-[`references/rewrite-rules.md`](references/rewrite-rules.md) 薄壳验证段。
+[`ref/rewrite-rules.md`](ref/rewrite-rules.md) 薄壳验证段
 
-### Step 5：覆盖率验证（跑 `scripts/coverage.py`，从 skill 根）
+### Step 5：覆盖率验证（跑 `tools/coverage.py`，从 skill 根）
 
 ```bash
-python3 scripts/coverage.py <project-root>
+python3 tools/coverage.py <project-root>
 ```
 
 拿 Step 1 快照的原 `CLAUDE.md`，逐行 token 比对 `AGENTS.md` + 薄壳 `CLAUDE.md`
 （内置去品牌归一化，让 `Claude Code`→`agent` 后仍能匹配），输出未匹配行清单 + 覆盖率 %。
 **未匹配行 ≠ 一定丢失**——可能是去品牌改写或合理下沉；逐条与用户确认是丢失还是改写。
-覆盖率 100% 是目标。最后跑 `markdownlint` 检查所有新 / 改文件 0 error。
+覆盖率 100% 是目标。最后跑 `markdownlint` 检查所有新 / 改文件 0 error
 
 **收尾删除 `.migration-backup/`**：flag 全部逐条确认完毕 + markdownlint 0 error 后，快照使命完成——
 `rm -rf .migration-backup/`，不把临时目录留在用户项目里（git 项目原文随时可从历史恢复）。
-有未决 flag / 用户还要回滚比对时先留着，下轮验证通过再删。
+有未决 flag / 用户还要回滚比对时先留着，下轮验证通过再删
 
 ## 参考样例
 
-**端到端最小示例（路径 1 迁移）**。输入：项目根只有一份 `CLAUDE.md`。
+**端到端最小示例（路径 1 迁移）**。输入：项目根只有一份 `CLAUDE.md`
 
 > 用户："这个项目只有 CLAUDE.md，帮我迁成多 agent 都能读的 AGENTS.md"
 >

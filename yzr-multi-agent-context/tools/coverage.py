@@ -1,24 +1,5 @@
 #!/usr/bin/env python3
-"""
-Step 5 覆盖率验证：比对原 CLAUDE.md 与迁移后的 AGENTS.md + 薄壳 CLAUDE.md，
-逐行检查原文的 ascii 信息点（路径 / 命令 / 标识符）是否在新结构里保留。
-
-原理：迁移会改写中文措辞并去品牌（Claude Code → agent），但**事实性 ascii 标识符**（如
-`yzr-coding-review`、`optimize_description.py`、`create_attachment`）应当保留。本脚把每条原文行的高信号
-ascii token 拿去新结构里找：找不到 = 该行信息点可能丢失，需人工复核。
-
-用法：
-    python3 scripts/coverage.py [project-root] [--threshold 0.5] [--min-tokens 4]
-
-退出码：
-    0  源文件可读、比对完成（无论是否 flag——本脚是 advisory）
-    1  硬错误（找不到 Step 1 快照的源文件）
-
-局限（诚实声明）：
-    - 纯中文 / 无 ascii 的行无法用此法评估，会跳过并计数——这些行需人工确认。
-    - flag 不等于丢失：可能是去品牌改写 / 合理下沉到 MEMORY。输出里会给每条 flag
-      "最佳匹配位置"，辅助判断。
-"""
+"""Step 5 覆盖率验证：逐行比对 Step 1 快照与新结构（AGENTS.md + 薄壳 CLAUDE.md）的 ascii 信息点；advisory 不拦阻，缺快照才退出 1。"""
 
 import argparse
 import re
@@ -26,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Bootstrap sys.path：保持 `python3 -m scripts.coverage` 与 `python3 scripts/coverage.py` 一致。
+# Bootstrap sys.path：保持 `python3 -m tools.coverage` 与 `python3 tools/coverage.py` 一致。
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # 去品牌归一化：原文 "Claude/CC" 在新结构里已改成 "agent"——归一后两者才匹配。
@@ -80,8 +61,8 @@ STOPWORDS = {
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-# 完整 memory frontmatter 三件套约束（参见本仓库 AGENTS.md“仓库规约”段——禁止无 frontmatter 起手）。
-# 与 yzr-skill-creator 的 DESCRIPTION_MAX_CHARS（SKILL description 上限）是两套独立常量，本脚本不复用。
+# 完整 memory frontmatter 三件套约束（禁止无 frontmatter 起手）。本文件两个上限常量各自独立，
+# 与其他 skill 的同名概念常量（如 SKILL description 上限）各管各的，刻意不跨 skill 复用。
 ALLOWED_MEMORY_TYPES = frozenset({"user", "feedback", "project", "reference"})
 MEMORY_DESCRIPTION_MAX_CHARS = 200
 
@@ -98,6 +79,7 @@ def tokenize(text: str) -> List[str]:
 
 
 def read_lines(path: Path) -> List[str]:
+    """按行读文件（errors=replace，坏字节不致命）。"""
     return path.read_text(encoding="utf-8", errors="replace").splitlines()
 
 
@@ -119,30 +101,13 @@ def collect_targets(root: Path) -> List[Tuple[str, int, str, frozenset]]:
 
 
 def _extract_preamble(text: str) -> str:
-    r"""提取 AGENTS.md 的前导区：首个 H1（`# ...`）之后、首个 `## ` 之前的文本。
-
-    顶部强制 Read 指令必须落在此区（agent 加载 AGENTS.md 第一屏读到）。无 H1 或无 `## ` 时返回
-    H1 之后的全部文本（容错）。
-    """
+    r"""提取 AGENTS.md 前导区（首个 H1 后、首个 `## ` 前——顶部强制 Read 指令的落点；无 H1 / 无 `## ` 时容错返回 H1 后全部）。"""
     m = re.search(r"^# .+$\n([\s\S]*?)(?=^## )", text, re.MULTILINE)
     return m.group(1) if m else ""
 
 
 def check_memory_sync(root: Path) -> List[str]:
-    r"""校验 R2 记忆 `@import` 收口的几何（R2：AGENTS.md 顶部强制 Read 指令 + @MEMORY/MEMORY.md 单行）。
-
-    检查四件事：
-    1. `MEMORY/MEMORY.md` 存在——L2 索引的真源在此，缺则 R2 引用会指向空气。
-    2. AGENTS.md 有且仅有一行 `@MEMORY/MEMORY.md`——多行（说明重复挂）或缺失（说明走的是旧方案 /
-       已改为内联）都算违反。
-    3. AGENTS.md 顶部（H1 后、首个 `##` 前）有强制 Read 指令 blockquote（含 `@` + Read 两特征）——
-       通吃所有 agent：自动展开 `@import` 的读了无害，不展开的据此读 `@` 引用。缺则 L2 对不展开的不可见。
-    4. AGENTS.md 不再含旧内联形态（一堆 `- [标题](MEMORY/<slug>.md) — …`）——内联 + @import
-       两套并存让 L1 词数翻倍，诊断时按旧内联残留处理。
-
-    无 AGENTS.md 时返回空（不适用）；有 AGENTS.md 但无 MEMORY/ 时发一条 [提示]（R6 要求 repo-local
-    记忆仓）即返回。返回的报告行前缀沿用 [OK] / [不同步] / [提示]，便于 caller grep。
-    """
+    r"""校验 R2 记忆 `@import` 收口几何（索引真源 / 单行引用 / 顶部强制 Read 指令 / 无旧内联形态——四查细节见函数体内注释）；无 AGENTS.md 返回空，有 AGENTS.md 但无 MEMORY/ 时发一条 [提示] 即返回。"""
     lines: List[str] = []
     memory = root / "MEMORY"
     agents = root / "AGENTS.md"
@@ -196,11 +161,7 @@ def check_memory_sync(root: Path) -> List[str]:
 
 
 def parse_memory_frontmatter(text: str) -> Tuple[Optional[dict], Optional[str]]:
-    """解析 MEMORY/<slug>.md 开头的 YAML frontmatter。返回 (meta, error_msg)。
-
-    失败情形（首行非 --- / 第二 --- 缺失 / YAML 解析错 / 非映射）→ 返回 (None, 错误描述字符串)。
-    成功返回 (dict, None)。
-    """
+    """解析 MEMORY/<slug>.md 的 YAML frontmatter；成功返回 (meta, None)，失败返回 (None, 错误描述)。"""
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return None, "缺 frontmatter 起手标记 ---（首行必须以 --- 开头）"
@@ -226,21 +187,7 @@ def parse_memory_frontmatter(text: str) -> Tuple[Optional[dict], Optional[str]]:
 
 
 def check_memory_frontmatter(root: Path) -> List[str]:
-    r"""校验 MEMORY/<slug>.md frontmatter 三件套合法性（AGENTS.md“仓库规约”约定）。
-
-    本仓库的"完整 memory"必须带 YAML frontmatter 三件套——`name`（必须等于文件 slug）/
-    `description`（一行 ≤ 200 字符事实摘要，供 recall 阶段 relevance 判定）/
-    `metadata.type`（四选一 user / feedback / project / reference）。短 memory 走 MEMORY.md
-    索引行（不是单文件），不在本函数范围。
-
-    检查逐文件：
-    1. 文件首行 --- 起手 + 第二 --- 闭合——三件套的载体
-    2. `name` 字段非空且等于文件 stem（kebab-case slug）
-    3. `description` 字段是字符串、非空、**单行**（不含 `\n`）、≤ 200 字符
-    4. `metadata.type` ∈ ALLOWED_MEMORY_TYPES
-
-    无 MEMORY/ 或无 <slug>.md 单文件时返回空。报告行前缀 [OK]/[违规] 区分通过与不通过。
-    """
+    r"""校验 MEMORY/<slug>.md frontmatter 三件套：--- 起闭、name=文件 stem、description 单行 ≤ MEMORY_DESCRIPTION_MAX_CHARS 字符、metadata.type 四选一；无 MEMORY/ 或无 <slug>.md 文件时返回空，报告行前缀 [OK]/[违规]。"""
     memory = root / "MEMORY"
     if not memory.is_dir():
         return []
@@ -378,6 +325,7 @@ def coverage(root: Path, threshold: float, min_tokens: int) -> Tuple[List[str], 
 
 
 def main() -> int:
+    """CLI 入口：打印覆盖率 + frontmatter 报告；三件套违规退 1 供 CI 挂住，flag 属 advisory 不拦阻。"""
     ap = argparse.ArgumentParser(description="Step 5 覆盖率验证")
     ap.add_argument("root", nargs="?", default=".", help="项目根（默认 cwd）")
     ap.add_argument("--threshold", type=float, default=0.5, help="overlap 阈值（默认 0.5）")
