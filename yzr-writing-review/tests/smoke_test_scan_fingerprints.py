@@ -21,7 +21,7 @@ from typing import List
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.scan_fingerprints import DASH, PATTERNS, scan_text  # noqa: E402
+from tools.scan_fingerprints import DASH, PATTERNS, iter_targets, scan_text  # noqa: E402
 
 CASES: List = []
 
@@ -190,6 +190,23 @@ def emoji_negative_inline_code():
 def emoji_negative_inside_fence():
     text = "```md\n🚀 标题\n```\n"
     expect(scan_text(text, "a.md") == [])
+
+
+@case
+def directory_scan_prunes_vendor_dirs():
+    with tempfile.TemporaryDirectory() as td:
+        doc = Path(td) / "doc.md"
+        doc.write_text("正常句子。\n", encoding="utf-8")
+        nm = Path(td) / "node_modules"
+        nm.mkdir()
+        (nm / "dep.md").write_text("句子" + DASH + "尾巴。\n", encoding="utf-8")
+        git = Path(td) / ".git" / "hooks"
+        git.mkdir(parents=True)
+        (git / "h.md").write_text("句子" + DASH + "尾巴。\n", encoding="utf-8")
+        found = iter_targets(Path(td))
+        expect([f.name for f in found] == ["doc.md"], found)
+        # 显式点名的 vendor 内文件照扫（与 dup_scan 同款契约）
+        expect(iter_targets(nm / "dep.md") == [nm / "dep.md"], found)
 
 
 @case

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -14,6 +15,9 @@ SECTION_SIGN = "\u00a7"  # 章节符号"§"
 ARROW = "\u2192"  # 箭头"→"
 # 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
 EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
+
+# 目录递归在 vendor / 产物目录处剪枝；显式点名的路径（文件或目录本身）不过滤
+DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", "venv", ".venv"}
 
 # 扩展契约：PATTERNS 只收字面 / 正则命中（不做判断），新增模式须配正反夹具
 # （tests/smoke_test_scan_fingerprints.py），规则文案归 ref/catalog.md；
@@ -82,10 +86,14 @@ def scan_text(text: str, rel: str) -> List[Hit]:
 
 
 def iter_targets(root: Path) -> List[Path]:
-    """文件直接返回，目录则递归列出全部 md。"""
+    """文件直接返回；目录递归列出全部 md，在 vendor 目录处剪枝（不进入其子树）。"""
     if root.is_file():
         return [root]
-    return sorted(root.rglob("*.md"))
+    found: List[Path] = []
+    for base, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in DEFAULT_EXCLUDE_DIRS)
+        found.extend(Path(base) / name for name in files if name.endswith(".md"))
+    return sorted(found)
 
 
 def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
@@ -95,7 +103,7 @@ def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
     for p in paths:
         target = Path(p)
         for md in iter_targets(target):
-            text = md.read_text(encoding="utf-8")
+            text = md.read_text(encoding="utf-8", errors="replace")
             try:
                 rel = str(md.resolve().relative_to(cwd))
             except ValueError:
