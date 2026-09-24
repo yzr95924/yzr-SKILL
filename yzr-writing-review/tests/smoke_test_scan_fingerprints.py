@@ -169,7 +169,7 @@ def emoji_positive_bullet_lead():
 
 @case
 def emoji_negative_midline():
-    # 规则面（段落开头）比脚本面宽：行中装饰 emoji 由 reviewer 补齐，不进候选
+    # 规则面（装饰性 emoji）比脚本面（行首锚定）宽：行中装饰 emoji 由 reviewer 补齐，不进候选
     text = "文中提到 🚀 命令。\n"
     expect(scan_text(text, "a.md") == [])
 
