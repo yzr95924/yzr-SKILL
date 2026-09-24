@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""扫描 Markdown 里的 AI 腔指纹，输出 INFO 候选（仅字面 / 正则命中）。"""
+"""扫描 Markdown 里 catalog 可机械判定的候选（指纹 / 标点宽度，仅字面 / 正则命中）。"""
 
 import argparse
 import json
@@ -15,6 +15,17 @@ SECTION_SIGN = "\u00a7"  # 章节符号"§"
 ARROW = "\u2192"  # 箭头"→"
 # 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
 EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
+# 标点宽度候选（catalog 通用规则"标点宽度"）：正向收 CJK 紧邻的半角 ,;:!?；反向只收 ,; 与
+# 括号——!? 可归英文小句句末、: 反向多为 Latin 标签 / 坐标（Step 1:、file:章节名），收则误报成灾
+_CJK = (
+    "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"  # 与 skill-creator utils._CJK_RE 同域；本 skill 独立分发不跨目录 import
+)
+WIDTH_MIX_RE = (
+    rf"[{_CJK}][,;:!?](?!\d)"  # (?!\d) 放行 file:42、比例等"汉字后冒号 + 数字"的坐标 / 数值语境
+    rf"|[,;]\s?[{_CJK}]"
+    rf"|[{_CJK}]\(|\)[{_CJK}]"
+    rf"|\([^)]*[{_CJK}][^)]*\)"
+)
 
 # 目录递归在 vendor / 产物目录处剪枝；显式点名的路径（文件或目录本身）不过滤
 DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", "venv", ".venv"}
@@ -25,7 +36,7 @@ DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", 
 
 
 class Pattern(NamedTuple):
-    """一条指纹模式：pid / 字面 / catalog 规则文案，regex 置位时按正则计数。"""
+    """一条模式：pid / 字面 / catalog 规则文案，regex 置位时按正则计数。"""
 
     pid: str
     literal: str
@@ -39,15 +50,18 @@ PATTERNS = [
     Pattern("SECTION-SIGN", SECTION_SIGN, "catalog AI 腔指纹“§ 章节符号”行"),
     Pattern("ARROW", ARROW, "catalog AI 腔指纹“→ 箭头”行"),
     Pattern("EMOJI", "", "catalog AI 腔指纹“emoji 点缀”行", EMOJI_RE),
+    Pattern("WIDTH-MIX", "", "catalog 通用规则“标点宽度”行", WIDTH_MIX_RE),
 ]
 
 FENCE = re.compile(r"^\s*```")
 # inline code spans: double-backtick first, then single-backtick
 CODE_SPANS = (re.compile(r"``[^`\n]+``"), re.compile(r"`[^`\n]*`"))
+# markdown 链接目标 ](...) 与行内代码同理非行文标点：中文标题锚 / file:line 式坐标不该计入命中
+LINK_DEST = re.compile(r"\]\([^)]*\)")
 
 
 class Hit(NamedTuple):
-    """一条候选命中：文件 / 行 / 指纹 / 计数 / 证据片段 / 规则文案。"""
+    """一条候选命中：文件 / 行 / 模式 / 计数 / 证据片段 / 规则文案。"""
 
     file: str
     line: int
@@ -57,15 +71,15 @@ class Hit(NamedTuple):
     rule: str
 
 
-def mask_code_spans(line: str) -> str:
-    """把行内代码段替换为等长空格，避免代码内容计入命中。"""
+def mask_nonprose(line: str) -> str:
+    """把行内代码段与链接目标替换为等长空格，避免非行文内容计入命中。"""
     for span in CODE_SPANS:
         line = span.sub(lambda m: " " * len(m.group(0)), line)
-    return line
+    return LINK_DEST.sub(lambda m: "]" + " " * (len(m.group(0)) - 1), line)
 
 
 def scan_text(text: str, rel: str) -> List[Hit]:
-    """扫描一段 Markdown，返回候选命中；围栏与行内代码跳过。"""
+    """扫描一段 Markdown，返回候选命中；围栏与非行文内容跳过。"""
     hits: List[Hit] = []
     in_fence = False
     for lineno, raw in enumerate(text.splitlines(), 1):
@@ -74,7 +88,7 @@ def scan_text(text: str, rel: str) -> List[Hit]:
             continue
         if in_fence:
             continue
-        hay = mask_code_spans(raw)
+        hay = mask_nonprose(raw)
         for pat in PATTERNS:
             count = len(re.findall(pat.regex, hay)) if pat.regex else hay.count(pat.literal)
             if count:

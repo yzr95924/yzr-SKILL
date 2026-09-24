@@ -193,6 +193,74 @@ def emoji_negative_inside_fence():
 
 
 @case
+def width_mix_positive_comma_adjacent():
+    text = "我们先看延迟, 再看成本。\n"
+    hits = scan_text(text, "a.md")
+    expect(len(hits) == 1 and hits[0].pid == "WIDTH-MIX" and hits[0].count == 1, hits)
+
+
+@case
+def width_mix_positive_paren_contains_cjk():
+    text = "部署 Redis(cache 层) 作为缓存。\n"
+    hits = scan_text(text, "a.md")
+    expect(len(hits) == 1 and hits[0].pid == "WIDTH-MIX" and hits[0].count == 1, hits)
+
+
+@case
+def width_mix_positive_exclamation_after_cjk():
+    text = "现在就开始! 完成。\n"
+    hits = scan_text(text, "a.md")
+    expect(len(hits) == 1 and hits[0].pid == "WIDTH-MIX", hits)
+
+
+@case
+def width_mix_positive_comma_after_latin():
+    text = "Runbook 写着 'Roll back first, then investigate', 但我们没有回滚。\n"
+    hits = scan_text(text, "a.md")
+    expect(len(hits) == 1 and hits[0].pid == "WIDTH-MIX" and hits[0].count == 1, hits)
+
+
+@case
+def width_mix_negative_numeric_and_coords():
+    # 豁免清单成反例：时间 / 比例 / file:line / md 链接里的半角合法
+    text = "故障 12:30 发生，延迟比 3:1，详见 [手册](redis.conf:42)。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def width_mix_negative_english_label_heading():
+    # Step 1: 与 file:章节名 式 Latin 后冒号属标签 / 坐标，反向不收（本 skill 自身标题即此风格）
+    text = "### Step 1: 收集输入\n详见 file:章节名 式坐标。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def width_mix_negative_link_target_anchor():
+    # 中文标题锚的链接目标经掩码豁免（链接闭括号后紧跟汉字曾是系统性误报源）
+    text = "路由见[章节](#step-3-形态路由)的说明。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def width_mix_negative_english_clause_boundary():
+    # ! 属英文小句句末，反向邻接不收（反向只收 ,;:）
+    text = "Run it now! 现在回滚。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def width_mix_negative_inline_code():
+    text = "参数 `Redis(缓存)` 照抄。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def width_mix_negative_inside_fence():
+    text = "```\nredis.conf:42, 行内\n```\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
 def directory_scan_prunes_vendor_dirs():
     with tempfile.TemporaryDirectory() as td:
         doc = Path(td) / "doc.md"

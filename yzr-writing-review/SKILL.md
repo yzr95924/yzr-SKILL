@@ -11,7 +11,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: writing
-  modify time: 2026-09-23
+  modify time: 2026-09-24
 ---
 
 # yzr-writing-review
@@ -39,8 +39,8 @@ metadata:
 - **敢于质疑结构**：根因在章节组织 / 论证框架而非局部句子时，指出"局部修改不够"并给方向
 - **回到存在理由**：每条判断先问这段为什么存在、服务谁、删掉 / 合并损失什么；catalog 是
   召回清单，不是套用模板
-- **洁癖但克制**：机械可判定项（错别字 / 格式 / 标点细节）与琐碎发现不进主表，归入报告
-  "不报告项"
+- **洁癖但克制**：机械可判定项（错别字 / 格式 / 零星标点细节）与琐碎发现不进主表，归入报告
+  "不报告项"；成规模的 `标点宽度` 混用按 catalog 聚合成 1 条主表发现
 - **一次看全**：一次输出完整判断，不做表面巡检、不靠多轮往返补齐发现
 
 ## 工作流
@@ -52,7 +52,7 @@ metadata:
 
 ### Step 2: 加载 catalog 并补齐
 
-必读 `ref/catalog.md`。可枚举的指纹先跑机械扫描拿候选：`python3 tools/scan_fingerprints.py
+必读 `ref/catalog.md`。可机械判定的候选先跑扫描：`python3 tools/scan_fingerprints.py
 <目标文件 | 目录>`（从 skill 根运行；命中按对应规则处置，元提及 / 引文人工豁免）。随后 agent
 用 catalog 规则补齐发现；无参照输入时在结论里明确"本次只审文档内"
 
