@@ -101,4 +101,4 @@ grader 子 agent 的产出，存 `<run-dir>/grading.json`（与 `outputs/` 同�
   漏判按 ERROR 处理
 - `claims`（机器不读）：从输出里提取并核验的隐含声明；`type` 取 `factual` / `process` / `quality`
 - `user_notes_summary`（机器不读）：执行 agent 自标的不确定 / 需复核 / 变通
-- `eval_feedback`（机器不读，可选）：对 evals 本身的批判，只写"good catch"级别的
+- `eval_feedback`（机器不读，可选）：对 evals 本身的批判，判据见 [grader 规范](agents/grader.md) 第 4 步

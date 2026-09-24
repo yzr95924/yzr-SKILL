@@ -56,7 +56,7 @@ frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 
 
 ## 第 4 步：测试用例
 
-设计与裸跑同量级起步的测试 prompt，用真实用户会说的话；**先给用户确认**（"这是我准备跑的几个测试用例，
+设计测试 prompt，条数从裸跑量级（2–3 条）起步，用真实用户会说的话；**先给用户确认**（"这是我准备跑的几个测试用例，
 要不要再补几条"）再跑。存 `eval/evals.json`（结构见[章节](schemas.md#evalsjson)），此阶段只写 prompt，
 断言起草发生在评估循环里
 
