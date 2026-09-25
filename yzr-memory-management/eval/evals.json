@@ -1,0 +1,89 @@
+{
+  "skill_name": "yzr-memory-management",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "记一下：部署脚本必须在 staging 先跑一遍才能上生产",
+      "expected_output": "用户点名的单条写入：人是闸门，不复审内容；做合并检查（索引无同主题则新增）与落点 / 格式判断（一句话事实进索引行）；提议后等确认再写",
+      "files": [],
+      "expectations": [
+        "写入前有一步显式的落点判断（索引行 / 条目文件 / 私有记忆），并说明理由",
+        "检查过 MEMORY/MEMORY.md 里是否已有同主题条目（合并优先）",
+        "实际写文件发生在用户确认之后"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "把这轮会话的收获整理进记忆",
+      "expected_output": "批量沉淀：从会话提取候选并逐条过五道闸（证据 / 负清单 / 自检 / 作用域 / 合并），列表提议 0~3 条（每条含落点与证据），一次确认后按序写入；能从代码推出的收获不收",
+      "files": [],
+      "expectations": [
+        "候选逐条附证据（本轮具体事件），无证据的收获不进提议",
+        "能从代码 / 文档推导的收获被负清单拦下",
+        "提议条数不超过 3，或明确说明 0 条的合法输出"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "扫一下我的 MEMORY，感觉里面东西太多也太乱了",
+      "expected_output": "audit 入口：先跑 memory_lint 拿机械层清单，再做判断层（事件驱动复核 / 吸收检查 / 重复合并 / 空泛检查），出带体检数字的报告，治理动作走三级阶梯并逐条等确认",
+      "files": [],
+      "expectations": [
+        "先运行 tools/memory_lint.py 并引用其输出（ERROR / WARN / INFO）",
+        "报告含体检数字（条目数 / 索引水位 / 候选计数），且与 memory_lint 实际输出一致",
+        "删除 / 合并 / 改写候选逐条等用户确认，未确认前不动文件"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "前置准备（机械步骤，无需向我确认）：把 yzr-memory-management/eval/files/legacy-npm-rule.md 原样复制到本仓 MEMORY/ 目录，并在 MEMORY/MEMORY.md 的\"## 规则\"组末尾追加一行 `- [装依赖走 npm](legacy-npm-rule.md)：全仓依赖安装走 npm，禁其它包管理器直装`。做完再处理正题：记忆里那条用 npm 的规矩是不是过时了？我们上个月迁到 pnpm 了，该怎么办？",
+      "expected_output": "事件驱动复核：正题定位到该 npm 条目，对照迁移事件判过时，给更新或删除提案待确认（文件条目更新须含 modified 刷新）；前置复制属指令动作，不算 skill 违反确认闸",
+      "files": ["eval/files/legacy-npm-rule.md"],
+      "expectations": [
+        "定位到 MEMORY/legacy-npm-rule.md 条目（索引行 + 正文）并对照\"迁到 pnpm\"事件判过时",
+        "对正题给出明确提案（更新 / 合并 / 删除之一），未直接改写 MEMORY/legacy-npm-rule.md 正文",
+        "提案若含更新，写明需刷新 modified 字段"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "给这个新项目建一套记忆体系",
+      "expected_output": "init 入口：提议 MEMORY/MEMORY.md 骨架 + AGENTS.md 引用段（单行 @MEMORY/MEMORY.md），首批条目宁缺毋滥；确认后创建",
+      "files": [],
+      "expectations": [
+        "提议内容一次给全：索引骨架 + AGENTS.md 引用段，引用段只含二级标题 + 单行 @MEMORY/MEMORY.md 引用（不内嵌规则全文）",
+        "不主动塞凑数的首批条目（0 条合法）",
+        "创建发生在用户确认之后"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "把这篇论文的结论记进 wiki",
+      "expected_output": "不触发本 skill：知识 / 事实性结论归档是 wiki 类 skill 的职责，记忆只收行为规则与决策依据",
+      "files": [],
+      "expectations": [
+        "不走记忆写入流程，不往 MEMORY/ 写条目"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "yzr-md-to-html 处理 mermaid 时有个坑，记一下",
+      "expected_output": "路由分流：skill 自身的用法与踩坑随该 skill 源分发，不进项目 MEMORY/——提议改 skill 源（或其仓库记忆），说明为什么不写成记忆条目",
+      "files": [],
+      "expectations": [
+        "不往项目 MEMORY/ 写该内容",
+        "明确指出这类内容该去哪（skill 源 / 其所属仓库）"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "记忆里有没有关于金额处理的规定？",
+      "expected_output": "不加载本 skill 也该答对：读 MEMORY/MEMORY.md 索引定位，按需读正文，综合回答；未命中明说、不编",
+      "files": [],
+      "expectations": [
+        "直接读索引回答，不走完整工作流",
+        "未命中时明说没有，不编造条目"
+      ]
+    }
+  ]
+}

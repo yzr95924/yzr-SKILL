@@ -1,0 +1,19 @@
+[
+  {"query": "这轮排查线上 OOM 踩了两个坑，中间你还纠正了我好几次做法，会话结束前把这些收获沉淀一下吧，下次别再犯", "should_trigger": true},
+  {"query": "我觉得咱们 MEMORY 里的条目有点太多了，好多感觉早就没用了，帮我清理清理", "should_trigger": true},
+  {"query": "记一下：这个仓库发布前必须先跑 pnpm build --filter core，确认没有类型错误再发", "should_trigger": true},
+  {"query": "新 clone 的这个项目还没有记忆体系，帮我初始化一套 MEMORY，以后项目的规矩都记进去", "should_trigger": true},
+  {"query": "扫一下 MEMORY 做个体检吧，看看有没有索引和文件对不上的、或者重复的条目", "should_trigger": true},
+  {"query": "我们上周把状态管理从 redux 迁到 zustand 了，记忆里那条关于 redux middleware 的规矩是不是该更新了", "should_trigger": true},
+  {"query": "以后跟这个项目相关的金额计算一律用 decimal，别用浮点，这条你给我记住", "should_trigger": true},
+  {"query": "这个仓库的记忆感觉有点腐化了，好几条规矩和现在的代码对不上，帮我整理一下", "should_trigger": true},
+  {"query": "把这篇关于 RAG 的论文阅读笔记整理进 wiki，跟上次那篇 embedding 的笔记放一起", "should_trigger": false},
+  {"query": "我发现 yzr-md-to-html 处理 mermaid 里的中文引号有个坑，你记一下这个 bug 待会修", "should_trigger": false},
+  {"query": "记忆里有没有关于 CI 用并行还是分片跑测试的约定？有的话把条目原文发我看看", "should_trigger": false},
+  {"query": "以后接口变更都得先更新 openapi 文档再实现，这条规矩帮我定下来记住", "should_trigger": true},
+  {"query": "我有三个仓库都有关于 commit 规范的记忆，帮我横向对比一下各仓库规矩的差异", "should_trigger": false},
+  {"query": "记一下明天上午十点和设计师对齐首页改版方案，别忘了提醒我", "should_trigger": false},
+  {"query": "帮我把 orders 模块重构成组合式写法，现在组件太乱了", "should_trigger": false},
+  {"query": "把这次选 PostgreSQL 而不是 MongoDB 的决策写成一份 ADR 文档放到 docs/ 里", "should_trigger": false},
+  {"query": "CLAUDE.md 里写的目录结构说明跟现在的代码对不上了，帮我更新一下这份说明", "should_trigger": false}
+]
