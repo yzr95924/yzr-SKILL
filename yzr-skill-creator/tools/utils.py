@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple
@@ -20,6 +21,26 @@ CJK_CHARS_PER_WORD = 1.7
 
 _CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 _ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9_`.'\-/]+")
+
+_SUPPORTED_FLAGS: Optional[set] = None
+
+
+def run_supported_flags() -> set:
+    """探测本机 `opencode run` 支持的 flag（CLI 版本漂移：旧版无 --pure / --dir，传了只打 help 不报错）。"""
+    global _SUPPORTED_FLAGS
+    if _SUPPORTED_FLAGS is None:
+        try:
+            result = subprocess.run(
+                ["opencode", "run", "--help"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                timeout=30,
+            )
+            _SUPPORTED_FLAGS = set(result.stdout.split())
+        except (OSError, subprocess.TimeoutExpired):
+            _SUPPORTED_FLAGS = set()
+    return _SUPPORTED_FLAGS
 
 
 def estimate_body_words(body: str) -> int:

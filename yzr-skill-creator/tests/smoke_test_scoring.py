@@ -33,7 +33,7 @@ capture = os.environ.get("SMOKE_STUB_CAPTURE")
 if capture:
     # per-pid：判官调用并发起多个桩进程，同一文件会被竞争写坏
     json.dump(
-        {"argv": sys.argv[1:], "config_content": os.environ.get("OPENCODE_CONFIG_CONTENT")},
+        {"argv": sys.argv[1:], "cwd": os.getcwd()},
         open(f"{capture}.{os.getpid()}", "w"),
     )
 prompt = " ".join(sys.argv[1:])
@@ -111,7 +111,9 @@ def run_smoke_eval() -> Tuple[dict, dict]:
             else:
                 os.environ[key] = old
     capture_files = sorted(td_path.glob(capture_path.name + ".*"))
-    captured = json.loads(capture_files[0].read_text()) if capture_files else {}
+    captures = [json.loads(p.read_text()) for p in capture_files]
+    # 过滤到判官调用（--agent 在场）：flag 能力探测等辅助子进程也会留捕获文件，pid 序不可靠
+    captured = next((c for c in captures if "--agent" in c.get("argv", [])), captures[0] if captures else {})
     return result, captured
 
 
@@ -123,13 +125,11 @@ def check_contract(captured: dict) -> List[str]:
         issues.append("contract: --agent <judge> missing from opencode argv")
     if not argv or not any(marker in argv[-1] for marker in EXPECTED):
         issues.append("contract: prompt not delivered as the last argv element")
-    try:
-        agent = json.loads(captured.get("config_content") or "{}")["agent"][optimize_description._OPENCODE_AGENT]
-    except (KeyError, ValueError) as e:
-        issues.append(f"contract: OPENCODE_CONFIG_CONTENT missing judge agent ({e})")
-    else:
-        if agent.get("permission", {}).get("*") != "deny":
-            issues.append("contract: judge agent permission is not deny-all")
+    agent_md = Path(captured.get("cwd", "")) / ".opencode" / "agent" / f"{optimize_description._OPENCODE_AGENT}.md"
+    if not agent_md.is_file():
+        issues.append(f"contract: judge agent md missing in invocation cwd ({agent_md})")
+    elif '"*": deny' not in agent_md.read_text(encoding="utf-8"):
+        issues.append("contract: judge agent permission is not deny-all")
     return issues
 
 

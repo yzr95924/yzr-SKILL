@@ -20,6 +20,9 @@ from tools import eval_run  # noqa: E402
 
 STUB = """#!/usr/bin/env python3
 import json, os, sys, time
+if "--help" in sys.argv:
+    print("--pure --dir --title -m")
+    sys.exit(0)
 with open(os.environ["SMOKE_EVALRUN_CAPTURE"], "a", encoding="utf-8") as fh:
     fh.write(json.dumps(sys.argv[1:], ensure_ascii=False) + "\\n")
 time.sleep(float(os.environ.get("SMOKE_EVALRUN_SLEEP", "0")))

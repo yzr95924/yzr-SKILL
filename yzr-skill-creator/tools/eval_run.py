@@ -16,7 +16,7 @@ from typing import Dict, List, NamedTuple, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import eval_init  # noqa: E402
-from tools.utils import OLD_SKILL, SIDES, WITHOUT_SKILL  # noqa: E402
+from tools.utils import OLD_SKILL, SIDES, WITHOUT_SKILL, run_supported_flags  # noqa: E402
 
 DEFAULT_TIMEOUT = 600
 SANDBOX_DIRNAME = "run"
@@ -67,20 +67,30 @@ def make_sandbox(repo_root: Path, side_dir: Path) -> Path:
 def run_side(side_dir: Path, opencode: str, prompt: str, timeout: int, model: Optional[str]) -> int:
     """起一个独立 `opencode run` 跑该侧，transcript 落盘，返回该次运行的退出码。"""
     transcript = side_dir / TRANSCRIPT_NAME
-    cmd = [opencode, "run", "--pure", "--dir", str(side_dir / SANDBOX_DIRNAME), "--title", "eval-run"]
+    sandbox = side_dir / SANDBOX_DIRNAME
+    supported = run_supported_flags()
+    cmd = [opencode, "run"]
+    if "--pure" in supported:
+        cmd.append("--pure")
+    if "--dir" in supported:
+        cmd.extend(["--dir", str(sandbox)])
+    cmd.extend(["--title", "eval-run"])
     if model:
         cmd.extend(["-m", model])
     cmd.append(prompt)
     header = "--- prompt ---\n" + prompt + "\n--- output ---\n"
     t0 = time.time()
+    # 坑：subprocess 的 cwd= 不更新 $PWD，opencode 按 $PWD 解析项目目录（skill 发现随之失效）
+    env = {**os.environ, "OPENCODE_DISABLE_AUTOUPDATE": "1", "PWD": str(sandbox)}
     try:
         result = subprocess.run(
             cmd,
+            cwd=str(sandbox),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
-            env={**os.environ, "OPENCODE_DISABLE_AUTOUPDATE": "1"},
+            env=env,
             timeout=timeout,
         )
         rc, out, note = result.returncode, result.stdout, ""

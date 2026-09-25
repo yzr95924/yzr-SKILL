@@ -19,7 +19,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.quick_validate import check_description_format, validate_skill  # noqa: E402
-from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md  # noqa: E402
+from tools.utils import DESCRIPTION_MAX_CHARS, frontmatter_span, parse_skill_md, run_supported_flags  # noqa: E402
 
 DEFAULT_TIMEOUT = 120
 DEFAULT_RUNS_PER_QUERY = 3
@@ -33,19 +33,24 @@ DEFAULT_JOBS = 4
 SKILLS_DIR = Path.home() / ".agents" / "skills"
 
 # judge / improve 走无工具判官 agent：OPENCODE_PERMISSION 通配实测拦不住 read，显式 deny 会挂起，
-# 故用 OPENCODE_CONFIG_CONTENT 内联一个全 deny 工具权限的 agent（agent 级 permission 优先级最高）。
+# 故给判官配全 deny 工具权限的 agent（agent 级 permission 优先级最高）。
+# 机制：专用 cwd 内放 .opencode/agent/<name>.md——OPENCODE_CONFIG_CONTENT 的 JSON agent 键
+# 与 --pure / --dir 一样存在 CLI 版本漂移（v2.0.16 不认），markdown agent 是 v1 起的稳定机制
 _OPENCODE_AGENT = "yzr-skill-judge"
-_OPENCODE_CONFIG_CONTENT = json.dumps(
-    {
-        "agent": {
-            _OPENCODE_AGENT: {
-                "description": "Text-only eval judge",
-                "mode": "primary",
-                "permission": {"*": "deny"},
-            }
-        }
-    }
-)
+_JUDGE_AGENT_MD = '---\ndescription: Text-only eval judge\nmode: primary\npermission:\n  "*": deny\n---\n'
+_JUDGE_DIR: Optional[Path] = None
+
+
+def _judge_workdir() -> Path:
+    """判官调用的专用 cwd（惰性建一次）：内含 markdown 版 judge agent"""
+    global _JUDGE_DIR
+    if _JUDGE_DIR is None:
+        _JUDGE_DIR = Path(tempfile.mkdtemp(prefix="skill-judge-"))
+        agent_dir = _JUDGE_DIR / ".opencode" / "agent"
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        (agent_dir / f"{_OPENCODE_AGENT}.md").write_text(_JUDGE_AGENT_MD, encoding="utf-8")
+    return _JUDGE_DIR
+
 
 CANARY_SKILL = {
     "name": "_canary_skill",
@@ -97,7 +102,15 @@ class SplitSets(NamedTuple):
 
 def _call_opencode(prompt: str, model: Optional[str], timeout: int) -> str:
     """调一次 `opencode run`（无工具判官 agent），返回 stdout；非零退出抛 RuntimeError。"""
-    cmd = ["opencode", "run", "--pure", "--print-logs", "--dir", tempfile.gettempdir(), "--agent", _OPENCODE_AGENT]
+    supported = run_supported_flags()
+    workdir = _judge_workdir()
+    cmd = ["opencode", "run"]
+    if "--pure" in supported:
+        cmd.append("--pure")
+    cmd.append("--print-logs")
+    if "--dir" in supported:
+        cmd.extend(["--dir", str(workdir)])
+    cmd.extend(["--agent", _OPENCODE_AGENT])
     cmd.extend(["--title", "skill-creator-eval"])
     if model:
         cmd.extend(["-m", model])
@@ -105,8 +118,10 @@ def _call_opencode(prompt: str, model: Optional[str], timeout: int) -> str:
 
     # 其余 env 全传（smoke_test_scoring 靠 PATH 上的 `opencode` 桩接管）
     env = dict(os.environ)
-    env["OPENCODE_CONFIG_CONTENT"] = _OPENCODE_CONFIG_CONTENT
+    env.pop("OPENCODE_CONFIG_CONTENT", None)
     env["OPENCODE_DISABLE_AUTOUPDATE"] = "1"
+    # 坑：subprocess 的 cwd= 不更新 $PWD，opencode 按 $PWD 解析项目目录（agent 发现随之失效）
+    env["PWD"] = str(workdir)
 
     try:
         result = subprocess.run(
@@ -116,7 +131,7 @@ def _call_opencode(prompt: str, model: Optional[str], timeout: int) -> str:
             stderr=subprocess.PIPE,
             universal_newlines=True,
             env=env,
-            cwd=tempfile.gettempdir(),
+            cwd=str(workdir),
             timeout=timeout,
         )
     except FileNotFoundError as e:
@@ -149,6 +164,11 @@ def collect_skills(
         if name == skill_name:
             desc = candidate_description
         skills.append({"name": name, "description": desc})
+    if not any(s["name"] == skill_name for s in skills):
+        # 目标尚未装进 skills 目录（新建 skill 的首评）：注入候选，否则判官只能在 decoy 里挑
+        if not candidate_description:
+            raise RuntimeError(f"target skill {skill_name!r} not in {root} and no candidate description given")
+        skills.append({"name": skill_name, "description": candidate_description})
     if not skills:
         raise RuntimeError(f"no skills found under {root}")
     return skills
