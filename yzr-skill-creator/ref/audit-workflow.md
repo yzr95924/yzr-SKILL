@@ -4,7 +4,7 @@
 
 ## 步骤
 
-1. **机械项 + 参审文件清单**：`python -m tools.verify <skill-dir> --audit`（三型定义见 `assets/skill-template.md`）；
+1. **机械项 + 参审文件清单**：`python3 -m tools.verify <skill-dir> --audit`（三型定义见 `assets/skill-template.md`）；
    输出含参与审计的 md 清单
 2. **逐文件循环，只报不修**：一次只审一个文件、全量精读不抽样，对照判定清单中未标〔跨文件〕
    的条目逐条给结果词（口径见清单开头），证据 = 文件 + 原文引用；单文件过长时按节分批，一节一批

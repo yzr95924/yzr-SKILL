@@ -4,7 +4,7 @@
 
 ## 单点
 
-直接改；改完对照[章节](../SKILL.md#执行原则)自查，再 `python -m tools.verify <skill-dir>` 全绿
+直接改；改完对照[章节](../SKILL.md#执行原则)自查，再 `python3 -m tools.verify <skill-dir>` 全绿
 （动过 `tools/` 加跑 `python3 tests/smoke_test_*.py`）；最后汇报分类与一句理由
 
 ## 评估循环
@@ -14,7 +14,7 @@
 ### 第 0 步：初始化工作区并应用改动
 
 ```bash
-python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
+python3 -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
   --skill-path <skill-dir> --baseline without_skill|old_skill
 ```
 
@@ -23,7 +23,7 @@ python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 
 ### 第 1 步：独立子 agent 运行
 
-`python -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
+`python3 -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
 对照侧（`without_skill` / `old_skill`）各起一个独立 `opencode run` 子 agent，开关以 `--help` 为准。两侧并发让
 任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同入口 3。
 会嵌套再跑循环的用例（如入口 3 的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
@@ -44,7 +44,7 @@ python -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 1. **为每次运行打分**：启动 grader 子 agent（或内联打分），它读 `ref/agents/grader.md`，逐条核对断言与输出。评分存到
    `<run>/grading.json`（字段约定见[章节](schemas.md#gradingjson)）。可编程检查的断言写脚本跑，不要肉眼判断，
    脚本更快、可跨迭代复用
-2. **汇总 + 校验**：`python -m tools.eval_report <workspace>/iteration-<N> --evals <skill>/eval/evals.json` 出每个用例的
+2. **汇总 + 校验**：`python3 -m tools.eval_report <workspace>/iteration-<N> --evals <skill>/eval/evals.json` 出每个用例的
    `with_skill` vs `baseline` 对比（校验范围见[章节](schemas.md#gradingjson)）。**输出文件的实际差异与"这版好不好"的
    结论仍由 agent 读文件判**，把数字 + 差异 + 自己的判断一起给用户，请反馈
 3. **借口记录**：本轮新出现的 agent 借口**原样**摘抄（只记实际说过的，不预写假想借口），改写时写进对应禁令

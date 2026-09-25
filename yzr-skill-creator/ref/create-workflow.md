@@ -52,7 +52,7 @@ frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 
 两问都过则固化进脚本，正文只留"跑 X 命令"调用行；差一条则留 md 并记录理由。再算代价账：context 节省 × 频率是否高于脚本行数 +
 豁免清单 + 配套冒烟的长期成本；一行 shell 能做完的、判定全靠人的、一年跑两次的，不值得脚本化
 
-预检：`python -m tools.verify <skill-dir>`
+预检：`python3 -m tools.verify <skill-dir>`
 
 ## 第 4 步：测试用例
 
