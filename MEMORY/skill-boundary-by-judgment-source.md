@@ -3,6 +3,7 @@ name: skill-boundary-by-judgment-source
 description: skill 间分工按判据来源划：制品规约归 yzr-skill-creator，读者与语言归 yzr-writing-review；判据需查文本外证据（git blame / eval / 作者口述）才能定违反的，只报现象标存疑、不下删除判决。
 metadata:
   type: project
+  scope: 跨 skill 分工判据（yzr-writing-review/、yzr-skill-creator/）
 ---
 
 # skill 分工按判据来源划，不按被审对象类型

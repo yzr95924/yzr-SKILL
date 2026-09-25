@@ -3,6 +3,7 @@ name: no-code-detail-in-skill-md
 description: skill 分发面（SKILL.md/ref/assets/eval）的 md 禁止出现代码实现细节指针（常量名/函数名/*.py::符号）；标准指 md 产物，数值以工具输出为准；仓库维护文档（AGENTS.md/MEMORY）豁免。
 metadata:
   type: feedback
+  scope: 分发面 md（yzr-*/SKILL.md、yzr-*/ref/、yzr-*/assets/、yzr-*/eval/）
 ---
 
 # SKILL 的 md 不写代码实现细节
