@@ -18,7 +18,9 @@
   `universal_newlines=True` / `stdout=PIPE` 旧写法是刻意的，别"修正"。
 - 注释只写代码表达不了的坑与契约，不复述代码。
 - Markdown：跨文件 / 跨节引用一律 markdown 链接。frontmatter 解析唯一实现
-  `yzr-skill-creator/tools/utils.py::frontmatter_span`，别再写解析器。
+  `yzr-skill-creator/tools/utils.py::frontmatter_span`，别再写解析器——该唯一性约束
+  skill-creator 工具链内部；独立分发的 skill 不能跨 skill import，自带轻量 frontmatter
+  解析属豁免（如 `yzr-memory-management/tools/memory_lint.py`）
 - `tests/` 仅供开发期 / CI，运行时 agent 不读；eval 工作区 `<skill>-workspace/` 与 skill 同级
   且已 gitignore。
 
@@ -100,8 +102,9 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 
 - `yzr-skill-creator/tools/optimize_description.py` 按标题抽取 `ref/description-workflow.md` 的
   "## description 优化原则"正文——该标题不得改。它调 `opencode run` 子进程跑评估
-  （judge / improve）：需本机 opencode 可用且已配置 provider；judge 走全 deny 工具权限的内联
-  agent（`OPENCODE_CONFIG_CONTENT`），不加载工具。
+  （judge / improve）：需本机 opencode 可用且已配置 provider；judge 走全 deny 工具权限的
+  markdown agent（专用 cwd 内 `.opencode/agent/`），不加载工具；`opencode run` 的 flag 与
+  agent 注入机制按本机 CLI 能力探测降级（v2.0.16 无 `--pure` / `--dir` / JSON agent 键）。
 - 创建 / 改进 / 描述优化 / 审计的执行细节在
   `yzr-skill-creator/ref/{create,improve,description,audit}-workflow.md`，`SKILL.md` 入口表负责指路。
 - skill-creator 脚本两种入口都行（文件内 sys.path 引导）：

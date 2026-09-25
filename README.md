@@ -10,6 +10,7 @@
 - `yzr-writing-review` —— 文档 review（逻辑 / 结构 / 冗余 / AI 腔 / SSOT；确认后承接改写）
 - `yzr-md-to-html` —— 本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
 - `yzr-sys-design-doc` —— 系统设计文档写作（full / lite 两档 + 实施任务书）
+- `yzr-memory-management` —— 项目记忆管理（MEMORY/ 沉淀 · 体检 · 防腐化防膨胀）
 
 ## 快速开始（开发环境）
 
