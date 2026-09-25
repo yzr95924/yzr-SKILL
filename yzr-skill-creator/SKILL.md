@@ -2,8 +2,7 @@
 name: yzr-skill-creator
 description: |
   当用户处于 skill 生命周期时使用本 skill：从工作流 / 模板 / 流程 / 决策模式创建新 skill、
-  通过 eval-and-iterate 改进现有 skill、独立优化某个 skill 的触发
-  description、或拿写作原则审计 skill 合规性（只报告、不改写）。
+  改进现有 skill、独立优化某个 skill 的触发 description、或拿写作原则审计 skill 合规性。
   触发："我想 / 帮我 做一个 X 的 skill" / "从零做一个 skill 处理 X" / "把 XX 流程沉淀成
   skill" / "以后能用 / 新人也能用 / 按这个走"；改进 / 修改 / 评估 / 迭代 XX skill
   （修改含单点编辑：修 typo 等）、给 XX skill 增加 / 扩展功能；检查 / 审查 XX skill
@@ -13,7 +12,7 @@ description: |
   写普通代码 / 改普通文档 / 不涉及 skill 生命周期的事
 metadata:
   author: Zuoru YANG
-  modify time: 2026-09-24
+  modify time: 2026-09-25
   tier: meta
 ---
 # yzr-skill-creator

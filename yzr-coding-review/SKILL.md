@@ -2,8 +2,7 @@
 name: yzr-coding-review
 description: |
   当用户要和 agent 一起 review 一段现有代码时使用本 skill：审视代码合理性 + 找重构机会，
-  语言中立、聚焦设计层判断（而非正确性 / 机械检查）。默认对话式分析回答、不主动改文件；
-  要报告或大范围体检可出轻量档 / 完整档，发现多可逐条过。
+  语言中立、聚焦设计层判断（而非正确性 / 机械检查）。
   触发：用户说"review / 重构 / 看看这段代码合不合理 / 陪我一起 review / 这段设计有没有
   问题"；连续写完一批代码后由用户或 agent 主动询问是否需要巡检。
   不适用：执行用户已给明确改法的单点修改（如"把 data1 改成 user_data"）/ 加新功能 / 改 bug /
@@ -12,7 +11,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: code-quality
-  modify time: 2026-09-24
+  modify time: 2026-09-25
 ---
 
 # yzr-coding-review

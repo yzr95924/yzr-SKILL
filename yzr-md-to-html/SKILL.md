@@ -2,8 +2,7 @@
 name: yzr-md-to-html
 description: |
   当用户想把一份本地 Markdown 文件 / 目录（README / 技术文档 / 笔记 / 论文草稿）转成
-  自包含、双击即可在浏览器打开的 HTML 时使用本 skill：深色阅读主题 + 侧边栏目录 + 代码
-  高亮，公式和 Mermaid 图表都能正常呈现，可自定义模板。
+  自包含、双击即可在浏览器打开的 HTML 时使用本 skill：公式和 Mermaid 图表都能正常呈现，可自定义模板。
   触发："把这个 README 转成好看的 HTML 发给同事" / "这份设计文档有公式和流程图，导出成能直接
   打开看的网页" / "把 notes/ 目录下的 .md 批量转成 html" / "转成 html 后用 agent-html-drop
   上传分享"。只要用户明确要"本地 .md → 自包含 HTML 文件"的单向转换——即使没提 skill 名，
@@ -13,7 +12,7 @@ description: |
   上传到 Outline Wiki
 metadata:
   author: Zuoru YANG
-  modify time: 2026-09-23
+  modify time: 2026-09-25
   category: document-conversion
 ---
 
