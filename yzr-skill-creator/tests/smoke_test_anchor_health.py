@@ -110,6 +110,40 @@ def case_backtick_path_missing_reports(failures: List[str]) -> None:
         failures.append(f"missing path: {got}")
 
 
+def case_ref_root_drift_still_reports(failures: List[str]) -> None:
+    # 内容子目录（ref/assets/tools）根下的分发物路径：漂移仍必须报
+    root = make_skill(
+        {
+            "SKILL.md": "---\nname: s\ndescription: d\n---\n\n好 `ref/r.md` 坏 `ref/gone.md`\n",
+            "ref/r.md": "# r\n",
+        }
+    )
+    got = statuses(root)
+    if got != ["PATH-MISSING"]:
+        failures.append(f"ref root drift: {got}")
+
+
+def case_instance_paths_exempt(failures: List[str]) -> None:
+    # 实例路径（首段非内容子目录）不做存在性校验：wiki/workspace 类 skill 的误报根因
+    body = (
+        "见 `wiki/log.md`、`scripts/SCRIPTS.md`、`concepts/x.md`、"
+        "`huawei_storage_wiki/wiki/syntheses/raid-overview.md`。\n"
+    )
+    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
+    got = statuses(root)
+    if got:
+        failures.append(f"instance paths: {got}")
+
+
+def case_bare_filenames_exempt(failures: List[str]) -> None:
+    # 裸文件名无法区分实例产物（STATS.md / index.md）与同目录引用，一律不查
+    body = "产出 `STATS.md` 与 `index.md`，参考 `catalog.md`。\n"
+    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
+    got = statuses(root)
+    if got:
+        failures.append(f"bare filenames: {got}")
+
+
 def case_explicit_anchor_accepted(failures: List[str]) -> None:
     body = '<a id="stable"></a>\n\n## 任意标题\n\n[章节](#stable) [章节](#nope-missing)\n'
     root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body})
@@ -150,6 +184,9 @@ def main() -> int:
         case_anchor_link_label_unified,
         case_backtick_path_resolves_from_skill_root,
         case_backtick_path_missing_reports,
+        case_ref_root_drift_still_reports,
+        case_instance_paths_exempt,
+        case_bare_filenames_exempt,
         case_explicit_anchor_accepted,
         case_fenced_and_externals_ignored,
         case_yzr_prefix_exempt_for_bare_name_only,

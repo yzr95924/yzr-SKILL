@@ -11,7 +11,13 @@ from typing import Dict, Iterator, List, NamedTuple, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import discover_skill_dirs, find_code_spans, frontmatter_span, iter_unfenced_lines  # noqa: E402
+from tools.utils import (  # noqa: E402
+    SKILL_SOURCE_SUBDIRS,
+    discover_skill_dirs,
+    find_code_spans,
+    frontmatter_span,
+    iter_unfenced_lines,
+)
 
 _LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
 
@@ -152,9 +158,6 @@ _PATH_TOKEN_RE = re.compile(r"^[A-Za-z0-9_./-]+\.(?:md|py)$")
 _SYMBOL_SUFFIX_RE = re.compile(r"::[A-Za-z0-9_.]+$")
 
 
-_TOPIC_FILENAMES = frozenset({"AGENTS.md", "CLAUDE.md", "MEMORY.md", "README.md", "CHANGELOG.md"})
-
-
 _PLACEHOLDER_STEMS = frozenset({"a", "b", "foo", "bar", "baz"})
 
 
@@ -189,14 +192,17 @@ def _is_checkable_link(target: str) -> bool:
 
 
 def _is_checkable_path(token: str) -> bool:
-    """该反引号 token 是否需要按路径检查（排除主题文件名、跨 skill 裸名提及与占位符）。"""
-    if "/" not in token and token in _TOPIC_FILENAMES:
+    """该反引号 token 是否需要按路径检查：仅内容子目录（ref/assets/tools）根、越界路径与 yzr- 跨 skill 引用可校验；实例路径与裸文件名无法与运行时产物区分，不查。"""
+    if is_placeholder_path(token):
         return False
-    if token.startswith("MEMORY/"):
+    if "/" not in token:
         return False
-    if "/" not in token and token.startswith("yzr-"):
-        return False
-    return not is_placeholder_path(token)
+    first = token.split("/", 1)[0]
+    if first in (".", ".."):
+        return True
+    if token.startswith("yzr-"):
+        return True
+    return first in SKILL_SOURCE_SUBDIRS
 
 
 _ANCHOR_PREFIX_MATCH = 5
