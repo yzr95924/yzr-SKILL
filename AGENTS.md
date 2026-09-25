@@ -1,8 +1,5 @@
 # AGENTS.md
 
-> **关键**：本文件里凡 `@path/to/file` 形式的引用（如 `@MEMORY/MEMORY.md`），都用 Read 工具按需
-> 读取——它们与你**当前任务**直接相关。不自动展开 `@import` 的 agent 尤须手动执行，否则漏上下文。
-
 ## 项目定位
 
 个人自定义 AI skills 合集：每个 `yzr-*/` 子目录是一个独立 skill，经 npx 分发；本仓同时是"造 skill"
@@ -23,15 +20,6 @@
   解析属豁免（如 `yzr-memory-management/tools/memory_lint.py`）
 - `tests/` 仅供开发期 / CI，运行时 agent 不读；eval 工作区 `<skill>-workspace/` 与 skill 同级
   且已 gitignore。
-
-<!-- ↓ 默认启用：repo-local 记忆管理（让多 agent 共用同一份 MEMORY/，而非各自私有 memory）。
-     记忆跟 repo 走——本注释 + 以下规约 + 下方“跨会话记忆（索引）”段一律保留（R6）。 -->
-- 跨会话需持久化的"为什么 / 边界规则"写入根目录 `MEMORY/`（`MEMORY.md` 是索引），**禁写** agent
-  私有 memory（如 `~/.claude/...`）——私有路径不随仓迁移 / 不进 git / 多 agent 分裂。
-  - 完整 memory（设计决策 / 工作流约束）→ `MEMORY/<slug>.md`，带 frontmatter 三件套：
-    `name`(=文件 slug) + `description`(≤200 字符事实摘要) + `metadata.type`(user|feedback|project|reference)
-  - 短 memory（一句话事实）→ 直接写 `MEMORY.md` 索引行，不单独建文件
-  - MEMORY 只收跨会话 meta；具体 skill 的用法与踩坑随该 skill 源分发，不进 MEMORY
 
 ## 常用命令
 
