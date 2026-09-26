@@ -14,6 +14,12 @@
   {"query": "我有三个仓库都有关于 commit 规范的记忆，帮我横向对比一下各仓库规矩的差异", "should_trigger": false},
   {"query": "记一下明天上午十点和设计师对齐首页改版方案，别忘了提醒我", "should_trigger": false},
   {"query": "帮我把 orders 模块重构成组合式写法，现在组件太乱了", "should_trigger": false},
+  {"query": "把这个规则更新到 MEMORY 中：这个仓库发布前必须先跑 pnpm build --filter core，确认没有类型错误再发", "should_trigger": true},
+  {"query": "以后这个项目里所有时间处理一律 UTC 存储、本地时区展示，把这条规则写进 MEMORY", "should_trigger": true},
+  {"query": "MEMORY 里那条 commit 规范早就过期了，我们现在全切 conventional commits 英文格式，你帮我把那条改掉", "should_trigger": true},
+  {"query": "跑 verify 前不先装开发依赖，ruff 找不到会误报 MISSING——这个坑别再踩了，把这条规矩更新进项目记忆 MEMORY", "should_trigger": true},
+  {"query": "更新一下 README 贡献规则那一节：装依赖的脚本改名了，把 npm install 那段换成 uv sync 的写法", "should_trigger": false},
+  {"query": "把这条规则更新到团队 wiki 里：我们数据库迁移的窗口从凌晨改到周末了，评审的人都在 wiki 上看", "should_trigger": false},
   {"query": "把这次选 PostgreSQL 而不是 MongoDB 的决策写成一份 ADR 文档放到 docs/ 里", "should_trigger": false},
   {"query": "CLAUDE.md 里写的目录结构说明跟现在的代码对不上了，帮我更新一下这份说明", "should_trigger": false}
 ]
