@@ -12,6 +12,11 @@
 - `yzr-sys-design-doc` —— 系统设计文档写作（full / lite 两档 + 实施任务书）
 - `yzr-memory-management` —— 项目记忆管理（MEMORY/ 沉淀 · 体检 · 防腐化防膨胀）
 
+## 提示词模板
+
+- [`prompts/paper-summary.md`](./prompts/paper-summary.md) —— 上传论文 PDF 即用的总结提示词
+  （3 句话总结 + 方法 / 实验 / 启示结构化输出，术语分层保留英文，适配 Outline 归档）
+
 ## 快速开始（开发环境）
 
 首次备齐工具链（pyyaml / ruff / markdownlint-cli）：

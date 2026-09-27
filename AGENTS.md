@@ -69,7 +69,8 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 .
 ├── AGENTS.md / CLAUDE.md        # 项目上下文 SSOT + Claude 薄壳（@AGENTS.md + 逃生舱）
 ├── MEMORY/                      # 跨会话"为什么 + 边界"（MEMORY.md 索引，条目正文同级）
-├── README.md                    # 门面入口：定位 / SKILLs 名单 / 快速开始 / 设计原则
+├── README.md                    # 门面入口：定位 / SKILLs 名单 / 提示词模板 / 快速开始 / 设计原则
+├── prompts/                     # 提示词模板：网页平台即贴即用（围栏代码块整段复制）
 ├── pyproject.toml               # ruff 唯一配置（py37 + 120 列）
 ├── .markdownlint.jsonc          # MD013 放宽到 120；MD041 / MD060 关闭
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
