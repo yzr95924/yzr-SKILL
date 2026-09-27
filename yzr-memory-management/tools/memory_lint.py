@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""检查项目 MEMORY/：索引一致性、frontmatter、预算水位、敏感串；只报告不改写。"""
+"""检查项目 MEMORY/：索引一致性、frontmatter、预算水位、敏感串、悬空声明；只报告不改写。"""
 
 import argparse
 import json
@@ -11,6 +11,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 MEMORY_DIR = "MEMORY"
 INDEX_NAME = "MEMORY.md"
+AGENTS_NAME = "AGENTS.md"
 
 # 预算与阈值的机器面；md 侧 SSOT 在 assets/memory-{index,entry}-template.md
 INDEX_MAX_LINES = 200
@@ -24,6 +25,8 @@ STALE_INFO_DAYS = 180
 ENTRY_LINK_RE = re.compile(r"^\s*-\s+\[(?P<title>[^\]]+)\]\((?P<slug>[^)\s/]+\.md)\)：")
 KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MODIFIED_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# 契约：init 引用段模板自带的 <!-- 包裹注释行含 @MEMORY/MEMORY.md 字样，刻意不算声明
+MEMORY_REF_RE = re.compile(r"^@MEMORY/MEMORY\.md\b")
 SENSITIVE_RES = (
     re.compile(r"(?i)\b(?:api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]?[A-Za-z0-9_\-/+=]{16,}"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -123,6 +126,23 @@ def parse_frontmatter(text: str) -> Optional[Dict]:
             if isinstance(nested, dict):
                 nested[key] = value
     return data
+
+
+def find_git_root(start: Path) -> Optional[Path]:
+    """从 start 向上找 git root（含 .git 的目录）；非 git 目录返回 None"""
+    for candidate in [start, *start.parents]:
+        if (candidate / ".git").exists():
+            return candidate
+    return None
+
+
+def declares_memory(agents_path: Path) -> bool:
+    """AGENTS.md 是否存在 @MEMORY/MEMORY.md 声明行；读不动按无声明处理，不为壳文件损坏另立判据"""
+    try:
+        text = agents_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return any(MEMORY_REF_RE.match(line.strip()) for line in text.splitlines())
 
 
 def discover_memory_root(start: Path) -> Optional[Path]:
@@ -339,6 +359,16 @@ def collect_findings(memory_root: Path, snap: Optional[Snapshot] = None) -> List
             )
         return findings
     index_rel = f"{MEMORY_DIR}/{INDEX_NAME}"
+    # 判据是全文无有效字符；骨架零条目是合法首批（init 允许空着起步），不报
+    if not snap.index_text.strip():
+        findings.append(
+            Finding(
+                "INDEX-EMPTY",
+                "WARN",
+                f"{index_rel} 为空白文件——可从 assets/memory-index-template.md 重建（git 可恢复）",
+                file=index_rel,
+            )
+        )
     index_findings, slugs = _index_findings(index_rel, snap.index_text)
     findings += index_findings
     linked = {slug for _, slug in slugs}
@@ -363,19 +393,41 @@ def memory_stats(snap: Snapshot) -> Stats:
     return Stats(index_lines=index_lines, index_budget_lines=INDEX_MAX_LINES, entry_count=len(snap.entries))
 
 
+def _print_finding(finding: Finding) -> None:
+    """单条 finding 的一行渲染，两分支共用"""
+    loc = f"{finding.file}:{finding.line}  " if finding.file else ""
+    print(f"{finding.level}: {finding.rule}  {loc}{finding.evidence}")
+
+
 def _render_text(memory_root: Path, findings: List[Finding], stats: Stats) -> None:
     """输出人类可读报告"""
     print(f"== MEMORY root: {memory_root} ==")
     if findings:
         for f in findings:
-            loc = f"{f.file}:{f.line}  " if f.file else ""
-            print(f"{f.level}: {f.rule}  {loc}{f.evidence}")
+            _print_finding(f)
     else:
         print("  clean")
     print(f"STATS 索引 {stats.index_lines} / {stats.index_budget_lines} 行 · 条目 {stats.entry_count} 个")
     counts = {lvl: sum(1 for f in findings if f.level == lvl) for lvl in ("ERROR", "WARN", "INFO")}
     errors = counts["ERROR"]
     print(f"\n{counts['ERROR']} ERROR, {counts['WARN']} WARN, {counts['INFO']} INFO — {'FAIL' if errors else 'PASS'}")
+
+
+def _render_json(root: Optional[str], findings: List[Finding], stats: Optional[Stats], errors: int) -> None:
+    """两分支共用 JSON 渲染，键集恒定"""
+    print(
+        json.dumps(
+            {
+                "memory_root": root,
+                "findings": [f.to_dict() for f in findings],
+                "stats": stats.to_dict() if stats is not None else None,
+                "error_count": errors,
+                "ok": errors == 0,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -387,49 +439,33 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     start = Path(args.root).resolve()
     memory_root = discover_memory_root(start)
+    snap: Optional[Snapshot] = None
     if memory_root is None:
-        info = Finding(
-            rule="NO-MEMORY",
-            level="INFO",
-            evidence="未发现 MEMORY/ 目录——需要建立记忆体系时走 init 入口",
-        )
-        if args.json:
-            print(
-                json.dumps(
-                    {
-                        "memory_root": None,
-                        "findings": [info.to_dict()],
-                        "stats": None,
-                        "error_count": 0,
-                        "ok": True,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
+        findings = [Finding("NO-MEMORY", "INFO", "未发现 MEMORY/ 目录——需要建立记忆体系时走 init 入口")]
+        git_root = find_git_root(start) or start
+        agents_path = git_root / AGENTS_NAME
+        if agents_path.is_file() and declares_memory(agents_path):
+            findings.append(
+                Finding(
+                    "DANGLING-REF",
+                    "ERROR",
+                    f"{AGENTS_NAME} 声明了 @MEMORY/MEMORY.md 但 MEMORY/ 不存在——走 init 入口建骨架"
+                    "（AGENTS.md 引用段已存在，按 init 跳过条件免改）",
+                    file=AGENTS_NAME,
                 )
             )
-        else:
-            print(f"INFO: {info.rule}  {info.evidence}")
-        return 0
-
-    snap = snapshot_memory(memory_root)
-    findings = collect_findings(memory_root, snap)
-    errors = sum(1 for f in findings if f.level == "ERROR")
-    if args.json:
-        print(
-            json.dumps(
-                {
-                    "memory_root": str(memory_root),
-                    "findings": [f.to_dict() for f in findings],
-                    "stats": memory_stats(snap).to_dict(),
-                    "error_count": errors,
-                    "ok": errors == 0,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
     else:
-        _render_text(memory_root, findings, memory_stats(snap))
+        snap = snapshot_memory(memory_root)
+        findings = collect_findings(memory_root, snap)
+    errors = sum(1 for f in findings if f.level == "ERROR")
+    stats = memory_stats(snap) if snap is not None else None
+    if args.json:
+        _render_json(str(memory_root) if memory_root is not None else None, findings, stats, errors)
+    elif memory_root is None:
+        for f in findings:
+            _print_finding(f)
+    else:
+        _render_text(memory_root, findings, stats)
     return 1 if errors else 0
 
 

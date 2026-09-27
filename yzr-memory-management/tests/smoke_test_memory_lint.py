@@ -5,8 +5,9 @@ The class of bug this pins: a linter that passes everything (silent rot) or
 fails on valid structures (blocks legit writes). Fixtures cover both
 directions: a canonical clean memory passes with zero findings, and a rotted
 one surfaces each rule it should catch (dead link, orphan, frontmatter
-violations, budget overflow, sensitive strings), plus the no-MEMORY case,
-and the entry-length boundary (120 lines pass, 121 warns without gating).
+violations, budget overflow, sensitive strings), plus the no-MEMORY case with
+and without a dangling AGENTS.md declaration, the empty-index warning, and the
+entry-length boundary (120 lines pass, 121 warns without gating).
 
 Run: python3 tests/smoke_test_memory_lint.py  (from yzr-memory-management/)
 Exit 0 = all green, 1 = regression.
@@ -29,6 +30,8 @@ from tools.memory_lint import (  # noqa: E402
     discover_memory_root,
     main,
 )
+
+AGENTS_MD = "AGENTS.md"
 
 
 def expect(cond, msg="") -> None:
@@ -132,6 +135,9 @@ def main_test() -> None:
             f"STATS 索引 {len(CLEAN_INDEX.splitlines())} / {INDEX_MAX_LINES} 行 · 条目 1 个" in out,
             "文本模式应输出 STATS 体检数字",
         )
+        write(clean_root / AGENTS_MD, "## 跨会话记忆（索引）\n\n@MEMORY/MEMORY.md\n")
+        findings = collect_findings(clean_root.resolve())
+        expect(findings == [], f"干净夹具带 @MEMORY 声明仍应零 finding，实际: {findings}")
 
         sub = clean_root / "sub" / "dir"
         sub.mkdir(parents=True, exist_ok=True)
@@ -175,7 +181,8 @@ def main_test() -> None:
         empty_root = Path(tmp) / "empty"
         empty_root.mkdir(parents=True, exist_ok=True)
         rc, out = run_cli([str(empty_root)])
-        expect(rc == 0 and "NO-MEMORY" in out, "无 MEMORY/ 应回 INFO 且退出 0")
+        expect(rc == 0 and "NO-MEMORY" in out, "无 MEMORY/ 且无声明应回 INFO 且退出 0")
+        expect("DANGLING-REF" not in out, "无声明时不应误报悬空声明")
         rc, out = run_cli([str(empty_root), "--json"])
         data = json.loads(out)
         expect(data["memory_root"] is None, "JSON 模式 memory_root 应为 null")
@@ -183,6 +190,30 @@ def main_test() -> None:
             "stats" in data and data["stats"] is None and data["error_count"] == 0,
             "无记忆根的 JSON 应与正常分支同键集（stats / error_count）",
         )
+
+        # 声明悬空：AGENTS.md 有 @MEMORY 行但 MEMORY/ 不存在；.git 钉住 git root 使判据不依赖 tempdir 环境
+        write(empty_root / ".git", "")
+        write(empty_root / AGENTS_MD, "## 跨会话记忆（索引）\n\n@MEMORY/MEMORY.md\n")
+        rc, out = run_cli([str(empty_root)])
+        expect(rc == 1 and "DANGLING-REF" in out, f"声明悬空应报 ERROR 且退出 1，实际 rc={rc}")
+        expect("NO-MEMORY" in out, "悬空声明应与 NO-MEMORY INFO 并存")
+
+        write(
+            empty_root / AGENTS_MD,
+            "<!-- 下方 @引用若未被自动展开（看不到正文），用 Read 工具读取 -->\n@ MEMORY/MEMORY.md\n",
+        )
+        rc, out = run_cli([str(empty_root)])
+        expect(rc == 0 and "DANGLING-REF" not in out, f"注释式 / 变形引用不应判为声明，实际 rc={rc}: {out}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        blank_root = Path(tmp) / "blank"
+        write(blank_root / "MEMORY" / "MEMORY.md", "   \n\t\n")
+        rc, out = run_cli([str(blank_root)])
+        expect(rc == 0 and "INDEX-EMPTY" in out, f"空白索引应 WARN 且不改退出码，实际 rc={rc}")
+        skeleton = "# MEMORY/\n\n## 规则\n\n（尚无条目）\n"
+        write(blank_root / "MEMORY" / "MEMORY.md", skeleton)
+        rc, out = run_cli([str(blank_root)])
+        expect(rc == 0 and "INDEX-EMPTY" not in out, f"骨架零条目是合法首批，不应报 INDEX-EMPTY，实际: {out}")
 
     with tempfile.TemporaryDirectory() as tmp:
         broken_root = Path(tmp) / "broken"
