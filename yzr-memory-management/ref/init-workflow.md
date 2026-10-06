@@ -4,7 +4,7 @@
 
 ## 提议内容（一次给全，确认后创建）
 
-1. `MEMORY/MEMORY.md`：从 `assets/memory-index-template.md` 拷贝（含索引行格式与预算约定）
+1. `MEMORY/MEMORY.md`：跑 `python3 tools/memory_init.py <项目根>` 建骨架（绝对路径指向本 skill 安装处的脚本；索引已存在会拒绝不覆盖）
 2. AGENTS.md 引用段：一个二级标题 + 单行引入，样例：
 
    ```markdown

@@ -7,7 +7,14 @@ directions: a canonical clean memory passes with zero findings, and a rotted
 one surfaces each rule it should catch (dead link, orphan, frontmatter
 violations, budget overflow, sensitive strings), plus the no-MEMORY case with
 and without a dangling AGENTS.md declaration, the empty-index warning, and the
-entry-length boundary (120 lines pass, 121 warns without gating).
+entry-length boundary (120 lines pass, 121 warns without gating). It also pins
+the skill's own artifacts against lint: eval/files fixtures must pass with
+zero ERROR/WARN, assets template numbers must match lint constants, and the
+AGENTS.md sample in ref/init-workflow.md must stay recognizable by
+MEMORY_REF_RE (exactly one declaring line). The project skeleton is
+same-sourced from the template's skeleton block via memory_init.extract_skeleton,
+and memory_init itself is covered (creates fresh skeleton, refuses an
+existing index without touching it).
 
 Run: python3 tests/smoke_test_memory_lint.py  (from yzr-memory-management/)
 Exit 0 = all green, 1 = regression.
@@ -23,9 +30,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tools import memory_init  # noqa: E402
 from tools.memory_lint import (  # noqa: E402
+    BUDGET_HIGH_RATIO,
+    DESCRIPTION_MAX_CHARS,
     ENTRY_MAX_LINES,
+    INDEX_MAX_BYTES,
     INDEX_MAX_LINES,
+    MEMORY_REF_RE,
+    VALID_TYPES,
     collect_findings,
     discover_memory_root,
     main,
@@ -57,6 +70,15 @@ def run_cli(argv):
 def rules_in(output: str, rules) -> str:
     """返回输出里命中的规则名集合描述，供断言消息用"""
     return ", ".join(r for r in rules if r in output)
+
+
+SKILL_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE = SKILL_DIR / "assets" / "memory-index-template.md"
+
+
+def skill_file(rel: str) -> str:
+    """读 skill 侧文件（assets 模板 / ref 工作流）"""
+    return (SKILL_DIR / rel).read_text(encoding="utf-8")
 
 
 TODAY = date.today().isoformat()
@@ -119,7 +141,7 @@ def build_rotted(root: Path) -> None:
 
 
 def main_test() -> None:
-    """三组用例：干净、腐化、无 MEMORY/"""
+    """用例组：干净 / 腐化 / 无 MEMORY 与悬空声明 / 空白与骨架 / eval 夹具 / 模板数值 / init 样例"""
     with tempfile.TemporaryDirectory() as tmp:
         clean_root = Path(tmp) / "clean"
         write(clean_root / "MEMORY" / "MEMORY.md", CLEAN_INDEX)
@@ -210,10 +232,32 @@ def main_test() -> None:
         write(blank_root / "MEMORY" / "MEMORY.md", "   \n\t\n")
         rc, out = run_cli([str(blank_root)])
         expect(rc == 0 and "INDEX-EMPTY" in out, f"空白索引应 WARN 且不改退出码，实际 rc={rc}")
-        skeleton = "# MEMORY/\n\n## 规则\n\n（尚无条目）\n"
+        skeleton = memory_init.extract_skeleton(TEMPLATE)
         write(blank_root / "MEMORY" / "MEMORY.md", skeleton)
         rc, out = run_cli([str(blank_root)])
         expect(rc == 0 and "INDEX-EMPTY" not in out, f"骨架零条目是合法首批，不应报 INDEX-EMPTY，实际: {out}")
+        findings = collect_findings(blank_root.resolve())
+        expect(findings == [], f"极简骨架本身应零 finding，实际: {findings}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        init_root = Path(tmp) / "fresh"
+        init_root.mkdir()
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            rc = memory_init.main([str(init_root)])
+        created = init_root / "MEMORY" / "MEMORY.md"
+        expect(rc == 0 and created.is_file(), f"init 应建骨架并退出 0，实际 rc={rc}: {buffer.getvalue()}")
+        expect(
+            created.read_text(encoding="utf-8") == memory_init.extract_skeleton(TEMPLATE),
+            "init 写入内容应与模板骨架一致",
+        )
+
+        created.write_text("既有索引\n", encoding="utf-8")
+        buffer = io.StringIO()
+        with contextlib.redirect_stderr(buffer):
+            rc = memory_init.main([str(init_root)])
+        expect(rc == 1, f"索引已存在应拒绝且退出 1，实际 rc={rc}: {buffer.getvalue()}")
+        expect(created.read_text(encoding="utf-8") == "既有索引\n", "拒绝路径不得动既有文件")
 
     with tempfile.TemporaryDirectory() as tmp:
         broken_root = Path(tmp) / "broken"
@@ -250,6 +294,35 @@ def main_test() -> None:
         expect(rc == 0, f"ENTRY-LONG 是 WARN 不应改退出码，实际 {rc}")
         expect(len(long_hits) == 1 and long_hits[0].level == "WARN", f"应恰好一条 WARN，实际: {long_hits}")
         expect("ENTRY-LONG" in out, "文本模式应输出 ENTRY-LONG")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        eval_root = Path(tmp) / "eval-fixtures"
+        fixtures = sorted((SKILL_DIR / "eval" / "files").glob("*.md"))
+        expect(len(fixtures) > 0, "eval/files 下应有 .md 夹具")
+        lines = []
+        for fixture in fixtures:
+            write(eval_root / "MEMORY" / fixture.name, fixture.read_text(encoding="utf-8"))
+            lines.append(f"- [{fixture.stem}]({fixture.name})：eval 夹具")
+        write(eval_root / "MEMORY" / "MEMORY.md", memory_init.extract_skeleton(TEMPLATE) + "\n".join(lines) + "\n")
+        findings = [f for f in collect_findings(eval_root.resolve()) if f.level in ("ERROR", "WARN")]
+        expect(findings == [], f"eval 夹具须过现行契约（0 ERROR 0 WARN），实际: {findings}")
+
+    index_md = TEMPLATE.read_text(encoding="utf-8")
+    entry_md = skill_file("assets/memory-entry-template.md")
+    expect(f"≤ {INDEX_MAX_LINES} 行且 ≤ {INDEX_MAX_BYTES // 1024}KB" in index_md, "索引模板预算数值应与 lint 常量一致")
+    expect("八成" in index_md and BUDGET_HIGH_RATIO == 0.8, "水位措辞（八成）应与 BUDGET_HIGH_RATIO 一致")
+    expect(f"超 {ENTRY_MAX_LINES} 行" in entry_md, "条目模板长度阈值应与 lint 常量一致")
+    expect(f"≤ {DESCRIPTION_MAX_CHARS} 字符" in entry_md, "条目模板 description 上限应与 lint 常量一致")
+    for entry_type in VALID_TYPES:
+        expect(f"`{entry_type}`" in entry_md, f"条目模板应列 type 四选一之 {entry_type}")
+    expect("YYYY-MM-DD" in entry_md, "条目模板应钉 modified 格式 YYYY-MM-DD")
+
+    init_md = skill_file("ref/init-workflow.md")
+    blocks = memory_init.FENCE_RE.findall(init_md)
+    sample = next((b for b in blocks if "MEMORY/MEMORY.md" in b), None)
+    expect(sample is not None, "init-workflow 应含 AGENTS.md 引用段样例（markdown 代码块）")
+    declared = [ln for ln in sample.splitlines() if MEMORY_REF_RE.match(ln.strip())]
+    expect(len(declared) == 1, f"引用段样例应恰有一行命中 MEMORY_REF_RE（@ 行命中、注释行不命中），实际: {declared}")
 
     print("smoke_test_memory_lint: all green")
 

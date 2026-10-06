@@ -1,10 +1,10 @@
-# MEMORY/
+<!-- 本文件是 skill 侧格式规格，不整份拷贝进项目；init 只取“项目骨架”节 skeleton 标记段的内容 -->
 
-<!-- 拷贝本文件为项目根的 MEMORY/MEMORY.md；顶部注释与"索引行格式"节在首批条目落盘后可删 -->
+# MEMORY/ 索引格式规格
 
-跨会话"为什么 + 边界规则"的索引；正文在同级 `<slug>.md`，按需 Read。
-AGENTS.md 用单行 `@MEMORY/MEMORY.md` 引入本文件（host 自动展开则索引常驻上下文，
-不展开的 agent 靠引用段内的 Read 指令注释兜底）
+跨会话"为什么 + 边界规则"的索引；正文在同级 `<slug>.md`，按需 Read。AGENTS.md 用单行
+`@MEMORY/MEMORY.md` 引入（host 自动展开则索引常驻上下文，不展开的 agent 靠引用段内的
+Read 指令注释兜底）
 
 ## 索引行格式
 
@@ -15,8 +15,14 @@ AGENTS.md 用单行 `@MEMORY/MEMORY.md` 引入本文件（host 自动展开则�
 - 短条目：`- 标题：一句话事实`（无链接，正文就活在索引里；需要展开时升格为文件条目）
 - 分组用 `## <组名>`，默认单组；新条目只追加到组末尾，不改写他行
 
+## 项目骨架
+
+<!-- init 拷贝下述代码块内容为项目根 MEMORY/MEMORY.md -->
+
+<!-- skeleton:start -->
+```markdown
+# MEMORY/
+
 ## 规则
-
-<!-- 短条目直接写在下面；首批为空时保留组标题 -->
-
-（尚无条目）
+```
+<!-- skeleton:end -->

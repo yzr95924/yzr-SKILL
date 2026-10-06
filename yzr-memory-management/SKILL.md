@@ -41,7 +41,7 @@ metadata:
 3. **合并优先**：同主题永远只有一条，并入更新而非新增
 4. **吸收即删**：条目内容进了文档 / 代码 / AGENTS.md，条目本体就删（git 可恢复）
 5. **索引有顶**：常驻面（自动加载的索引）上唯一写入前拦截的算术级闸，不依赖自觉——预算数值与水位规则以 `assets/memory-index-template.md` 为 SSOT
-6. **落点红线**：项目内容只进项目 MEMORY/；agent 私有记忆只放跨项目偏好，最多存指针；密钥 / token / 对人的评价永不入记忆
+6. **落点红线**：项目内容只进项目 MEMORY/；密钥 / token / 对人的评价永不入记忆
 
 ## 工作流
 
@@ -55,12 +55,11 @@ metadata:
 
 ### 初始化 init
 
-不主动推销；用户点名、或 capture 发现无落点时才提议。先 Read `ref/init-workflow.md` 再动手（骨架内容、AGENTS.md 引用段）
+不主动推销；用户点名、或 capture 发现无落点时才提议。先 Read `ref/init-workflow.md` 再动手（骨架创建、AGENTS.md 引用段）
 
 ## 参考样例
 
 会话末用户说"把这轮的收获整理进记忆"：agent 在 git root 找到 `MEMORY/`，从本轮提取候选并
 逐条过五道闸："包管理用 uv"（证据：用户纠正过 npm 用法；落点：索引行）、"金额一律
 Decimal"（证据：用户明确约定；落点：索引行）、"orders/ 有上游校验"（负清单命中：能从代码
-读出，不收）——列表提议 2 条，用户确认后追加到 `MEMORY/MEMORY.md` 末尾；交付说明提示
-未 commit 前其他 worktree 看不到
+读出，不收）——列表提议 2 条，用户确认后追加到 `MEMORY/MEMORY.md` 末尾
