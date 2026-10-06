@@ -2,16 +2,16 @@
 name: yzr-writing-review
 description: |
   当用户要和 agent 一起 review 一段现有文字 / 文档时使用本 skill：审视逻辑连贯性、结构组织、
-  冗余注水、AI 腔、风格语气，以及（提供参照输入时）跨文档 SSOT 一致性。
+  冗余注水、AI 腔、风格语气，以及（提供参照输入时）跨文档 SSOT 一致性；也可多模型交叉评审。
   触发："review 这篇文档 / 审一下 / 看看合不合理 / 逻辑有没有问题 / 有没有重复 / 太啰嗦 /
-  一股 AI 味 / less AI-sounding / 帮我过一遍"；润色类（"润色 / 改写 / 精简 / polish /
-  rewrite / shorten"）同样触发本 skill。
-  不适用：翻译、事实核查、从零写作、内容意图变更（加观点 / 改结论）、
-  代码 review
+  一股 AI 味 / less AI-sounding / 帮我过一遍"；润色类（润色 / 改写 / 精简 / polish / rewrite /
+  shorten）与多模型交叉评审类（分头审再合并 / 交叉评审 / 让几个模型一起审）同样触发。
+  不适用：翻译、事实核查、从零写作、内容意图变更（加观点 / 改结论）、代码 review、
+  多模型生成比稿 / 模型选型评测
 metadata:
   author: Zuoru YANG
   category: writing
-  modify time: 2026-09-25
+  modify time: 2026-10-06
 ---
 
 # yzr-writing-review

@@ -1,0 +1,20 @@
+[
+  {"query": "下周要发版，release note 我写了个初稿（在 ~/docs/release-note-draft.md），想让你叫上几个模型一起 review，交叉看看有没有注水和 AI 味，最后合并个结论给我", "should_trigger": true},
+  {"query": "multi-model review this launch blog draft please — I wrote it with LLM help and I'm worried about the tone; let a few models flag issues independently, then merge findings", "should_trigger": true},
+  {"query": "让 glm 和 deepseek 分头审一下这份故障复盘报告，再合并发现，我不想一个模型说了算", "should_trigger": true},
+  {"query": "这份季度 OKR 复盘我贴给你，帮我过一遍：总觉得车轱辘话来回说，重点也散，说不清到底做成了什么", "should_trigger": true},
+  {"query": "帮我把这段 README 精简润色一下，压到原来的三分之二左右，直接改", "should_trigger": true},
+  {"query": "这段招生宣传文案一股 AI 味，帮我看看哪些句子像机器写的、怎么改得像我们老师自己写的", "should_trigger": true},
+  {"query": "review 这份设计文档的权限章节，我担心跟 wiki 里那篇部署文档口径对不上，重复定义也帮我揪出来", "should_trigger": true},
+  {"query": "老板转来同事的方案说明，我读了三遍抓不到重点，你审一下它论证顺不顺、前后数据有没有对不上", "should_trigger": true},
+  {"query": "上次 review 完还剩十几条发现没处理，这周想逐条过一遍再决定哪些接受哪些跳过，继续走那个流程", "should_trigger": true},
+  {"query": "陪我把 payment.py 里的对账逻辑 review 一遍，重点看有没有并发写和精度问题", "should_trigger": false},
+  {"query": "release note 初稿帮我翻成英文，语气正式一点，别带翻译腔", "should_trigger": false},
+  {"query": "帮我从零写一份蓝绿部署的方案文档，要背景、步骤和回滚预案", "should_trigger": false},
+  {"query": "这段文字里引用的 200 万用户和 P99 200ms 两个数据，帮我核实出处对不对", "should_trigger": false},
+  {"query": "同一个活动标题让三个模型各生成一版文案，然后帮我评评哪版最好、理由是什么", "should_trigger": false},
+  {"query": "benchmark 一下 glm-5.3 和 deepseek-v4.1-flash 在同一批任务上的延迟和成本，我要做模型选型", "should_trigger": false},
+  {"query": "把这周新剪藏的两篇文章摄取进 wiki，注意跟现有页面的说法对齐，冲突的协调掉", "should_trigger": false},
+  {"query": "开三个子代理并行把这几个模块的单元测试补齐，最后汇总结果", "should_trigger": false},
+  {"query": "把这份 markdown 设计文档转成双击就能打开的 HTML，公式和流程图都要正常显示", "should_trigger": false}
+]
