@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _fixtures import make_skill_dir  # noqa: E402
 
+from tools import optimize_description as opt  # noqa: E402
 from tools.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
 from tools.utils import parse_skill_md  # noqa: E402
 
@@ -112,16 +113,66 @@ def check_missing_key(failures):
         failures.append("missing key: reported success without a description block")
 
 
+def check_multiline_no_stray_blanks(failures):
+    """已折行的多行描述写回时不得行间插空行（块标量空行是字面内容，往返失真即触发率失真）。"""
+    candidate = "当用户要审文字时使用本 skill；也可编排多个模型交叉评审。\n触发：多模型 review / 交叉评审；\n不适用：翻译、代码 review"
+    root = make_skill("description: |\n  旧描述。\n")
+    if apply(root, candidate) != 0:
+        failures.append("multiline source: apply failed")
+        return
+    content = (root / "SKILL.md").read_text(encoding="utf-8")
+    stray = sum(1 for line in content.split("\n") if line == "  ")
+    if stray:
+        failures.append(f"multiline source: {stray} stray blank line(s) inserted between wrapped lines")
+    _, got, _ = parse_skill_md(root)
+    if " ".join(candidate.split()) != got:
+        failures.append("multiline source: value mismatch after round-trip")
+
+
+def check_paragraph_blank_preserved(failures):
+    """真段落分隔（输入空行）写回后须保留恰好一行。"""
+    candidate = "第一段内容不带换行\n\n第二段内容不带换行"
+    root = make_skill("description: |\n  旧描述。\n")
+    if apply(root, candidate) != 0:
+        failures.append("paragraph split: apply failed")
+        return
+    content = (root / "SKILL.md").read_text(encoding="utf-8")
+    fm = content.split("---")[1]
+    blanks = sum(1 for line in fm.split("\n") if line == "  ")
+    if blanks != 1:
+        failures.append(f"paragraph split: expected exactly 1 blank separator, got {blanks}")
+
+
+def check_max_iterations_floor(failures):
+    """--max-iterations 0 会空循环后在选 best 时 max() 裸崩，必须 CLI 层拒绝。"""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        argv = ["--skill-path", td, "--eval-set", str(Path(td) / "none.json"), "--max-iterations", "0"]
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                opt.main(argv)
+            failures.append("max-iterations floor: 0 was accepted")
+        except SystemExit as exc:
+            if exc.code != 2:
+                failures.append(f"max-iterations floor: unexpected exit {exc.code}")
+        except Exception as exc:  # 裸崩（修复前的症状）
+            failures.append(f"max-iterations floor: crashed instead of CLI error: {exc!r}")
+
+
 def main() -> int:
     failures = []
     check_round_trip(failures)
     check_from_single_line(failures)
     check_rejections(failures)
     check_missing_key(failures)
+    check_multiline_no_stray_blanks(failures)
+    check_paragraph_blank_preserved(failures)
+    check_max_iterations_floor(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: apply_description round-trip + idempotency + 4 rejection paths")
+    print("SMOKE OK: apply_description round-trip + idempotency + rejection paths + multiline/paragraph/floor")
     return 0
 
 

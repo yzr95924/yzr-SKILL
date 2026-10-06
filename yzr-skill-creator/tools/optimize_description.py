@@ -696,9 +696,8 @@ def _description_span(lines: List[str]) -> Tuple[int, int]:
 def wrap_description(description: str, indent: str = "  ", width: int = DESCRIPTION_WRAP_WIDTH) -> List[str]:
     """按标点与空白把描述折行成 YAML 块标量行。"""
     out: List[str] = []
-    for para_index, paragraph in enumerate(description.split("\n")):
-        if para_index:
-            out.append(indent)
+    for paragraph in description.split("\n"):
+        # 输入行内换行是折行不是分段：块标量里空行是字面内容，插入会造成往返失真
         pieces: List[str] = []
         current = ""
         for char in paragraph:
@@ -897,6 +896,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if not args.eval_set:
         parser.error("--eval-set is required in loop mode (or use --apply)")
+    if args.max_iterations < 1:
+        parser.error("--max-iterations must be >= 1 (0 evaluates nothing and breaks best-selection)")
 
     try:
         eval_set = _load_eval_set(Path(args.eval_set))
