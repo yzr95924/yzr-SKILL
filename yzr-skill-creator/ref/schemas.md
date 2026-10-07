@@ -4,7 +4,7 @@
 > （启动子 agent 时把对应节的路径附进 prompt）。字段名是契约：错名 / 缺名会被下游读成"0 通过"，
 > `tools/eval_report.py` 在出任何数字前先报 ERROR
 >
-> 描述优化（入口 3）不在本文件范围：其 results.json 由 `tools/optimize_description.py` 直接输出（stdout），
+> `description` 优化不在本文件范围：其 results.json 由 `tools/optimize_description.py` 直接输出（stdout），
 > 供 `--apply` 写回
 
 ---
@@ -101,4 +101,4 @@ grader 子 agent 的产出，存 `<run-dir>/grading.json`（与 `outputs/` 同�
   漏判按 ERROR 处理
 - `claims`（机器不读）：从输出里提取并核验的隐含声明；`type` 取 `factual` / `process` / `quality`
 - `user_notes_summary`（机器不读）：执行 agent 自标的不确定 / 需复核 / 变通
-- `eval_feedback`（机器不读，可选）：对 evals 本身的批判，判据见 [grader 规范](agents/grader.md) 第 4 步
+- `eval_feedback`（机器不读，可选）：对 evals 本身的批判，判据见 [grader 规范](agents/grader.md) 的"批判 evals 本身"条

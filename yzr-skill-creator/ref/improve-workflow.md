@@ -1,11 +1,11 @@
 # 改进 skill 的完整流程
 
-> 本文件承载[章节](../SKILL.md#改进-skill)的执行细节：单点与行为性两条路线；行为性路线的评估循环机制也供入口 1 创建流程复用（见[章节](create-workflow.md#第-5-步评估循环与扩集)）
+> 本文件承载[章节](../SKILL.md#改进-skill)的执行细节：单点与行为性两条路线；行为性路线的评估循环机制也供创建流程复用（见[章节](create-workflow.md#第-5-步评估循环与扩集)）
 
 ## 单点
 
 直接改；改完对照[章节](../SKILL.md#执行原则)自查，再 `python3 -m tools.verify <skill-dir>` 全绿
-（动过 `tools/` 加跑 `python3 tests/smoke_test_*.py`）；最后汇报分类与一句理由
+（动过 `tools/` 加跑 `for t in tests/smoke_test_*.py; do python3 "$t" || exit 1; done`）；最后汇报分类与一句理由
 
 ## 评估循环
 
@@ -25,17 +25,17 @@ python3 -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 
 `python3 -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
 对照侧（`without_skill` / `old_skill`）各起一个独立 `opencode run` 子 agent，开关以 `--help` 为准。两侧并发让
-任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同入口 3。
-会嵌套再跑循环的用例（如入口 3 的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
+任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同 `description` 优化（[章节](description-workflow.md#命令流程)）。
+会嵌套再跑循环的用例（如 `description` 优化的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
 
 **没有子 agent 的环境（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务。
-**跳过 baseline**：你写的 skill 你自己跑，独立性的损失由人工评审环节补偿。评估结果直接在对话里展示
+**跳过 baseline**：你写的 skill 你自己跑，独立性的损失由人工评审环节补偿。评估结果直接在对话里展示；第 3 步随之不跑 `eval_report` 双侧对比，逐条判断言只出 with_skill 单侧分
 
 ### 第 2 步：运行进行中起草断言
 
 不要只是等运行结束，边跑边起草定量断言。如果 `eval/evals.json` 已有断言，审视一遍并向用户解释它们检查什么
 
-好的断言应当：**客观可验证**、**名字描述性**（瞥一眼即知在查什么）。偏主观的 skill（写作风格、设计质量）更适合定性评估，不要给需要人为判断的事强行套断言
+好的断言应当：**客观可验证**、**表述描述性**（瞥一眼即知在查什么）。偏主观的 skill（写作风格、设计质量）更适合定性评估，不要给需要人为判断的事强行套断言
 
 断言定稿后，更新 `eval/evals.json`
 

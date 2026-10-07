@@ -16,14 +16,14 @@
 
 ## 第 2 步：裸跑（不写 skill 先跑 prompt）
 
-`reference` 型（定义见 `assets/skill-template.md`）跳过本步
+`reference` 型（定义见 `assets/skill-template.md` frontmatter 的 `tier` 占位）跳过本步
 
 不写 skill，先跑 2–3 个典型 prompt，逐字记录：
 
 - agent **怎么违反**：哪些该做的没做、哪些步骤漏了
 - agent **说了什么借口**（"为简化" / "用户没说明" / "这样更快" / "应该等价"）：**原样**摘抄，不预写假想的借口
 
-运行记录是起草的唯一输入。从记录判定失败类型再选形式：
+运行记录是起草规则的唯一输入。从记录判定失败类型再选形式：
 
 - **纪律失败**（知道但找借口绕开）则用禁令而非教程：把实录借口写进禁令句本身（"X 不构成…的理由"式）；禁令不加 "视情况" / "原则上" / "尽量" 类软开口；能机械拦截的进脚本，不靠文字约束
 - **塑形失败**（想做但不会）则用配方式步骤：具体步骤 + 例子 + 何时用
@@ -32,15 +32,15 @@
 ## 第 3 步：起草 SKILL.md
 
 frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 三组件格式与写法原则见[章节](description-workflow.md#description-优化原则)；
-非 default 型 skill 把 tier 写进 `metadata.tier`（三型定义见 `assets/skill-template.md`）
+非 default 型 skill 把 tier 写进 `metadata.tier`（三型定义见 `assets/skill-template.md` frontmatter 的 `tier` 占位）
 
 正文：骨架从模板拷贝，**先填全再删节**（格式统一靠的是这份骨架，不是临场发挥）：
 
 - 节名 / 顺序 / 各类型可选性以模板为准
 - 正文与 `ref/` 的切分口径见 [章节](../SKILL.md#执行原则) 的"归位"
-- 所有参考文件从 `SKILL.md` 直接挂
-- 一个流程的正文只写进一个 `ref/`，别的入口用"按该节执行"式指针复用，抄成两份禁止，"权威定义在 b"式指路可以
-- 标点基线：中文语境一律全角 `（）`、`，`、`；`、`：`；半角保留在 `Step N:` 式标题、英文标签
+- 入口级参考文件从 `SKILL.md` 直接挂；被工作流复用的文件（如 `ref/schemas.md`）在其工作流节挂
+- 一个流程的正文只写进一个 `ref/`，别的入口用"按该节执行"式指针复用，抄成两份禁止，"权威定义在 X 节"式指路可以
+- 标点基线：中文语境一律全角 `（）`、`，`、`；`、`：`、`？`；半角保留在 `Step N:` 式标题、英文标签
   （`**Reviewer**:`）、`file:line` 类技术写法与 URL / 锚点；frontmatter、代码跨度 / 围栏、markdown
   链接语法不动。批量替换要防跨行配对误伤，改后逐处过 diff
 
