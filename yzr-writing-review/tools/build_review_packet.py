@@ -53,7 +53,7 @@ def scan_lines(files: List[Path]) -> str:
 def build_brief(out_dir: Path, targets: List[Path], refs: List[Path]) -> Path:
     """按内嵌模板生成 BRIEF.md：只装会话数据，所有评审员读到的内容零差异。"""
     rows = "\n".join(manifest_row(p) for p in targets)
-    ref_rows = "\n".join(manifest_row(p) for p in refs) if refs else "无参照输入（只审文档内）"
+    ref_rows = "\n".join(manifest_row(p) for p in refs) if refs else "未传外部参照（--ref 为空）"
     scan = scan_lines(targets)
     # 角色与契约归 skill（ref/reviewer.md，评审员经加载 skill 获得）；BRIEF 只装会话数据，不复制 skill 内容
     brief = f"""# 评审卷宗（会话数据）
