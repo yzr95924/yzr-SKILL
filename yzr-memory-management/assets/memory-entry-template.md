@@ -1,6 +1,6 @@
 ---
 name: entry-slug
-description: 一句话事实摘要，脱离索引也成立（长度与字段约束见本文件底部"字段约定"）
+description: 一句话事实摘要，≤ 200 字符，脱离索引也成立
 metadata:
   type: feedback
   scope: 约束对象（目录 / 文件 / 决策点）
@@ -10,8 +10,8 @@ metadata:
 # 条目标题
 
 - 结论 / 规则一句话起笔；展开"为什么 / 边界"再成段，不复述代码能给出的细节
-- 正文超 120 行（lint 报 ENTRY-LONG）几乎总是路由错误："为什么"的展开该吸收进 docs /
-  AGENTS.md，条目降级成一行结论 + 指针
+- 正文超 120 行（lint 报 ENTRY-LONG）几乎总是路由错误：“为什么”的展开该吸收进 docs /
+  AGENTS.md，条目降为短条目：一行结论，摘要里写明去处（进了哪份 docs / AGENTS.md）
 
 ## 关键证据
 

@@ -4,7 +4,7 @@
 
 ## 寻址
 
-MEMORY/ 只认 git root 一份（从 cwd 向上找 `.git`；非 git 目录用项目根）；找不到时转 init 入口，不就地散写。submodule / 子目录不建 MEMORY/
+MEMORY/ 只认 git root 一份（从 cwd 向上找 `.git`；非 git 目录用项目根）；找不到 `MEMORY/` 时转 init 入口，不就地散写。submodule / 子目录不建 MEMORY/
 
 ## 五道闸（agent 自主写入的准入）
 
@@ -22,16 +22,17 @@ MEMORY/ 只认 git root 一份（从 cwd 向上找 `.git`；非 git 目录用项
 
 | 内容形态 | 落点 |
 | --- | --- |
-| 一句话事实 | 索引行（行格式 SSOT 见 `assets/memory-index-template.md`） |
+| 一句话事实 | 短条目（行格式 SSOT 见 `assets/memory-index-template.md`） |
 | 需要展开为什么 / 边界 / 证据 | `<slug>.md` 条目（骨架见 `assets/memory-entry-template.md`） |
 
-写入顺序：**先写条目文件，再挂索引行**——中断只留孤儿（audit 可查），不留死链（更糟）
+写入顺序：**先写条目文件，再在索引挂其链接行**。中断只留孤儿（audit 可查），不留死链（更糟）
 
 ## 确认与落盘
 
 - 列表提议，每条标：内容一句话、落点、证据；用户确认后按序写入
 - 宁缺毋滥：一轮提议 0~3 条，0 条是合法输出
-- 写前查预算水位（以 lint 输出为准）：报 `INDEX-BUDGET-HIGH` 时先给精简案再写入；报 `INDEX-BUDGET`（ERROR）时转 audit 入口精简、回来再写
+- 写前查预算水位（以 lint 输出为准，命令见[章节](audit-workflow.md#step-1机械层lint)）：
+  报 `INDEX-BUDGET-HIGH` 时先给精简案再写入；报 `INDEX-BUDGET`（ERROR）时转 audit 入口精简、回来再写
 - 落盘后交付说明提示：未 commit 前其他 worktree / 协作者看不到
 
 ## 批量沉淀（会话末）

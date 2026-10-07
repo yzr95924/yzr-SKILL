@@ -14,10 +14,11 @@
    @MEMORY/MEMORY.md
    ```
 
-   **跳过条件**：目标 AGENTS.md 已含 `@MEMORY/MEMORY.md` 行（如 llmw wiki 实例，模板自带
-   该行且文件 byte-owned 禁手改）→ 不提议改 AGENTS.md，只建 MEMORY/ 骨架
+   **跳过条件**：若目标 AGENTS.md 已含 `@MEMORY/MEMORY.md` 行，则不提议改 AGENTS.md，只建
+   MEMORY/ 骨架；llmw wiki 等实例的模板自带该行且文件 byte-owned 禁手改，即属此情形
 
-3. 首批条目：从对话 / 项目现状提取真正够格的（过五道闸，按[章节](capture-workflow.md#五道闸agent-自主写入的准入)执行），没有就空着，不凑数
+3. 首批条目：来源限于对话中用户已陈述的纠正 / 约定（项目现状只提供线索，证据绑定不了本轮就过不了闸 1），
+   真正够格的过五道闸（按[章节](capture-workflow.md#五道闸agent-自主写入的准入)执行）才提，没有就空着，不凑数
 
 ## 边界
 
