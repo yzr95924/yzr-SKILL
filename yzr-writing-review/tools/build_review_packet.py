@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""生成多模型评审卷宗：BRIEF.md（任务书 + 指纹清单 + 共享扫描候选 + 输出契约）。"""
+"""生成多模型评审卷宗：BRIEF.md（会话数据：指纹清单 + 参照输入 + 共享扫描候选）。"""
 
 import argparse
 import datetime
 import hashlib
-import re
 import sys
 import tempfile
 from pathlib import Path
 from typing import List
 
+from count_words import count_text
 from scan_fingerprints import iter_targets, scan_text
 
 SHA_LEN = 8
@@ -36,7 +36,7 @@ def manifest_row(path: Path) -> str:
     """清单行：绝对路径 + sha256 前缀（对字节取哈希，与 sha256sum 一致）+ 非空白字数。"""
     data = path.read_bytes()
     sha = hashlib.sha256(data).hexdigest()[:SHA_LEN]
-    nchars = len(re.sub(r"\s", "", data.decode("utf-8", errors="replace")))
+    nchars, _ = count_text(data.decode("utf-8", errors="replace"))
     return f"| `{path}` | {sha} | {nchars} |"
 
 

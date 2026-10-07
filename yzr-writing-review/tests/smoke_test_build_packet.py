@@ -22,8 +22,6 @@ import tempfile
 from pathlib import Path
 from typing import List
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 CASES: List = []
 
