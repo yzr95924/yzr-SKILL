@@ -3,9 +3,9 @@
 
 subagent 时代的管线没有搬文件的 build 脚本：它的 SSOT 是纯文本，漂移静默发生。钉住
 ref/multi-model.md 的名单表镜像进 eval id-3 expectations（名单 / eval 分叉真实发生过：
-一次未提交的名单编辑让 script-era 清单停在两个模型而 eval 要求三个），并钉死 SKILL.md /
-ref/reviewer.md 双写的评审立场块与复述核心句保持同文（评审员只读 reviewer.md，漂移
-即发出分叉的评审指引）。
+一次未提交的名单编辑让 script-era 清单停在两个模型而 eval 要求三个），并钉住 SKILL.md /
+ref/reviewer.md 各自的复述口径共享核心句（评审立场已单源到 catalog.md，无双写无需钉；
+评审员只读 reviewer.md，复述句漂移即发出分叉的评审指引）。
 
 Run: python3 tests/smoke_test_multi_model.py  (from yzr-writing-review/)
 Exit 0 = all green, 1 = regression.
@@ -41,18 +41,6 @@ def roster_table_mirrored_in_evals():
     )
     for model_id in ids:
         expect(model_id in evals_blob, f"roster id {model_id} not mirrored in eval expectations")
-
-
-@case
-def reviewer_stance_synced_with_skill_md():
-    skill_md = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
-    reviewer_md = (SKILL_ROOT / "ref" / "reviewer.md").read_text(encoding="utf-8")
-    for label, text in (("SKILL.md", skill_md), ("ref/reviewer.md", reviewer_md)):
-        expect("- **资深架构师视角**" in text, f"stance block start missing in {label}")
-        expect("不靠多轮往返补齐发现" in text, f"stance block end missing in {label}")
-    start = skill_md.index("- **资深架构师视角**")
-    end = skill_md.index("不靠多轮往返补齐发现", start) + len("不靠多轮往返补齐发现")
-    expect(reviewer_md.count(skill_md[start:end]) == 1, "评审立场 drifted between SKILL.md and ref/reviewer.md")
 
 
 @case
