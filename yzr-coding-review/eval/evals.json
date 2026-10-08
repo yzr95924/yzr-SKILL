@@ -144,36 +144,36 @@
     {
       "id": 23,
       "prompt": "多模型 review 下面这段代码。先列出你要用的模型名单和执行流程，先不要真的开始评审：\n\n\"def process(order):\n    total = 0\n    for item in order.items:\n        total = total + item.price * item.qty\n    tax = total * 0.06\n    if total <= 0:\n        raise ValueError('bad order')\n    return total + tax\"",
-      "expected_output": "按多模型编排的名单与校验：给出默认名单三个 ID（SSOT 在 run_multi_review.py 的 DEFAULT_ROSTER，--dry-run 宣布并校验可用性）、粘贴代码先物化（diff 输入物化成 change.diff）、一条命令跑 run_multi_review.py 建卷宗并逐票 opencode run、编排者不亲自评审；默认名单不二次追问。",
+      "expected_output": "按多模型编排的名单闸门：给出默认名单三个 ID（SSOT 在 ref/multi-model.md 的名单表），用 harness 模型发现能力逐票校验可发现性并报告结果、说明执行流程（物化、扫描候选落盘、一条消息并行 spawn 只读 subagent、合并）、编排者不亲自评审且不起 CLI 子进程；默认名单不二次追问。",
       "files": [],
       "expectations": [
-        "给出默认名单三个模型 ID：opencode-go/deepseek-v4.1-flash、opencode-go/glm-5.3、opencode-go/qwen3.8-flash",
-        "实际运行 tools/run_multi_review.py --dry-run 或等价方式逐个核验三个 ID 在本机可发现（grader 以同参复跑复核：核验结果与回答一致即成立，仅口头声称不算）",
-        "报告核验所得；名单有不可发现时停下交用户裁定，不静默替换、不静默减票",
+        "给出默认名单三个模型 ID：yzr-dashscope/qwen3.8-flash、yzr-dashscope/deepseek-v4.1-flash、yzr-zai/glm-5.3-flash",
+        "实际用 harness 的模型发现能力（models 发现工具或等价）逐票校验名单并报告可发现性结果，未调用仅口头声称不算、未核验不宣布有效",
+        "名单有不可发现时停下报告相近候选、交用户裁定，不静默替换、不静默减票",
         "未反问用户要用哪些模型（显式要多模型且未点名时，默认名单即预确认）",
-        "说明逐票由脚本并行 spawn 的 opencode run 纯文本评审员产生，主 agent 只编排与合并、不亲自出发现",
-        "说明粘贴代码先物化成快照文件（git diff / patch 输入物化成 change.diff 快照、显式列路径入卷宗），再一条命令跑 tools/run_multi_review.py；评审员契约（ref/reviewer.md 与 catalog）随卷宗附章送达，SKILL.md 不随卷宗送达",
+        "说明评审发现由 harness subagent 一条消息并行 spawn 的逐模型票产生，票间唯一差异是 model 参数，编排者只编排与合并、不亲自出发现，不起任何 CLI 子进程",
+        "说明粘贴代码先物化成快照文件（git diff / patch 输入物化成 change.diff 快照），机械扫描候选（dup_scan exact / fuzzy）由编排者跑一次落盘，全体评审员读同一份材料（被审代码、契约 ref/reviewer.md、规则 ref/catalog.md），评审员按契约产出",
         "回答中不含任何具体评审发现条目（未绕开多模型编排单模型开审）"
       ]
     },
     {
       "id": 24,
-      "prompt": "多模型 review 进行到合并阶段。被审对象为卷宗清单内的 parser.py，脚本逐票状态均为 ok，三份评审员输出如下（A=deepseek-v4.1-flash，B=glm-5.3，C=qwen3.8-flash），请按多模型合并规则给出对话式合并结论。不要重跑评审，也不要运行任何工具：\n\nA：\n复述：parser.py 读取订单行，逐行校验后累计金额并通知，单函数贯穿。\n- parser.py:12 | 函数粒度 | process() 内嵌 3 个语义段（校验 / 累计 / 通知） | 抽 validate_order() 与 calc_total()\n- parser.py:31 | 魔法值 | 0.06 裸字面量承载税率业务含义 | 提为 TAX_RATE 常量\n- parser.py:31 | 重复代码 | 31-36 与 48-53 两段近似 | 抽 validate_row() 公共，差异参数化\n- parser.py:44 | 职责与归属 | notify 属订单逻辑泄漏进解析器 | 把通知搬出 parser\n- parser.py:50 | （目录外）建议先补单元测试 | 改动无安全网 | 补测试再重构\n\nB：\n复述：订单 CSV 的解析、校验与金额计算，核心在 process()。\n- parser.py:12 | 函数粒度 | process() 过长且含多个语义段 | 抽具名函数\n- parser.py:31 | 魔法值 | 0.06 裸现 | 提常量\n- parser.py:44 | 函数粒度 | 薄包装，函数体与名字一样清晰 | 内联\n- parser.py:19 | 边界与校验 | CSV 外部输入直接进核心逻辑无空值检查 | 入口校验\n\nC：\n复述：这段代码是通知服务，核心是把订单发给下游系统，重构应从通知层入手。\n- parser.py:19 | 边界与校验 | 输入未校验 | 补校验",
-      "expected_output": "合并结论：C 复述核心意图明显跑偏被降权、其发现不计入共识，重跑仅作为选项征询用户；12 行与 31 行魔法值按同位置同规则归并为【A+B】共识；31 行重复代码异规则异对象不并、按单票保留；19 行仅 B 一票标\"仅 B 提出\"未升共识；44 行 A 搬出与 B 内联互斥处置单列分歧（对话式排在单票组后独立成组）交用户；目录外发现过滤或标存疑；不新增自己的发现。",
+      "prompt": "多模型 review 进行到合并阶段。被审对象为材料清单内的 parser.py，逐票输出均已按契约核对有效，三份评审员输出如下（A=deepseek-v4.1-flash，B=glm-5.3，C=qwen3.8-flash），请按多模型合并规则给出对话式合并结论。不要重跑评审，也不要运行任何工具：\n\nA：\n复述：parser.py 读取订单行，逐行校验后累计金额并通知，单函数贯穿。\n- parser.py:12 | 函数粒度 | process() 内嵌 3 个语义段（校验 / 累计 / 通知） | 抽 validate_order() 与 calc_total()\n- parser.py:31 | 魔法值 | 0.06 裸字面量承载税率业务含义 | 提为 TAX_RATE 常量\n- parser.py:31 | 重复代码 | 31-36 与 48-53 两段近似 | 抽 validate_row() 公共，差异参数化\n- parser.py:44 | 职责与归属 | notify 属订单逻辑泄漏进解析器 | 把通知搬出 parser\n- parser.py:50 | （目录外）建议先补单元测试 | 改动无安全网 | 补测试再重构\n\nB：\n复述：订单 CSV 的解析、校验与金额计算，核心在 process()。\n- parser.py:12 | 函数粒度 | process() 过长且含多个语义段 | 抽具名函数\n- parser.py:31 | 魔法值 | 0.06 裸现 | 提常量\n- parser.py:44 | 函数粒度 | 薄包装，函数体与名字一样清晰 | 内联\n- parser.py:19 | 边界与校验 | CSV 外部输入直接进核心逻辑无空值检查 | 入口校验\n\nC：\n复述：这段代码是通知服务，核心是把订单发给下游系统，重构应从通知层入手。\n- parser.py:19 | 边界与校验 | 输入未校验 | 补校验",
+      "expected_output": "合并结论：C 复述核心意图明显跑偏被降权、其发现不计入共识，重跑仅作为选项征询用户；12 行与 31 行魔法值按同位置同规则归并为【A+B】共识；31 行重复代码异规则异对象不并、按单模型发现保留；19 行仅 B 一票标\"仅 B 提出\"未升共识；44 行 A 搬出与 B 内联互斥处置单列分歧（对话式排在单模型组后独立成组）交用户；目录外发现过滤；不新增自己的发现。",
       "files": [],
       "expectations": [
         "C 因理解复述与 A / B 明显跑偏（通知服务 vs 订单解析）被降权：其发现不计入共识，结论写明降权原因",
         "未擅自重跑 C：重跑只作为选项征询用户",
         "A 与 B 的 parser.py:12 函数粒度发现归并后在主表只出现一条（非两条），标来源【A+B】",
-        "parser.py:31 魔法值归并为一条 A+B 共识；A 的 parser.py:31 重复代码因规则名与处置对象不同未与魔法值互并、按单票保留",
+        "parser.py:31 魔法值归并为一条 A+B 共识；A 的 parser.py:31 重复代码因规则名与处置对象不同未与魔法值互并、按单模型发现保留",
         "parser.py:19 按票数只计 B 一票（C 降权不并入共识），标\"仅 B 提出\"，未升级为共识",
-        "共识发现排在单票组之前分层呈现",
-        "parser.py:44 的 A（搬出通知职责）与 B（内联）互斥处置单列\"分歧\"，排在单票组后独立成组，未静默裁决",
+        "共识发现排在单模型组之前分层呈现",
+        "parser.py:44 的 A（搬出通知职责）与 B（内联）互斥处置单列\"分歧\"，排在单模型组后独立成组，未静默裁决",
         "编排者对分歧给资深工程师倾向但未擅自二选一，最终交用户表态",
-        "A 的目录外发现（parser.py:50 建议先补单元测试）经映射尝试后未进主表（过滤或标存疑）",
+        "A 的目录外发现（parser.py:50 建议先补单元测试）经映射尝试后被过滤，未进主表",
         "未以不可核验的全文计数为据把 A+B 两票共识降出主表（降权须显式标存疑交用户）",
         "合并后主表每条发现均映射 catalog 规则名",
-        "主表条目全部可溯源到 A / B 原文（编排者的规则名改判、归并标注豁免；主 agent 不亲自评审）"
+        "主表条目全部可溯源到 A / B 原文（编排者的规则名改判、归并标注豁免；编排者不亲自评审）"
       ]
     }
   ]
