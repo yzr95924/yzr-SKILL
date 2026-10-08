@@ -8,7 +8,7 @@ description: |
 metadata:
   author: Zuoru YANG
   category: writing
-  modify time: 2026-10-08
+  modify time: 2026-10-09
 ---
 
 # yzr-writing-review
@@ -41,10 +41,8 @@ metadata:
 
 ### Step 1: 收集输入
 
-解析输入，确定语言 + 文体 + 篇幅；判断有无**参照输入**。目录形式默认只含 `.md` 行文文件，
-其余文件用户点名才进被审对象集。篇幅以 `python3 tools/count_words.py
-<被审对象>` 计（粘贴文字先物化成临时文件；从 skill 根运行），> 2000 字时与用户确认分段粒度
-（按章节 / 按小节；多文件时可按文件），发现按该粒度分批呈现
+解析输入，确定语言 + 文体；判断有无**参照输入**。目录形式默认只含 `.md` 行文文件，
+其余文件用户点名才进被审对象集
 
 ### Step 2: 加载 catalog 并补齐
 

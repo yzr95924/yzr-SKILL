@@ -78,6 +78,20 @@ def mask_nonprose(line: str) -> str:
     return LINK_DEST.sub(lambda m: "]" + " " * (len(m.group(0)) - 1), line)
 
 
+def _match_line(raw: str, rel: str, lineno: int) -> List[Hit]:
+    """扫描单行：逐模式收集候选命中；证据取 strip 后前 80 字符。"""
+    hay = mask_nonprose(raw)
+    snippet = raw.strip()
+    if len(snippet) > 80:
+        snippet = snippet[:80] + "…"
+    hits: List[Hit] = []
+    for pat in PATTERNS:
+        count = len(re.findall(pat.regex, hay)) if pat.regex else hay.count(pat.literal)
+        if count:
+            hits.append(Hit(rel, lineno, pat.pid, count, snippet, pat.rule))
+    return hits
+
+
 def scan_text(text: str, rel: str) -> List[Hit]:
     """扫描一段 Markdown，返回候选命中；围栏与非行文内容跳过。"""
     hits: List[Hit] = []
@@ -86,16 +100,8 @@ def scan_text(text: str, rel: str) -> List[Hit]:
         if FENCE.match(raw):
             in_fence = not in_fence
             continue
-        if in_fence:
-            continue
-        hay = mask_nonprose(raw)
-        for pat in PATTERNS:
-            count = len(re.findall(pat.regex, hay)) if pat.regex else hay.count(pat.literal)
-            if count:
-                snippet = raw.strip()
-                if len(snippet) > 80:
-                    snippet = snippet[:80] + "…"
-                hits.append(Hit(rel, lineno, pat.pid, count, snippet, pat.rule))
+        if not in_fence:
+            hits.extend(_match_line(raw, rel, lineno))
     return hits
 
 
@@ -110,14 +116,18 @@ def iter_targets(root: Path) -> List[Path]:
     return sorted(found)
 
 
-def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
-    """对多个路径跑扫描，rel 相对 cwd 计算（失败时用原路径）。"""
-    cwd = cwd or Path.cwd()
+def run(paths: List[str]) -> List[Hit]:
+    """对多个路径跑扫描，rel 相对当前工作目录计算（失败时用原路径）。"""
+    cwd = Path.cwd()
     hits: List[Hit] = []
     for p in paths:
         target = Path(p)
         for md in iter_targets(target):
-            text = md.read_text(encoding="utf-8", errors="replace")
+            try:
+                text = md.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                print(f"WARNING: {md} 非 UTF-8，跳过", file=sys.stderr)
+                continue
             try:
                 rel = str(md.resolve().relative_to(cwd))
             except ValueError:
