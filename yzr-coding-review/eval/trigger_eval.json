@@ -72,6 +72,26 @@
     "should_trigger": true
   },
   {
+    "query": "让几个模型交叉 review 一下 src/parser.py,分头出发现再合并,我不想一个模型说了算",
+    "should_trigger": true
+  },
+  {
+    "query": "multi-model review this PR diff — a few models review the changes separately, then consolidate findings with sources marked",
+    "should_trigger": true
+  },
+  {
+    "query": "让 glm 和 deepseek 分头看看 internal/handler/order.go 有没有代码味,列出共识和分歧",
+    "should_trigger": true
+  },
+  {
+    "query": "叫三个模型各写一版 parse_order() 实现,评评哪版最好",
+    "should_trigger": false
+  },
+  {
+    "query": "benchmark 三个模型在同一批代码任务上的延迟和成本,我要做模型选型",
+    "should_trigger": false
+  },
+  {
     "query": "帮我 review 一下 src/parser.py,看看有什么可重构的",
     "should_trigger": true
   },
