@@ -127,11 +127,16 @@ def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：打印候选（--json 机器可读）；始终退出 0（候选不是门禁）。"""
+    """CLI 入口：打印候选（--json 机器可读）；命中不是门禁退 0，路径缺失大声失败退 1。"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="+", help="markdown file(s) or directory to scan")
     parser.add_argument("--json", action="store_true", dest="as_json", help="machine-readable output")
     args = parser.parse_args(argv)
+    missing = [p for p in args.paths if not Path(p).exists()]
+    if missing:
+        for p in missing:
+            print(f"ERROR: {p} 不存在", file=sys.stderr)
+        return 1
     hits = run(args.paths)
     if args.as_json:
         print(json.dumps([h._asdict() for h in hits], ensure_ascii=False, indent=1))

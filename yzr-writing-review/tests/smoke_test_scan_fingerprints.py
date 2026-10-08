@@ -305,6 +305,16 @@ def cli_contract():
         expect(data[0]["file"] == str(md) and data[0]["count"] == 1, data)
 
 
+@case
+def cli_missing_path_fails_loudly():
+    # 缺路径静默退 0 会把"扫了个寂寞"伪装成"零命中"（本 skill 自审时踩过写错路径）
+    with tempfile.TemporaryDirectory() as td:
+        script = Path(__file__).resolve().parent.parent / "tools" / "scan_fingerprints.py"
+        proc = subprocess.run([sys.executable, str(script), str(Path(td) / "nope.md")], capture_output=True, text=True)
+        expect(proc.returncode != 0, proc)
+        expect("ERROR" in proc.stderr, proc.stderr)
+
+
 def main() -> int:
     failures = []
     for fn in CASES:

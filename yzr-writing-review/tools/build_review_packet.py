@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""生成多模型评审卷宗：BRIEF.md（会话数据：指纹清单 + 参照输入 + 共享扫描候选）。"""
+"""生成多模型评审卷宗：PACKET.md（被审全文 + 参照输入 + 共享扫描候选 + 契约附章）。"""
 
 import argparse
 import datetime
-import hashlib
 import sys
 import tempfile
 from pathlib import Path
@@ -12,7 +11,12 @@ from typing import List
 from count_words import count_text
 from scan_fingerprints import iter_targets, scan_text
 
-SHA_LEN = 8
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+# SKILL.md 刻意不入附章：评审员是无工具的纯文本会话，SKILL.md 里编排者的 tools/ 命令曾诱导
+# 评审员尝试调用（实测复现）；防线由 smoke_test_build_packet.py 的 SKILL.md 缺席断言钉死
+CONTRACT_FILES = ("ref/reviewer.md", "ref/catalog.md")
+# 内联的被审 / 附章正文本身是含 3 反引号围栏的 Markdown，外层用 4 反引号防嵌套碰撞
+FENCE = "````"
 DEFAULT_OUT_ROOT = Path(tempfile.gettempdir())
 
 
@@ -33,11 +37,10 @@ def expand_paths(paths: List[str], label: str) -> List[Path]:
 
 
 def manifest_row(path: Path) -> str:
-    """清单行：绝对路径 + sha256 前缀（对字节取哈希，与 sha256sum 一致）+ 非空白字数。"""
-    data = path.read_bytes()
-    sha = hashlib.sha256(data).hexdigest()[:SHA_LEN]
-    nchars, _ = count_text(data.decode("utf-8", errors="replace"))
-    return f"| `{path}` | {sha} | {nchars} |"
+    """清单行：绝对路径 + 非空白字数 + 行数。"""
+    text = path.read_bytes().decode("utf-8", errors="replace")
+    nchars, _ = count_text(text)
+    return f"| `{path}` | {nchars} | {len(text.splitlines())} |"
 
 
 def scan_lines(files: List[Path]) -> str:
@@ -50,37 +53,48 @@ def scan_lines(files: List[Path]) -> str:
     return "\n".join(lines) if lines else "- 无命中"
 
 
-def build_brief(out_dir: Path, targets: List[Path], refs: List[Path]) -> Path:
-    """按内嵌模板生成 BRIEF.md：只装会话数据，所有评审员读到的内容零差异。"""
+def fenced(text: str) -> str:
+    """4 反引号围栏包裹整份 Markdown 正文。"""
+    return f"{FENCE}markdown\n{text.rstrip()}\n{FENCE}"
+
+
+def body_sections(files: List[Path]) -> str:
+    """被审与参照全文内联：每文件一个围栏块，评审员不再读盘。"""
+    blocks = [f"### {f}\n\n{fenced(f.read_text(encoding='utf-8', errors='replace'))}" for f in files]
+    return "## 被审与参照全文\n\n" + "\n\n".join(blocks)
+
+
+def contract_sections() -> str:
+    """附章运行时现读 SKILL.md / reviewer.md / catalog.md 拼接：SSOT 在源文件，卷宗是派生物。"""
+    blocks = [f"### {rel}\n\n{fenced((SKILL_ROOT / rel).read_text(encoding='utf-8'))}" for rel in CONTRACT_FILES]
+    return "## 契约附章（评审员契约与规则清单，随卷宗送达）\n\n" + "\n\n".join(blocks)
+
+
+def build_packet(out_dir: Path, targets: List[Path], refs: List[Path]) -> Path:
+    """生成 PACKET.md：全体评审员收到字节级相同的单文件，读盘与核验机制随之取消。"""
     rows = "\n".join(manifest_row(p) for p in targets)
     ref_rows = "\n".join(manifest_row(p) for p in refs) if refs else "未传外部参照（--ref 为空）"
-    scan = scan_lines(targets)
-    # 角色与契约归 skill（ref/reviewer.md，评审员经加载 skill 获得）；BRIEF 只装会话数据，不复制 skill 内容
-    brief = f"""# 评审卷宗（会话数据）
-
-评审员模式、角色边界与产物要求由 yzr-writing-review skill 的 ref/reviewer.md 定义；本卷宗只含本次评审的会话数据，全体评审员字节级相同。
-
-## 被审内容清单
-
-| 路径 | sha256 前 {SHA_LEN} 位 | 字数（不含空白） |
-| --- | --- | --- |
-{rows}
-
-参照输入：
-
-{ref_rows}
-
-## 机械扫描候选（全体评审员共享，勿重跑扫描）
-
-{scan}
-"""
-    path = out_dir / "BRIEF.md"
-    path.write_text(brief, encoding="utf-8")
+    parts = [
+        "# 多模型评审卷宗",
+        "本卷宗是单名评审员的唯一输入：被审内容清单、参照输入、机械扫描候选、被审与参照全文、文末契约附章。"
+        "评审员角色、评审立场与产物顺序见附章 ref/reviewer.md；评审员没有可用工具，一切以本卷宗为准。"
+        "全体评审员收到的本文件字节级相同。",
+        "## 被审内容清单",
+        "| 路径 | 字数（不含空白） | 行数 |\n| --- | --- | --- |\n" + rows,
+        "## 参照输入",
+        ref_rows,
+        "## 机械扫描候选（全体评审员共享，勿重跑扫描）",
+        scan_lines(targets),
+        body_sections(targets + refs),
+        contract_sections(),
+    ]
+    path = out_dir / "PACKET.md"
+    path.write_text("\n\n".join(parts) + "\n", encoding="utf-8")
     return path
 
 
 def main(argv: List[str] = None) -> int:
-    """CLI 入口：建卷宗目录并生成 BRIEF.md，打印两个路径。"""
+    """CLI 入口：建卷宗目录并生成 PACKET.md，打印两个路径。"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", nargs="+", required=True, help="reviewed file(s) or dir(s)")
     parser.add_argument("--ref", nargs="+", default=[], help="reference input file(s) for cross-doc SSOT")
@@ -94,9 +108,9 @@ def main(argv: List[str] = None) -> int:
         stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         out_dir = Path(DEFAULT_OUT_ROOT) / f"wr-{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    brief = build_brief(out_dir, targets, refs)
+    packet = build_packet(out_dir, targets, refs)
     print(f"packet: {out_dir}")
-    print(f"brief: {brief}")
+    print(f"file: {packet}")
     return 0
 
 

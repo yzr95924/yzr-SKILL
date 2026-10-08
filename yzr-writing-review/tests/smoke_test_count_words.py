@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""count_words.py 冒烟：中文非空白字符 / 英文词数口径、目录展开、缺路径大声失败。
+"""count_words.py 冒烟：中文非空白字符 / 英文词数口径、目录展开、缺路径大声失败、--help 自描述。
 
 Run: python3 tests/smoke_test_count_words.py（cwd: skill 根）
 """
@@ -62,6 +62,13 @@ def missing_path_fails_loudly():
     proc = run("/nonexistent/nope.md")
     expect(proc.returncode != 0, proc)
     expect("ERROR" in proc.stderr, proc)
+
+
+@case
+def help_is_self_describing():
+    proc = run("--help")
+    expect(proc.returncode == 0, proc)
+    expect("口径" in proc.stdout and "chars" in proc.stdout and "words" in proc.stdout, proc.stdout)
 
 
 def main() -> int:
