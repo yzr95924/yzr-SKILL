@@ -15,8 +15,8 @@ SECTION_SIGN = "\u00a7"  # 章节符号"§"
 ARROW = "\u2192"  # 箭头"→"
 # 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
 EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
-# 标点宽度候选（catalog 通用规则"标点宽度"）：正向收 CJK 紧邻的半角 ,;:!?；反向只收 ,; 与
-# 括号——!? 可归英文小句句末、: 反向多为 Latin 标签 / 坐标（Step 1:、file:章节名），收则误报成灾
+# 标点宽度候选（catalog 通用规则"标点宽度"）：正向收 CJK 紧邻的半角 ,;:!?；反向只收 ,; 与括号。
+# !? 可归英文小句句末、: 反向多为 Latin 标签 / 坐标（Step 1:、file:章节名），收则误报成灾
 _CJK = (
     "\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff"  # 与 skill-creator utils._CJK_RE 同域；本 skill 独立分发不跨目录 import
 )
@@ -36,7 +36,7 @@ DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", 
 
 
 class Pattern(NamedTuple):
-    """一条模式：pid / 字面 / catalog 规则文案，regex 置位时按正则计数。"""
+    """一条模式：pid / 字面 / catalog 规则文案。"""
 
     pid: str
     literal: str
@@ -54,7 +54,7 @@ PATTERNS = [
 ]
 
 FENCE = re.compile(r"^\s*```")
-# inline code spans: double-backtick first, then single-backtick
+# 行内代码段：先双反引号后单反引号
 CODE_SPANS = (re.compile(r"``[^`\n]+``"), re.compile(r"`[^`\n]*`"))
 # markdown 链接目标 ](...) 与行内代码同理非行文标点：中文标题锚 / file:line 式坐标不该计入命中
 LINK_DEST = re.compile(r"\]\([^)]*\)")
@@ -129,8 +129,8 @@ def run(paths: List[str], cwd: Optional[Path] = None) -> List[Hit]:
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：打印候选（--json 机器可读）；命中不是门禁退 0，路径缺失大声失败退 1。"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("paths", nargs="+", help="markdown file(s) or directory to scan")
-    parser.add_argument("--json", action="store_true", dest="as_json", help="machine-readable output")
+    parser.add_argument("paths", nargs="+", help="要扫描的 markdown 文件或目录")
+    parser.add_argument("--json", action="store_true", dest="as_json", help="机器可读输出")
     args = parser.parse_args(argv)
     missing = [p for p in args.paths if not Path(p).exists()]
     if missing:
@@ -143,7 +143,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         for h in hits:
             print(f"INFO: {h.file}:{h.line} {h.pid} {h.evidence}")
-        print(f"scanned: {len(hits)} candidate(s)", file=sys.stderr)
+        print(f"candidates: {len(hits)}", file=sys.stderr)
     return 0
 
 

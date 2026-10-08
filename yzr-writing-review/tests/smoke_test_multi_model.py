@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Fixture smoke test for multi-model review doc invariants.
+"""多模型评审文档不变量的夹具冒烟。
 
-The subagent-era pipeline has no build script copying files around: its SSOTs are
-plain text, so drift between them is silent. Pins the roster table in
-ref/multi-model.md mirrored into the eval id-3 expectations (the roster/eval
-divergence really happened: an uncommitted roster edit left the script-era list
-at two models while the eval demanded three), and the 评审立场 block plus the
-复述 core phrase duplicated across SKILL.md / ref/reviewer.md staying identical
-(reviewers read only reviewer.md, so drift ships divergent reviewer guidance).
+subagent 时代的管线没有搬文件的 build 脚本：它的 SSOT 是纯文本，漂移静默发生。钉住
+ref/multi-model.md 的名单表镜像进 eval id-3 expectations（名单 / eval 分叉真实发生过：
+一次未提交的名单编辑让 script-era 清单停在两个模型而 eval 要求三个），并钉死 SKILL.md /
+ref/reviewer.md 双写的评审立场块与复述核心句保持同文（评审员只读 reviewer.md，漂移
+即发出分叉的评审指引）。
 
 Run: python3 tests/smoke_test_multi_model.py  (from yzr-writing-review/)
 Exit 0 = all green, 1 = regression.

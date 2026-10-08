@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Fixture smoke test for scan_fingerprints.
 
-The class of bug this pins: an always-reporting or never-reporting scanner
-passes a naive "it finds dashes" check. So every fixture below has both
-directions: prose hits must produce the named finding, and code fences /
-inline code / clean text must produce none. Meta-mention reporting is also
-pinned in the positive direction: it is deliberate (the reviewer exempts),
-not a bug to "fix" by suppression.
+钉住的 bug 类型：一直上报或从不上报的扫描器都能通过"能不能查破折号"这类朴素检查，
+所以下方夹具全部双向：prose 命中必须产生命中，代码围栏 / 行内代码 / 干净文本必须零命中。
+元提及（讨论符号本身的行）有意上报，由 reviewer 豁免，不是需要压掉的 bug。
 
 Run: python3 tests/smoke_test_scan_fingerprints.py  (from yzr-writing-review/)
 Exit 0 = all green, 1 = regression.
@@ -84,7 +81,7 @@ def positive_after_fence_resumes():
 
 @case
 def positive_meta_mention_reported():
-    # fingerprint row talking about the symbol itself: deliberately a candidate
+    # 指纹行在谈符号本身：有意上报的候选
     text = "- **破折号" + chr(0x201C) + DASH + chr(0x201D) + "/ em-dash**：默认一律换常规标点\n"
     hits = scan_text(text, "a.md")
     expect(len(hits) == 1, hits)
@@ -243,7 +240,7 @@ def width_mix_negative_link_target_anchor():
 
 @case
 def width_mix_negative_english_clause_boundary():
-    # ! 属英文小句句末，反向邻接不收（反向只收 ,;:）
+    # ! 属英文小句句末，反向邻接不收（反向只收 ,;）
     text = "Run it now! 现在回滚。\n"
     expect(scan_text(text, "a.md") == [])
 
@@ -273,7 +270,7 @@ def directory_scan_prunes_vendor_dirs():
         (git / "h.md").write_text("句子" + DASH + "尾巴。\n", encoding="utf-8")
         found = iter_targets(Path(td))
         expect([f.name for f in found] == ["doc.md"], found)
-        # 显式点名的 vendor 内文件照扫（与 dup_scan 同款契约）
+        # 显式点名的 vendor 内文件照扫
         expect(iter_targets(nm / "dep.md") == [nm / "dep.md"], found)
 
 
@@ -298,7 +295,7 @@ def cli_contract():
                 text=True,
                 universal_newlines=True,
             )
-            expect(proc.returncode == 0, proc)  # candidates, never a gate
+            expect(proc.returncode == 0, proc)  # 候选即提示，不是门禁
             expect(check in proc.stdout, (extra, proc.stdout))
         proc = subprocess.run([sys.executable, str(script), str(md), "--json"], capture_output=True, text=True)
         data = json.loads(proc.stdout)
