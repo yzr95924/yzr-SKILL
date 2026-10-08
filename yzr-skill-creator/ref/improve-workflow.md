@@ -27,7 +27,8 @@ python3 -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 对照侧（`without_skill` / `old_skill`）各建好沙箱与 prompt.txt，stdout 打印 PENDING 清单。前置同 `description`
 优化（harness subagent 能力，[章节](description-workflow.md#命令流程)）。按清单**一条消息并行发起该用例的两侧**
 subagent（长任务用后台模式），prompt 逐字交付该侧 prompt.txt 内容，
-编排者把每侧最终回复原样存为该侧 `transcript.txt`。两侧并发让任务大致同时完成，串行会放大其间的时空漂移、
+编排者把每侧最终回复原样存为该侧 `transcript.txt`（从 harness 会话记录原文逐字复制，禁转写——手抄转写漂移有实录）。
+两侧并发让任务大致同时完成，串行会放大其间的时空漂移、
 污染对比。会嵌套再跑循环的用例（如 `description` 优化的评估循环）是墙钟大头，单独 `--eval` 挑出先跑
 
 **harness 无 subagent 能力（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务。
@@ -35,7 +36,7 @@ subagent（长任务用后台模式），prompt 逐字交付该侧 prompt.txt �
 
 ### 第 2 步：运行进行中起草断言
 
-不要只是等运行结束，边跑边起草定量断言。如果 `eval/evals.json` 已有断言，审视一遍并向用户解释它们检查什么
+如果 `eval/evals.json` 已有断言，审视一遍并向用户解释它们检查什么
 
 好的断言应当：**客观可验证**、**表述描述性**（瞥一眼即知在查什么）。偏主观的 skill（写作风格、设计质量）更适合定性评估，不要给需要人为判断的事强行套断言
 

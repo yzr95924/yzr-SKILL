@@ -1,11 +1,9 @@
 # JSON schema 契约
 
-> 本文件是两份 JSON 的**唯一完整示例来源**：`ref/agents/*.md` 只放骨架，字段精确值一律以本文件为准
-> （启动子 agent 时把对应节的路径附进 prompt）。字段名是契约：错名 / 缺名会被下游读成"0 通过"，
-> `tools/eval_report.py` 在出任何数字前先报 ERROR
+> 本文件是两份 JSON 契约的**唯一来源**：`ref/agents/*.md` 不复述字段，只留指针（启动子 agent 时把对应节的路径附进 prompt）。
+> 字段名是契约：错名 / 缺名会被下游读成"0 通过"，所以 `tools/eval_report.py` 在出任何数字前先报 ERROR
 >
-> `description` 优化不在本文件范围：其 results JSON 由 `tools/desc_eval.py` 的 score 子命令输出（stdout），
-> 写回走 `desc_eval apply --description-file`
+> `description` 优化不在本文件范围：其 results JSON 由 `tools/desc_eval.py` 的 score 子命令输出（stdout）
 
 ---
 

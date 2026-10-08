@@ -2,7 +2,6 @@
 """Screen skills for mutual references (candidate cycles)."""
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
@@ -11,7 +10,13 @@ from typing import Dict, List, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import SKILL_SOURCE_SUBDIRS, discover_skill_dirs, parse_skill_md  # noqa: E402
+from tools.utils import (  # noqa: E402
+    ERROR_REPO_ROOT,
+    SKILL_SOURCE_SUBDIRS,
+    discover_skill_dirs,
+    json_text,
+    parse_skill_md,
+)
 
 
 def discover_named_skills(repo_root: Path) -> List[Tuple[str, Path]]:
@@ -59,16 +64,25 @@ def mentions_in(sources: List[Tuple[str, str]], target_name: str) -> List[Tuple[
     return hits
 
 
-def _render_json(
-    repo_root: Path,
-    pairs: List[Tuple[str, str]],
-    one_way: List[Tuple[str, str]],
-    sources: Dict[str, List[Tuple[str, str]]],
-) -> None:
-    """输出整份 JSON 报告。"""
-    payload = {
+def scan(repo_root: Path) -> Dict:
+    """扫互提对与单向提及，返回 JSON 友好 payload（verify 进程内直调，不经 stdout）。"""
+    by_name: Dict[str, Path] = {}
+    for name, skill_dir in discover_named_skills(repo_root):
+        by_name.setdefault(name, skill_dir)
+    names = sorted(by_name)
+    sources: Dict[str, List[Tuple[str, str]]] = {name: skill_sources(by_name[name]) for name in names}
+
+    edges: Dict[str, List[str]] = {a: [b for b in names if b != a and mentions_in(sources[a], b)] for a in names}
+    pairs: List[Tuple[str, str]] = [
+        (a, b) for i, a in enumerate(names) for b in names[i + 1 :] if b in edges[a] and a in edges[b]
+    ]
+    mutual_set = {frozenset((a, b)) for a, b in pairs}
+    one_way: List[Tuple[str, str]] = [(a, b) for a in names for b in edges[a] if frozenset((a, b)) not in mutual_set]
+
+    return {
         "repo_root": str(repo_root),
         "skill_count": len(sources),
+        "skill_dirs": {name: by_name[name].name for name in names},
         "pairs": [
             {
                 "a": a,
@@ -80,18 +94,13 @@ def _render_json(
         ],
         "one_way": [{"a": a, "b": b, "a_mentions_b": mentions_in(sources[a], b)} for a, b in one_way],
     }
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
-def _render_text(
-    repo_root: Path,
-    pairs: List[Tuple[str, str]],
-    one_way: List[Tuple[str, str]],
-    by_name: Dict[str, Path],
-    sources: Dict[str, List[Tuple[str, str]]],
-) -> None:
+def _render_text(payload: Dict) -> None:
     """输出人类可读报告。"""
-    print(f"Scanning {len(sources)} skill(s) under {repo_root}")
+    pairs, one_way = payload["pairs"], payload["one_way"]
+    dirs = payload["skill_dirs"]
+    print(f"Scanning {payload['skill_count']} skill(s) under {payload['repo_root']}")
     if not pairs:
         print("No mutual-mention pairs found.")
     else:
@@ -99,12 +108,14 @@ def _render_text(
             f"Found {len(pairs)} mutual-mention pair(s) — review whether each "
             "is a real cycle (互提 ≠ 互依；分工转交 / 风格对齐是良性的):\n"
         )
-        for a, b in pairs:
+        for edge in pairs:
+            a, b = edge["a"], edge["b"]
             print(f"== {a}  <->  {b} ==")
             for src, dst in ((a, b), (b, a)):
+                hits = edge["a_mentions_b"] if src == a else edge["b_mentions_a"]
                 print(f"  [{src} -> {dst}]")
-                for loc, line in mentions_in(sources[src], dst):
-                    print(f"    {by_name[src].name}/{loc}: {line}")
+                for loc, line in hits:
+                    print(f"    {dirs[src]}/{loc}: {line}")
             print("")
 
     if one_way:
@@ -113,10 +124,11 @@ def _render_text(
             "itself: real functional dependency = keep explicit; anything else = vague it down "
             "to the skill name or delete; baseline expectation is zero):\n"
         )
-        for a, b in one_way:
+        for edge in one_way:
+            a, b = edge["a"], edge["b"]
             print(f"  [{a} -> {b}]")
-            for loc, line in mentions_in(sources[a], b):
-                print(f"    {by_name[a].name}/{loc}: {line}")
+            for loc, line in edge["a_mentions_b"]:
+                print(f"    {dirs[a]}/{loc}: {line}")
             print("")
 
 
@@ -138,27 +150,15 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parents[2]
     if not repo_root.is_dir():
-        print(f"error: repo root not found: {repo_root}", file=sys.stderr)
+        print(f"{ERROR_REPO_ROOT}: {repo_root}", file=sys.stderr)
         return 2
 
-    by_name: Dict[str, Path] = {}
-    for name, skill_dir in discover_named_skills(repo_root):
-        by_name.setdefault(name, skill_dir)
-    names = sorted(by_name)
-    sources: Dict[str, List[Tuple[str, str]]] = {name: skill_sources(by_name[name]) for name in names}
-
-    edges: Dict[str, List[str]] = {a: [b for b in names if b != a and mentions_in(sources[a], b)] for a in names}
-    pairs: List[Tuple[str, str]] = [
-        (a, b) for i, a in enumerate(names) for b in names[i + 1 :] if b in edges[a] and a in edges[b]
-    ]
-    mutual_set = {frozenset((a, b)) for a, b in pairs}
-    one_way: List[Tuple[str, str]] = [(a, b) for a in names for b in edges[a] if frozenset((a, b)) not in mutual_set]
-
+    payload = scan(repo_root)
     if args.json:
-        _render_json(repo_root, pairs, one_way, sources)
+        print(json_text(payload))
     else:
-        _render_text(repo_root, pairs, one_way, by_name, sources)
-    return 1 if pairs else 0
+        _render_text(payload)
+    return 1 if payload["pairs"] else 0
 
 
 if __name__ == "__main__":

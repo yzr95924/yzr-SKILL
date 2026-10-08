@@ -1,7 +1,5 @@
 # grader 子 agent 规范
 
-对照执行 transcript 与输出，判定每条断言是否成立并给出证据，并核验隐含声明
-
 ## 角色
 
 三份职责：给输出打分、提取并核验隐含声明，并批判 evals 本身（弱断言上的"通过"比无用更糟：制造虚假信心）
@@ -36,17 +34,5 @@
 
 ## 输出格式
 
-> 完整 JSON schema 与字段说明的 SSOT 在 [章节](../schemas.md#gradingjson)，启动子 agent 的 prompt 会附该文件路径
-> 字段名必须精确匹配。此处只给骨架：
-
-```json
-{
-  "expectations": [
-    {"text": "断言原文", "passed": true, "evidence": "引用 transcript/输出中的证据"}
-  ],
-  "summary": {"passed": 0, "failed": 0, "total": 0, "pass_rate": 0.0},
-  "claims": [{"claim": "...", "type": "factual|process|quality", "verified": true, "evidence": "..."}],
-  "user_notes_summary": {"uncertainties": [], "needs_review": [], "workarounds": []},
-  "eval_feedback": {"suggestions": [{"assertion": "...", "reason": "..."}], "overall": "..."}
-}
-```
+> 完整 JSON schema 与字段说明的 SSOT 在 [章节](../schemas.md#gradingjson)，字段名必须精确匹配；
+> 启动子 agent 的 prompt 会附该文件路径

@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.quick_validate import check_description_format, validate_skill  # noqa: E402
-from tools.utils import frontmatter_span, parse_skill_md  # noqa: E402
+from tools.utils import frontmatter_span, json_text, parse_skill_md  # noqa: E402
 
 # 路由评估竞争池 = agent 实际可见的已部署集合（npx 分发落点）；与仓维护"vendor 副本不读"约定语境不同：
 # 那边管改源只认仓库，这边测的是真实触发面，默认 --skills-dir 可覆盖
@@ -118,6 +118,14 @@ def build_judge_prompt(skills: List[Dict[str, str]], numbered_queries: List[Tupl
     return "\n".join(lines)
 
 
+def _read_description_file(path: str) -> str:
+    """读候选描述文件；IO 失败抛 ValueError（子命令各自转退出码）。"""
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as e:
+        raise ValueError(f"cannot read description file: {e}") from e
+
+
 def cmd_prep(args: argparse.Namespace) -> int:
     """prep：建 out-dir，写 manifest 与每 run 一个判题 prompt。"""
     skill_path = Path(args.skill_path)
@@ -131,9 +139,9 @@ def cmd_prep(args: argparse.Namespace) -> int:
         return 2
     if args.description_file:
         try:
-            candidate = Path(args.description_file).read_text(encoding="utf-8")
-        except OSError as e:
-            print(f"error: cannot read description file: {e}", file=sys.stderr)
+            candidate = _read_description_file(args.description_file)
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
             return 2
     else:
         candidate = current_desc
@@ -178,7 +186,7 @@ def cmd_prep(args: argparse.Namespace) -> int:
         "queries": queries,
         "canary": canary,
     }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_dir / "manifest.json").write_text(json_text(manifest), encoding="utf-8")
 
     print(f"prepped {out_dir}: {len(queries)} query(s), {args.runs} run(s) x 1 judge sub-agent")
     print(
@@ -285,7 +293,7 @@ def cmd_score(args: argparse.Namespace) -> int:
         )
     s = payload["summary"]
     print(f"summary: {s['passed']}/{s['total']} correct", file=sys.stderr)
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json_text(payload))
     return 0
 
 
@@ -419,9 +427,9 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
 def cmd_apply(args: argparse.Namespace) -> int:
     """apply：从描述文件读候选并写回。"""
     try:
-        candidate = Path(args.description_file).read_text(encoding="utf-8")
-    except OSError as e:
-        print(f"error: cannot read description file: {e}", file=sys.stderr)
+        candidate = _read_description_file(args.description_file)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
         return 2
     if not candidate.strip():
         print("error: description file is empty", file=sys.stderr)

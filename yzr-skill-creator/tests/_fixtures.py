@@ -1,8 +1,8 @@
-"""共享 smoke 夹具：把 {相对路径: 内容} 写进一个保活的临时 skill 目录。"""
+"""共享 smoke 夹具：保活临时目录、expect 断言与统一 runner。"""
 
 import tempfile
 from pathlib import Path
-from typing import Dict
+from typing import Callable, Dict, List
 
 _KEEP = []
 
@@ -28,3 +28,20 @@ def expect(cond, msg: str = "") -> None:
     """条件不成立时抛 AssertionError；显式 raise 替代 assert（python -O 不吞）。"""
     if not cond:
         raise AssertionError(msg)
+
+
+def run_cases(cases: List[Callable[[], None]]) -> int:
+    """统一冒烟 runner：顺序跑 case 函数，AssertionError 与异常都记为失败，末尾汇总退出码。"""
+    failures: List[str] = []
+    for case in cases:
+        try:
+            case()
+        except AssertionError as exc:
+            failures.append(f"{case.__name__}: {exc}")
+        except Exception as exc:  # noqa: BLE001 - 炸穿也算失败，不吞后续用例
+            failures.append(f"{case.__name__}: crashed {type(exc).__name__}: {exc}")
+    if failures:
+        print("SMOKE FAIL:", *failures, sep="\n  ")
+        return 1
+    print(f"{len(cases)}/{len(cases)} passed")
+    return 0

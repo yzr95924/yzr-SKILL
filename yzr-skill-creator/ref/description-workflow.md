@@ -4,7 +4,7 @@
 
 ## 命令流程
 
-前置：harness 可发起 subagent——judge 由编排 agent 在会话内并行发起，脚本零 LLM、零子进程。
+前置：harness 可发起 subagent：judge 由编排 agent 在会话内并行发起，脚本零 LLM、零子进程。
 harness 无此能力时如实报告"触发评估不可用"，不跑评估循环，`description` 改动直接交用户裁定，不静默改走 CLI
 
 一段评估（prep → spawn judge → score）：
@@ -14,8 +14,7 @@ harness 无此能力时如实报告"触发评估不可用"，不跑评估循环�
    产出 `D/manifest.json` 与 `D/prompts/run-<k>.txt`（默认 3 run；竞争技能池默认读 `~/.agents/skills`，`--skills-dir` 可覆盖）
 3. 一条消息并行 spawn：每 run 一个 judge subagent，prompt 逐字交付对应 prompt 文件内容；
    judge 自行把判定 JSON 数组写进 `D/results/run-<k>.json`
-4. `python3 -m tools.desc_eval score --out-dir <D>`：金丝雀哨兵先验判官通道（坏则退 3、不出数字），再四象限汇总；
-   stdout 即 results JSON（before/after 各自留存供展示）
+4. `python3 -m tools.desc_eval score --out-dir <D>`：汇总四象限；stdout 即 results JSON（before/after 各自留存供展示）
 
 优化循环（编排 agent 驱动，默认 ≤ 5 轮，全过或无可改进即停）：score 有失败，编排者按失败清单与[章节](#description-优化原则)
 起草新 description 存成文件（用户点名要无偏版本时才 spawn 一个 fresh subagent 起草），带 `--description-file` 进下一轮 prep，取最高分那版
@@ -34,9 +33,6 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
   它能用基础工具直接处理，不必绕道查阅
 - 复杂、多步、或专门的请求，只要描述对得上，通常会稳定触发 skill
 
-因此评估查询要足够实质性，agent 才真正会想查阅 skill；"读文件 X" 式一句话查询，不管
-描述写得多好都不会触发，是无效测试用例
-
 ## 查询写作指南
 
 生成评估查询，should-trigger 与 should-not-trigger 各半（边界用例可微调），存为 JSON：
@@ -48,9 +44,9 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
 ]
 ```
 
-查询必须真实可信，看起来是用户实际会输入的内容：具体、细节丰富、有充分背景
+查询必须真实可信、足够实质性，看起来是用户实际会输入的内容：具体、细节丰富、有充分背景
 （文件路径、个人上下文、列名和值、公司名、URL、一点背景故事；大小写混杂 / 缩写 /
-口误 / 口语皆可）。不要抽象请求
+口误 / 口语皆可）。不要抽象请求："读文件 X" 式一句话查询不会让 agent 想查阅 skill，是无效测试用例
 
 不好的例子：`"Format this data"`、`"Extract text from PDF"`、`"Create a chart"`
 好的例子：`"ok 我老板刚发了这个 xlsx 文件（在我的 downloads 里，大概叫 'Q4 sales final FINAL v2.xlsx'），她想让我加一列显示利润率百分比。营收在 C 列，成本好像在 D 列"`
@@ -61,9 +57,8 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
 
 **should-not-trigger 查询（8–10 条）**：最有价值的是擦边但不该触发的：共享关键词或
 概念、但需求不同的查询；相邻领域、措辞歧义大的场景（字面关键词匹配会触发但实际不该）；
-触及 skill 能力某方面、但用别的工具更合适的场景。**关键要避免**明显无关的负样本
-（"写个 fibonacci 函数"作为 PDF skill 的负样本太容易，什么都没测到），负样本要真正
-有迷惑性
+触及 skill 能力某方面、但用别的工具更合适的场景。避免明显无关的负样本
+（"写个 fibonacci 函数"作为 PDF skill 的负样本太容易，什么都没测到）
 
 ## description 优化原则
 
@@ -92,5 +87,4 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
   被动句 "如何构建一个简单快速的面板来展示内部数据"，改写为 "如何构建简单快速的面板来展示内部数据。
   **只要用户提到 dashboard / 数据可视化 / 内部指标，或想展示任何公司数据，即使没明说'面板'，也
   务必使用本 skill**"
-- **迭代策略**：同一思路连续失败就换句式 / 换措辞，别钻牛角尖；多轮迭代里换不同风格尝试，最终
-  只取最高分那版
+- **迭代策略**：同一思路连续失败就换句式 / 换措辞，别钻牛角尖

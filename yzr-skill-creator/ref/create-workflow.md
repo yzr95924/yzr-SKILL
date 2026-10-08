@@ -32,7 +32,7 @@
 ## 第 3 步：起草 SKILL.md
 
 frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 三组件格式与写法原则见[章节](description-workflow.md#description-优化原则)；
-非 default 型 skill 把 tier 写进 `metadata.tier`（三型定义见 `assets/skill-template.md` frontmatter 的 `tier` 占位）
+非 default 型 skill 把 tier 写进 `metadata.tier`
 
 正文：骨架从模板拷贝，**先填全再删节**（格式统一靠的是这份骨架，不是临场发挥）：
 
@@ -62,4 +62,4 @@ frontmatter：按 `assets/skill-template.md` 的占位符填充；`description` 
 
 ## 第 5 步：评估循环与扩集
 
-评估循环按[章节](improve-workflow.md#评估循环)执行（`--baseline without_skill`）；用户明确指示跳过时可不跑。收敛后测试集扩到 5–10 条（更广意图类别 + 相邻负例）再跑一轮防过拟合
+评估循环按[章节](improve-workflow.md#评估循环)执行；用户明确指示跳过时可不跑。收敛后测试集扩到 5–10 条（更广意图类别 + 相邻负例）再跑一轮防过拟合

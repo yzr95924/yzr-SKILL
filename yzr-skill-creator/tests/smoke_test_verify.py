@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """Fixture smoke test for verify.py's own gating logic.
 
-verify.py hands out the green light that CI reads, so its two failure modes are
-worse than the bugs it hunts:
+verify.py hands out the green light that CI reads, so the modes pinned here are
+the ones where a broken verifier is worse than the bugs it hunts:
 
-  - a screen that produced no parseable output must not be reported as "clean"
-    (a broken measurement channel reading as zero findings);
   - the MISSING-vs-SKIP decision must come from structured state, never from
     substring-matching a human-readable message (rewording a message would then
-    silently disarm --strict-tools).
-
-Both directions are pinned: the missing-tool case must gate under
-``--strict-tools`` and must not gate on SKIP; the broken channel must be ERROR
-while a genuinely empty result stays INFO.
+    silently disarm --strict-tools);
+  - the --audit md list must come from the shared enumerator (assets walked,
+    templates kept, and only under --audit);
+  - the dependency advisory must stay scoped to the target in single-skill
+    mode and unscoped in repo mode.
 
 Run: python3 tests/smoke_test_verify.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
@@ -28,7 +26,7 @@ from typing import List
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import make_skill_dir, make_tmp_dir  # noqa: E402
+from _fixtures import expect, make_skill_dir, make_tmp_dir, run_cases  # noqa: E402
 
 from tools import verify  # noqa: E402
 
@@ -40,55 +38,32 @@ def make_skill(name: str = "probe-skill") -> Path:
     return make_skill_dir({"SKILL.md": SKILL_BODY}, prefix="verify-smoke-", name=name)
 
 
-def fake_dependency_main(payload, garbage: bool = False):
-    """Stand in for check_skill_dependencies.main: prints JSON, or junk."""
-
-    def run(_argv: List[str]) -> int:
-        print(json.dumps(payload) if not garbage else "Traceback (most recent call last): ...")
-        return 1 if payload and payload.get("pairs") else 0
-
-    return run
-
-
-def with_dependencies(payload=None, garbage=False, scope=None):
-    """Call verify._dependency_findings against a stubbed screen."""
-    original = verify.check_skill_dependencies.main
-    verify.check_skill_dependencies.main = fake_dependency_main(payload, garbage)
+def with_dependencies(payload: dict, scope=None) -> List:
+    """Call verify._dependency_findings against a stubbed in-process scan."""
+    original = verify.check_skill_dependencies.scan
+    verify.check_skill_dependencies.scan = lambda root: payload
     try:
         return verify._dependency_findings(Path("/tmp"), scope)
     finally:
-        verify.check_skill_dependencies.main = original
+        verify.check_skill_dependencies.scan = original
 
 
-def check_dependency_channel(failures: List[str]) -> None:
+def check_dependency_advisory() -> None:
+    """A clean screen yields one INFO saying 零提及; never ERROR."""
     empty = {"pairs": [], "one_way": [], "skill_count": 3, "repo_root": "/tmp"}
     findings = with_dependencies(empty)
     levels = [(f.rule, f.level) for f in findings]
-    if levels != [("CROSS-SKILL-MENTION", "INFO")]:
-        failures.append(f"clean dependency screen: expected one INFO, got {levels}")
-    if "零" not in findings[0].evidence:
-        failures.append("clean dependency screen: evidence should say 零提及")
-
-    for label, result in (
-        ("unparseable output", with_dependencies(garbage=True)),
-        ("missing keys", with_dependencies({"pairs": []})),
-    ):
-        levels = [(f.rule, f.level) for f in result]
-        if levels != [("CROSS-SKILL-MENTION", "ERROR")]:
-            failures.append(f"broken channel ({label}): expected ERROR, got {levels}")
-        elif "零" in result[0].evidence:
-            failures.append(f"broken channel ({label}): reported 零提及 from a dead channel")
+    expect(levels == [("CROSS-SKILL-MENTION", "INFO")], f"clean dependency screen: expected one INFO, got {levels}")
+    expect("零" in findings[0].evidence, "clean dependency screen: evidence should say 零提及")
 
 
-def check_tool_states(failures: List[str]) -> None:
+def check_tool_states() -> None:
     skill = make_skill()
     run = verify.Run(
         per_skill=[(skill, [])], tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING)], advisory=[]
     )
-    if not verify._gate(run, strict_tools=True):
-        failures.append("strict-tools did not gate a MISSING tool")
-    if verify._gate(run, strict_tools=False):
-        failures.append("non-strict run gated a MISSING tool")
+    expect(bool(verify._gate(run, strict_tools=True)), "strict-tools did not gate a MISSING tool")
+    expect(not verify._gate(run, strict_tools=False), "non-strict run gated a MISSING tool")
 
     # The decision must not depend on message text (that was the old bug).
     mute = verify.Run(
@@ -96,85 +71,74 @@ def check_tool_states(failures: List[str]) -> None:
         tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING, "")],
         advisory=[],
     )
-    if not verify._gate(mute, strict_tools=True):
-        failures.append("gate is reading message text: empty detail disarmed it")
+    expect(bool(verify._gate(mute, strict_tools=True)), "gate is reading message text: empty detail disarmed it")
 
     skip = verify.Run(
         per_skill=[(skill, [])],
         tools=[verify.ToolResult("s", "ruff", verify.TOOL_SKIP, "skill has no tools/ tests/")],
         advisory=[],
     )
-    if verify._gate(skip, strict_tools=True):
-        failures.append("SKIP (not applicable) was gated as if the tool were missing")
+    expect(not verify._gate(skip, strict_tools=True), "SKIP (not applicable) was gated as if the tool were missing")
 
     rendered = skip.tools[0].render()
-    if not rendered.startswith("s: ruff: SKIP"):
-        failures.append(f"ToolResult.render() format changed: {rendered!r}")
+    expect(rendered.startswith("s: ruff: SKIP"), f"ToolResult.render() format changed: {rendered!r}")
 
 
-def check_markdownlint_placement(failures: List[str]) -> None:
+def check_markdownlint_placement() -> None:
     """A skill outside the repo root is a MISSING state, not a traceback."""
     skill = make_skill()
     other_root = make_tmp_dir(prefix="verify-smoke-") / "elsewhere"
     other_root.mkdir()
-    try:
-        _findings, result = verify._markdownlint(skill, other_root)
-    except Exception as e:  # the old behaviour: ValueError escapes
-        failures.append(f"_markdownlint raised {type(e).__name__} instead of reporting MISSING")
-        return
-    if result.state != verify.TOOL_MISSING:
-        failures.append(f"skill outside repo root: expected MISSING, got {result.state}")
-    if _findings:
-        failures.append("a tool that never ran produced findings")
+    _findings, result = verify._markdownlint(skill, other_root)
+    expect(result.state == verify.TOOL_MISSING, f"skill outside repo root: expected MISSING, got {result.state}")
+    expect(not _findings, "a tool that never ran produced findings")
 
 
-def check_usage_errors(failures: List[str]) -> None:
+def check_usage_errors() -> None:
     try:
         verify._resolve_targets(verify._parse_args([]))
-        failures.append("no targets: expected UsageError")
+        expect(False, "no targets: expected UsageError")
     except verify.UsageError:
         pass
     bad = make_skill()
     (bad / "SKILL.md").unlink()
     try:
         verify._resolve_targets(verify._parse_args([str(bad)]))
-        failures.append("skill without SKILL.md: expected UsageError")
+        expect(False, "skill without SKILL.md: expected UsageError")
     except verify.UsageError:
         pass
 
 
-def check_end_to_end(failures: List[str]) -> None:
+def check_end_to_end() -> None:
     """main() still exits 0 on a healthy skill and 2 on a bad invocation."""
     skill = make_skill()
     buffer, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(err):
         rc_ok = verify.main([str(skill)])
         rc_usage = verify.main(["/nonexistent-dir"])
-    if rc_usage != 2:
-        failures.append(f"usage error: exit {rc_usage} != 2")
-    if rc_ok not in (0, 1):
-        failures.append(f"healthy run: unexpected exit {rc_ok}")
-    if "skill(s):" not in buffer.getvalue():
-        failures.append("human render missing its summary line")
+    expect(rc_usage == 2, f"usage error: exit {rc_usage} != 2")
+    expect(rc_ok in (0, 1), f"healthy run: unexpected exit {rc_ok}")
+    expect("skill(s):" in buffer.getvalue(), "human render missing its summary line")
 
 
-def check_run_tool_exec_guard(failures: List[str]) -> None:
+def check_run_tool_exec_guard() -> None:
     """_run_tool survives exec failure (vanishing binary / broken shebang) instead of Traceback."""
     rc, out = verify._run_tool(["definitely-missing-tool-xyz"], Path.cwd())
-    if rc != 127 or "definitely-missing-tool-xyz" not in out:
-        failures.append(f"exec guard: rc={rc} out={out!r}")
+    expect(rc == 127 and "definitely-missing-tool-xyz" in out, f"exec guard: rc={rc} out={out!r}")
 
 
-def check_dependency_screen_in_single_skill_mode(failures: List[str]) -> None:
+def check_dependency_screen_in_single_skill_mode() -> None:
     """Single-skill mode carries the dependency advisory scoped to the target; repo mode unscoped; no root -> no screen."""
     skill = make_skill()
     calls = []
 
     def fake_dep(root, scope=None):
+        """记录调用参数的 _dependency_findings 替身。"""
         calls.append((root, scope))
         return []
 
     def fake_checks(skill_dir, tier, root):
+        """空检查替身。"""
         return [], []
 
     original_dep = verify._dependency_findings
@@ -183,22 +147,21 @@ def check_dependency_screen_in_single_skill_mode(failures: List[str]) -> None:
     verify.verify_skill = fake_checks
     try:
         verify._run_checks([skill], "default", Path("/tmp"), False)
-        if calls != [(Path("/tmp"), frozenset({"probe-skill"}))]:
-            failures.append(f"single-skill mode screen call/scope wrong: {calls}")
+        expect(
+            calls == [(Path("/tmp"), frozenset({"probe-skill"}))], f"single-skill mode screen call/scope wrong: {calls}"
+        )
         calls.clear()
         verify._run_checks([skill], "default", Path("/tmp"), True)
-        if calls != [(Path("/tmp"), None)]:
-            failures.append(f"repo mode must not scope the screen: {calls}")
+        expect(calls == [(Path("/tmp"), None)], f"repo mode must not scope the screen: {calls}")
         calls.clear()
         verify._run_checks([skill], "default", None, False)
-        if calls:
-            failures.append("dependency screen ran without a repo root")
+        expect(not calls, "dependency screen ran without a repo root")
     finally:
         verify._dependency_findings = original_dep
         verify.verify_skill = original_checks
 
 
-def check_dependency_scope_filter(failures: List[str]) -> None:
+def check_dependency_scope_filter() -> None:
     """Scoped screen keeps only edges touching the target; unscoped keeps all."""
     payload = {
         "pairs": [{"a": "other-a", "b": "other-b", "a_mentions_b": [], "b_mentions_a": []}],
@@ -211,17 +174,20 @@ def check_dependency_scope_filter(failures: List[str]) -> None:
     }
     scoped = with_dependencies(payload, scope=frozenset({"probe-skill"}))
     evidence = scoped[0].evidence if scoped else ""
-    if "1 条单向提及" not in evidence or "互提候选对" in evidence:
-        failures.append(f"scoped screen did not filter to the target edge: {evidence!r}")
-    if "仅目标 skill 相关" not in evidence:
-        failures.append(f"scoped screen evidence lacks the scope marker: {evidence!r}")
+    expect(
+        "1 条单向提及" in evidence and "互提候选对" not in evidence,
+        f"scoped screen did not filter to the target edge: {evidence!r}",
+    )
+    expect("仅目标 skill 相关" in evidence, f"scoped screen evidence lacks the scope marker: {evidence!r}")
     full = with_dependencies(payload)
     evidence = full[0].evidence if full else ""
-    if "1 组互提候选对" not in evidence or "2 条单向提及" not in evidence:
-        failures.append(f"unscoped screen must keep every edge: {evidence!r}")
+    expect(
+        "1 组互提候选对" in evidence and "2 条单向提及" in evidence,
+        f"unscoped screen must keep every edge: {evidence!r}",
+    )
 
 
-def check_audit_scope_channel(failures: List[str]) -> None:
+def check_audit_scope_channel() -> None:
     """--audit lists every shipped md (assets walked, templates kept); and only then."""
     skill = make_skill()
     (skill / "ref").mkdir()
@@ -231,6 +197,7 @@ def check_audit_scope_channel(failures: List[str]) -> None:
     (skill / "assets" / "skill-template.md").write_text("# s\n\n正文\n", encoding="utf-8")
 
     def audit_evidence(skill_dir: Path, *extra: str) -> str:
+        """跑 verify.main --json，取 AUDIT-SCOPE 的 evidence。"""
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             verify.main([str(skill_dir), "--json", *extra])
@@ -238,33 +205,25 @@ def check_audit_scope_channel(failures: List[str]) -> None:
         return next((f["evidence"] for f in payload["findings"] if f["rule"] == "AUDIT-SCOPE"), "")
 
     evidence = audit_evidence(skill, "--audit")
-    if not evidence:
-        failures.append("--audit did not emit AUDIT-SCOPE")
-    else:
-        for rel in ("SKILL.md", "ref/guide.md", "ref/skeleton-template.md", "assets/skill-template.md"):
-            if rel not in evidence:
-                failures.append(f"audit list missing {rel}: {evidence!r}")
-    if audit_evidence(skill):
-        failures.append("AUDIT-SCOPE leaked without --audit")
-
-
-def main() -> int:
-    failures: List[str] = []
-    check_dependency_channel(failures)
-    check_tool_states(failures)
-    check_markdownlint_placement(failures)
-    check_usage_errors(failures)
-    check_end_to_end(failures)
-    check_run_tool_exec_guard(failures)
-    check_dependency_screen_in_single_skill_mode(failures)
-    check_dependency_scope_filter(failures)
-    check_audit_scope_channel(failures)
-    if failures:
-        print("SMOKE FAIL:", *failures, sep="\n  ")
-        return 1
-    print("SMOKE OK: verify gate — dead channel = ERROR, MISSING vs SKIP split, text-independent gating")
-    return 0
+    expect(bool(evidence), "--audit did not emit AUDIT-SCOPE")
+    for rel in ("SKILL.md", "ref/guide.md", "ref/skeleton-template.md", "assets/skill-template.md"):
+        expect(rel in evidence, f"audit list missing {rel}: {evidence!r}")
+    expect(not audit_evidence(skill), "AUDIT-SCOPE leaked without --audit")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        run_cases(
+            [
+                check_dependency_advisory,
+                check_tool_states,
+                check_markdownlint_placement,
+                check_usage_errors,
+                check_end_to_end,
+                check_run_tool_exec_guard,
+                check_dependency_screen_in_single_skill_mode,
+                check_dependency_scope_filter,
+                check_audit_scope_channel,
+            ]
+        )
+    )

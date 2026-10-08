@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_tmp_dir  # noqa: E402
+from _fixtures import expect, make_tmp_dir, run_cases  # noqa: E402
 
 from tools import desc_eval  # noqa: E402
 
@@ -92,115 +92,109 @@ def write_results(out_dir: Path, id_choice: List[Tuple[int, Optional[str]]], run
     (out_dir / "results" / f"run-{run}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
 
-def check_prep_contract(out_dir: Path, manifest: dict, failures: List[str]) -> None:
-    """断言 1：manifest 查询/金丝雀契约 + prompt 防污染条款 + 候选描述注入。"""
-    try:
-        expect(manifest["skill"] == TARGET, manifest["skill"])
-        expect(len(manifest["queries"]) == 4, manifest["queries"])
-        expect(len(manifest["canary"]) == 2, manifest["canary"])
-        expect(all("role" not in q for q in manifest["queries"]), "holdout 机制已删，manifest 不应再有 role")
-        prompt = (out_dir / "prompts" / "run-1.txt").read_text(encoding="utf-8")
-        expect("Ignore any skills installed in your own environment" in prompt, "防污染条款缺失")
-        expect(desc_eval.CANARY_NAME in prompt and "量子香蕉" in prompt, "金丝雀未混入批次")
-        expect("做个 skill。不适用" in prompt, "候选描述未进竞争池")
-        for qid in [q["id"] for q in manifest["queries"]] + [c["id"] for c in manifest["canary"]]:
-            expect(f"[q{qid}]" in prompt, f"查询 q{qid} 缺失")
-        expect("run-1.json" in prompt, "结果落盘路径指令缺失")
-    except AssertionError as exc:
-        failures.append(f"prep: {exc}")
+_CTX: Dict = {}
 
 
-def check_score(out_dir: Path, manifest: dict, failures: List[str]) -> List[Tuple[int, Optional[str]]]:
-    """断言 2：四象限判定 + summary 数字。返回已用 choice（供金丝雀断言复用）。"""
+def ctx() -> Dict:
+    """共享夹具懒构建：池 + 评估集 + 候选描述 + base prep 只做一次，后续用例续用。"""
+    if not _CTX:
+        tmp = make_tmp_dir("desc-eval-smoke-")
+        skill, eval_set, pool = make_fixture(tmp)
+        cand_file = tmp / "candidate.txt"
+        cand_file.write_text("当用户要做 skill 时使用本 skill。触发：做个 skill。不适用：其它。", encoding="utf-8")
+        out_dir = do_prep(tmp, skill, eval_set, pool, "base", ["--description-file", str(cand_file)])
+        manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        _CTX.update(tmp=tmp, skill=skill, eval_set=eval_set, pool=pool, out_dir=out_dir, manifest=manifest)
+    return _CTX
+
+
+def check_prep_contract() -> None:
+    """manifest 查询/金丝雀契约 + prompt 防污染条款 + 候选描述注入。"""
+    c = ctx()
+    out_dir, manifest = c["out_dir"], c["manifest"]
+    expect(manifest["skill"] == TARGET, manifest["skill"])
+    expect(len(manifest["queries"]) == 4, manifest["queries"])
+    expect(len(manifest["canary"]) == 2, manifest["canary"])
+    expect(all("role" not in q for q in manifest["queries"]), "holdout 机制已删，manifest 不应再有 role")
+    prompt = (out_dir / "prompts" / "run-1.txt").read_text(encoding="utf-8")
+    expect("Ignore any skills installed in your own environment" in prompt, "防污染条款缺失")
+    expect(desc_eval.CANARY_NAME in prompt and "量子香蕉" in prompt, "金丝雀未混入批次")
+    expect("做个 skill。不适用" in prompt, "候选描述未进竞争池")
+    for qid in [q["id"] for q in manifest["queries"]] + [c["id"] for c in manifest["canary"]]:
+        expect(f"[q{qid}]" in prompt, f"查询 q{qid} 缺失")
+    expect("run-1.json" in prompt, "结果落盘路径指令缺失")
+
+
+def check_score() -> None:
+    """四象限判定 + summary 数字；choice 清单存 ctx 供金丝雀与缺-run 用例复用。"""
+    c = ctx()
+    manifest = c["manifest"]
     id_choice: List[Tuple[int, Optional[str]]] = []
-    try:
-        for q in manifest["queries"]:
-            id_choice.append((q["id"], CHOICES[q["query"]]))
-        pos_id, neg_id = manifest["canary"][0]["id"], manifest["canary"][1]["id"]
-        id_choice += [(pos_id, desc_eval.CANARY_NAME), (neg_id, None)]
-        write_results(out_dir, id_choice)
-        rc, stdout = run_cli(["score", "--out-dir", str(out_dir)])
-        expect(rc == 0, f"score rc={rc}")
-        payload = json.loads(stdout)
-        per_pass = {r["query_id"]: r["pass"] for r in payload["results"]}
-        for q in manifest["queries"]:
-            expect(per_pass[q["id"]] == EXPECTED_PASS[q["query"]], f"{q['query']}: {per_pass[q['id']]}")
-        expect(payload["summary"]["total"] == 4, payload["summary"])
-        expect(payload["summary"]["passed"] == 2, payload["summary"])
-    except AssertionError as exc:
-        failures.append(f"score: {exc}")
-    return id_choice
+    for q in manifest["queries"]:
+        id_choice.append((q["id"], CHOICES[q["query"]]))
+    pos_id, neg_id = manifest["canary"][0]["id"], manifest["canary"][1]["id"]
+    id_choice += [(pos_id, desc_eval.CANARY_NAME), (neg_id, None)]
+    c["id_choice"] = id_choice
+    write_results(c["out_dir"], id_choice)
+    rc, stdout = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    expect(rc == 0, f"score rc={rc}")
+    payload = json.loads(stdout)
+    per_pass = {r["query_id"]: r["pass"] for r in payload["results"]}
+    for q in manifest["queries"]:
+        expect(per_pass[q["id"]] == EXPECTED_PASS[q["query"]], f"{q['query']}: {per_pass[q['id']]}")
+    expect(payload["summary"]["total"] == 4, payload["summary"])
+    expect(payload["summary"]["passed"] == 2, payload["summary"])
 
 
-def check_canary(
-    out_dir: Path, manifest: dict, id_choice: List[Tuple[int, Optional[str]]], failures: List[str]
-) -> None:
-    """断言 3：金丝雀正题未命中假 skill -> 通道错误 rc 3，不出数字。"""
-    try:
-        pos_id = manifest["canary"][0]["id"]
-        broken = [(qid, None if qid == pos_id else choice) for qid, choice in id_choice]
-        write_results(out_dir, broken)
-        rc, stdout = run_cli(["score", "--out-dir", str(out_dir)])
-        expect(rc == 3, f"canary-broken rc={rc}")
-        expect("passed" not in stdout, "通道错误不应产出分数")
-    except AssertionError as exc:
-        failures.append(f"canary: {exc}")
+def check_canary() -> None:
+    """金丝雀正题未命中假 skill -> 通道错误 rc 3，不出数字。"""
+    c = ctx()
+    pos_id = c["manifest"]["canary"][0]["id"]
+    broken = [(qid, None if qid == pos_id else choice) for qid, choice in c["id_choice"]]
+    write_results(c["out_dir"], broken)
+    rc, stdout = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    expect(rc == 3, f"canary-broken rc={rc}")
+    expect("passed" not in stdout, "通道错误不应产出分数")
 
 
-def check_missing_run(out_dir: Path, id_choice: List[Tuple[int, Optional[str]]], failures: List[str]) -> None:
-    """断言 4：缺 run 结果文件 -> rc 2（编排者据此补跑该 run）。"""
-    try:
-        write_results(out_dir, id_choice)
-        (out_dir / "results" / "run-1.json").unlink()
-        rc, _ = run_cli(["score", "--out-dir", str(out_dir)])
-        expect(rc == 2, f"missing-run rc={rc}")
-    except AssertionError as exc:
-        failures.append(f"missing-run: {exc}")
+def check_missing_run() -> None:
+    """缺 run 结果文件 -> rc 2（编排者据此补跑该 run）。"""
+    c = ctx()
+    write_results(c["out_dir"], c["id_choice"])
+    (c["out_dir"] / "results" / "run-1.json").unlink()
+    rc, _ = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    expect(rc == 2, f"missing-run rc={rc}")
 
 
-def check_guards(tmp: Path, skill: Path, eval_set: Path, pool: Path, failures: List[str]) -> None:
-    """断言 5：prep 对非空 out-dir 复用拒绝。"""
+def check_guards() -> None:
+    """prep 对非空 out-dir 复用拒绝。"""
+    c = ctx()
     argv = [
         "prep",
         "--skill-path",
-        str(skill),
+        str(c["skill"]),
         "--eval-set",
-        str(eval_set),
+        str(c["eval_set"]),
         "--out-dir",
-        str(tmp / "out-guard"),
+        str(c["tmp"] / "out-guard"),
         "--skills-dir",
-        str(pool),
+        str(c["pool"]),
     ]
-    try:
-        rc, _ = run_cli(argv)
-        expect(rc == 0, f"fresh prep rc={rc}")
-        rc, _ = run_cli(argv)
-        expect(rc == 2, f"out-dir reuse should be refused rc={rc}")
-    except AssertionError as exc:
-        failures.append(f"guards: {exc}")
-
-
-def main() -> int:
-    failures: List[str] = []
-    tmp = make_tmp_dir("desc-eval-smoke-")
-    skill, eval_set, pool = make_fixture(tmp)
-    cand_file = tmp / "candidate.txt"
-    cand_file.write_text("当用户要做 skill 时使用本 skill。触发：做个 skill。不适用：其它。", encoding="utf-8")
-    out_dir = do_prep(tmp, skill, eval_set, pool, "base", ["--description-file", str(cand_file)])
-    manifest: Dict = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
-
-    check_prep_contract(out_dir, manifest, failures)
-    id_choice = check_score(out_dir, manifest, failures)
-    check_canary(out_dir, manifest, id_choice, failures)
-    check_missing_run(out_dir, id_choice, failures)
-    check_guards(tmp, skill, eval_set, pool, failures)
-
-    if failures:
-        print("SMOKE FAIL:", *failures, sep="\n  ")
-        return 1
-    print("SMOKE OK: prep contract + 4-quadrant score + canary channel + missing-run + outdir guard")
-    return 0
+    rc, _ = run_cli(argv)
+    expect(rc == 0, f"fresh prep rc={rc}")
+    rc, _ = run_cli(argv)
+    expect(rc == 2, f"out-dir reuse should be refused rc={rc}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        run_cases(
+            [
+                check_prep_contract,
+                check_score,
+                check_canary,
+                check_missing_run,
+                check_guards,
+            ]
+        )
+    )

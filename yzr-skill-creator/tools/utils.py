@@ -13,20 +13,29 @@ DESCRIPTION_MAX_CHARS = 1024
 BODY_WORD_LIMIT = 5000
 
 
-SOFT_WORD_TARGETS: Dict[str, Optional[int]] = {"default": 2000, "reference": 300, "meta": None}
+SOFT_WORD_TARGETS: Dict[str, Optional[int]] = {"default": 2000, "meta": None}
 
 
 CJK_CHARS_PER_WORD = 1.7
 
-_CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+EVIDENCE_SNIPPET = 70
+
+ERROR_REPO_ROOT = "error: repo root not found"
+
+CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 _ASCII_TOKEN_RE = re.compile(r"[A-Za-z0-9_`.'\-/]+")
+
+
+def json_text(payload: object) -> str:
+    """唯一的 JSON 渲染口径：缩进 2、保留中文。"""
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 def estimate_body_words(body: str) -> int:
     """估算正文词数：CJK 字符折算加 ASCII token 数（先剔除围栏代码块）。"""
     prose = "\n".join(line for _, line in iter_unfenced_lines(body))
-    cjk_chars = len(_CJK_RE.findall(prose))
-    ascii_tokens = len(_ASCII_TOKEN_RE.findall(_CJK_RE.sub(" ", prose)))
+    cjk_chars = len(CJK_RE.findall(prose))
+    ascii_tokens = len(_ASCII_TOKEN_RE.findall(CJK_RE.sub(" ", prose)))
     return int(round(cjk_chars / CJK_CHARS_PER_WORD + ascii_tokens))
 
 
@@ -99,11 +108,12 @@ class Finding(NamedTuple):
         }
 
 
-def format_findings(findings: List[Finding]) -> List[str]:
-    """把 Finding 列表渲染成一行一条的人类可读文本。"""
+def format_findings(findings: List[Finding], show_rule: bool = False) -> List[str]:
+    """把 Finding 列表渲染成一行一条的人类可读文本；show_rule 时在等级后带 [RULE]。"""
     out = []
     for f in findings:
-        text = f"{f.level}: {f.location()}{f.evidence}"
+        head = f"{f.level} [{f.rule}]: " if show_rule else f"{f.level}: "
+        text = f"{head}{f.location()}{f.evidence}"
         if f.fix:
             text += f" —— {f.fix}"
         out.append(text)
@@ -143,7 +153,7 @@ def run_screen(description: str, scan_fn, argv: Optional[List[str]], summary_tai
     if args.repo_root:
         root = Path(args.repo_root).resolve()
         if not root.is_dir():
-            print(f"error: repo root not found: {root}", file=sys.stderr)
+            print(f"{ERROR_REPO_ROOT}: {root}", file=sys.stderr)
             return 2
         targets = discover_skill_dirs(root)
     elif args.skill_dir:
@@ -153,8 +163,7 @@ def run_screen(description: str, scan_fn, argv: Optional[List[str]], summary_tai
             return 2
         targets = [skill_dir]
     else:
-        parser.error("give a skill dir or --repo-root")  # 抛 SystemExit(2)
-        return 2
+        parser.error("give a skill dir or --repo-root")
 
     findings: List[Finding] = []
     for target in targets:
@@ -165,14 +174,12 @@ def run_screen(description: str, scan_fn, argv: Optional[List[str]], summary_tai
 
     if args.json:
         print(
-            json.dumps(
+            json_text(
                 {
                     "targets": [str(t) for t in targets],
                     "finding_count": len(findings),
                     "findings": [f.to_dict() for f in findings],
-                },
-                ensure_ascii=False,
-                indent=2,
+                }
             )
         )
     else:
@@ -225,12 +232,12 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     return name, description, content
 
 
-# 条目 = (H2 标题, 允许省略该节的 tier 集)；空集 = 各 tier 必填；assets/skill-template.md 须与此一致（verify 查漂移）
+# 条目 = (H2 标题（不含 `## ` 前缀）, 允许省略该节的 tier 集）；空集 = 各 tier 必填；assets/skill-template.md 须与此一致（verify 查漂移）
 CANONICAL_BODY_SECTIONS = (
-    ("## 输入与输出", frozenset()),
-    ("## 执行原则", frozenset({"reference"})),
-    ("## 工作流", frozenset({"reference"})),
-    ("## 参考样例", frozenset({"default", "reference", "meta"})),
+    ("输入与输出", frozenset()),
+    ("执行原则", frozenset({"reference"})),
+    ("工作流", frozenset({"reference"})),
+    ("参考样例", frozenset({"default", "reference", "meta"})),
 )
 
 
@@ -249,16 +256,34 @@ def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
     return tier if tier in SKILL_TIERS else "default"
 
 
-def skill_markdown_files(skill_dir: Path) -> List[Path]:
-    """列出 skill 内容 md：SKILL.md 加 ref/ 与 assets/ 下的全部 md。"""
-    files: List[Path] = []
-    skill_md = skill_dir / "SKILL.md"
-    if skill_md.is_file():
-        files.append(skill_md)
-    for sub in ("ref", "assets"):
+# "哪些 md 属于本 skill"的唯一口径：按用途给枚举子集，消费者的覆盖范围与 --audit 宣告都从这里产出，不手抄清单
+# prose = 文风检查（入口 + 参考资料）；links = 链接解析（顶层 md + ref/tools，assets 骨架拷进新目录后相对路径变化，不查）；
+# toc = 全树目录扫描；audit = 原则校验精读宣告清单
+_MD_SCOPE_SUBDIRS = {
+    "prose": ("ref", "assets"),
+    "links": ("ref", "tools"),
+    "toc": None,
+    "audit": ("ref", "tools", "assets", "eval"),
+}
+
+# prose 只扫 SKILL.md；links / toc / audit 扫顶层全部 *.md
+_MD_SCOPE_TOP_ALL = frozenset({"links", "toc", "audit"})
+
+
+def skill_markdown_files(skill_dir: Path, scope: str = "prose") -> List[Path]:
+    """按用途口径列出 skill 的 md 文件。"""
+    subdirs = _MD_SCOPE_SUBDIRS[scope]
+    if subdirs is None:
+        return sorted(skill_dir.rglob("*.md"))
+    if scope in _MD_SCOPE_TOP_ALL:
+        files = sorted(skill_dir.glob("*.md"))
+    else:
+        skill_md = skill_dir / "SKILL.md"
+        files = [skill_md] if skill_md.is_file() else []
+    for sub in subdirs:
         sub_root = skill_dir / sub
         if sub_root.is_dir():
-            files.extend(sorted(p for p in sub_root.rglob("*.md") if p.is_file()))
+            files += sorted(p for p in sub_root.rglob("*.md") if p.is_file())
     return files
 
 

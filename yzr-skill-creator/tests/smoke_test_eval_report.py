@@ -19,7 +19,7 @@ from typing import Dict, List
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import make_skill_dir, make_tmp_dir  # noqa: E402
+from _fixtures import expect, make_skill_dir, make_tmp_dir, run_cases  # noqa: E402
 
 from tools.eval_report import _cross_check_evals, check_evals, check_grading, collect, evals_by_id  # noqa: E402
 
@@ -27,6 +27,7 @@ ASSERTIONS = ["产出含 X", "使用了脚本 Y", "正文不含 Z"]
 
 
 def good_grading(passed: List[str]) -> Dict:
+    """构造覆盖 ASSERTIONS 的合法 grading.json。"""
     return {
         "expectations": [
             {"text": text, "passed": text in passed, "evidence": "transcript step 2" if text in passed else "未找到"}
@@ -41,11 +42,13 @@ def good_grading(passed: List[str]) -> Dict:
     }
 
 
-def rules(findings, level="ERROR") -> List[str]:
+def rules(findings: List, level: str = "ERROR") -> List[str]:
+    """取指定等级的 rule id 列表。"""
     return [f.rule for f in findings if f.level == level]
 
 
 def write_run(root: Path, eval_id: int, side: str, payload) -> None:
+    """把一个 run 的 grading.json 写进 eval-<id>/<side>/。"""
     target = root / f"eval-{eval_id}" / side
     target.mkdir(parents=True, exist_ok=True)
     if isinstance(payload, str):
@@ -54,23 +57,20 @@ def write_run(root: Path, eval_id: int, side: str, payload) -> None:
         (target / "grading.json").write_text(json.dumps(payload, ensure_ascii=False))
 
 
-def check_good(failures: List[str], root: Path) -> None:
+def check_good() -> None:
+    root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", good_grading(ASSERTIONS))
     write_run(root, 0, "old_skill", good_grading(ASSERTIONS[:1]))
     runs, findings = collect(root)
-    if rules(findings):
-        failures.append(f"good run produced {rules(findings)}")
+    expect(not rules(findings), f"good run produced {rules(findings)}")
     warns = [f.rule for f in findings if f.level == "WARN"]
-    if warns:
-        failures.append(f"good run produced WARN {warns}")
+    expect(not warns, f"good run produced WARN {warns}")
     sides = runs[0]
-    if set(sides) != {"with_skill", "old_skill"}:
-        failures.append(f"good run: unexpected sides {sorted(sides)}")
-    if sum(sides["with_skill"].values()) != 3:
-        failures.append("good run: with_skill should score 3/3")
+    expect(set(sides) == {"with_skill", "old_skill"}, f"good run: unexpected sides {sorted(sides)}")
+    expect(sum(sides["with_skill"].values()) == 3, "good run: with_skill should score 3/3")
 
 
-def check_field_typo(failures: List[str]) -> None:
+def check_field_typo() -> None:
     """`pass` instead of `passed` must be an ERROR, not a silent 0."""
     broken = {
         "expectations": [{"text": ASSERTIONS[0], "pass": True, "evidence": "x"}],
@@ -79,53 +79,47 @@ def check_field_typo(failures: List[str]) -> None:
     root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", broken)
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
-    if "GRADING-SCHEMA" not in rules(findings):
-        failures.append("field typo: not reported as GRADING-SCHEMA ERROR")
+    expect("GRADING-SCHEMA" in rules(findings), "field typo: not reported as GRADING-SCHEMA ERROR")
 
 
-def check_arithmetic(failures: List[str]) -> None:
+def check_arithmetic() -> None:
     bad_summary = good_grading(ASSERTIONS[:1])
     bad_summary["summary"] = {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0}
     root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", bad_summary)
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
     got = rules(findings)
-    if "GRADING-ARITHMETIC" not in got:
-        failures.append(f"summary mismatch: expected GRADING-ARITHMETIC, got {got}")
+    expect("GRADING-ARITHMETIC" in got, f"summary mismatch: expected GRADING-ARITHMETIC, got {got}")
 
 
-def check_malformed_types(failures: List[str]) -> None:
+def check_malformed_types() -> None:
     """Wrong types (string pass_rate / non-int id) must be findings, not tracebacks."""
     bad_rate = good_grading(ASSERTIONS[:1])
     bad_rate["summary"]["pass_rate"] = "50%"
     root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", bad_rate)
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
-    if "GRADING-SCHEMA" not in rules(findings):
-        failures.append(f"string pass_rate: expected GRADING-SCHEMA, got {rules(findings)}")
+    expect("GRADING-SCHEMA" in rules(findings), f"string pass_rate: expected GRADING-SCHEMA, got {rules(findings)}")
 
     _by_id, findings = evals_by_id({"evals": [{"id": "one", "prompt": "p", "expectations": ASSERTIONS}]}, "evals.json")
-    if "EVALS-SCHEMA" not in rules(findings):
-        failures.append(f"non-int id: expected EVALS-SCHEMA, got {rules(findings)}")
+    expect("EVALS-SCHEMA" in rules(findings), f"non-int id: expected EVALS-SCHEMA, got {rules(findings)}")
 
 
-def check_unreadable(failures: List[str]) -> None:
+def check_unreadable() -> None:
     root = make_tmp_dir(prefix="er-smoke-")
     write_run(root, 0, "with_skill", '{"expectations": [')
     findings, _results = check_grading(root / "eval-0" / "with_skill" / "grading.json", "eval-0")
-    if "GRADING-SCHEMA" not in rules(findings):
-        failures.append("truncated JSON: not reported")
+    expect("GRADING-SCHEMA" in rules(findings), "truncated JSON: not reported")
 
 
-def check_missing_grading(failures: List[str]) -> None:
+def check_missing_grading() -> None:
     root = make_tmp_dir(prefix="er-smoke-")
     (root / "eval-0" / "with_skill" / "outputs").mkdir(parents=True)
     _runs, findings = collect(root)
-    if "WORKSPACE-LAYOUT" not in [f.rule for f in findings]:
-        failures.append("no grading.json: layout not flagged")
+    expect("WORKSPACE-LAYOUT" in [f.rule for f in findings], "no grading.json: layout not flagged")
 
 
-def check_coverage(failures: List[str]) -> None:
+def check_coverage() -> None:
     """--evals cross-check: a grading.json that skips assertions must be a
     GRADING-COVERAGE ERROR (the headline bug this script exists for); a
     fully-covered run must stay silent."""
@@ -140,21 +134,20 @@ def check_coverage(failures: List[str]) -> None:
     write_run(partial_root, 0, "with_skill", partial)
     runs, _ = collect(partial_root)
     got = [f.rule for f in _cross_check_evals(runs, evals, Path("evals.json")) if f.level == "ERROR"]
-    if "GRADING-COVERAGE" not in got:
-        failures.append(f"coverage: skipped assertions not reported as GRADING-COVERAGE ERROR, got {got}")
+    expect("GRADING-COVERAGE" in got, f"coverage: skipped assertions not reported as GRADING-COVERAGE ERROR, got {got}")
 
     full_root = make_tmp_dir(prefix="er-smoke-")
     write_run(full_root, 0, "with_skill", good_grading(ASSERTIONS))
     runs_full, _ = collect(full_root)
     loud = [f for f in _cross_check_evals(runs_full, evals, Path("evals.json")) if f.level == "ERROR"]
-    if loud:
-        failures.append(f"coverage: fully-covered run produced {[(f.rule, f.level) for f in loud]}")
+    expect(not loud, f"coverage: fully-covered run produced {[(f.rule, f.level) for f in loud]}")
 
 
-def check_evals_set(failures: List[str]) -> None:
+def check_evals_set() -> None:
     """eval/evals.json drift: stale skill_name / duplicate id / missing input file."""
 
-    def make_skill(payload) -> Path:
+    def make_skill(payload: dict) -> Path:
+        """写一个带 evals.json 的临时 demo-skill 目录。"""
         return make_skill_dir(
             {
                 "SKILL.md": "---\nname: demo-skill\ndescription: 触发：a。不适用：b。\n---\n# t\n",
@@ -168,8 +161,7 @@ def check_evals_set(failures: List[str]) -> None:
         {"skill_name": "demo-skill", "evals": [{"id": 0, "prompt": "p", "expectations": ["x"], "files": []}]}
     )
     got = check_evals(good)
-    if got:
-        failures.append(f"check_evals: clean set reported {got}")
+    expect(not got, f"check_evals: clean set reported {got}")
     for label, payload, want in (
         (
             "stale skill_name",
@@ -197,27 +189,21 @@ def check_evals_set(failures: List[str]) -> None:
         ),
     ):
         got = [f.rule for f in check_evals(make_skill(payload)) if f.level == "ERROR"]
-        if want not in got:
-            failures.append(f"check_evals {label}: expected {want}, got {got}")
-
-
-def main() -> int:
-    failures: List[str] = []
-    root = make_tmp_dir(prefix="er-smoke-")
-    check_good(failures, root)
-    check_field_typo(failures)
-    check_arithmetic(failures)
-    check_malformed_types(failures)
-    check_unreadable(failures)
-    check_missing_grading(failures)
-    check_coverage(failures)
-    check_evals_set(failures)
-    if failures:
-        print("SMOKE FAIL:", *failures, sep="\n  ")
-        return 1
-    print("SMOKE OK: eval_report good/broken directions pinned (schema, arithmetic, coverage, layout)")
-    return 0
+        expect(want in got, f"check_evals {label}: expected {want}, got {got}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        run_cases(
+            [
+                check_good,
+                check_field_typo,
+                check_arithmetic,
+                check_malformed_types,
+                check_unreadable,
+                check_missing_grading,
+                check_coverage,
+                check_evals_set,
+            ]
+        )
+    )

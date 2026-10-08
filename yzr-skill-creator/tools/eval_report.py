@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import SIDES, WITH_SKILL, Finding, parse_skill_md  # noqa: E402
+from tools.utils import SIDES, WITH_SKILL, Finding, format_findings, json_text, parse_skill_md  # noqa: E402
 
 _EXPECTATION_KEYS = ("text", "passed", "evidence")
 _SUMMARY_KEYS = ("passed", "failed", "total", "pass_rate")
@@ -374,9 +374,8 @@ def _render_text(iteration_dir: Path, rows: List[Dict], findings: List[Finding],
                 print(f"        - 仅 baseline 通过：{text[: _EVIDENCE_PREVIEW * 2]}")
     if findings:
         print("\n-- 校验 --")
-        for f in findings:
-            loc = f"{f.file}:{f.line}  " if f.file else ""
-            print(f"  {f.level}: {f.rule}  {loc}{f.evidence}")
+        for line in format_findings(findings, show_rule=True):
+            print(f"  {line}")
     else:
         print("\n  校验：全部通过")
     print(f"\n{len(rows)} case(s), {len(errors)} ERROR — {'FAIL' if errors else 'PASS'}")
@@ -404,15 +403,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.json:
         print(
-            json.dumps(
+            json_text(
                 {
                     "iteration_dir": str(iteration_dir),
                     "cases": rows,
                     "findings": [f.to_dict() for f in findings],
                     "ok": not errors,
-                },
-                ensure_ascii=False,
-                indent=2,
+                }
             )
         )
     else:

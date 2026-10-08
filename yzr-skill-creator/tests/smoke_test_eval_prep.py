@@ -10,21 +10,14 @@ import io
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_tmp_dir  # noqa: E402
+from _fixtures import expect, make_tmp_dir, run_cases  # noqa: E402
 
 from tools import eval_prep  # noqa: E402
-
-CASES: List = []
-
-
-def case(fn):
-    CASES.append(fn)
-    return fn
 
 
 def make_repo(tmp: Path, sides=("with_skill", "without_skill"), ids=(1,)) -> Path:
@@ -55,9 +48,8 @@ def pending(stdout: str) -> List[str]:
     return [line for line in stdout.splitlines() if line.startswith("PENDING ")]
 
 
-@case
-def case_happy_sandbox_and_prompts(tmp: Path) -> None:
-    print("[case] both sides prepped: isolated prompts + sandboxes, no transcript")
+def case_happy_sandbox_and_prompts() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     root = make_repo(tmp)
     iteration = root / "s1-workspace" / "iteration-1"
     rc, stdout = prep(["--iteration", str(iteration), "--skill-path", str(root / "s1")])
@@ -80,9 +72,8 @@ def case_happy_sandbox_and_prompts(tmp: Path) -> None:
     expect(not (with_side / eval_prep.TRANSCRIPT_NAME).exists(), "transcript 应由编排 agent 落盘，不该是 prep 写的")
 
 
-@case
-def case_skip_existing_transcript_and_force(tmp: Path) -> None:
-    print("[case] transcripts present -> skip; --force -> redo")
+def case_skip_existing_transcript_and_force() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     root = make_repo(tmp)
     iteration = root / "s1-workspace" / "iteration-1"
     argv = ["--iteration", str(iteration), "--skill-path", str(root / "s1")]
@@ -97,9 +88,8 @@ def case_skip_existing_transcript_and_force(tmp: Path) -> None:
     expect(len(pending(out3)) == 2, "--force 未重跑")
 
 
-@case
-def case_old_skill_side_gets_snapshot_overlay(tmp: Path) -> None:
-    print("[case] old_skill side: sandbox skill replaced by snapshot, prompt points in-sandbox")
+def case_old_skill_side_gets_snapshot_overlay() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     root = make_repo(tmp, sides=("with_skill", "old_skill"))
     iteration = root / "s1-workspace" / "iteration-1"
     snapshot = iteration / "skill-snapshot"
@@ -113,6 +103,7 @@ def case_old_skill_side_gets_snapshot_overlay(tmp: Path) -> None:
     live_side = iteration / "eval-1" / "with_skill"
 
     def sandbox_skill(side: Path) -> Path:
+        """定位某侧沙箱内的 SKILL.md。"""
         return side / eval_prep.SANDBOX_DIRNAME / "repo" / "s1" / "SKILL.md"
 
     expect("SNAPSHOT-VERSION" in sandbox_skill(old_side).read_text(), "old_skill 沙箱未覆盖为快照")
@@ -122,9 +113,8 @@ def case_old_skill_side_gets_snapshot_overlay(tmp: Path) -> None:
     expect(str(old_side / eval_prep.SANDBOX_DIRNAME / "repo" / "s1") in old_prompt, "prompt 未指向沙箱内快照")
 
 
-@case
-def case_old_skill_missing_snapshot_refused(tmp: Path) -> None:
-    print("[case] old_skill side without snapshot -> rc 2, nothing prepped")
+def case_old_skill_missing_snapshot_refused() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     root = make_repo(tmp, sides=("with_skill", "old_skill"))
     iteration = root / "s1-workspace" / "iteration-1"
     rc, stdout = prep(["--iteration", str(iteration), "--skill-path", str(root / "s1")])
@@ -133,16 +123,14 @@ def case_old_skill_missing_snapshot_refused(tmp: Path) -> None:
     expect(not (iteration / "eval-1" / "with_skill" / eval_prep.PROMPT_NAME).exists(), "校验失败前已建 prompt")
 
 
-@case
-def case_invalid_paths_exit_2(tmp: Path) -> None:
-    print("[case] invalid iteration / skill path -> rc 2")
+def case_invalid_paths_exit_2() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     rc, _ = prep(["--iteration", str(tmp / "nope"), "--skill-path", str(tmp / "nope")])
     expect(rc == 2, rc)
 
 
-@case
-def case_eval_filter(tmp: Path) -> None:
-    print("[case] --eval 1 only preps eval-1")
+def case_eval_filter() -> None:
+    tmp = make_tmp_dir("evalprep-smoke-")
     root = make_repo(tmp, ids=(1, 2))
     iteration = root / "s1-workspace" / "iteration-1"
     rc, stdout = prep(["--iteration", str(iteration), "--skill-path", str(root / "s1"), "--eval", "1"])
@@ -152,19 +140,16 @@ def case_eval_filter(tmp: Path) -> None:
     expect(all("eval-1/" in line for line in lines), stdout)
 
 
-def main() -> int:
-    failures: Dict[str, str] = {}
-    for fn in CASES:
-        td = make_tmp_dir("evalprep-smoke-")
-        try:
-            fn(td)
-        except AssertionError as exc:
-            failures[fn.__name__] = str(exc)
-    for name, detail in failures.items():
-        print("FAIL", name, detail)
-    print(f"{len(CASES) - len(failures)}/{len(CASES)} passed")
-    return 1 if failures else 0
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        run_cases(
+            [
+                case_happy_sandbox_and_prompts,
+                case_skip_existing_transcript_and_force,
+                case_old_skill_side_gets_snapshot_overlay,
+                case_old_skill_missing_snapshot_refused,
+                case_invalid_paths_exit_2,
+                case_eval_filter,
+            ]
+        )
+    )

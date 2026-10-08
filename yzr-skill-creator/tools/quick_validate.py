@@ -12,6 +12,7 @@ from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
     CANONICAL_BODY_SECTIONS,
     DESCRIPTION_MAX_CHARS,
+    EVIDENCE_SNIPPET,
     KEBAB_NAME_RE,
     LEGACY_SUBDIR_RENAMES,
     SKILL_SUBDIRS,
@@ -23,6 +24,7 @@ from tools.utils import (  # noqa: E402
     format_findings,
     frontmatter_span,
     iter_unfenced_lines,
+    json_text,
     load_frontmatter,
     skill_markdown_files,
     skill_tier,
@@ -82,7 +84,7 @@ def check_body_structure(skill_path, tier="default"):
         if m:
             headings.append(m.group(1).strip())
     found = {normalize_heading(h): h for h in headings}
-    canonical = [(normalize_heading(h[3:]), h, t) for h, t in CANONICAL_BODY_SECTIONS]
+    canonical = [(normalize_heading(h), f"## {h}", t) for h, t in CANONICAL_BODY_SECTIONS]
     canonical_found = [norm for norm, _, _ in canonical if norm in found]
     findings = _missing_section_findings(canonical, found, tier)
     findings += _order_findings(headings, canonical, canonical_found)
@@ -138,7 +140,7 @@ def _order_findings(headings, canonical, canonical_found):
 
 def _extra_section_findings(headings, tier):
     """报告规范节之外的 H2；meta 型放行首个规范节前的路由节。"""
-    canonical_norms = {normalize_heading(h[3:]) for h, _ in CANONICAL_BODY_SECTIONS}
+    canonical_norms = {normalize_heading(h) for h, _ in CANONICAL_BODY_SECTIONS}
     extras = [h for h in headings if normalize_heading(h) not in canonical_norms]
     if tier == "meta":
         # meta 型允许第一个规范节前放路由节；之后的额外节仍报（用 enumerate 而非 index()：重复节名下 index() 会取错位置）
@@ -227,8 +229,6 @@ def check_description_format(skill_path):
     return findings
 
 
-_EVIDENCE_SNIPPET = 70
-
 _BLANK, _HEADING, _TABLE, _LIST, _QUOTE, _TEXT = range(6)
 
 _HEADING_LINE_RE = re.compile(r"^ {0,3}#{1,6}\s")
@@ -312,7 +312,7 @@ def check_no_trailing_period(skill_dir):
                 Finding(
                     rule="TRAILING-PERIOD",
                     level="ERROR",
-                    evidence=f"block 末句号：{line.strip()[:_EVIDENCE_SNIPPET]}",
+                    evidence=f"block 末句号：{line.strip()[:EVIDENCE_SNIPPET]}",
                     file=rel,
                     line=str(lineno),
                     fix="删去行末「。」；句中句号与折行续行保留",
@@ -339,7 +339,7 @@ def check_no_toc(skill_path):
             return None
         return flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表），{ssot}")
 
-    for md_file in sorted(skill_path.rglob("*.md")):
+    for md_file in skill_markdown_files(skill_path, "toc"):
         rel = str(md_file.relative_to(skill_path))
         run_start = None
         run_len = 0
@@ -552,7 +552,6 @@ def collect_findings(skill_dir, tier=None):
 
 if __name__ == "__main__":
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(
         description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, length, and trailing periods"
@@ -571,16 +570,14 @@ if __name__ == "__main__":
 
     if args.json:
         print(
-            json.dumps(
+            json_text(
                 {
                     "skill_dir": str(args.skill_dir),
                     "tier": skill_tier(Path(args.skill_dir), args.tier),
                     "valid": valid,
                     "message": message,
                     "findings": [f.to_dict() for f in findings],
-                },
-                ensure_ascii=False,
-                indent=2,
+                }
             )
         )
     else:

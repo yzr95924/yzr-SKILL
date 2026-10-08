@@ -2,9 +2,6 @@
 """Run every skill health check in one command."""
 
 import argparse
-import contextlib
-import io
-import json
 import re
 import shutil
 import subprocess
@@ -29,18 +26,12 @@ from tools.utils import (  # noqa: E402
     Finding,
     discover_skill_dirs,
     format_findings,
-    iter_unfenced_lines,
+    json_text,
     parse_skill_md,
+    skill_markdown_files,
 )
 
-_ANCHOR_LEVEL = "ERROR"
-
-_TOOL_LEVEL = "ERROR"
-
-
 _ADVISORY_LEVEL = "INFO"
-
-_TOUCHED_LIST_LIMIT = 6
 
 _CONFIG_FILE = ".markdownlint.jsonc"
 
@@ -105,80 +96,31 @@ def _relative_to_root(path: Path, repo_root: Optional[Path]) -> Optional[str]:
         return None
 
 
-def _capture_json(fn, argv: List[str]) -> Tuple[int, Optional[Dict]]:
-    """捕获函数 stdout 并解析成 JSON，返回 (退出码, 数据)。"""
-    buffer = io.StringIO()
-    with contextlib.redirect_stdout(buffer):
-        rc = fn(argv)
-    try:
-        return rc, json.loads(buffer.getvalue())
-    except ValueError:
-        return rc, None
-
-
-def _quick_validate_findings(skill_dir: Path, tier: Optional[str]) -> List[Finding]:
-    """跑 quick_validate 的全部结构检查（检查清单单一来源在 quick_validate.collect_findings）。"""
-    return quick_validate.collect_findings(skill_dir, tier)[2]
-
-
-_TEMPLATE_NAME = "skill-template.md"
-
-
 def _template_sync_findings(skill_dir: Path) -> List[Finding]:
     """带 assets 模板的 skill：模板节名须与 CANONICAL_BODY_SECTIONS 一致（漂移会误导每个新 skill）。"""
-    tpl = skill_dir / "assets" / _TEMPLATE_NAME
+    tpl = skill_dir / "assets" / "skill-template.md"
     if not tpl.is_file():
         return []
     norm = quick_validate.normalize_heading
-    want = {norm(h[3:]) for h, _ in CANONICAL_BODY_SECTIONS}
+    want = {norm(h) for h, _ in CANONICAL_BODY_SECTIONS}
     have = {norm(h) for h in re.findall(r"^## (.+)$", tpl.read_text(encoding="utf-8"), re.MULTILINE)}
     if want == have:
         return []
-    missing = "、".join(h for h, _ in CANONICAL_BODY_SECTIONS if norm(h[3:]) not in have) or "无"
+    missing = "、".join(f"## {h}" for h, _ in CANONICAL_BODY_SECTIONS if norm(h) not in have) or "无"
     extra = "、".join(f"`## {h}`" for h in sorted(have - want)) or "无"
     return [
         Finding(
             rule="TEMPLATE-SECTION-DRIFT",
             level="ERROR",
-            evidence=f"assets/{_TEMPLATE_NAME} 与节名清单不一致：模板缺 {missing}，模板多出 {extra}",
+            evidence=f"assets/skill-template.md 与节名清单不一致：模板缺 {missing}，模板多出 {extra}",
             fix="以 assets/skill-template.md 为准对齐，检查器清单同步",
         )
     ]
 
 
-def _anchor_findings(skill_dir: Path) -> List[Finding]:
-    """跑锚点与链接审计并转成 Finding。"""
-    _totals, issues = check_anchor_health.scan_skill(skill_dir)
-    findings: List[Finding] = []
-    for issue in issues:
-        status = issue.get("status", "ANCHOR")
-        fix = "锚点链接文字统一为「章节」" if status == "LINK-LABEL" else "修链接 / 路径或补齐目标标题"
-        findings.append(
-            Finding(
-                rule=status,
-                level=_ANCHOR_LEVEL,
-                evidence=issue.get("reason", ""),
-                file=issue.get("file", ""),
-                line=issue.get("line", ""),
-                fix=f"{fix}（脚本：tools/check_anchor_health.py）",
-            )
-        )
-    return findings
-
-
 def _dependency_findings(repo_root: Path, scope: Optional[FrozenSet[str]] = None) -> List[Finding]:
-    """跑跨 skill 提及筛查，产出建议级 Finding；scope 非空时只保留涉及这些 skill 的提及边。"""
-    rc, payload = _capture_json(check_skill_dependencies.main, [str(repo_root), "--json"])
-    broken = payload is None or not all(key in payload for key in ("pairs", "one_way"))
-    if broken:
-        return [
-            Finding(
-                rule="CROSS-SKILL-MENTION",
-                level="ERROR",
-                evidence=f"依赖筛查未产出可解析的结果（rc={rc}），测量通道断了，这轮不给结论",
-                fix=f"单跑看报错：python3 -m tools.check_skill_dependencies {repo_root}",
-            )
-        ]
+    """跑跨 skill 提及筛查（进程内直调 scan），产出建议级 Finding；scope 非空时只保留涉及这些 skill 的提及边。"""
+    payload = check_skill_dependencies.scan(repo_root)
     pairs, one_way = payload["pairs"], payload["one_way"]
     if scope is not None:
         pairs = [p for p in pairs if p["a"] in scope or p["b"] in scope]
@@ -229,7 +171,7 @@ def _tool_output_finding(rule: str, summary: str, body: str, fix: str) -> Findin
     """把工具报错行包成 ERROR 级 Finding。"""
     return Finding(
         rule=rule,
-        level=_TOOL_LEVEL,
+        level="ERROR",
         evidence=summary + "\n" + "\n".join(body),
         fix=fix,
     )
@@ -303,118 +245,12 @@ def _ruff(skill_dir: Path, repo_root: Optional[Path]) -> Tuple[List[Finding], Li
     return findings, results
 
 
-_HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-_H2_RE = re.compile(r"^## (?!#)(.+?)\s*$")
-
-
-def _h2_spans(text: str) -> List[Tuple[int, str]]:
-    """收集正文 H2 标题的 (行号, 标题)，跳过代码围栏。"""
-    spans: List[Tuple[int, str]] = []
-    for lineno, line in iter_unfenced_lines(text):
-        match = _H2_RE.match(line)
-        if match:
-            spans.append((lineno, match.group(1).strip()))
-    return spans
-
-
-def _enclosing_h2(spans: List[Tuple[int, str]], new_line: int) -> str:
-    """找 new_line 所属的 H2 标题。"""
-    title = ""
-    for start, t in spans:
-        if start <= new_line:
-            title = t
-        else:
-            break
-    return title
-
-
-def _read_repo_text(root: Path, rel: str) -> str:
-    """读仓库相对路径的文本；失败返回空串。"""
-    try:
-        return (root / rel).read_text(encoding="utf-8")
-    except OSError:
-        return ""
-
-
-def _sections_touched(diff_text: str, root: Path) -> set:
-    """从 git diff 提取被改动的 (文件, H2 节)。"""
-    touched = set()
-    current = ""
-    spans_cache: Dict[str, List[Tuple[int, str]]] = {}
-    for line in diff_text.splitlines():
-        if line.startswith("+++ "):
-            path = line[4:]
-            if path.startswith("b/"):
-                path = path[2:]
-            current = path if path.endswith(".md") else ""
-            continue
-        if not current:
-            continue
-        m = _HUNK_RE.match(line)
-        if not m:
-            continue
-        if current not in spans_cache:
-            spans_cache[current] = _h2_spans(_read_repo_text(root, current))
-        title = _enclosing_h2(spans_cache[current], int(m.group(1)))
-        if title:
-            touched.add((current, title))
-    return touched
-
-
-def _git_lines(skill_dir: Path, *args: str) -> Optional[List[str]]:
-    """跑 git 子命令并按行返回 stdout；命令失败或 git 不可用时返回 None。"""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(skill_dir), *args],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            universal_newlines=True,
-        )
-    except OSError:
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout.splitlines()
-
-
-def _delivery_gate_findings(skill_dir: Path) -> List[Finding]:
-    """未提交 md 改动触及两个以上 H2 节时给交付门禁建议。"""
-    diff = _git_lines(skill_dir, "diff", "-U0", "HEAD", "--", "*.md")
-    top = _git_lines(skill_dir, "rev-parse", "--show-toplevel")
-    if diff is None or top is None or not top:
-        return []
-    touched = _sections_touched("\n".join(diff), Path(top[0].strip()))
-    untracked = _git_lines(skill_dir, "ls-files", "--others", "--exclude-standard", "--", "*.md")
-    if untracked is not None:
-        for rel in untracked:
-            touched.add((rel, "(新文件)"))
-    if len(touched) < 2:
-        return []
-    listing = "；".join(f"{f} § {s}" for f, s in sorted(touched)[:_TOUCHED_LIST_LIMIT])
-    more = f"（共 {len(touched)} 处）" if len(touched) > _TOUCHED_LIST_LIMIT else ""
-    return [
-        Finding(
-            rule="DELIVERY-GATE",
-            level=_ADVISORY_LEVEL,
-            evidence=f"未提交 md 改动触及 {len(touched)} 个 H2 节：{listing}{more}",
-            fix="交付门禁：提议对目标 skill 跑全文审计（机制层走原则校验，散文层转 yzr-writing-review），用户点头才执行",
-        )
-    ]
-
-
-# 审计 md 范围含 assets/ 与 *-template.md，与锚点扫描的 check_anchor_health._MD_SCAN_SUBDIRS 有意不同
-# （后者服务链接解析，跳过模板）
-_AUDIT_MD_SUBDIRS = ("ref", "tools", "assets", "eval")
+_AUDIT_MD_SCOPE = "audit"  # 宣告清单与 links 审计口径有意不同：审计者要精读模板与 tools/eval 下 md
 
 
 def _audit_scope_findings(skill_dir: Path) -> List[Finding]:
-    """--audit 模式：列出参与审计的 md 清单（顶层与 ref/ tools/ assets/ eval/ 下全部，含模板）。"""
-    paths = list(skill_dir.glob("*.md"))
-    for sub in _AUDIT_MD_SUBDIRS:
-        sub_root = skill_dir / sub
-        if sub_root.is_dir():
-            paths += list(sub_root.rglob("*.md"))
-    files = "、".join(str(p.relative_to(skill_dir)) for p in sorted(paths))
+    """--audit 模式：由统一枚举器实时产出参与审计的 md 清单。"""
+    files = "、".join(str(p.relative_to(skill_dir)) for p in skill_markdown_files(skill_dir, _AUDIT_MD_SCOPE))
     return [
         Finding(
             rule="AUDIT-SCOPE",
@@ -428,13 +264,12 @@ def verify_skill(
     skill_dir: Path, tier: Optional[str], repo_root: Optional[Path]
 ) -> Tuple[List[Finding], List[ToolResult]]:
     """跑一个 skill 的全部检查，返回 (findings, 工具状态)。"""
-    findings = _quick_validate_findings(skill_dir, tier)
+    findings = quick_validate.collect_findings(skill_dir, tier)[2]
     findings += _template_sync_findings(skill_dir)
-    findings += _anchor_findings(skill_dir)
+    findings += check_anchor_health.scan_skill(skill_dir)
     findings += audit_prose.scan_skill(skill_dir)
     findings += check_python_style.scan_skill(skill_dir)
     findings += eval_report.check_evals(skill_dir)
-    findings += _delivery_gate_findings(skill_dir)
     md_findings, md_result = _markdownlint(skill_dir, repo_root)
     ruff_findings, ruff_results = _ruff(skill_dir, repo_root)
     return findings + md_findings + ruff_findings, [md_result] + ruff_results
@@ -542,7 +377,7 @@ def _counts(findings: List[Finding]) -> Dict[str, int]:
 def _render_json(run: Run, root: Optional[Path], repo_mode: bool, errors: List[Finding]) -> None:
     """输出整份 JSON 报告。"""
     print(
-        json.dumps(
+        json_text(
             {
                 "repo_root": str(root) if repo_mode else None,
                 "skills": [str(skill_dir) for skill_dir, _ in run.per_skill],
@@ -552,9 +387,7 @@ def _render_json(run: Run, root: Optional[Path], repo_mode: bool, errors: List[F
                 "summary": _counts(run.findings),
                 "error_count": len(errors),
                 "ok": not errors,
-            },
-            ensure_ascii=False,
-            indent=2,
+            }
         )
     )
 

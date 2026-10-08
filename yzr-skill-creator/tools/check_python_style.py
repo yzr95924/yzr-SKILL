@@ -10,9 +10,7 @@ from typing import List, Optional
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import Finding, run_screen  # noqa: E402
-
-_CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+from tools.utils import CJK_RE, Finding, run_screen  # noqa: E402
 
 _RUN_HINT_RE = re.compile(r"python", re.IGNORECASE)
 
@@ -58,7 +56,7 @@ def _docstring_findings(path: Path, rel: str) -> List[Finding]:
                     fix="压成一行",
                 )
             )
-        if require_cjk and not _CJK_RE.search(doc):
+        if require_cjk and not CJK_RE.search(doc):
             findings.append(
                 Finding(
                     rule="DOCSTRING",

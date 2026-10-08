@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import make_skill_dir  # noqa: E402
+from _fixtures import expect, make_skill_dir, run_cases  # noqa: E402
 
 from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
@@ -91,49 +91,39 @@ def cases():
     ]
 
 
-def run_parse_cases(failures):
+def run_parse_cases() -> None:
     for label, fm_lines, want_name, want_desc in cases():
         path = write_skill(fm_lines)
-        try:
-            name, description, content = parse_skill_md(path)
-        except Exception as e:  # a parse blow-up is itself the failure
-            failures.append(f"parse {label}: raised {type(e).__name__}: {e}")
-            continue
-        if name != want_name:
-            failures.append(f"parse {label}: name {name!r} != {want_name!r}")
-        if description != want_desc:
-            failures.append(f"parse {label}: desc {description!r} != {want_desc!r}")
-        if not content.startswith("---"):
-            failures.append(f"parse {label}: full content not returned")
+        name, description, content = parse_skill_md(path)  # a parse blow-up raises: itself the failure
+        expect(name == want_name, f"parse {label}: name {name!r} != {want_name!r}")
+        expect(description == want_desc, f"parse {label}: desc {description!r} != {want_desc!r}")
+        expect(content.startswith("---"), f"parse {label}: full content not returned")
 
 
-def run_error_cases(failures):
+def run_error_cases() -> None:
     """Malformed frontmatter must raise, never return a half-parsed dict."""
     for label, text in ERROR_CASES:
         path = make_skill_dir({"SKILL.md": text}, prefix="fm-smoke-err-")
+        raised = None
         try:
             parse_skill_md(path)
-            failures.append(f"error {label}: expected ValueError, got none")
-        except ValueError:
-            pass
-        except Exception as e:
-            failures.append(f"error {label}: expected ValueError, got {type(e).__name__}: {e}")
+        except Exception as e:  # noqa: BLE001 - 区分 ValueError 与其他异常本身就是被测点
+            raised = e
+        expect(isinstance(raised, ValueError), f"error {label}: expected ValueError, got {raised!r}")
 
 
-def run_load_frontmatter_cases(failures) -> None:
+def run_load_frontmatter_cases() -> None:
     """load_frontmatter hands back the raw mapping — sibling keys (metadata /
     license) must survive intact, since other scripts read them from there."""
     path = write_skill(["name: k", "description: 一句话。", "metadata:", "  author: me", "  modify time: 2026-01-01"])
-    try:
-        data = load_frontmatter(path)
-    except Exception as e:
-        failures.append(f"load_frontmatter: raised {type(e).__name__}: {e}")
-        return
-    if data.get("name") != "k" or data.get("metadata", {}).get("author") != "me":
-        failures.append(f"load_frontmatter: unexpected mapping {data!r}")
+    data = load_frontmatter(path)
+    expect(
+        data.get("name") == "k" and data.get("metadata", {}).get("author") == "me",
+        f"load_frontmatter: unexpected mapping {data!r}",
+    )
 
 
-def run_estimate_cases(failures) -> int:
+def run_estimate_cases() -> None:
     """CJK and ASCII must be counted on their own bases.
 
     The naive "total chars / 1.7" formula the audit table carried reads an
@@ -151,45 +141,33 @@ def run_estimate_cases(failures) -> int:
     ]
     for label, body, expected in checks:
         got = estimate_body_words(body)
-        if got != expected:
-            failures.append(f"estimate {label}: {got} != {expected}")
+        expect(got == expected, f"estimate {label}: {got} != {expected}")
     over = estimate_body_words("词" * 10000)
-    if over <= BODY_WORD_LIMIT:
-        failures.append(f"estimate hard-limit-over: {over} should exceed {BODY_WORD_LIMIT}")
-    return len(checks) + 1  # + the hard-limit-over pin
+    expect(over > BODY_WORD_LIMIT, f"estimate hard-limit-over: {over} should exceed {BODY_WORD_LIMIT}")
 
 
-def run_skill_tier_cases(failures) -> int:
+def run_skill_tier_cases() -> None:
     """skill_tier precedence: override > metadata.tier > default; invalid falls back to default."""
-    cases = [
+    tier_cases = [
         ("override-wins", ["name: t", "description: d", "metadata:", "  tier: meta"], "reference", "reference"),
         ("metadata-read", ["name: t", "description: d", "metadata:", "  tier: meta"], None, "meta"),
         ("default-fallback", ["name: t", "description: d"], None, "default"),
         ("invalid-fallback", ["name: t", "description: d", "metadata:", "  tier: metta"], None, "default"),
     ]
-    for label, fm_lines, override, want in cases:
+    for label, fm_lines, override, want in tier_cases:
         got = skill_tier(write_skill(fm_lines), override)
-        if got != want:
-            failures.append(f"skill_tier {label}: {got!r} != {want!r}")
-    return len(cases)
-
-
-def main():
-    failures = []
-    run_parse_cases(failures)
-    run_error_cases(failures)
-    run_load_frontmatter_cases(failures)
-    est_pins = run_estimate_cases(failures)
-    tier_pins = run_skill_tier_cases(failures)
-    if failures:
-        print("SMOKE FAIL:", *failures, sep="\n  ")
-        return 1
-    print(
-        f"SMOKE OK: frontmatter {len(cases())} shapes + {len(ERROR_CASES)} error paths"
-        f" + raw mapping + {est_pins} estimator pins + {tier_pins} tier pins"
-    )
-    return 0
+        expect(got == want, f"skill_tier {label}: {got!r} != {want!r}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(
+        run_cases(
+            [
+                run_parse_cases,
+                run_error_cases,
+                run_load_frontmatter_cases,
+                run_estimate_cases,
+                run_skill_tier_cases,
+            ]
+        )
+    )
