@@ -214,6 +214,7 @@ def cli_contract():
         (Path(td) / "b.py").write_text(text, encoding="utf-8")
         proc = subprocess.run([sys.executable, str(script), td], capture_output=True, text=True)
         expect(proc.returncode == 0, proc)  # candidates, never a gate
+        expect(proc.stdout.count("INFO: scanned file:") == 2, proc.stdout)
         expect("dup group 1" in proc.stdout and "a.py" in proc.stdout, proc.stdout)
         expect("scanned: 2 file(s)" in proc.stderr, proc.stderr)
         proc2 = subprocess.run([sys.executable, str(script), td, "--max-groups", "0"], capture_output=True, text=True)

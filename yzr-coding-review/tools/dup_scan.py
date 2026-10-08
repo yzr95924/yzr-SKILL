@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""语言中立重复块扫描：归一化代码行后滑窗匹配，输出候选重复组（不做判定，始终退出 0）。"""
+"""语言中立重复块扫描：归一化代码行后滑窗匹配，输出扫描文件清单与候选重复组（不做判定，始终退出 0）。"""
 
 import argparse
 import os
@@ -225,7 +225,7 @@ def scan(paths: Sequence[str], exts: Sequence[str], min_lines: int, fuzzy: bool)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：打印候选组（--max-groups 截断）；始终退出 0（候选不是门禁）。"""
+    """CLI 入口：打印扫描文件清单与候选组（--max-groups 截断）；始终退出 0（候选不是门禁）。"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="+", help="code file(s) or directory to scan")
     parser.add_argument("--min-lines", type=int, default=5, help="duplicate block size threshold (default 5)")
@@ -239,6 +239,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     exts = tuple(e if e.startswith(".") else "." + e for e in args.ext.split(",") if e)
     files, groups = scan(args.paths, exts, args.min_lines, args.fuzzy)
+    for f in files:
+        print(f"INFO: scanned file: {f}")
     shown = groups if args.max_groups <= 0 else groups[: args.max_groups]
     for idx, g in enumerate(shown, 1):
         print(f"INFO: dup group {idx}: {len(g.occurrences)} occurrence(s), {g.lines} line(s)")
