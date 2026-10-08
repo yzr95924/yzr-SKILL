@@ -77,7 +77,7 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 ├── .github/workflows/ci.yml     # CI = verify --strict-tools + 仓库级 markdownlint + 冒烟循环
 └── yzr-*/                       # 各 skill 目录；yzr-skill-creator 内部：
     ├── SKILL.md                 #   入口表（4 个入口）
-    ├── tools/                   #   verify / quick_validate / check_* / audit_prose / eval_* / optimize_description
+    ├── tools/                   #   verify / quick_validate / check_* / audit_prose / eval_* / desc_eval
     ├── tests/                   #   smoke_test_*（打桩冒烟）+ _fixtures.py（共享夹具）
     ├── ref/                     #   {create,improve,description,audit}-workflow.md + schemas.md + agents/grader.md
     └── assets/skill-template.md #   可拷贝的 SKILL.md 正文骨架
@@ -89,11 +89,10 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 
 ## 注意事项
 
-- `yzr-skill-creator/tools/optimize_description.py` 按标题抽取 `ref/description-workflow.md` 的
-  "## description 优化原则"正文——该标题不得改。它调 `opencode run` 子进程跑评估
-  （judge / improve）：需本机 opencode 可用且已配置 provider；judge 走全 deny 工具权限的
-  markdown agent（专用 cwd 内 `.opencode/agent/`），不加载工具；`opencode run` 的 flag 与
-  agent 注入机制按本机 CLI 能力探测降级（v2.0.16 无 `--pure` / `--dir` / JSON agent 键）。
+- skill-creator 的评估管线零 LLM、零子进程：`tools/desc_eval.py`（prep / score / apply）与 `tools/eval_prep.py`
+  只做机械半区（判题 prompt / 沙箱与汇总 / 写回）；judge、improve、grader、对照侧这些 LLM worker 一律由编排
+  agent 用 harness subagent 会话内发起，不起 `opencode run` 之类 CLI 子进程（选型依据见
+  MEMORY/llm-worker-subagent.md）。
 - 创建 / 改进 / 描述优化 / 审计的执行细节在
   `yzr-skill-creator/ref/{create,improve,description,audit}-workflow.md`，`SKILL.md` 入口表负责指路。
 - skill-creator 脚本两种入口都行（文件内 sys.path 引导）：

@@ -4,14 +4,26 @@
 
 ## 命令流程
 
-前置：本机 `opencode run` 可用且已配置 provider（judge / improve 都走它）；模型、竞争池等参数的默认值与覆盖方式以 `--help` 为准
+前置：harness 可发起 subagent——judge 由编排 agent 在会话内并行发起，脚本零 LLM、零子进程。
+harness 无此能力时如实报告"触发评估不可用"，不跑评估循环，`description` 改动直接交用户裁定，不静默改走 CLI
 
-按[章节](#查询写作指南)写评估集 JSON（留存供轻量复用），与用户过一遍；
-`python3 -m tools.optimize_description --skill-path <skill-dir> --eval-set <json>` 跑优化循环（stdout 即 results JSON，
-留存供写回）；展示 before/after 分数，用户确认后写回：同命令加 `--apply <results.json> --dry-run` 看 diff，
+一段评估（prep → spawn judge → score）：
+
+1. 按[章节](#查询写作指南)写评估集 JSON（留存供轻量复用），与用户过一遍
+2. `python3 -m tools.desc_eval prep --skill-path <skill-dir> --eval-set <json> --out-dir <D> [--description-file <候选描述文件>]`
+   产出 `D/manifest.json` 与 `D/prompts/run-<k>.txt`（默认 3 run；竞争技能池默认读 `~/.agents/skills`，`--skills-dir` 可覆盖）
+3. 一条消息并行 spawn：每 run 一个 judge subagent，prompt 逐字交付对应 prompt 文件内容；
+   judge 自行把判定 JSON 数组写进 `D/results/run-<k>.json`
+4. `python3 -m tools.desc_eval score --out-dir <D>`：金丝雀哨兵先验判官通道（坏则退 3、不出数字），再四象限汇总；
+   stdout 即 results JSON（before/after 各自留存供展示）
+
+优化循环（编排 agent 驱动，默认 ≤ 5 轮，全过或无可改进即停）：score 有失败，编排者按失败清单与[章节](#description-优化原则)
+起草新 description 存成文件（用户点名要无偏版本时才 spawn 一个 fresh subagent 起草），带 `--description-file` 进下一轮 prep，取最高分那版
+
+轻量修改（如顺一句措辞）复用既有评估集只跑一轮 prep+score 前后对比，无回归才写回（授权闸门见[章节](../SKILL.md#description-优化)）。
+整批 judge 与历史"每查询独立判"协议的分数不可直接对照：擦边查询在整批下会被判通；before/after 必须同协议比较。
+写回：用户确认后 `python3 -m tools.desc_eval apply --skill-path <dir> --description-file <f> --dry-run` 看 diff，
 确认后去掉 `--dry-run` 落盘
-
-轻量修改（如顺一句措辞）复用上轮 `--eval-set` 只跑前后对比，不必跑完整优化循环，但无回归才写回（授权闸门见[章节](../SKILL.md#description-优化)）
 
 ## skill 触发的原理（写评估查询前先读）
 
@@ -54,9 +66,6 @@ agent 根据描述决定是否查阅该 skill。**经验观察：agent 倾向于
 有迷惑性
 
 ## description 优化原则
-
-> 本节由 `tools/optimize_description.py` 按标题抽取，标题不得改；改名需同步改脚本
-> 的标题匹配
 
 写 / 改 skill 的 description（触发描述）时遵循：
 

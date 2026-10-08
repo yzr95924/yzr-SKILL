@@ -22,8 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _fixtures import make_skill_dir  # noqa: E402
 
-from tools import optimize_description as opt  # noqa: E402
-from tools.optimize_description import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
+from tools.desc_eval import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
 from tools.utils import parse_skill_md  # noqa: E402
 
 FM_TAIL = "metadata:\n  author: smoke\n  modify time: 2026-01-01\n"
@@ -143,23 +142,6 @@ def check_paragraph_blank_preserved(failures):
         failures.append(f"paragraph split: expected exactly 1 blank separator, got {blanks}")
 
 
-def check_max_iterations_floor(failures):
-    """--max-iterations 0 会空循环后在选 best 时 max() 裸崩，必须 CLI 层拒绝。"""
-    import tempfile
-
-    with tempfile.TemporaryDirectory() as td:
-        argv = ["--skill-path", td, "--eval-set", str(Path(td) / "none.json"), "--max-iterations", "0"]
-        try:
-            with contextlib.redirect_stderr(io.StringIO()):
-                opt.main(argv)
-            failures.append("max-iterations floor: 0 was accepted")
-        except SystemExit as exc:
-            if exc.code != 2:
-                failures.append(f"max-iterations floor: unexpected exit {exc.code}")
-        except Exception as exc:  # 裸崩（修复前的症状）
-            failures.append(f"max-iterations floor: crashed instead of CLI error: {exc!r}")
-
-
 def main() -> int:
     failures = []
     check_round_trip(failures)
@@ -168,11 +150,10 @@ def main() -> int:
     check_missing_key(failures)
     check_multiline_no_stray_blanks(failures)
     check_paragraph_blank_preserved(failures)
-    check_max_iterations_floor(failures)
     if failures:
         print("SMOKE FAIL:", *failures, sep="\n  ")
         return 1
-    print("SMOKE OK: apply_description round-trip + idempotency + rejection paths + multiline/paragraph/floor")
+    print("SMOKE OK: apply_description round-trip + idempotency + rejection paths + multiline/paragraph")
     return 0
 
 

@@ -15,7 +15,7 @@ from tools.utils import OLD_SKILL, WITH_SKILL, WITHOUT_SKILL  # noqa: E402
 
 SNAPSHOT_DIRNAME = "skill-snapshot"
 
-# 沙箱 / 快照复制排除集（eval_run 的沙箱与此共用）：git 对象、缓存、评估工作区、vendor 依赖
+# 沙箱 / 快照复制排除集（eval_prep 的沙箱与此共用）：git 对象、缓存、评估工作区、vendor 依赖
 SANDBOX_IGNORE = shutil.ignore_patterns(".git", "__pycache__", "*.pyc", "*-workspace", "node_modules")
 
 

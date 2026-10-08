@@ -4,8 +4,8 @@
 > （启动子 agent 时把对应节的路径附进 prompt）。字段名是契约：错名 / 缺名会被下游读成"0 通过"，
 > `tools/eval_report.py` 在出任何数字前先报 ERROR
 >
-> `description` 优化不在本文件范围：其 results.json 由 `tools/optimize_description.py` 直接输出（stdout），
-> 供 `--apply` 写回
+> `description` 优化不在本文件范围：其 results JSON 由 `tools/desc_eval.py` 的 score 子命令输出（stdout），
+> 写回走 `desc_eval apply --description-file`
 
 ---
 

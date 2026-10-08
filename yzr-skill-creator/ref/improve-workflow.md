@@ -23,12 +23,14 @@ python3 -m tools.eval_init --workspace <skill-name>-workspace --iteration <N> \
 
 ### 第 1 步：独立子 agent 运行
 
-`python3 -m tools.eval_run --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
-对照侧（`without_skill` / `old_skill`）各起一个独立 `opencode run` 子 agent，开关以 `--help` 为准。两侧并发让
-任务大致同时完成，串行会放大其间的时空漂移、污染对比。前置同 `description` 优化（[章节](description-workflow.md#命令流程)）。
-会嵌套再跑循环的用例（如 `description` 优化的评估循环）是墙钟大头，单独 `--eval` 跑并配大 `--timeout`
+`python3 -m tools.eval_prep --iteration <ws>/iteration-<N> --skill-path <skill-dir>`：每用例的 with_skill 与
+对照侧（`without_skill` / `old_skill`）各建好沙箱与 prompt.txt，stdout 打印 PENDING 清单。前置同 `description`
+优化（harness subagent 能力，[章节](description-workflow.md#命令流程)）。按清单**一条消息并行发起该用例的两侧**
+subagent（长任务用后台模式），prompt 逐字交付该侧 prompt.txt 内容，
+编排者把每侧最终回复原样存为该侧 `transcript.txt`。两侧并发让任务大致同时完成，串行会放大其间的时空漂移、
+污染对比。会嵌套再跑循环的用例（如 `description` 优化的评估循环）是墙钟大头，单独 `--eval` 挑出先跑
 
-**没有子 agent 的环境（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务。
+**harness 无 subagent 能力（降级路径）**：改为**串行**执行：对每个测试用例，自己读该 skill 的 `SKILL.md` 并按其指令完成任务。
 **跳过 baseline**：你写的 skill 你自己跑，独立性的损失由人工评审环节补偿。评估结果直接在对话里展示；第 3 步随之不跑 `eval_report` 双侧对比，逐条判断言只出 with_skill 单侧分
 
 ### 第 2 步：运行进行中起草断言
