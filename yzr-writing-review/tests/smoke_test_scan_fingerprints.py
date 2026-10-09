@@ -133,9 +133,16 @@ def section_sign_negative_inside_fence():
 
 @case
 def arrow_positive_prose_hit():
-    text = "引入缓存 → 延迟下降。\n"
+    text = "基线 ⇒ 目标值，状态 ⟶ 迁移，双向 ⇄，➡ 下一步。\n"
     hits = scan_text(text, "a.md")
-    expect(len(hits) == 1 and hits[0].pid == "ARROW" and hits[0].count == 1, hits)
+    expect(len(hits) == 1 and hits[0].pid == "ARROW" and hits[0].count == 4, hits)
+
+
+@case
+def arrow_negative_ascii_forms():
+    # 零容忍只管 Unicode 箭头区段：ASCII 的 -> / => / --> 是 Mermaid 与命令行的常规写法
+    text = "链路为 下单 -> 队列 => 扣减，Mermaid 写 A --> B。\n"
+    expect(scan_text(text, "a.md") == [])
 
 
 @case

@@ -12,7 +12,8 @@ from typing import List, NamedTuple, Optional
 DASH = "\u2014\u2014"  # 中文双破折号"——"
 CORNER_QUOTE = "\u300c"  # 中文左角引号"「"（成对符号，开侧计一次）
 SECTION_SIGN = "\u00a7"  # 章节符号"§"
-ARROW = "\u2192"  # 箭头"→"
+# Unicode 箭头区段；ASCII 的 -> / => 属 Mermaid 与命令行常打，不收
+ARROW_RE = r"[\u2190-\u21ff\u2794-\u27be\u27f0-\u27ff\u2900-\u297f\u2b00-\u2b19]"
 # 段落开头的装饰性 emoji；✓ ✗ ★ ⚠ 表格中的 ✅ 等是技术文档正当用法，靠行首锚定排除
 EMOJI_RE = r"^\s*(?:[-*+]\s+)?[\U0001F300-\U0001FAFF\u2728\u26A1\u274C\u2705\u2757\u2764]"
 # 标点宽度候选（catalog 通用规则"标点宽度"）：正向收 CJK 紧邻的半角 ,;:!?；反向只收 ,; 与括号。
@@ -48,7 +49,7 @@ PATTERNS = [
     Pattern("DASH", DASH, "catalog AI 腔指纹“破折号”行"),
     Pattern("CORNER-QUOTE", CORNER_QUOTE, "catalog AI 腔指纹“CJK 角引号”行"),
     Pattern("SECTION-SIGN", SECTION_SIGN, "catalog AI 腔指纹“§ 章节符号”行"),
-    Pattern("ARROW", ARROW, "catalog AI 腔指纹“→ 箭头”行"),
+    Pattern("ARROW", "", "catalog AI 腔指纹“Unicode 箭头”行", ARROW_RE),
     Pattern("EMOJI", "", "catalog AI 腔指纹“emoji 点缀”行", EMOJI_RE),
     Pattern("WIDTH-MIX", "", "catalog 通用规则“标点宽度”行", WIDTH_MIX_RE),
 ]
