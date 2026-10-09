@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Round-trip smoke test for the shared frontmatter reader + word estimator.
 
 Why this exists: every script that touches a skill reads its frontmatter through
@@ -17,7 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_skill_dir, run_cases  # noqa: E402
+from _fixtures import BODY, expect, make_skill_dir, run_cases  # noqa: E402
 
 from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
@@ -26,8 +25,6 @@ from tools.utils import (  # noqa: E402
     parse_skill_md,
     skill_tier,
 )
-
-BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
 
 # Malformed-frontmatter fixtures must raise, never return a half-parsed dict.
 ERROR_CASES = (
@@ -91,7 +88,7 @@ def cases():
     ]
 
 
-def run_parse_cases() -> None:
+def case_parse_cases() -> None:
     for label, fm_lines, want_name, want_desc in cases():
         path = write_skill(fm_lines)
         name, description, content = parse_skill_md(path)  # a parse blow-up raises: itself the failure
@@ -100,7 +97,7 @@ def run_parse_cases() -> None:
         expect(content.startswith("---"), f"parse {label}: full content not returned")
 
 
-def run_error_cases() -> None:
+def case_error_cases() -> None:
     """Malformed frontmatter must raise, never return a half-parsed dict."""
     for label, text in ERROR_CASES:
         path = make_skill_dir({"SKILL.md": text}, prefix="fm-smoke-err-")
@@ -123,7 +120,7 @@ def run_load_frontmatter_cases() -> None:
     )
 
 
-def run_estimate_cases() -> None:
+def case_estimate_cases() -> None:
     """CJK and ASCII must be counted on their own bases.
 
     The naive "total chars / 1.7" formula the audit table carried reads an
@@ -160,14 +157,4 @@ def run_skill_tier_cases() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                run_parse_cases,
-                run_error_cases,
-                run_load_frontmatter_cases,
-                run_estimate_cases,
-                run_skill_tier_cases,
-            ]
-        )
-    )
+    sys.exit(run_cases())

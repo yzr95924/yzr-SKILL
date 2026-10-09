@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
 """Run every skill health check in one command."""
 
 import argparse
-import re
 import shutil
 import subprocess
 import sys
@@ -22,16 +20,20 @@ from tools import (  # noqa: E402
 )
 from tools.utils import (  # noqa: E402
     CANONICAL_BODY_SECTIONS,
+    ERROR,
     FINDING_LEVELS,
+    INFO,
+    SKILL_TIERS,
     Finding,
     discover_skill_dirs,
     format_findings,
+    h2_headings,
     json_text,
     parse_skill_md,
     skill_markdown_files,
 )
 
-_ADVISORY_LEVEL = "INFO"
+_ADVISORY_LEVEL = INFO
 
 _CONFIG_FILE = ".markdownlint.jsonc"
 
@@ -103,7 +105,7 @@ def _template_sync_findings(skill_dir: Path) -> List[Finding]:
         return []
     norm = quick_validate.normalize_heading
     want = {norm(h) for h, _ in CANONICAL_BODY_SECTIONS}
-    have = {norm(h) for h in re.findall(r"^## (.+)$", tpl.read_text(encoding="utf-8"), re.MULTILINE)}
+    have = {norm(h) for h in h2_headings(tpl.read_text(encoding="utf-8"))}
     if want == have:
         return []
     missing = "、".join(f"## {h}" for h, _ in CANONICAL_BODY_SECTIONS if norm(h) not in have) or "无"
@@ -111,7 +113,7 @@ def _template_sync_findings(skill_dir: Path) -> List[Finding]:
     return [
         Finding(
             rule="TEMPLATE-SECTION-DRIFT",
-            level="ERROR",
+            level=ERROR,
             evidence=f"assets/skill-template.md 与节名清单不一致：模板缺 {missing}，模板多出 {extra}",
             fix="以 assets/skill-template.md 为准对齐，检查器清单同步",
         )
@@ -171,7 +173,7 @@ def _tool_output_finding(rule: str, summary: str, body: str, fix: str) -> Findin
     """把工具报错行包成 ERROR 级 Finding。"""
     return Finding(
         rule=rule,
-        level="ERROR",
+        level=ERROR,
         evidence=summary + "\n" + "\n".join(body),
         fix=fix,
     )
@@ -264,7 +266,7 @@ def verify_skill(
     skill_dir: Path, tier: Optional[str], repo_root: Optional[Path]
 ) -> Tuple[List[Finding], List[ToolResult]]:
     """跑一个 skill 的全部检查，返回 (findings, 工具状态)。"""
-    findings = quick_validate.collect_findings(skill_dir, tier)[2]
+    findings = quick_validate.collect_findings(skill_dir, tier)
     findings += _template_sync_findings(skill_dir)
     findings += check_anchor_health.scan_skill(skill_dir)
     findings += audit_prose.scan_skill(skill_dir)
@@ -288,7 +290,7 @@ def _parse_args(argv: Optional[List[str]]):
     )
     parser.add_argument(
         "--tier",
-        choices=quick_validate.SKILL_TIERS,
+        choices=SKILL_TIERS,
         default=None,
         help="Override every target's frontmatter metadata.tier (default: per-skill metadata.tier, fallback 'default')",
     )
@@ -316,12 +318,11 @@ def _resolve_targets(args) -> Tuple[List[Path], Optional[Path], bool]:
         if not targets:
             raise UsageError(f"no skill directories under {root}")
         return targets, root, True
-    first = Path(args.skill_dirs[0]).resolve()
     targets = [Path(p).resolve() for p in args.skill_dirs]
     for skill_dir in targets:
         if not (skill_dir / "SKILL.md").is_file():
             raise UsageError(f"no SKILL.md under {skill_dir}")
-    return targets, _repo_root(first), False
+    return targets, _repo_root(targets[0]), False
 
 
 def _target_name(skill_dir: Path) -> str:
@@ -354,12 +355,12 @@ def _run_checks(
 
 def _gate(run: Run, strict_tools: bool) -> List[Finding]:
     """收集 ERROR 级 findings；strict 模式下工具 MISSING 也算失败。"""
-    errors = [f for f in run.findings if f.level == "ERROR"]
+    errors = [f for f in run.findings if f.level == ERROR]
     if strict_tools:
         errors += [
             Finding(
                 rule="TOOL-MISSING",
-                level="ERROR",
+                level=ERROR,
                 evidence=result.render(),
                 fix="python3 scripts/install-dev-deps.py",
             )

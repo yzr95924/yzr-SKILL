@@ -1,12 +1,9 @@
-#!/usr/bin/env python3
 """Fixture smoke test for eval_prep (sandbox + prompt assembly only; zero stubs).
 
 Run: python3 tests/smoke_test_eval_prep.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 
-import contextlib
-import io
 import json
 import sys
 from pathlib import Path
@@ -15,7 +12,7 @@ from typing import List, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_tmp_dir, run_cases  # noqa: E402
+from _fixtures import expect, make_tmp_dir, run_cases, run_cli  # noqa: E402
 
 from tools import eval_prep  # noqa: E402
 
@@ -26,7 +23,7 @@ def make_repo(tmp: Path, sides=("with_skill", "without_skill"), ids=(1,)) -> Pat
     skill = root / "s1"
     (skill / "eval").mkdir(parents=True)
     (skill / "SKILL.md").write_text("---\nname: s1\ndescription: |\n  LIVE-VERSION\n---\n# s1\n", encoding="utf-8")
-    evals = [{"id": i, "prompt": f"做 X{i}", "files": []} for i in ids]
+    evals = [{"id": i, "prompt": f"做 X{i}", "expectations": [f"断言 X{i}"], "files": []} for i in ids]
     (skill / "eval" / "evals.json").write_text(json.dumps({"skill_name": "s1", "evals": evals}), encoding="utf-8")
     iteration = root / "s1-workspace" / "iteration-1"
     for i in ids:
@@ -37,10 +34,7 @@ def make_repo(tmp: Path, sides=("with_skill", "without_skill"), ids=(1,)) -> Pat
 
 def prep(argv: List[str]) -> Tuple[int, str]:
     """跑 eval_prep.main，返回 (退出码, stdout)。"""
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-        rc = eval_prep.main(argv)
-    return rc, out.getvalue()
+    return run_cli(eval_prep.main, argv)
 
 
 def pending(stdout: str) -> List[str]:
@@ -141,15 +135,4 @@ def case_eval_filter() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                case_happy_sandbox_and_prompts,
-                case_skip_existing_transcript_and_force,
-                case_old_skill_side_gets_snapshot_overlay,
-                case_old_skill_missing_snapshot_refused,
-                case_invalid_paths_exit_2,
-                case_eval_filter,
-            ]
-        )
-    )
+    sys.exit(run_cases())

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Python shape screens: docstring policy (tools/) and smoke-test form (tests/)."""
 
 import ast
@@ -10,7 +9,7 @@ from typing import List, Optional
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import CJK_RE, Finding, run_screen  # noqa: E402
+from tools.utils import CJK_RE, ERROR, WARN, Finding, run_screen  # noqa: E402
 
 _RUN_HINT_RE = re.compile(r"python", re.IGNORECASE)
 
@@ -37,7 +36,7 @@ def _docstring_findings(path: Path, rel: str) -> List[Finding]:
             findings.append(
                 Finding(
                     rule="DOCSTRING",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"{label}：缺 docstring",
                     file=rel,
                     line=str(lineno),
@@ -49,7 +48,7 @@ def _docstring_findings(path: Path, rel: str) -> List[Finding]:
             findings.append(
                 Finding(
                     rule="DOCSTRING",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"{label}：docstring 非一行",
                     file=rel,
                     line=str(lineno),
@@ -60,7 +59,7 @@ def _docstring_findings(path: Path, rel: str) -> List[Finding]:
             findings.append(
                 Finding(
                     rule="DOCSTRING",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"{label}：docstring 无中文",
                     file=rel,
                     line=str(lineno),
@@ -101,7 +100,7 @@ def _smoke_findings(path: Path, rel: str) -> List[Finding]:
             findings.append(
                 Finding(
                     rule="SMOKE-ASSERT",
-                    level="ERROR",
+                    level=ERROR,
                     evidence="冒烟含裸 assert（python -O 会吞，失败静默）",
                     file=rel,
                     line=str(node.lineno),
@@ -112,7 +111,7 @@ def _smoke_findings(path: Path, rel: str) -> List[Finding]:
         findings.append(
             Finding(
                 rule="SMOKE-EXIT",
-                level="ERROR",
+                level=ERROR,
                 evidence="冒烟未以 sys.exit 收尾，CI 拿不到失败退出码",
                 file=rel,
                 fix="结尾 sys.exit(main())",
@@ -123,7 +122,7 @@ def _smoke_findings(path: Path, rel: str) -> List[Finding]:
         findings.append(
             Finding(
                 rule="SMOKE-HEADER",
-                level="WARN",
+                level=WARN,
                 evidence="冒烟头部缺跑法（Run: python3 tests/... 与 cwd）",
                 file=rel,
                 fix="模块 docstring 注明 cwd 与跑法",

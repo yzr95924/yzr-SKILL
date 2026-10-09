@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Summarise one eval iteration and reject malformed grading.json."""
 
 import argparse
@@ -10,7 +9,20 @@ from typing import Dict, List, Optional, Tuple
 # 让直跑与 python -m 两种入口都能 import tools.*
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.utils import SIDES, WITH_SKILL, Finding, format_findings, json_text, parse_skill_md  # noqa: E402
+from tools.utils import (  # noqa: E402
+    ERROR,
+    EVAL_DIR_PREFIX,
+    SIDES,
+    WARN,
+    WITH_SKILL,
+    Finding,
+    eval_dir_name,
+    evals_contract_errors,
+    format_findings,
+    json_text,
+    parse_eval_dir,
+    parse_skill_md,
+)
 
 _EXPECTATION_KEYS = ("text", "passed", "evidence")
 _SUMMARY_KEYS = ("passed", "failed", "total", "pass_rate")
@@ -19,20 +31,20 @@ _RATE_TOLERANCE = 0.01
 _EVIDENCE_PREVIEW = 60
 
 
-def _load_json(path: Path) -> Tuple[Optional[Dict], List[Finding]]:
-    """读 JSON 对象；失败返回 (None, Finding)。"""
+def _load_json(path: Path, rule: str) -> Tuple[Optional[Dict], List[Finding]]:
+    """读 JSON 对象；失败返回 (None, Finding)，rule 由调用方按所读文件归属。"""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
-        return None, [_schema_finding("GRADING-SCHEMA", f"cannot read JSON: {e}", str(path))]
+        return None, [_schema_finding(rule, f"cannot read JSON: {e}", str(path))]
     if not isinstance(data, dict):
-        return None, [_schema_finding("GRADING-SCHEMA", "grading.json is not a JSON object", str(path))]
+        return None, [_schema_finding(rule, f"{path.name} is not a JSON object", str(path))]
     return data, []
 
 
 def _schema_finding(rule: str, message: str, where: str, line: str = "", fix: str = "") -> Finding:
     """构造 ERROR 级 schema Finding。"""
-    return Finding(rule=rule, level="ERROR", evidence=message, file=where, line=line, fix=fix)
+    return Finding(rule=rule, level=ERROR, evidence=message, file=where, line=line, fix=fix)
 
 
 def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Dict[str, bool]]:
@@ -65,7 +77,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
             findings.append(
                 Finding(
                     rule="GRADING-SCHEMA",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"重复的断言原文：{text[:_EVIDENCE_PREVIEW]}",
                     file=rel,
                     line=str(i),
@@ -76,7 +88,7 @@ def _check_expectations(expectations: List, rel: str) -> Tuple[List[Finding], Di
             findings.append(
                 Finding(
                     rule="GRADING-EVIDENCE",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"断言无证据：{text[:_EVIDENCE_PREVIEW]}",
                     file=rel,
                     line=str(i),
@@ -141,7 +153,7 @@ def _check_summary(summary, rel: str, results: Dict[str, bool]) -> List[Finding]
 
 def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[str, bool]]]:
     """校验一份 grading.json，返回 (Findings, 逐条是否通过)。"""
-    data, findings = _load_json(path)
+    data, findings = _load_json(path, "GRADING-SCHEMA")
     if data is None:
         return findings, None
     expectations = data.get("expectations")
@@ -152,40 +164,26 @@ def check_grading(path: Path, rel: str) -> Tuple[List[Finding], Optional[Dict[st
 
 
 def evals_by_id(data: Dict, where: str) -> Tuple[Dict[int, List[str]], List[Finding]]:
-    """从 evals.json 数据提取 id 到断言原文列表的映射。"""
-    by_id: Dict[int, List[str]] = {}
-    findings: List[Finding] = []
-    if not isinstance(data.get("evals"), list):
-        findings.append(_schema_finding("EVALS-SCHEMA", "missing `evals` array", where))
-        return by_id, findings
-    for i, item in enumerate(data["evals"]):
-        if not isinstance(item, dict) or "id" not in item or not isinstance(item.get("expectations"), list):
-            findings.append(_schema_finding("EVALS-SCHEMA", f"evals[{i}] 缺 id 或 expectations 数组", where, str(i)))
-            continue
-        eval_id = item["id"]
-        if not isinstance(eval_id, int):
-            findings.append(
-                _schema_finding("EVALS-SCHEMA", f"evals[{i}].id 必须是整数，got {eval_id!r}", where, str(i))
-            )
-            continue
-        by_id[eval_id] = [str(e) for e in item["expectations"]]
-    return by_id, findings
+    """从 evals.json 数据提取 id 到断言原文列表的映射（公共不变量见 utils.evals_contract_errors）；不合法时只回错误、不建映射。"""
+    errors = evals_contract_errors(data)
+    if errors:
+        return {}, [_schema_finding("EVALS-SCHEMA", msg, where) for msg in errors]
+    return {item["id"]: [str(e) for e in item["expectations"]] for item in data["evals"]}, []
 
 
 def collect(iteration_dir: Path) -> Tuple[Dict[int, Dict[str, Dict[str, bool]]], List[Finding]]:
     """汇总一个 iteration 下全部用例与侧别的评分结果。"""
     runs: Dict[int, Dict[str, Dict[str, bool]]] = {}
     findings: List[Finding] = []
-    for eval_dir in sorted(iteration_dir.glob("eval-*")):
+    for eval_dir in sorted(iteration_dir.glob(f"{EVAL_DIR_PREFIX}*")):
         if not eval_dir.is_dir():
             continue
-        try:
-            eval_id = int(eval_dir.name.split("-", 1)[1])
-        except ValueError:
+        eval_id = parse_eval_dir(eval_dir.name)
+        if eval_id is None:
             findings.append(
                 Finding(
                     rule="WORKSPACE-LAYOUT",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"用例目录名不合规范：{eval_dir.name}",
                     file=str(eval_dir),
                     fix="目录名应为 eval-<id>（id 取自 evals.json）",
@@ -205,9 +203,20 @@ def collect(iteration_dir: Path) -> Tuple[Dict[int, Dict[str, Dict[str, bool]]],
             findings.append(
                 Finding(
                     rule="WORKSPACE-LAYOUT",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"该用例下没有可读的 grading.json（{', '.join(SIDES)} 均缺）",
                     file=str(eval_dir),
+                )
+            )
+        baselines = [s for s in sides if s != WITH_SKILL]
+        if len(baselines) > 1:
+            findings.append(
+                Finding(
+                    rule="WORKSPACE-LAYOUT",
+                    level=WARN,
+                    evidence=f"并存 {len(baselines)} 个对照侧（{', '.join(baselines)}），对照表只取 {baselines[0]}",
+                    file=str(eval_dir),
+                    fix="删掉多余对照侧产物，或重新 init 单一 baseline 的工作区",
                 )
             )
         runs[eval_id] = sides
@@ -223,7 +232,7 @@ def _cross_check_evals(runs, evals: Dict[int, List[str]], evals_path: Path) -> L
             findings.append(
                 Finding(
                     rule="EVALS-SCHEMA",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"iteration 里有 eval-{eval_id}，{evals_path.name} 里没有",
                     file=str(evals_path),
                 )
@@ -236,10 +245,9 @@ def _cross_check_evals(runs, evals: Dict[int, List[str]], evals_path: Path) -> L
                     findings.append(
                         Finding(
                             rule="GRADING-COVERAGE",
-                            level="ERROR",
+                            level=ERROR,
                             evidence=f"断言未被评分（漏评 = 分母虚小）：{text[:_EVIDENCE_PREVIEW]}",
-                            file=f"eval-{eval_id}/{side}",
-                            line="",
+                            file=f"{eval_dir_name(eval_id)}/{side}",
                             fix="让 grader 逐条判完，或按 evals.json 修断言原文",
                         )
                     )
@@ -248,9 +256,9 @@ def _cross_check_evals(runs, evals: Dict[int, List[str]], evals_path: Path) -> L
                 findings.append(
                     Finding(
                         rule="GRADING-COVERAGE",
-                        level="WARN",
+                        level=WARN,
                         evidence=f"评分里出现 evals.json 没有的断言：{text[:_EVIDENCE_PREVIEW]}",
-                        file=f"eval-{eval_id}/{side}",
+                        file=f"{eval_dir_name(eval_id)}/{side}",
                     )
                 )
     return findings
@@ -287,7 +295,7 @@ def compare(runs) -> List[Dict]:
 
 def _evals_from_file(path: Path) -> Tuple[Dict[int, List[str]], List[Finding]]:
     """读 evals.json 文件并提取 id 到断言列表的映射。"""
-    data, findings = _load_json(path)
+    data, findings = _load_json(path, "EVALS-SCHEMA")
     if data is None:
         return {}, findings
     return evals_by_id(data, str(path))
@@ -313,30 +321,17 @@ def _check_evals_identity(data: Dict, skill_dir: Path, where: str) -> List[Findi
 
 
 def _check_eval_items(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
-    """校验用例 id 唯一、声明的输入文件存在。"""
+    """校验用例声明的输入文件存在（id / prompt / expectations 不变量已归 utils.evals_contract_errors，不在此重复）。"""
     findings: List[Finding] = []
-    seen = set()
-    for item in data.get("evals", []):
-        if not isinstance(item, dict):
-            continue
-        eval_id = item.get("id")
-        if eval_id in seen:
-            findings.append(
-                _schema_finding(
-                    "EVALS-SCHEMA",
-                    f"id={eval_id} 重复（workspace 的 eval-<id> 目录会互相覆盖）",
-                    where,
-                    str(eval_id),
-                )
-            )
-        seen.add(eval_id)
+    for item in data["evals"]:
+        eval_id = item["id"]
         for rel in item.get("files", []) or []:
             if (skill_dir / str(rel)).exists():
                 continue
             findings.append(
                 Finding(
                     rule="EVALS-INPUT-MISSING",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"声明的输入文件不存在：{rel}",
                     file=where,
                     line=str(eval_id),
@@ -347,14 +342,17 @@ def _check_eval_items(data: Dict, skill_dir: Path, where: str) -> List[Finding]:
 
 
 def check_evals(skill_dir: Path) -> List[Finding]:
-    """校验 skill 的 eval/evals.json（存在才查）。"""
+    """校验 skill 的 eval/evals.json（存在才查）；公共不变量不过时不再跑场景判据。"""
     path = skill_dir / "eval" / "evals.json"
     if not path.is_file():
         return []
-    data, findings = _load_json(path)
+    data, findings = _load_json(path, "EVALS-SCHEMA")
     if data is None:
         return findings
     where = "eval/evals.json"
+    errors = evals_contract_errors(data)
+    if errors:
+        return findings + [_schema_finding("EVALS-SCHEMA", msg, where) for msg in errors]
     return findings + _check_evals_identity(data, skill_dir, where) + _check_eval_items(data, skill_dir, where)
 
 
@@ -399,7 +397,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         findings += eval_findings
         findings += _cross_check_evals(runs, evals, Path(args.evals))
     rows = compare(runs)
-    errors = [f for f in findings if f.level == "ERROR"]
+    errors = [f for f in findings if f.level == ERROR]
 
     if args.json:
         print(

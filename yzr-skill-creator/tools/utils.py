@@ -75,7 +75,21 @@ def iter_unfenced_lines(text: str):
             yield lineno, line
 
 
+H2_RE = re.compile(r"^##\s+(.+)$")
+
+
+def h2_headings(text: str) -> List[str]:
+    """返回未围栏区的 H2 节名（出现序）：正文与模板的节名判定共用此一口径。"""
+    headings: List[str] = []
+    for _, line in iter_unfenced_lines(text):
+        m = H2_RE.match(line)
+        if m:
+            headings.append(m.group(1).strip())
+    return headings
+
+
 FINDING_LEVELS = ("ERROR", "WARN", "INFO")
+ERROR, WARN, INFO = FINDING_LEVELS
 
 
 class Finding(NamedTuple):
@@ -232,7 +246,7 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     return name, description, content
 
 
-# 条目 = (H2 标题（不含 `## ` 前缀）, 允许省略该节的 tier 集）；空集 = 各 tier 必填；assets/skill-template.md 须与此一致（verify 查漂移）
+# 条目 = (H2 标题（不含 `## ` 前缀）, 允许省略该节的 tier 集）；空集 = 各 tier 必填；本清单须与 SSOT assets/skill-template.md 一致（verify 查漂移，以模板为准）
 CANONICAL_BODY_SECTIONS = (
     ("输入与输出", frozenset()),
     ("执行原则", frozenset({"reference"})),
@@ -287,6 +301,12 @@ def skill_markdown_files(skill_dir: Path, scope: str = "prose") -> List[Path]:
     return files
 
 
+def iter_skill_texts(skill_dir: Path, scope: str = "prose"):
+    """按用途口径产出 (md 路径, 相对路径, 全文)：枚举与 rel 口径单点，剔不剔围栏归消费者。"""
+    for md in skill_markdown_files(skill_dir, scope):
+        yield md, str(md.relative_to(skill_dir)), md.read_text(encoding="utf-8")
+
+
 # skill 内容子目录全集；检查器按用途取子集
 SKILL_SOURCE_SUBDIRS = ("ref", "assets", "tools")
 
@@ -300,3 +320,43 @@ WITH_SKILL = "with_skill"
 WITHOUT_SKILL = "without_skill"
 OLD_SKILL = "old_skill"
 SIDES = (WITH_SKILL, WITHOUT_SKILL, OLD_SKILL)
+
+EVAL_DIR_PREFIX = "eval-"
+
+
+def eval_dir_name(eval_id: int) -> str:
+    """eval-<id> 用例目录名（写侧 eval_init 与读侧 eval_prep / eval_report 共用）。"""
+    return f"{EVAL_DIR_PREFIX}{eval_id}"
+
+
+def parse_eval_dir(name: str) -> Optional[int]:
+    """从 eval-<id> 目录名解析 id；不合规范返回 None。"""
+    try:
+        return int(name.split("-", 1)[1])
+    except ValueError:
+        return None
+
+
+def evals_contract_errors(data: object) -> List[str]:
+    """evals.json 公共不变量（evals 非空数组、id 整数且唯一、prompt 非空、expectations 非空）；返回错误描述列表。"""
+    evals = data.get("evals") if isinstance(data, dict) else None
+    if not isinstance(evals, list) or not evals:
+        return ["evals.json must be a JSON object with a non-empty `evals` array"]
+    errors: List[str] = []
+    seen = set()
+    for i, item in enumerate(evals):
+        if not isinstance(item, dict):
+            errors.append(f"evals[{i}] 不是对象：{item!r}")
+            continue
+        eval_id = item.get("id")
+        if not isinstance(eval_id, int):
+            errors.append(f"evals[{i}].id 必须是整数，got {eval_id!r}")
+        elif eval_id in seen:
+            errors.append(f"id={eval_id} 重复（workspace 的 eval-<id> 目录会互相覆盖）")
+        else:
+            seen.add(eval_id)
+        if not item.get("prompt"):
+            errors.append(f"evals[{i}] 缺非空 `prompt`")
+        if not isinstance(item.get("expectations"), list) or not item["expectations"]:
+            errors.append(f"evals[{i}] 缺非空 `expectations` 数组")
+    return errors

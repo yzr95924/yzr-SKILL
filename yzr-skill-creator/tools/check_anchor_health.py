@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Audit markdown cross-references: link targets, anchors, link labels, backticked paths."""
 
 import re
@@ -10,13 +9,14 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.utils import (  # noqa: E402
+    ERROR,
     SKILL_SOURCE_SUBDIRS,
     Finding,
     find_code_spans,
     frontmatter_span,
+    iter_skill_texts,
     iter_unfenced_lines,
     run_screen,
-    skill_markdown_files,
 )
 
 _LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
@@ -208,7 +208,7 @@ def _finding(md_path: Path, skill_root: Path, lineno: int, rule: str, evidence: 
     """构造一条链接审计 Finding（file 为相对 skill 根路径）。"""
     return Finding(
         rule=rule,
-        level="ERROR",
+        level=ERROR,
         evidence=evidence,
         file=str(md_path.relative_to(skill_root)),
         line=str(lineno),
@@ -218,7 +218,10 @@ def _finding(md_path: Path, skill_root: Path, lineno: int, rule: str, evidence: 
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
     """锚点在目标文件中不存在时返回带候选提示的原因，存在返回 None。"""
-    text = target.read_text(encoding="utf-8")
+    try:
+        text = target.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return f"anchor target is not readable text: {target}"
     slugs = collect_heading_slugs(text)
     explicit_ids = collect_explicit_anchor_ids(text)
     if anchor in slugs or anchor in explicit_ids:
@@ -238,14 +241,20 @@ def _scan_links(md_path: Path, skill_root: Path, text: str) -> List[Finding]:
         if not _is_checkable_link(raw_target):
             continue
         target_path, anchor = split_target(raw_target)
-        resolved = md_path if not target_path else _resolve_within(md_path, target_path, skill_root)[0]
-        if resolved is None:
+        resolved, escaped = (md_path, False) if not target_path else _resolve_within(md_path, target_path, skill_root)
+        if escaped:
             findings.append(
-                _finding(md_path, skill_root, lineno, "DEAD-LINK", "target file does not exist or escapes skill root")
+                _finding(
+                    md_path,
+                    skill_root,
+                    lineno,
+                    "CROSS-SKILL-PATH",
+                    f"link target escapes the skill root: {target_path}",
+                )
             )
             continue
-        if not resolved.exists():
-            findings.append(_finding(md_path, skill_root, lineno, "DEAD-LINK", f"target file not found: {resolved}"))
+        if resolved is None or not resolved.exists():
+            findings.append(_finding(md_path, skill_root, lineno, "DEAD-LINK", f"target file not found: {target_path}"))
             continue
         if not anchor:
             continue
@@ -299,8 +308,7 @@ def scan_skill(skill_root: Path) -> List[Finding]:
     """扫一个 skill 的链接、锚点与反引号路径（每个 md 只读一遍，产出 Finding 列表）。"""
     skill_root = Path(skill_root)
     findings: List[Finding] = []
-    for md in skill_markdown_files(skill_root, "links"):
-        text = md.read_text(encoding="utf-8")
+    for md, _rel, text in iter_skill_texts(skill_root, "links"):
         findings += _scan_links(md, skill_root, text)
         findings += _scan_backtick_paths(md, skill_root, text)
     return findings

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fixture smoke test for check_python_style (docstring policy + smoke-test form).
 
 Every case pins both directions: a compliant fixture stays silent, and the
@@ -67,7 +66,7 @@ def rules(findings: List) -> List[str]:
     return [f.rule for f in findings]
 
 
-def check_docstrings() -> None:
+def case_docstrings() -> None:
     expect(
         not rules(output({"tools/mod.py": CLEAN_TOOLS})),
         f"DOCSTRING: clean tools fixture reported: {rules(output({'tools/mod.py': CLEAN_TOOLS}))}",
@@ -88,7 +87,7 @@ def check_docstrings() -> None:
         )
 
 
-def check_smoke_form() -> None:
+def case_smoke_form() -> None:
     expect(not rules(output({"tests/smoke_test_x.py": CLEAN_SMOKE})), "SMOKE: clean fixture reported")
     # 裸 assert 报 ERROR（expect 的显式 raise 不报）
     dirty = CLEAN_SMOKE.replace('    expect(True, "ok")', "    assert True")
@@ -108,4 +107,4 @@ def check_smoke_form() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(run_cases([check_docstrings, check_smoke_form]))
+    sys.exit(run_cases())

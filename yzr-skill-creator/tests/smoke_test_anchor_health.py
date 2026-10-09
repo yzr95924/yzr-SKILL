@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fixture smoke test for check_anchor_health.
 
 Run: python3 tests/smoke_test_anchor_health.py  (from yzr-skill-creator/)
@@ -15,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _fixtures import expect, make_skill_dir, run_cases  # noqa: E402
 
 from tools import check_anchor_health  # noqa: E402
+
+FM = "---\nname: s\ndescription: d\n---\n\n"
 
 
 def make_skill(files: Dict[str, str]) -> Path:
@@ -57,15 +58,14 @@ def case_slug_backticks_stripped() -> None:
 
 def case_same_file_anchor_positive_negative() -> None:
     body = "## 目标节\n\n见好 [章节](#目标节) 和坏 [章节](#不存在)。\n"
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(got.count("ANCHOR-DRIFT") == 1 and "DEAD-LINK" not in got, f"same-file anchors: {got}")
 
 
 def case_cross_file_anchor_positive_negative() -> None:
     root = make_skill(
         {
-            "SKILL.md": "---\nname: s\ndescription: d\n---\n\n"
-            "好 [章节](ref/r.md#深层节) 坏 [章节](ref/r.md#gone) 缺 [章节](ref/none.md)。\n",
+            "SKILL.md": FM + "好 [章节](ref/r.md#深层节) 坏 [章节](ref/r.md#gone) 缺 [章节](ref/none.md)。\n",
             "ref/r.md": "## 深层节\n",
         }
     )
@@ -75,7 +75,7 @@ def case_cross_file_anchor_positive_negative() -> None:
 
 def case_anchor_link_label_unified() -> None:
     body = "## 目标节\n\n好 [章节](#目标节) 坏 [x](#目标节)\n"
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(got == ["LINK-LABEL"], f"link label: {got}")
 
 
@@ -83,7 +83,7 @@ def case_backtick_path_resolves_from_skill_root() -> None:
     # operational ref inside a ref/ file, written skill-root-relative
     root = make_skill(
         {
-            "SKILL.md": "---\nname: s\ndescription: d\n---\n\nsee [r](ref/r.md)\n",
+            "SKILL.md": FM + "see [r](ref/r.md)\n",
             "ref/r.md": "跑 `tools/x.py`。\n",
             "tools/x.py": "",
         }
@@ -93,7 +93,7 @@ def case_backtick_path_resolves_from_skill_root() -> None:
 
 
 def case_backtick_path_missing_reports() -> None:
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n`tools/gone.py`\n"}))
+    got = statuses(make_skill({"SKILL.md": FM + "`tools/gone.py`\n"}))
     expect(got == ["PATH-MISSING"], f"missing path: {got}")
 
 
@@ -101,7 +101,7 @@ def case_ref_root_drift_still_reports() -> None:
     # 内容子目录（ref/assets/tools）根下的分发物路径：漂移仍必须报
     root = make_skill(
         {
-            "SKILL.md": "---\nname: s\ndescription: d\n---\n\n好 `ref/r.md` 坏 `ref/gone.md`\n",
+            "SKILL.md": FM + "好 `ref/r.md` 坏 `ref/gone.md`\n",
             "ref/r.md": "# r\n",
         }
     )
@@ -115,26 +115,26 @@ def case_instance_paths_exempt() -> None:
         "见 `wiki/log.md`、`scripts/SCRIPTS.md`、`concepts/x.md`、"
         "`huawei_storage_wiki/wiki/syntheses/raid-overview.md`。\n"
     )
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(not got, f"instance paths: {got}")
 
 
 def case_bare_filenames_exempt() -> None:
     # 裸文件名无法区分实例产物（STATS.md / index.md）与同目录引用，一律不查
     body = "产出 `STATS.md` 与 `index.md`，参考 `catalog.md`。\n"
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(not got, f"bare filenames: {got}")
 
 
 def case_explicit_anchor_accepted() -> None:
     body = '<a id="stable"></a>\n\n## 任意标题\n\n[章节](#stable) [章节](#nope-missing)\n'
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(got == ["ANCHOR-DRIFT"], f"explicit anchor: {got}")  # only #nope-missing is drift
 
 
 def case_fenced_and_externals_ignored() -> None:
     body = "```\n[dead](nope.md#x)\n```\n\n[ext](https://example.com/a#b) `[code-illustration](nope2.md)`\n"
-    got = statuses(make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n" + body}))
+    got = statuses(make_skill({"SKILL.md": FM + body}))
     expect(not got, f"fenced/external: {got}")
 
 
@@ -142,30 +142,10 @@ def case_yzr_prefix_exempt_for_bare_name_only() -> None:
     # 裸 `yzr-x` 是题材提及豁免；`yzr-x/y.md` 是跨 skill 路径，必须仍进检查（曾整前缀豁免留兜底空洞）
     expect(not check_anchor_health._is_checkable_path("yzr-md-to-html"), "bare yzr- name should stay exempt")
     expect(check_anchor_health._is_checkable_path("yzr-md-to-html/SKILL.md"), "yzr- prefixed path should be checkable")
-    root = make_skill({"SKILL.md": "---\nname: s\ndescription: d\n---\n\n见 `yzr-md-to-html/SKILL.md`\n"})
+    root = make_skill({"SKILL.md": FM + "见 `yzr-md-to-html/SKILL.md`\n"})
     got = statuses(root)
     expect(got == ["PATH-MISSING"], f"yzr- prefixed path scan: {got}")
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                case_slug_ascii_and_cjk,
-                case_slug_cjk_punctuation_gap_double_hyphen,
-                case_slug_fullwidth_colon_and_parens_removed,
-                case_slug_backticks_stripped,
-                case_same_file_anchor_positive_negative,
-                case_cross_file_anchor_positive_negative,
-                case_anchor_link_label_unified,
-                case_backtick_path_resolves_from_skill_root,
-                case_backtick_path_missing_reports,
-                case_ref_root_drift_still_reports,
-                case_instance_paths_exempt,
-                case_bare_filenames_exempt,
-                case_explicit_anchor_accepted,
-                case_fenced_and_externals_ignored,
-                case_yzr_prefix_exempt_for_bare_name_only,
-            ]
-        )
-    )
+    sys.exit(run_cases())

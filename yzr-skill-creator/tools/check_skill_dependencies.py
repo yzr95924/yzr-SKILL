@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Screen skills for mutual references (candidate cycles)."""
 
 import argparse

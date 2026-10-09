@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """为一个 eval 迭代搭建各侧沙箱与 prompt，供编排 agent 用 harness subagent 发起对照侧（零 LLM、零子进程）。"""
 
 import argparse
@@ -11,7 +10,7 @@ from typing import Dict, List, Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import eval_init  # noqa: E402
-from tools.utils import OLD_SKILL, SIDES, WITHOUT_SKILL  # noqa: E402
+from tools.utils import EVAL_DIR_PREFIX, OLD_SKILL, SIDES, WITHOUT_SKILL, parse_eval_dir  # noqa: E402
 
 SANDBOX_DIRNAME = "run"
 TRANSCRIPT_NAME = "transcript.txt"
@@ -61,33 +60,21 @@ def overlay_snapshot(iteration: Path, skill_in_sandbox: Path) -> None:
     shutil.copytree(str(snapshot), str(skill_in_sandbox))
 
 
-def _eval_id_of(eval_dir: Path) -> Optional[int]:
-    """从 eval-<id> 目录名解析 id；不合规范返回 None。"""
-    try:
-        return int(eval_dir.name.split("-", 1)[1])
-    except ValueError:
-        return None
-
-
 def _is_selected(eval_dir: Path, eval_ids: Optional[List[int]]) -> bool:
     """该用例目录是否在 --eval 筛选范围内（目录名不合规范一律不选）。"""
-    eval_id = _eval_id_of(eval_dir)
+    eval_id = parse_eval_dir(eval_dir.name)
     return eval_id is not None and (not eval_ids or eval_id in eval_ids)
 
 
-def _sides_of(eval_dir: Path) -> List[Path]:
-    """该用例已建好的可跑侧别目录。"""
-    return [eval_dir / s for s in SIDES if (eval_dir / s).is_dir()]
-
-
 def _pending_sides(eval_dir: Path, force: bool) -> List[Path]:
-    """该用例待跑的侧：无 transcript 才跑（--force 忽略已有 transcript 全重跑）。"""
-    return [s for s in _sides_of(eval_dir) if force or not (s / TRANSCRIPT_NAME).is_file()]
+    """该用例待跑的侧：已建好的侧目录里无 transcript 才跑（--force 忽略已有 transcript 全重跑）。"""
+    sides = [eval_dir / s for s in SIDES if (eval_dir / s).is_dir()]
+    return [s for s in sides if force or not (s / TRANSCRIPT_NAME).is_file()]
 
 
 def prep_case(eval_dir: Path, iteration: Path, skill_path: Path, evals: Dict[int, Dict], force: bool) -> List[Path]:
     """备好一个用例的所有待跑侧：沙箱 + prompt.txt，返回待跑侧目录列表。"""
-    item = evals.get(_eval_id_of(eval_dir))
+    item = evals.get(parse_eval_dir(eval_dir.name))
     if item is None:
         print(f"  skip {eval_dir.name}: id not in evals.json", file=sys.stderr)
         return []
@@ -122,7 +109,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
-    selected = [d for d in sorted(iteration.glob("eval-*")) if _is_selected(d, args.eval_ids)]
+    selected = [d for d in sorted(iteration.glob(f"{EVAL_DIR_PREFIX}*")) if _is_selected(d, args.eval_ids)]
     needs_snapshot = any((d / OLD_SKILL) in _pending_sides(d, args.force) for d in selected)
     if needs_snapshot and not (iteration / eval_init.SNAPSHOT_DIRNAME).is_dir():
         print(

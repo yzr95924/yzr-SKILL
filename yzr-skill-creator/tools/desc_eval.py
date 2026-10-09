@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Description 触发评估的机械半区：prep（拼判题批次）/ score（汇总）/ apply（写回），零 LLM、零子进程。"""
 
 import argparse
@@ -126,42 +125,25 @@ def _read_description_file(path: str) -> str:
         raise ValueError(f"cannot read description file: {e}") from e
 
 
-def cmd_prep(args: argparse.Namespace) -> int:
-    """prep：建 out-dir，写 manifest 与每 run 一个判题 prompt。"""
-    skill_path = Path(args.skill_path)
-    if not (skill_path / "SKILL.md").is_file():
-        print(f"error: no SKILL.md under {skill_path}", file=sys.stderr)
-        return 2
-    try:
-        name, current_desc, _ = parse_skill_md(skill_path)
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    if args.description_file:
-        try:
-            candidate = _read_description_file(args.description_file)
-        except ValueError as e:
-            print(f"error: {e}", file=sys.stderr)
-            return 2
-    else:
-        candidate = current_desc
-    candidate = " ".join(candidate.split())
-    try:
-        eval_set = load_eval_set(Path(args.eval_set))
-        skills = collect_skills(name, candidate, args.skills_dir)
-    except (ValueError, RuntimeError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
+def _fail(message: str) -> int:
+    """打印 'error: {message}' 到 stderr 并返回退出码 2。"""
+    print(f"error: {message}", file=sys.stderr)
+    return 2
 
-    out_dir = Path(args.out_dir)
+
+def _fresh_out_dir(out_dir: Path) -> Tuple[Path, Path]:
+    """out-dir 可用（不存在或为空）时建 prompts/results 壳并返回两子目录，非空抛 ValueError。"""
     if out_dir.exists() and any(out_dir.iterdir()):
-        print(f"error: out dir exists and is not empty: {out_dir}", file=sys.stderr)
-        return 2
+        raise ValueError(f"out dir exists and is not empty: {out_dir}")
     prompts_dir = out_dir / "prompts"
     results_dir = out_dir / "results"
     prompts_dir.mkdir(parents=True)
     results_dir.mkdir(parents=True)
+    return prompts_dir, results_dir
 
+
+def _numbered_items(eval_set: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    """给评估集与金丝雀连续编号，返回 (queries, canary)。"""
     queries = [
         {"id": i + 1, "query": item["query"], "should_trigger": bool(item["should_trigger"])}
         for i, item in enumerate(eval_set)
@@ -169,15 +151,54 @@ def cmd_prep(args: argparse.Namespace) -> int:
     canary = [
         {"id": len(queries) + j + 1, "query": c["query"], "expect": c["expect"]} for j, c in enumerate(CANARY_QUERIES)
     ]
-    all_items = [(q["id"], q["query"]) for q in queries] + [(c["id"], c["query"]) for c in canary]
+    return queries, canary
 
+
+def _write_run_prompts(
+    skills: List[Dict[str, str]],
+    all_items: List[Tuple[int, str]],
+    prompts_dir: Path,
+    results_dir: Path,
+    args: argparse.Namespace,
+) -> None:
+    """逐 run 打乱批次顺序，各写一份判题 prompt。"""
     for run in range(1, args.runs + 1):
         batch = list(all_items)
-        random.Random(args.seed * 100 + run).shuffle(batch)
+        # 步长 runs+1 大于最大 run，同 seed 下各 run 的洗牌序列互不重复
+        random.Random(args.seed * (args.runs + 1) + run).shuffle(batch)
         result_path = (results_dir / f"run-{run}.json").resolve()
         prompt = build_judge_prompt(skills + [CANARY_SKILL], batch, result_path)
         (prompts_dir / f"run-{run}.txt").write_text(prompt, encoding="utf-8")
 
+
+def cmd_prep(args: argparse.Namespace) -> int:
+    """prep：建 out-dir，写 manifest 与每 run 一个判题 prompt。"""
+    skill_path = Path(args.skill_path)
+    if not (skill_path / "SKILL.md").is_file():
+        return _fail(f"no SKILL.md under {skill_path}")
+    if args.runs < 1:
+        return _fail("--runs must be >= 1")
+    try:
+        name, current_desc, _ = parse_skill_md(skill_path)
+    except ValueError as e:
+        return _fail(str(e))
+    candidate = current_desc
+    if args.description_file:
+        try:
+            candidate = _read_description_file(args.description_file)
+        except ValueError as e:
+            return _fail(str(e))
+    candidate = " ".join(candidate.split())
+    try:
+        eval_set = load_eval_set(Path(args.eval_set))
+        skills = collect_skills(name, candidate, args.skills_dir)
+        prompts_dir, results_dir = _fresh_out_dir(Path(args.out_dir))
+    except (ValueError, RuntimeError) as e:
+        return _fail(str(e))
+
+    queries, canary = _numbered_items(eval_set)
+    all_items = [(q["id"], q["query"]) for q in queries] + [(c["id"], c["query"]) for c in canary]
+    _write_run_prompts(skills, all_items, prompts_dir, results_dir, args)
     manifest = {
         "skill": name,
         "description": candidate,
@@ -186,9 +207,9 @@ def cmd_prep(args: argparse.Namespace) -> int:
         "queries": queries,
         "canary": canary,
     }
-    (out_dir / "manifest.json").write_text(json_text(manifest), encoding="utf-8")
+    (prompts_dir.parent / "manifest.json").write_text(json_text(manifest), encoding="utf-8")
 
-    print(f"prepped {out_dir}: {len(queries)} query(s), {args.runs} run(s) x 1 judge sub-agent")
+    print(f"prepped {prompts_dir.parent}: {len(queries)} query(s), {args.runs} run(s) x 1 judge sub-agent")
     print(
         "next: spawn one harness sub-agent per prompts/run-<k>.txt (deliver the file content verbatim), "
         "each judge writes its own results/run-<k>.json"
@@ -223,62 +244,81 @@ def _load_run_choices(result_path: Path, expected_ids: set) -> Dict[int, Optiona
     return choices
 
 
-def cmd_score(args: argparse.Namespace) -> int:
-    """score：金丝雀哨兵校验 + 四象限汇总，stdout 出 results JSON。"""
-    out_dir = Path(args.out_dir)
+def _load_manifest(out_dir: Path) -> Dict:
+    """读 out-dir 的 manifest.json；非法时抛 ValueError。"""
     try:
-        manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        return json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
-        print(f"error: cannot read manifest: {e}", file=sys.stderr)
-        return 2
+        raise ValueError(f"cannot read manifest: {e}") from e
 
-    queries, canary = manifest["queries"], manifest["canary"]
-    expected_ids = {q["id"] for q in queries} | {c["id"] for c in canary}
-    run_choices: List[Dict[int, Optional[str]]] = []
-    for run in range(1, manifest["runs"] + 1):
-        try:
-            run_choices.append(_load_run_choices(out_dir / "results" / f"run-{run}.json", expected_ids))
-        except ValueError as e:
-            print(f"error: {e} — re-spawn that run's judge sub-agent and score again", file=sys.stderr)
-            return 2
 
+def _canary_verdict(manifest: Dict, run_choices: List[Dict[int, Optional[str]]]) -> Optional[str]:
+    """逐 run 校验金丝雀期望；通道坏时返回报错文案，全对返回 None。"""
     for run, choices in enumerate(run_choices, 1):
-        for c in canary:
+        for c in manifest["canary"]:
             got = choices[c["id"]]
             if got != c["expect"]:
-                print(
+                return (
                     f"channel error (run {run}): canary query {c['id']} expected {c['expect']!r} got {got!r} — "
-                    "judge channel is broken, refusing to produce numbers",
-                    file=sys.stderr,
+                    "judge channel is broken, refusing to produce numbers"
                 )
-                return 3
+    return None
 
-    target = manifest["skill"]
-    results = []
-    for q in queries:
+
+def _quadrant_rows(manifest: Dict, run_choices: List[Dict[int, Optional[str]]], threshold: float) -> List[Dict]:
+    """四象限逐查询计触发数与是否通过。"""
+    target, runs = manifest["skill"], manifest["runs"]
+    rows = []
+    for q in manifest["queries"]:
         triggers = sum(1 for choices in run_choices if choices[q["id"]] == target)
-        runs = manifest["runs"]
         should = bool(q["should_trigger"])
-        results.append(
+        rows.append(
             {
                 "query": q["query"],
                 "query_id": q["id"],
                 "should_trigger": should,
                 "triggers": triggers,
                 "runs": runs,
-                "pass": (triggers / runs >= args.trigger_threshold) == should,
+                "pass": (triggers / runs >= threshold) == should,
             }
         )
+    return rows
 
-    def summarize(subset: List[Dict]) -> Optional[Dict]:
-        """把一组 results 汇总成 passed/failed/total；空组返回 None。"""
-        if not subset:
-            return None
-        passed = sum(1 for r in subset if r["pass"])
-        return {"passed": passed, "failed": len(subset) - passed, "total": len(subset)}
 
+def summarize(subset: List[Dict]) -> Optional[Dict]:
+    """把一组 rows 汇总成 passed/failed/total；空组返回 None。"""
+    if not subset:
+        return None
+    passed = sum(1 for r in subset if r["pass"])
+    return {"passed": passed, "failed": len(subset) - passed, "total": len(subset)}
+
+
+def cmd_score(args: argparse.Namespace) -> int:
+    """score：金丝雀哨兵校验 + 四象限汇总，stdout 出 results JSON。"""
+    if not 0.0 <= args.trigger_threshold <= 1.0:
+        return _fail("--trigger-threshold must be within [0, 1]")
+    out_dir = Path(args.out_dir)
+    try:
+        manifest = _load_manifest(out_dir)
+    except ValueError as e:
+        return _fail(str(e))
+    try:
+        expected_ids = {q["id"] for q in manifest["queries"]} | {c["id"] for c in manifest["canary"]}
+        run_choices = [
+            _load_run_choices(out_dir / "results" / f"run-{run}.json", expected_ids)
+            for run in range(1, manifest["runs"] + 1)
+        ]
+    except ValueError as e:
+        return _fail(f"{e} — re-spawn that run's judge sub-agent and score again")
+
+    error = _canary_verdict(manifest, run_choices)
+    if error:
+        print(error, file=sys.stderr)
+        return 3
+
+    results = _quadrant_rows(manifest, run_choices, args.trigger_threshold)
     payload = {
-        "skill": target,
+        "skill": manifest["skill"],
         "description": manifest["description"],
         "runs": manifest["runs"],
         "trigger_threshold": args.trigger_threshold,
@@ -295,9 +335,6 @@ def cmd_score(args: argparse.Namespace) -> int:
     print(f"summary: {s['passed']}/{s['total']} correct", file=sys.stderr)
     print(json_text(payload))
     return 0
-
-
-# ---- apply：description 写回（折行 / 校验 / dry-run 与历史实现一致） ----
 
 
 def _frontmatter_close(lines: List[str]) -> int:
@@ -380,7 +417,8 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
     except ValueError as e:
         print(f"Error: 现有 frontmatter 无法解析，先修 SKILL.md：{e}", file=sys.stderr)
         return 1
-    if " ".join(new_description.split()) == current:
+    folded = " ".join(new_description.split())
+    if folded == current:
         print("候选 description 与现有 description 一致，无需改动。", file=sys.stderr)
         return 0
 
@@ -397,10 +435,15 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
         (probe / "SKILL.md").write_text(updated, encoding="utf-8")
         valid, message = validate_skill(probe)
         period_error = None
+        round_trip = folded
         if valid:
             period_error = next((f for f in check_description_format(probe) if f.rule == "DESC-TRAILING-PERIOD"), None)
+            round_trip = parse_skill_md(probe)[1]
     if not valid:
         print(f"Error: 新 frontmatter 未通过校验，SKILL.md 未改动：{message}", file=sys.stderr)
+        return 1
+    if round_trip != folded:
+        print(f"Error: 折行写回后解析值与候选不一致，SKILL.md 未改动：{round_trip!r}", file=sys.stderr)
         return 1
     if period_error is not None:
         print(
@@ -429,11 +472,9 @@ def cmd_apply(args: argparse.Namespace) -> int:
     try:
         candidate = _read_description_file(args.description_file)
     except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
+        return _fail(str(e))
     if not candidate.strip():
-        print("error: description file is empty", file=sys.stderr)
-        return 2
+        return _fail("description file is empty")
     return apply_description(Path(args.skill_path), candidate, dry_run=args.dry_run)
 
 

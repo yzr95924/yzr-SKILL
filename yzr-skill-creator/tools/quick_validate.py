@@ -12,27 +12,29 @@ from tools.utils import (  # noqa: E402
     BODY_WORD_LIMIT,
     CANONICAL_BODY_SECTIONS,
     DESCRIPTION_MAX_CHARS,
+    ERROR,
     EVIDENCE_SNIPPET,
+    INFO,
     KEBAB_NAME_RE,
     LEGACY_SUBDIR_RENAMES,
     SKILL_SUBDIRS,
     SKILL_TIERS,
     SOFT_WORD_TARGETS,
+    WARN,
     Finding,
     estimate_body_words,
     find_code_spans,
     format_findings,
     frontmatter_span,
+    h2_headings,
+    iter_skill_texts,
     iter_unfenced_lines,
     json_text,
     load_frontmatter,
-    skill_markdown_files,
     skill_tier,
 )
 
 WHEN_NOT_SECTION_RE = re.compile(r"^##\s+何时不使用")
-
-H2_RE = re.compile(r"^##\s+(.+)$")
 
 ALLOWED_PROPERTIES = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 
@@ -47,42 +49,32 @@ def normalize_heading(text):
 
 
 def _body(skill_path):
-    """返回 frontmatter 之后的正文；无完整 frontmatter 时返回 None。"""
+    """返回 (frontmatter 之后的正文, 正文起始行号 1-based)；无完整 frontmatter 时返回 (None, 0)。"""
     content = (Path(skill_path) / "SKILL.md").read_text(encoding="utf-8")
     span = frontmatter_span(content)
     if span is None:
-        return None
-    return "\n".join(content.split("\n")[span[1] + 1 :])
-
-
-def _frontmatter_line_offset(skill_path):
-    """返回正文起始行号（1-based），供 Finding 行号换算。"""
-    span = frontmatter_span((skill_path / "SKILL.md").read_text(encoding="utf-8"))
-    return span[1] + 1 if span else 0
+        return None, 0
+    return "\n".join(content.split("\n")[span[1] + 1 :]), span[1] + 1
 
 
 def check_body_structure(skill_path, tier="default"):
     """检查正文 H2 节：缺失、顺序、额外节，返回 Finding 列表。"""
     skill_path = Path(skill_path)
     if not (skill_path / "SKILL.md").exists():
-        return [Finding(rule="BODY-STRUCTURE", level="ERROR", evidence="SKILL.md not found", file="SKILL.md")]
+        return [Finding(rule="BODY-STRUCTURE", level=ERROR, evidence="SKILL.md not found", file="SKILL.md")]
 
-    body = _body(skill_path)
+    body, _offset = _body(skill_path)
     if body is None:
         return [
             Finding(
                 rule="BODY-STRUCTURE",
-                level="ERROR",
+                level=ERROR,
                 evidence="Cannot parse frontmatter; body structure check skipped",
                 file="SKILL.md",
             )
         ]
 
-    headings = []
-    for _, line in iter_unfenced_lines(body):
-        m = H2_RE.match(line)
-        if m:
-            headings.append(m.group(1).strip())
+    headings = h2_headings(body)
     found = {normalize_heading(h): h for h in headings}
     canonical = [(normalize_heading(h), f"## {h}", t) for h, t in CANONICAL_BODY_SECTIONS]
     canonical_found = [norm for norm, _, _ in canonical if norm in found]
@@ -104,7 +96,7 @@ def _missing_section_findings(canonical, found, tier):
             findings.append(
                 Finding(
                     rule="BODY-SECTION-MISSING",
-                    level="INFO",
+                    level=INFO,
                     evidence=f"正文缺少可选节 `{heading}`（{tier} 型可省略，参考 assets/skill-template.md）",
                     file="SKILL.md",
                 )
@@ -113,7 +105,7 @@ def _missing_section_findings(canonical, found, tier):
             findings.append(
                 Finding(
                     rule="BODY-SECTION-MISSING",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"正文缺少规范节 `{heading}`，参照 assets/skill-template.md 补齐",
                     file="SKILL.md",
                 )
@@ -131,7 +123,7 @@ def _order_findings(headings, canonical, canonical_found):
     return [
         Finding(
             rule="BODY-ORDER",
-            level="WARN",
+            level=WARN,
             evidence=f"规范节顺序不符：应为 {expected}，实际 {actual}",
             file="SKILL.md",
         )
@@ -162,7 +154,7 @@ def _extra_section_findings(headings, tier):
     return [
         Finding(
             rule="BODY-EXTRA",
-            level="INFO",
+            level=INFO,
             evidence=f"额外 H2 节：{listed}"
             "，规范节之外的节应尽量收进 ref/，或按 assets/skill-template.md 注释（变体）放路由位置",
             file="SKILL.md",
@@ -173,10 +165,9 @@ def _extra_section_findings(headings, tier):
 def check_no_when_not_section(skill_path):
     """检出已废除的 `## 何时不使用` 节。"""
     skill_path = Path(skill_path)
-    body = _body(skill_path)
+    body, offset = _body(skill_path)
     if body is None:
         return []
-    offset = _frontmatter_line_offset(skill_path)
     findings = []
     for index, line in iter_unfenced_lines(body):
         if not WHEN_NOT_SECTION_RE.match(line):
@@ -184,7 +175,7 @@ def check_no_when_not_section(skill_path):
         findings.append(
             Finding(
                 rule="WHEN-NOT-SECTION",
-                level="WARN",
+                level=WARN,
                 evidence="正文含已废除的 `## 何时不使用` 节，selection 负例归 frontmatter description 的“不适用”槽"
                 "（口径见 ref/audit-workflow.md“判定清单”的“触发语不回正文”）",
                 file="SKILL.md",
@@ -210,7 +201,7 @@ def check_description_format(skill_path):
             findings.append(
                 Finding(
                     rule="DESC-FORMAT",
-                    level="WARN",
+                    level=WARN,
                     evidence=f"description 缺 `{label}` 标记，固定格式（场景一句 + 触发： + 不适用：）"
                     "见 ref/description-workflow.md“description 优化原则”",
                     file="SKILL.md",
@@ -220,7 +211,7 @@ def check_description_format(skill_path):
         findings.append(
             Finding(
                 rule="DESC-TRAILING-PERIOD",
-                level="ERROR",
+                level=ERROR,
                 evidence="description 以「。」收尾",
                 file="SKILL.md",
                 fix="删去末尾句号（与正文 block 末统一不加句号）",
@@ -295,9 +286,7 @@ def check_no_trailing_period(skill_dir):
     """扫 SKILL.md / ref/ / assets/：block 末行以「。」收尾报 ERROR（句中句号与折行续行不报）。"""
     skill_dir = Path(skill_dir)
     findings = []
-    for md in skill_markdown_files(skill_dir):
-        rel = str(md.relative_to(skill_dir))
-        text = md.read_text(encoding="utf-8")
+    for _md, rel, text in iter_skill_texts(skill_dir):
         span = frontmatter_span(text)
         cutoff = span[1] + 1 if span else 0
         pairs = [(lineno, line) for lineno, line in iter_unfenced_lines(text) if lineno > cutoff]
@@ -311,7 +300,7 @@ def check_no_trailing_period(skill_dir):
             findings.append(
                 Finding(
                     rule="TRAILING-PERIOD",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"block 末句号：{line.strip()[:EVIDENCE_SNIPPET]}",
                     file=rel,
                     line=str(lineno),
@@ -331,7 +320,7 @@ def check_no_toc(skill_path):
 
     def flag(rel, line_no, text):
         """构造一条 HAND-TOC Finding。"""
-        return Finding(rule="HAND-TOC", level="WARN", evidence=text, file=rel, line=str(line_no))
+        return Finding(rule="HAND-TOC", level=WARN, evidence=text, file=rel, line=str(line_no))
 
     def run_finding(rel, run_start, run_len):
         """连续 ≥ 3 行页内锚点列表按疑似手写目录报告，否则 None。"""
@@ -339,11 +328,10 @@ def check_no_toc(skill_path):
             return None
         return flag(rel, run_start, f"疑似手写目录（{run_len} 行连续页内锚点列表），{ssot}")
 
-    for md_file in skill_markdown_files(skill_path, "toc"):
-        rel = str(md_file.relative_to(skill_path))
+    for _md, rel, text in iter_skill_texts(skill_path, "toc"):
         run_start = None
         run_len = 0
-        for lineno, line in iter_unfenced_lines(md_file.read_text(encoding="utf-8")):
+        for lineno, line in iter_unfenced_lines(text):
             if heading_re.match(line):
                 label = "参考文件索引节" if "参考文件" in line else "手写目录节"
                 findings.append(flag(rel, lineno, f"{label} `{line.strip()}`，{ssot}"))
@@ -365,7 +353,7 @@ def check_no_toc(skill_path):
 
 def check_body_length(skill_path, tier="default"):
     """正文词数超软目标或硬上限时报 Finding。"""
-    body = _body(skill_path)
+    body, _offset = _body(skill_path)
     if body is None:
         return []
     words = estimate_body_words(body)
@@ -374,7 +362,7 @@ def check_body_length(skill_path, tier="default"):
         return [
             Finding(
                 rule="BODY-LENGTH",
-                level="WARN",
+                level=WARN,
                 evidence=f"正文约 {words} 词（估算），超硬上限 {BODY_WORD_LIMIT}"
                 "，按 SKILL.md“执行原则”（归位）查根因再抽层",
                 file="SKILL.md",
@@ -384,7 +372,7 @@ def check_body_length(skill_path, tier="default"):
         return [
             Finding(
                 rule="BODY-LENGTH",
-                level="WARN",
+                level=WARN,
                 evidence=f"正文约 {words} 词（估算），超 {tier} 型软目标 {soft}，按 SKILL.md“执行原则”（归位）"
                 "查根因处置（重抄→删重留指针 / 未下放→抽 ref/；软目标仅供参考，不取代硬上限）",
                 file="SKILL.md",
@@ -493,7 +481,7 @@ def check_tier_metadata(skill_path):
     return [
         Finding(
             rule="TIER-METADATA",
-            level="WARN",
+            level=WARN,
             evidence=f"metadata.tier={tier!r} 不在 {SKILL_TIERS}，已回落 default",
             file="SKILL.md",
             fix="改成合法 tier 或删掉该键",
@@ -510,7 +498,7 @@ def check_dir_naming(skill_path):
             findings.append(
                 Finding(
                     rule="DIR-LEGACY",
-                    level="ERROR",
+                    level=ERROR,
                     evidence=f"目录 `{legacy}/` 不受支持，标准名为 `{standard}/`",
                     file=f"{legacy}/",
                     fix=f"重命名 {legacy}/ → {standard}/，并同步更新引用路径",
@@ -524,7 +512,7 @@ def check_dir_naming(skill_path):
         findings.append(
             Finding(
                 rule="DIR-UNKNOWN",
-                level="ERROR",
+                level=ERROR,
                 evidence=f"目录 `{child.name}/` 不在规范子目录（{'、'.join(SKILL_SUBDIRS)}）中",
                 file=f"{child.name}/",
                 fix="改用规范子目录或移出 skill 目录",
@@ -534,10 +522,10 @@ def check_dir_naming(skill_path):
 
 
 def collect_findings(skill_dir, tier=None):
-    """汇总一个 skill 的全部结构类 Finding（tier=None = 读 frontmatter metadata.tier，缺省 default）。"""
+    """汇总一个 skill 的全部结构类 Finding（tier=None = 读 frontmatter metadata.tier，缺省 default）；frontmatter 坏时仅此一条 FRONTMATTER ERROR。"""
     valid, message = validate_skill(skill_dir)
     if not valid:
-        return valid, message, [Finding(rule="FRONTMATTER", level="ERROR", evidence=message, file="SKILL.md")]
+        return [Finding(rule="FRONTMATTER", level=ERROR, evidence=message, file="SKILL.md")]
     resolved = skill_tier(Path(skill_dir), tier)
     findings = check_tier_metadata(skill_dir)
     findings += check_dir_naming(skill_dir)
@@ -547,7 +535,7 @@ def collect_findings(skill_dir, tier=None):
     findings += check_no_toc(skill_dir)
     findings += check_no_trailing_period(skill_dir)
     findings += check_body_length(skill_dir, tier=resolved)
-    return valid, message, findings
+    return findings
 
 
 if __name__ == "__main__":
@@ -566,7 +554,10 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
     args = parser.parse_args()
 
-    valid, message, findings = collect_findings(args.skill_dir, args.tier)
+    findings = collect_findings(args.skill_dir, args.tier)
+    fatal = next((f for f in findings if f.rule == "FRONTMATTER"), None)
+    valid = fatal is None
+    message = fatal.evidence if fatal else "Skill is valid!"
 
     if args.json:
         print(
@@ -585,5 +576,5 @@ if __name__ == "__main__":
         for line in format_findings(findings):
             print(line)
 
-    has_error = any(f.level == "ERROR" for f in findings)
+    has_error = any(f.level == ERROR for f in findings)
     sys.exit(0 if valid and not has_error else 1)

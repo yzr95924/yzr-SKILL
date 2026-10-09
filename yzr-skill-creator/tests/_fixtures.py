@@ -1,10 +1,15 @@
-"""共享 smoke 夹具：保活临时目录、expect 断言与统一 runner。"""
+"""共享 smoke 夹具：保活临时目录、expect 断言、CLI runner 包装与统一 runner。"""
 
+import contextlib
+import io
+import sys
 import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional, Tuple
 
 _KEEP = []
+
+BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
 
 
 def make_tmp_dir(prefix: str = "smoke-") -> Path:
@@ -30,8 +35,21 @@ def expect(cond, msg: str = "") -> None:
         raise AssertionError(msg)
 
 
-def run_cases(cases: List[Callable[[], None]]) -> int:
-    """统一冒烟 runner：顺序跑 case 函数，AssertionError 与异常都记为失败，末尾汇总退出码。"""
+def run_cli(fn: Callable[[List[str]], int], argv: List[str]) -> Tuple[int, str]:
+    """跑 CLI main，返回 (退出码, stdout)；stderr 吞掉。"""
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+        rc = fn(argv)
+    return rc, out.getvalue()
+
+
+def run_cases(cases: Optional[List[Callable[[], None]]] = None) -> int:
+    """统一冒烟 runner：缺省自动收集调用方模块的 case_* 函数（手工列表会让新增用例静默漏跑），AssertionError 与异常都记为失败，末尾汇总退出码。"""
+    if cases is None:
+        cases = [fn for name, fn in sys._getframe(1).f_globals.items() if name.startswith("case_") and callable(fn)]
+        if not cases:
+            print("SMOKE FAIL: 调用方模块没有 case_* 函数")
+            return 1
     failures: List[str] = []
     for case in cases:
         try:

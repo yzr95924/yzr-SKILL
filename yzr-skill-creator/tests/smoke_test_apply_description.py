@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Round-trip smoke test for the description write-back (--apply).
 
 The write-back is the only place in this skill where a script edits a source
@@ -20,13 +19,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_skill_dir, run_cases  # noqa: E402
+from _fixtures import BODY, expect, make_skill_dir, run_cases  # noqa: E402
 
 from tools.desc_eval import DESCRIPTION_WRAP_WIDTH, apply_description  # noqa: E402
 from tools.utils import parse_skill_md  # noqa: E402
 
 FM_TAIL = "metadata:\n  author: smoke\n  modify time: 2026-01-01\n"
-BODY = "\n# t\n\n## 输入与输出\n\n正文。\n"
 
 LONG_DESCRIPTION = (
     "当用户处于 skill 生命周期时使用本 skill：从工作流 / 模板 / 流程创建新 skill、通过 eval-and-iterate 改进现有 skill、"
@@ -49,7 +47,7 @@ def apply(root: Path, description: str, dry_run: bool = False) -> int:
         return apply_description(root, description, dry_run=dry_run)
 
 
-def check_round_trip() -> None:
+def case_round_trip() -> None:
     root = make_skill("description: |\n  旧描述。\n  折了两行。\n")
     expect(apply(root, LONG_DESCRIPTION) == 0, "round-trip: apply failed")
     _, got, content = parse_skill_md(root)
@@ -72,14 +70,14 @@ def check_round_trip() -> None:
     )
 
 
-def check_from_single_line() -> None:
+def case_from_single_line() -> None:
     """A skill written with an inline description is normalised to a block."""
     root = make_skill('description: "旧的一句话。"\n')
     expect(apply(root, LONG_DESCRIPTION) == 0, "single-line source: apply failed")
     expect(parse_skill_md(root)[1] == " ".join(LONG_DESCRIPTION.split()), "single-line source: value mismatch")
 
 
-def check_rejections() -> None:
+def case_rejections() -> None:
     for label, value in (
         ("angle brackets", "触发：做 <placeholder> 的事。不适用：其它。"),
         ("over-long", "触发：a。不适用：b。" + "很长的描述" * 300),
@@ -96,12 +94,12 @@ def check_rejections() -> None:
     expect((root / "SKILL.md").read_text() == before, "dry-run: wrote the file")
 
 
-def check_missing_key() -> None:
+def case_missing_key() -> None:
     root = make_skill("")
     expect(apply(root, "触发：a。不适用：b。") != 0, "missing key: reported success without a description block")
 
 
-def check_multiline_no_stray_blanks() -> None:
+def case_multiline_no_stray_blanks() -> None:
     """已折行的多行描述写回时不得行间插空行（块标量空行是字面内容，往返失真即触发率失真）。"""
     candidate = "当用户要审文字时使用本 skill；也可编排多个模型交叉评审。\n触发：多模型 review / 交叉评审；\n不适用：翻译、代码 review"
     root = make_skill("description: |\n  旧描述。\n")
@@ -113,7 +111,7 @@ def check_multiline_no_stray_blanks() -> None:
     expect(" ".join(candidate.split()) == got, "multiline source: value mismatch after round-trip")
 
 
-def check_paragraph_blank_preserved() -> None:
+def case_paragraph_blank_preserved() -> None:
     """真段落分隔（输入空行）写回后须保留恰好一行。"""
     candidate = "第一段内容不带换行\n\n第二段内容不带换行"
     root = make_skill("description: |\n  旧描述。\n")
@@ -125,15 +123,4 @@ def check_paragraph_blank_preserved() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                check_round_trip,
-                check_from_single_line,
-                check_rejections,
-                check_missing_key,
-                check_multiline_no_stray_blanks,
-                check_paragraph_blank_preserved,
-            ]
-        )
-    )
+    sys.exit(run_cases())

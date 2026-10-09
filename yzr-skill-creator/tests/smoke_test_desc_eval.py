@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Four-quadrant + canary smoke test for desc_eval prep/score (zero stubs, no model calls).
 
 Judge responses are synthesized as results/run-<k>.json — the same file contract
@@ -8,8 +7,6 @@ the judge prompt. Run: python3 tests/smoke_test_desc_eval.py (from yzr-skill-cre
 Exit 0 = all green, 1 = regression.
 """
 
-import contextlib
-import io
 import json
 import sys
 from pathlib import Path
@@ -18,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_tmp_dir, run_cases  # noqa: E402
+from _fixtures import expect, make_tmp_dir, run_cases, run_cli  # noqa: E402
 
 from tools import desc_eval  # noqa: E402
 
@@ -37,20 +34,7 @@ CHOICES = {
     "smoke-no-trigger-pos 写个脚本": None,
     "smoke-no-trigger-neg 写个脚本": TARGET,
 }
-EXPECTED_PASS = {
-    "smoke-trigger-pos 帮我做个 skill": True,
-    "smoke-trigger-neg 帮我做个 skill": False,
-    "smoke-no-trigger-pos 写个脚本": True,
-    "smoke-no-trigger-neg 写个脚本": False,
-}
-
-
-def run_cli(argv: List[str]) -> Tuple[int, str]:
-    """跑 desc_eval.main，返回 (退出码, stdout)。"""
-    out = io.StringIO()
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-        rc = desc_eval.main(argv)
-    return rc, out.getvalue()
+EXPECTED_PASS = {q["query"]: (CHOICES[q["query"]] == TARGET) == q["should_trigger"] for q in QUERIES}
 
 
 def make_fixture(tmp: Path) -> Tuple[Path, Path, Path]:
@@ -81,7 +65,7 @@ def do_prep(tmp: Path, skill: Path, eval_set: Path, pool: Path, name: str, extra
         "--skills-dir",
         str(pool),
     ] + extra
-    rc, stdout = run_cli(argv)
+    rc, stdout = run_cli(desc_eval.main, argv)
     expect(rc == 0, f"prep failed rc={rc}: {stdout}")
     return out_dir
 
@@ -90,6 +74,13 @@ def write_results(out_dir: Path, id_choice: List[Tuple[int, Optional[str]]], run
     """把 (query_id, skill) 列表写成 run-<k>.json。"""
     payload = [{"query_id": qid, "skill": choice} for qid, choice in id_choice]
     (out_dir / "results" / f"run-{run}.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _id_choices(manifest: Dict) -> List[Tuple[int, Optional[str]]]:
+    """按 manifest 推导全量 (id, 判官选择)：查询走 CHOICES，金丝雀取其期望值。"""
+    return [(q["id"], CHOICES[q["query"]]) for q in manifest["queries"]] + [
+        (c["id"], c["expect"]) for c in manifest["canary"]
+    ]
 
 
 _CTX: Dict = {}
@@ -108,7 +99,7 @@ def ctx() -> Dict:
     return _CTX
 
 
-def check_prep_contract() -> None:
+def case_prep_contract() -> None:
     """manifest 查询/金丝雀契约 + prompt 防污染条款 + 候选描述注入。"""
     c = ctx()
     out_dir, manifest = c["out_dir"], c["manifest"]
@@ -125,18 +116,13 @@ def check_prep_contract() -> None:
     expect("run-1.json" in prompt, "结果落盘路径指令缺失")
 
 
-def check_score() -> None:
-    """四象限判定 + summary 数字；choice 清单存 ctx 供金丝雀与缺-run 用例复用。"""
+def case_score() -> None:
+    """四象限判定 + summary 数字。"""
     c = ctx()
     manifest = c["manifest"]
-    id_choice: List[Tuple[int, Optional[str]]] = []
-    for q in manifest["queries"]:
-        id_choice.append((q["id"], CHOICES[q["query"]]))
-    pos_id, neg_id = manifest["canary"][0]["id"], manifest["canary"][1]["id"]
-    id_choice += [(pos_id, desc_eval.CANARY_NAME), (neg_id, None)]
-    c["id_choice"] = id_choice
+    id_choice = _id_choices(manifest)
     write_results(c["out_dir"], id_choice)
-    rc, stdout = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    rc, stdout = run_cli(desc_eval.main, ["score", "--out-dir", str(c["out_dir"])])
     expect(rc == 0, f"score rc={rc}")
     payload = json.loads(stdout)
     per_pass = {r["query_id"]: r["pass"] for r in payload["results"]}
@@ -146,27 +132,27 @@ def check_score() -> None:
     expect(payload["summary"]["passed"] == 2, payload["summary"])
 
 
-def check_canary() -> None:
+def case_canary() -> None:
     """金丝雀正题未命中假 skill -> 通道错误 rc 3，不出数字。"""
     c = ctx()
     pos_id = c["manifest"]["canary"][0]["id"]
-    broken = [(qid, None if qid == pos_id else choice) for qid, choice in c["id_choice"]]
+    broken = [(qid, None if qid == pos_id else choice) for qid, choice in _id_choices(c["manifest"])]
     write_results(c["out_dir"], broken)
-    rc, stdout = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    rc, stdout = run_cli(desc_eval.main, ["score", "--out-dir", str(c["out_dir"])])
     expect(rc == 3, f"canary-broken rc={rc}")
     expect("passed" not in stdout, "通道错误不应产出分数")
 
 
-def check_missing_run() -> None:
+def case_missing_run() -> None:
     """缺 run 结果文件 -> rc 2（编排者据此补跑该 run）。"""
     c = ctx()
-    write_results(c["out_dir"], c["id_choice"])
+    write_results(c["out_dir"], _id_choices(c["manifest"]))
     (c["out_dir"] / "results" / "run-1.json").unlink()
-    rc, _ = run_cli(["score", "--out-dir", str(c["out_dir"])])
+    rc, _ = run_cli(desc_eval.main, ["score", "--out-dir", str(c["out_dir"])])
     expect(rc == 2, f"missing-run rc={rc}")
 
 
-def check_guards() -> None:
+def case_guards() -> None:
     """prep 对非空 out-dir 复用拒绝。"""
     c = ctx()
     argv = [
@@ -180,21 +166,33 @@ def check_guards() -> None:
         "--skills-dir",
         str(c["pool"]),
     ]
-    rc, _ = run_cli(argv)
+    rc, _ = run_cli(desc_eval.main, argv)
     expect(rc == 0, f"fresh prep rc={rc}")
-    rc, _ = run_cli(argv)
+    rc, _ = run_cli(desc_eval.main, argv)
     expect(rc == 2, f"out-dir reuse should be refused rc={rc}")
 
 
+def case_input_validation() -> None:
+    """--runs 0 与越界阈值入口快速失败（否则要等 score 除零或象限静默全错）。"""
+    c = ctx()
+    argv = [
+        "prep",
+        "--skill-path",
+        str(c["skill"]),
+        "--eval-set",
+        str(c["eval_set"]),
+        "--out-dir",
+        str(c["tmp"] / "out-zero"),
+        "--runs",
+        "0",
+        "--skills-dir",
+        str(c["pool"]),
+    ]
+    rc, _ = run_cli(desc_eval.main, argv)
+    expect(rc == 2, f"--runs 0 should be refused rc={rc}")
+    rc, _ = run_cli(desc_eval.main, ["score", "--out-dir", str(c["out_dir"]), "--trigger-threshold", "1.5"])
+    expect(rc == 2, f"threshold 1.5 should be refused rc={rc}")
+
+
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                check_prep_contract,
-                check_score,
-                check_canary,
-                check_missing_run,
-                check_guards,
-            ]
-        )
-    )
+    sys.exit(run_cases())

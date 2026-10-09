@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fixture smoke test for the mechanical audit rules added to this skill.
 
 Covers the checks that replaced hand-typed grep rows: quick_validate's
@@ -59,7 +58,7 @@ def rules(findings) -> List[str]:
     return [f.rule for f in findings]
 
 
-def check_when_not_section() -> None:
+def case_when_not_section() -> None:
     dirty_text = CLEAN_SKILL.replace("## 输入与输出", "## 何时不使用\n\n不该用本 skill。\n\n## 输入与输出")
     dirty = make_skill({"SKILL.md": dirty_text})
     clean = make_skill({"SKILL.md": CLEAN_SKILL})
@@ -75,7 +74,7 @@ def check_when_not_section() -> None:
     )
 
 
-def check_body_length() -> None:
+def case_body_length() -> None:
     long_body = "字" * 9000  # ~5300 estimated words: past BODY_WORD_LIMIT
     mid_body = "字" * 3600  # ~2100 estimated words: past the default soft target only
     for label, body, tier, want in (
@@ -90,7 +89,7 @@ def check_body_length() -> None:
         expect(got == want, f"BODY-LENGTH {label}: level {got!r} != {want!r}")
 
 
-def check_toc_still_works() -> None:
+def case_toc_still_works() -> None:
     body = CLEAN_SKILL + "\n## 目录\n\n- [一](#一)\n- [二](#二)\n- [三](#三)\n"
     skill = make_skill({"SKILL.md": body})
     expect("HAND-TOC" in rules(quick_validate.check_no_toc(skill)), "HAND-TOC: anchor-list TOC not reported")
@@ -98,7 +97,7 @@ def check_toc_still_works() -> None:
     expect(not rules(quick_validate.check_no_toc(clean)), "HAND-TOC: clean fixture reported")
 
 
-def check_anchor_extraction() -> None:
+def case_anchor_extraction() -> None:
     """Heading extraction: it had a silent dead branch (a two-line regex fed
     single lines) until pinned to exact output."""
     slugs = check_anchor_health.collect_heading_slugs("Title One\n===\n\n## ATX\n")
@@ -118,7 +117,7 @@ def check_anchor_extraction() -> None:
     expect("real" in slugs_code, f"real heading lost next to fence: {sorted(slugs_code)}")
 
 
-def check_desc_format() -> None:
+def case_desc_format() -> None:
     both_missing = make_skill({"SKILL.md": CLEAN_SKILL.replace("触发：做 X。不适用：做 Y", "泛泛而谈")})
     got = rules(quick_validate.check_description_format(both_missing))
     expect(len(got) == 2, f"DESC-FORMAT: expected 2 findings (触发 / 不适用), got {got}")
@@ -129,7 +128,7 @@ def check_desc_format() -> None:
     expect(not rules(quick_validate.check_description_format(clean)), "DESC-FORMAT: clean fixture reported")
 
 
-def check_desc_trailing_period() -> None:
+def case_desc_trailing_period() -> None:
     dirty = make_skill({"SKILL.md": CLEAN_SKILL.replace("不适用：做 Y", "不适用：做 Y。")})
     hits = [f for f in quick_validate.check_description_format(dirty) if f.rule == "DESC-TRAILING-PERIOD"]
     expect(hits and hits[0].level == "ERROR", f"DESC-TRAILING-PERIOD: 尾句号未报 ERROR：{hits}")
@@ -140,7 +139,7 @@ def check_desc_trailing_period() -> None:
     )
 
 
-def check_trailing_period() -> None:
+def case_trailing_period() -> None:
     """block 末句号报 ERROR；句中句号 / 折行续行 / 行内代码 / 围栏 / frontmatter 不报。"""
     dirty = make_skill({"SKILL.md": CLEAN_SKILL + "\n阈值 40 行。\n"})
     hits = [f for f in quick_validate.check_no_trailing_period(dirty) if f.rule == "TRAILING-PERIOD"]
@@ -164,7 +163,7 @@ def check_trailing_period() -> None:
     )
 
 
-def check_name_matches_dir() -> None:
+def case_name_matches_dir() -> None:
     mismatched = make_skill_dir({"SKILL.md": CLEAN_SKILL}, prefix="audit-smoke-", name="other-dir")
     valid, message = quick_validate.validate_skill(mismatched)
     expect(not valid and "other-dir" in message, f"name!=目录名 未拦截：valid={valid} message={message}")
@@ -172,7 +171,7 @@ def check_name_matches_dir() -> None:
     expect(valid, f"name=目录名 被误拦：{message}")
 
 
-def check_dir_unknown() -> None:
+def case_dir_unknown() -> None:
     dirty = make_skill({"SKILL.md": CLEAN_SKILL, "docs/a.md": "# a\n"})
     findings = quick_validate.check_dir_naming(dirty)
     expect(
@@ -191,13 +190,13 @@ def check_dir_unknown() -> None:
     )
 
 
-def check_reffile_section() -> None:
+def case_reffile_section() -> None:
     dirty = make_skill({"SKILL.md": CLEAN_SKILL + "\n## 参考文件\n\n- ref/a.md\n"})
     hits = [f for f in quick_validate.check_no_toc(dirty) if f.rule == "HAND-TOC"]
     expect(hits and "参考文件索引节" in hits[0].evidence, f"HAND-TOC: 参考文件索引节未报：{hits}")
 
 
-def check_cross_skill_path() -> None:
+def case_cross_skill_path() -> None:
     dirty = make_skill({"SKILL.md": CLEAN_SKILL + "\n见 `../../sibling/ref/x.md`。\n"})
     findings = check_anchor_health.scan_skill(dirty)
     expect("CROSS-SKILL-PATH" in rules(findings), "CROSS-SKILL-PATH: escaping backticked path not reported")
@@ -212,7 +211,7 @@ def check_cross_skill_path() -> None:
     )
 
 
-def check_dir_legacy() -> None:
+def case_dir_legacy() -> None:
     dirty = make_skill({"SKILL.md": CLEAN_SKILL, "references/a.md": "# a\n", "scripts/x.py": ""})
     findings = quick_validate.check_dir_naming(dirty)
     expect(
@@ -223,7 +222,7 @@ def check_dir_legacy() -> None:
     expect(not rules(quick_validate.check_dir_naming(clean)), "DIR-LEGACY: 标准目录名被误报")
 
 
-def check_missing_section_tiers() -> None:
+def case_missing_section_tiers() -> None:
     """全 tier 可省略的节缺失零信息量，不报；必填节缺失照旧 WARN。"""
     quiet = rules(quick_validate.check_body_structure(make_skill({"SKILL.md": CLEAN_SKILL})))
     expect("BODY-SECTION-MISSING" not in quiet, f"全豁免节缺失被报：{quiet}")
@@ -233,20 +232,20 @@ def check_missing_section_tiers() -> None:
     expect(got and got[0].level == "WARN", f"必填节缺失未报 WARN：{got}")
 
 
-def check_tier_resolution() -> None:
+def case_tier_resolution() -> None:
     """tier 从 frontmatter metadata.tier 解析：meta 路由节不报、default 同结构报；非法值 WARN 且回落。"""
     routed = CLEAN_SKILL.replace("## 输入与输出", "## 入口\n\n先分类。\n\n## 输入与输出", 1)
     meta_fm = routed.replace("---\n# smoke-target", "metadata:\n  tier: meta\n---\n# smoke-target")
-    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": meta_fm}))[2])
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": meta_fm})))
     expect("BODY-EXTRA" not in got, f"meta tier 未从 frontmatter 生效：{got}")
-    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": routed}))[2])
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": routed})))
     expect("BODY-EXTRA" in got, "default 下路由节未报 BODY-EXTRA")
     bad_fm = routed.replace("---\n# smoke-target", "metadata:\n  tier: metta\n---\n# smoke-target")
-    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": bad_fm}))[2])
+    got = rules(quick_validate.collect_findings(make_skill({"SKILL.md": bad_fm})))
     expect("TIER-METADATA" in got and "BODY-EXTRA" in got, f"非法 tier 未 WARN 或未回落 default：{got}")
 
 
-def check_bare_metric() -> None:
+def case_bare_metric() -> None:
     spread = CLEAN_SKILL + "\n阈值 40 行。\n"
     skill = make_skill(
         {
@@ -305,7 +304,7 @@ def check_bare_metric() -> None:
     )
 
 
-def check_version_history() -> None:
+def case_version_history() -> None:
     skill = make_skill({"SKILL.md": CLEAN_SKILL + "\nv0.6.0 起删了旧接口。\n"})
     expect(
         "VERSION-HISTORY-INLINE" in rules(audit_prose.check_version_history(skill)),
@@ -320,43 +319,18 @@ def check_version_history() -> None:
     )
 
 
-def check_clean_skill_is_quiet() -> None:
+def case_clean_skill_is_quiet() -> None:
     """The reference fixture must produce no ERROR and no WARN.
 
     Without this direction the suite would pass even if every rule fired on
     everything.
     """
     skill = make_skill({"SKILL.md": CLEAN_SKILL, "ref/guide.md": "# guide\n\n正文\n"})
-    findings = quick_validate.check_body_structure(skill) + quick_validate.check_no_when_not_section(skill)
-    findings += quick_validate.check_description_format(skill) + quick_validate.check_no_toc(skill)
-    findings += quick_validate.check_no_trailing_period(skill)
-    findings += quick_validate.check_dir_naming(skill)
+    findings = quick_validate.collect_findings(skill)
     findings += audit_prose.scan_skill(skill) + check_anchor_health.scan_skill(skill)
     loud = [f for f in findings if f.level in ("ERROR", "WARN")]
     expect(not loud, "clean fixture produced " + "、".join(f"{f.rule}({f.level})" for f in loud))
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                check_when_not_section,
-                check_body_length,
-                check_toc_still_works,
-                check_desc_format,
-                check_desc_trailing_period,
-                check_trailing_period,
-                check_name_matches_dir,
-                check_dir_unknown,
-                check_reffile_section,
-                check_anchor_extraction,
-                check_cross_skill_path,
-                check_dir_legacy,
-                check_bare_metric,
-                check_version_history,
-                check_missing_section_tiers,
-                check_tier_resolution,
-                check_clean_skill_is_quiet,
-            ]
-        )
-    )
+    sys.exit(run_cases())

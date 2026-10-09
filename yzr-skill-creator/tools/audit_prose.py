@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Prose-level heuristic screens for skill audits."""
 
 import re
@@ -12,11 +11,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools.utils import (  # noqa: E402
     EVIDENCE_SNIPPET,
+    INFO,
     Finding,
     find_code_spans,
+    iter_skill_texts,
     iter_unfenced_lines,
     run_screen,
-    skill_markdown_files,
 )
 
 METRIC_RE = re.compile(r"(?<![\w.])(?:\d+\s*[–—-]\s*)?\d+(?:\.\d+)?\s*(词|字|行|条|轮|次|秒|天)\b")
@@ -48,16 +48,15 @@ def _is_quoted(line: str, start: int, end: int) -> bool:
 def check_version_history(skill_dir: Path) -> List[Finding]:
     """筛内联的自身版本演进史（引号或代码段内的除外）。"""
     findings = []
-    for md in skill_markdown_files(skill_dir):
-        rel = str(md.relative_to(skill_dir))
-        for lineno, line in iter_unfenced_lines(md.read_text(encoding="utf-8")):
+    for _md, rel, text in iter_skill_texts(skill_dir):
+        for lineno, line in iter_unfenced_lines(text):
             for match in VERSION_HISTORY_RE.finditer(line):
                 if _is_quoted(line, match.start(), match.end()):
                     continue
                 findings.append(
                     Finding(
                         rule="VERSION-HISTORY-INLINE",
-                        level="INFO",
+                        level=INFO,
                         evidence=f"自身版本演进史内联：{match.group(0)!r}；{line.strip()[:EVIDENCE_SNIPPET]}",
                         file=rel,
                         line=str(lineno),
@@ -71,9 +70,8 @@ def check_version_history(skill_dir: Path) -> List[Finding]:
 def check_bare_metrics(skill_dir: Path) -> List[Finding]:
     """筛散落在两个以上文件的裸指标（行内已声明出处的除外）。"""
     occurrences: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
-    for md in skill_markdown_files(skill_dir):
-        rel = str(md.relative_to(skill_dir))
-        for lineno, line in iter_unfenced_lines(md.read_text(encoding="utf-8")):
+    for _md, rel, text in iter_skill_texts(skill_dir):
+        for lineno, line in iter_unfenced_lines(text):
             if DECLARED_SOURCE_RE.search(line):
                 continue
             for match in METRIC_RE.finditer(line):
@@ -92,10 +90,8 @@ def check_bare_metrics(skill_dir: Path) -> List[Finding]:
         findings.append(
             Finding(
                 rule="BARE-METRIC",
-                level="INFO",
+                level=INFO,
                 evidence=f"指标 `{token}` 散落在 {len(files)} 个文件（{where}）",
-                file="",
-                line="",
                 fix="确认权威出处后：脚本常量则散文改 `` `CONST` `` 引用，散文则留一处其余改指针"
                 "（见 ref/audit-workflow.md“判定清单”）",
             )
@@ -125,7 +121,7 @@ def check_agent_names_in_code(skill_dir: Path) -> List[Finding]:
                 findings.append(
                     Finding(
                         rule="AGENT-NAME-CODE",
-                        level="INFO",
+                        level=INFO,
                         evidence=f"脚本点名 agent：{match.group(0)!r}；{line.strip()[:EVIDENCE_SNIPPET]}",
                         file=rel,
                         line=str(lineno),

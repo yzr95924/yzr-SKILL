@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Fixture smoke test for verify.py's own gating logic.
 
 verify.py hands out the green light that CI reads, so the modes pinned here are
@@ -16,8 +15,6 @@ Run: python3 tests/smoke_test_verify.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
 """
 
-import contextlib
-import io
 import json
 import sys
 from pathlib import Path
@@ -26,7 +23,7 @@ from typing import List
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _fixtures import expect, make_skill_dir, make_tmp_dir, run_cases  # noqa: E402
+from _fixtures import expect, make_skill_dir, make_tmp_dir, run_cases, run_cli  # noqa: E402
 
 from tools import verify  # noqa: E402
 
@@ -48,7 +45,7 @@ def with_dependencies(payload: dict, scope=None) -> List:
         verify.check_skill_dependencies.scan = original
 
 
-def check_dependency_advisory() -> None:
+def case_dependency_advisory() -> None:
     """A clean screen yields one INFO saying 零提及; never ERROR."""
     empty = {"pairs": [], "one_way": [], "skill_count": 3, "repo_root": "/tmp"}
     findings = with_dependencies(empty)
@@ -57,7 +54,7 @@ def check_dependency_advisory() -> None:
     expect("零" in findings[0].evidence, "clean dependency screen: evidence should say 零提及")
 
 
-def check_tool_states() -> None:
+def case_tool_states() -> None:
     skill = make_skill()
     run = verify.Run(
         per_skill=[(skill, [])], tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING)], advisory=[]
@@ -84,7 +81,7 @@ def check_tool_states() -> None:
     expect(rendered.startswith("s: ruff: SKIP"), f"ToolResult.render() format changed: {rendered!r}")
 
 
-def check_markdownlint_placement() -> None:
+def case_markdownlint_placement() -> None:
     """A skill outside the repo root is a MISSING state, not a traceback."""
     skill = make_skill()
     other_root = make_tmp_dir(prefix="verify-smoke-") / "elsewhere"
@@ -94,7 +91,7 @@ def check_markdownlint_placement() -> None:
     expect(not _findings, "a tool that never ran produced findings")
 
 
-def check_usage_errors() -> None:
+def case_usage_errors() -> None:
     try:
         verify._resolve_targets(verify._parse_args([]))
         expect(False, "no targets: expected UsageError")
@@ -109,25 +106,23 @@ def check_usage_errors() -> None:
         pass
 
 
-def check_end_to_end() -> None:
+def case_end_to_end() -> None:
     """main() still exits 0 on a healthy skill and 2 on a bad invocation."""
     skill = make_skill()
-    buffer, err = io.StringIO(), io.StringIO()
-    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(err):
-        rc_ok = verify.main([str(skill)])
-        rc_usage = verify.main(["/nonexistent-dir"])
+    rc_ok, stdout = run_cli(verify.main, [str(skill)])
+    rc_usage, _ = run_cli(verify.main, ["/nonexistent-dir"])
     expect(rc_usage == 2, f"usage error: exit {rc_usage} != 2")
     expect(rc_ok in (0, 1), f"healthy run: unexpected exit {rc_ok}")
-    expect("skill(s):" in buffer.getvalue(), "human render missing its summary line")
+    expect("skill(s):" in stdout, "human render missing its summary line")
 
 
-def check_run_tool_exec_guard() -> None:
+def case_run_tool_exec_guard() -> None:
     """_run_tool survives exec failure (vanishing binary / broken shebang) instead of Traceback."""
     rc, out = verify._run_tool(["definitely-missing-tool-xyz"], Path.cwd())
     expect(rc == 127 and "definitely-missing-tool-xyz" in out, f"exec guard: rc={rc} out={out!r}")
 
 
-def check_dependency_screen_in_single_skill_mode() -> None:
+def case_dependency_screen_in_single_skill_mode() -> None:
     """Single-skill mode carries the dependency advisory scoped to the target; repo mode unscoped; no root -> no screen."""
     skill = make_skill()
     calls = []
@@ -161,7 +156,7 @@ def check_dependency_screen_in_single_skill_mode() -> None:
         verify.verify_skill = original_checks
 
 
-def check_dependency_scope_filter() -> None:
+def case_dependency_scope_filter() -> None:
     """Scoped screen keeps only edges touching the target; unscoped keeps all."""
     payload = {
         "pairs": [{"a": "other-a", "b": "other-b", "a_mentions_b": [], "b_mentions_a": []}],
@@ -187,7 +182,7 @@ def check_dependency_scope_filter() -> None:
     )
 
 
-def check_audit_scope_channel() -> None:
+def case_audit_scope_channel() -> None:
     """--audit lists every shipped md (assets walked, templates kept); and only then."""
     skill = make_skill()
     (skill / "ref").mkdir()
@@ -198,10 +193,8 @@ def check_audit_scope_channel() -> None:
 
     def audit_evidence(skill_dir: Path, *extra: str) -> str:
         """跑 verify.main --json，取 AUDIT-SCOPE 的 evidence。"""
-        buffer = io.StringIO()
-        with contextlib.redirect_stdout(buffer):
-            verify.main([str(skill_dir), "--json", *extra])
-        payload = json.loads(buffer.getvalue())
+        _, stdout = run_cli(verify.main, [str(skill_dir), "--json", *extra])
+        payload = json.loads(stdout)
         return next((f["evidence"] for f in payload["findings"] if f["rule"] == "AUDIT-SCOPE"), "")
 
     evidence = audit_evidence(skill, "--audit")
@@ -212,18 +205,4 @@ def check_audit_scope_channel() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(
-        run_cases(
-            [
-                check_dependency_advisory,
-                check_tool_states,
-                check_markdownlint_placement,
-                check_usage_errors,
-                check_end_to_end,
-                check_run_tool_exec_guard,
-                check_dependency_screen_in_single_skill_mode,
-                check_dependency_scope_filter,
-                check_audit_scope_channel,
-            ]
-        )
-    )
+    sys.exit(run_cases())
