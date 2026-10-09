@@ -76,10 +76,10 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
 ├── .github/workflows/ci.yml     # CI = verify --strict-tools + 仓库级 markdownlint + 冒烟循环
 └── yzr-*/                       # 各 skill 目录；yzr-skill-creator 内部：
-    ├── SKILL.md                 #   入口表（4 个入口）
-    ├── tools/                   #   verify / quick_validate / check_* / audit_prose / eval_* / desc_eval
+    ├── SKILL.md                 #   入口表（4 个入口）+ 执行原则（写作规则 = 审计清单）+ 定性测试循环
+    ├── tools/                   #   verify / quick_validate / check_anchor_health / desc_eval / utils
     ├── tests/                   #   smoke_test_*（打桩冒烟）+ _fixtures.py（共享夹具）
-    ├── ref/                     #   {create,improve,description,audit}-workflow.md + schemas.md + agents/grader.md
+    ├── ref/                     #   {create,description}-workflow.md
     └── assets/skill-template.md #   可拷贝的 SKILL.md 正文骨架
 ```
 
@@ -89,11 +89,10 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 
 ## 注意事项
 
-- skill-creator 的评估管线零 LLM、零子进程：`tools/desc_eval.py`（prep / score / apply）与 `tools/eval_prep.py`
-  只做机械半区（判题 prompt / 沙箱与汇总 / 写回）；judge、improve、grader、对照侧这些 LLM worker 一律由编排
-  agent 用 harness subagent 会话内发起，不起 `opencode run` 之类 CLI 子进程（选型依据见
-  MEMORY/llm-worker-subagent.md）。
-- 创建 / 改进 / 描述优化 / 审计的执行细节在
-  `yzr-skill-creator/ref/{create,improve,description,audit}-workflow.md`，`SKILL.md` 入口表负责指路。
+- skill-creator 的触发评估零 LLM、零子进程：`tools/desc_eval.py`（prep / score / apply）只做机械半区；
+  judge 与行为性改进的定性测试 subagent 一律由编排 agent 用 harness subagent 会话内发起，
+  不起 `opencode run` 之类 CLI 子进程，也没有 A/B 数值管线（选型依据见 MEMORY/llm-worker-subagent.md）。
+- 创建 / 描述优化的执行细节在 `yzr-skill-creator/ref/{create,description}-workflow.md`；
+  改进（单点与定性循环）与原则校验的流程直接写在 `SKILL.md` 工作流节，入口表负责指路。
 - skill-creator 脚本两种入口都行（文件内 sys.path 引导）：
   `python3 yzr-skill-creator/tools/x.py` 或 `cd yzr-skill-creator && python3 -m tools.x`。

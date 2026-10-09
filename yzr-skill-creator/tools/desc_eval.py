@@ -46,7 +46,6 @@ _BREAK_AFTER = "。；，、：）】"
 def collect_skills(
     skill_name: str, candidate_description: str, skills_dir: Optional[Path] = None
 ) -> List[Dict[str, str]]:
-    """收集 skills 目录下的 name 与 description，目标 skill 用候选描述替换。"""
     root = skills_dir or SKILLS_DIR
     if not root.is_dir():
         raise RuntimeError(f"skills dir not found: {root} (pass --skills-dir to override)")
@@ -101,7 +100,6 @@ _JUDGE_PREAMBLE = (
 
 
 def build_judge_prompt(skills: List[Dict[str, str]], numbered_queries: List[Tuple[int, str]], result_path: Path) -> str:
-    """拼一个 run 的整批判题 prompt（技能清单 + 编号查询 + JSON 数组落盘指令）。"""
     lines = [_JUDGE_PREAMBLE, "Available skills:"]
     for i, s in enumerate(skills, 1):
         lines.append(f"{i}. {s['name']}:\n   {s['description']}")
@@ -126,7 +124,6 @@ def _read_description_file(path: str) -> str:
 
 
 def _fail(message: str) -> int:
-    """打印 'error: {message}' 到 stderr 并返回退出码 2。"""
     print(f"error: {message}", file=sys.stderr)
     return 2
 
@@ -143,7 +140,6 @@ def _fresh_out_dir(out_dir: Path) -> Tuple[Path, Path]:
 
 
 def _numbered_items(eval_set: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
-    """给评估集与金丝雀连续编号，返回 (queries, canary)。"""
     queries = [
         {"id": i + 1, "query": item["query"], "should_trigger": bool(item["should_trigger"])}
         for i, item in enumerate(eval_set)
@@ -161,7 +157,6 @@ def _write_run_prompts(
     results_dir: Path,
     args: argparse.Namespace,
 ) -> None:
-    """逐 run 打乱批次顺序，各写一份判题 prompt。"""
     for run in range(1, args.runs + 1):
         batch = list(all_items)
         # 步长 runs+1 大于最大 run，同 seed 下各 run 的洗牌序列互不重复
@@ -172,7 +167,6 @@ def _write_run_prompts(
 
 
 def cmd_prep(args: argparse.Namespace) -> int:
-    """prep：建 out-dir，写 manifest 与每 run 一个判题 prompt。"""
     skill_path = Path(args.skill_path)
     if not (skill_path / "SKILL.md").is_file():
         return _fail(f"no SKILL.md under {skill_path}")
@@ -226,7 +220,6 @@ def _normalize_choice(value) -> Optional[str]:
 
 
 def _load_run_choices(result_path: Path, expected_ids: set) -> Dict[int, Optional[str]]:
-    """读一个 run 的判官结果文件；非法 / 缺 id 时抛 ValueError。"""
     try:
         data = json.loads(result_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -245,7 +238,6 @@ def _load_run_choices(result_path: Path, expected_ids: set) -> Dict[int, Optiona
 
 
 def _load_manifest(out_dir: Path) -> Dict:
-    """读 out-dir 的 manifest.json；非法时抛 ValueError。"""
     try:
         return json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -253,7 +245,6 @@ def _load_manifest(out_dir: Path) -> Dict:
 
 
 def _canary_verdict(manifest: Dict, run_choices: List[Dict[int, Optional[str]]]) -> Optional[str]:
-    """逐 run 校验金丝雀期望；通道坏时返回报错文案，全对返回 None。"""
     for run, choices in enumerate(run_choices, 1):
         for c in manifest["canary"]:
             got = choices[c["id"]]
@@ -266,7 +257,6 @@ def _canary_verdict(manifest: Dict, run_choices: List[Dict[int, Optional[str]]])
 
 
 def _quadrant_rows(manifest: Dict, run_choices: List[Dict[int, Optional[str]]], threshold: float) -> List[Dict]:
-    """四象限逐查询计触发数与是否通过。"""
     target, runs = manifest["skill"], manifest["runs"]
     rows = []
     for q in manifest["queries"]:
@@ -286,7 +276,6 @@ def _quadrant_rows(manifest: Dict, run_choices: List[Dict[int, Optional[str]]], 
 
 
 def summarize(subset: List[Dict]) -> Optional[Dict]:
-    """把一组 rows 汇总成 passed/failed/total；空组返回 None。"""
     if not subset:
         return None
     passed = sum(1 for r in subset if r["pass"])
@@ -294,7 +283,6 @@ def summarize(subset: List[Dict]) -> Optional[Dict]:
 
 
 def cmd_score(args: argparse.Namespace) -> int:
-    """score：金丝雀哨兵校验 + 四象限汇总，stdout 出 results JSON。"""
     if not 0.0 <= args.trigger_threshold <= 1.0:
         return _fail("--trigger-threshold must be within [0, 1]")
     out_dir = Path(args.out_dir)
@@ -338,7 +326,6 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 
 def _frontmatter_close(lines: List[str]) -> int:
-    """返回 frontmatter 结束行索引；缺失抛 ValueError。"""
     span = frontmatter_span("\n".join(lines))
     if span is None:
         raise ValueError("SKILL.md frontmatter has no closing ---")
@@ -361,7 +348,6 @@ def _description_span(lines: List[str]) -> Tuple[int, int]:
 
 
 def wrap_description(description: str, indent: str = "  ", width: int = DESCRIPTION_WRAP_WIDTH) -> List[str]:
-    """按标点与空白把描述折行成 YAML 块标量行。"""
     out: List[str] = []
     for paragraph in description.split("\n"):
         # 输入行内换行是折行不是分段：块标量里空行是字面内容，插入会造成往返失真
@@ -398,7 +384,6 @@ def wrap_description(description: str, indent: str = "  ", width: int = DESCRIPT
 
 
 def rewrite_description(text: str, new_description: str) -> str:
-    """把 SKILL.md 全文里的 description 块替换为新描述的块标量。"""
     lines = text.split("\n")
     start, end = _description_span(lines)
     block = ["description: |"] + wrap_description(new_description.strip())
@@ -406,7 +391,6 @@ def rewrite_description(text: str, new_description: str) -> str:
 
 
 def apply_description(skill_path: Path, new_description: str, dry_run: bool = False) -> int:
-    """校验后把新描述写回 SKILL.md（dry_run 只打印 diff），返回退出码。"""
     skill_md = skill_path / "SKILL.md"
     if not skill_md.is_file():
         print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
@@ -468,7 +452,6 @@ def apply_description(skill_path: Path, new_description: str, dry_run: bool = Fa
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
-    """apply：从描述文件读候选并写回。"""
     try:
         candidate = _read_description_file(args.description_file)
     except ValueError as e:
@@ -479,7 +462,6 @@ def cmd_apply(args: argparse.Namespace) -> int:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """三段式 CLI：prep / score / apply。"""
     parser = argparse.ArgumentParser(description="Description trigger eval: prep judge batches, score results, apply")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -514,7 +496,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：分发到子命令。"""
     args = _build_parser().parse_args(argv)
     return args.func(args)
 

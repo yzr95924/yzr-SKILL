@@ -11,7 +11,7 @@
 # （2026-08-18，斩断历史），本 CI 不再覆盖——它们由 CLI 仓 fixtures-smoke 守护。
 #
 # 检查项全部走 yzr-skill-creator 的 verify.py（frontmatter / 正文结构 / 引用存活 /
-# 启发式扫描 / evals 契约 / markdownlint / ruff）——脚本自己枚举 skill，本文件不再
+# evals 骨架 / markdownlint / ruff）——脚本自己枚举 skill，本文件不再
 # 手工列目录：新增 skill 不需要改 CI。脚本改动另有一组打桩冒烟（判定向导逻辑，
 # 静态检查证明不了它算得对）。
 
@@ -47,7 +47,7 @@ jobs:
         run: python yzr-skill-creator/tools/verify.py --repo-root . --strict-tools
       - name: markdownlint repo-level docs (README / AGENTS / MEMORY)
         run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
-      - name: scoring / schema / rule smoke tests
+      - name: smoke tests
         # glob 循环：新增冒烟不必改本文件（与 verify.py「新增 skill 不必改 CI」同一理念）。
         # 递归全部 skill：冒烟在各自 skill 目录下运行（cwd 约定见各文件头注）。
         run: |

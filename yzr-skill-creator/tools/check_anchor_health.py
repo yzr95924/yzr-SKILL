@@ -32,7 +32,6 @@ _SETEXT_UNDERLINE_RE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
 
 
 def _setext_heading_text(lines: List[str], i: int, frontmatter_end: int) -> Optional[str]:
-    """若第 i 行是 setext 下划线，返回其标题文本，否则 None。"""
     if i <= frontmatter_end:
         return None
     if not _SETEXT_UNDERLINE_RE.match(lines[i]):
@@ -57,7 +56,6 @@ def extract_links(text: str) -> List[Tuple[int, str, str]]:
 
 
 def split_target(target: str) -> Tuple[str, str]:
-    """把链接目标拆成 (路径, 锚点)。"""
     hash_idx = target.find("#")
     if hash_idx == -1:
         return target, ""
@@ -106,12 +104,10 @@ def collect_heading_slugs(text: str) -> Dict[str, int]:
 
 
 def collect_explicit_anchor_ids(text: str) -> set:
-    """收集 `<a id=...>` / `<a name=...>` 显式锚点。"""
     return {m.group(1) for m in _EXPLICIT_ANCHOR_RE.finditer(text)}
 
 
 def is_external(target: str) -> bool:
-    """判断链接目标是否为外部协议（http/https/mailto/ftp/mention）。"""
     scheme_match = re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target)
     if not scheme_match:
         return False
@@ -123,7 +119,6 @@ _PLACEHOLDER_LITERALS = frozenset({"...", "path", "url", "Path", "URL"})
 
 
 def is_placeholder_target(target: str) -> bool:
-    """判断链接目标是否为占位符（含尖括号、省略号或字面量 path/url）。"""
     if "<" in target:
         return True
 
@@ -157,7 +152,6 @@ _SYMBOL_SUFFIX_RE = re.compile(r"::[A-Za-z0-9_.]+$")
 
 
 def extract_backtick_paths(text: str) -> List[Tuple[int, str]]:
-    """提取反引号内像文件路径的 token（去掉 ::symbol 后缀）。"""
     hits: List[Tuple[int, str]] = []
     for lineno, line in iter_unfenced_lines(text):
         for start, end in find_code_spans(line):
@@ -168,14 +162,12 @@ def extract_backtick_paths(text: str) -> List[Tuple[int, str]]:
 
 
 def is_placeholder_path(path: str) -> bool:
-    """判断路径是否为占位符（通配符、省略号、尖括号或 -N 结尾）。"""
     if any(ch in path for ch in "<>*") or "..." in path:
         return True
     return any(segment.endswith("-N") for segment in path.split("/"))
 
 
 def _is_checkable_link(target: str) -> bool:
-    """该链接目标是否需要检查（排除外部协议与占位符，且路径与锚点不能都为空）。"""
     if is_external(target) or is_placeholder_target(target):
         return False
     target_path, anchor = split_target(target)
@@ -205,7 +197,6 @@ _LINK_LABEL_FIX = "锚点链接文字统一为「章节」（脚本：tools/chec
 
 
 def _finding(md_path: Path, skill_root: Path, lineno: int, rule: str, evidence: str) -> Finding:
-    """构造一条链接审计 Finding（file 为相对 skill 根路径）。"""
     return Finding(
         rule=rule,
         level=ERROR,
@@ -217,7 +208,6 @@ def _finding(md_path: Path, skill_root: Path, lineno: int, rule: str, evidence: 
 
 
 def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
-    """锚点在目标文件中不存在时返回带候选提示的原因，存在返回 None。"""
     try:
         text = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -235,7 +225,6 @@ def _anchor_drift_reason(target: Path, anchor: str) -> Optional[str]:
 
 
 def _scan_links(md_path: Path, skill_root: Path, text: str) -> List[Finding]:
-    """该文件的链接问题（死链 / 锚点漂移 / 标签不符）。"""
     findings: List[Finding] = []
     for lineno, link_text, raw_target in extract_links(text):
         if not _is_checkable_link(raw_target):
@@ -285,7 +274,6 @@ def _skill_root_candidate(skill_root: Path, token: str) -> Optional[Path]:
 
 
 def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str) -> List[Finding]:
-    """该文件的反引号路径问题（CROSS-SKILL-PATH / PATH-MISSING）。"""
     findings: List[Finding] = []
     for lineno, token in extract_backtick_paths(text):
         if not _is_checkable_path(token):
@@ -305,7 +293,6 @@ def _scan_backtick_paths(md_path: Path, skill_root: Path, text: str) -> List[Fin
 
 
 def scan_skill(skill_root: Path) -> List[Finding]:
-    """扫一个 skill 的链接、锚点与反引号路径（每个 md 只读一遍，产出 Finding 列表）。"""
     skill_root = Path(skill_root)
     findings: List[Finding] = []
     for md, _rel, text in iter_skill_texts(skill_root, "links"):
@@ -315,7 +302,6 @@ def scan_skill(skill_root: Path) -> List[Finding]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：审计链接、锚点、反引号路径；有问题时退出码 1。"""
     return run_screen(
         "Audit markdown link anchors inside a skill — catches silent drift between SKILL.md / "
         "bundled-doc cross-references and the headings they point at.",

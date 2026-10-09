@@ -18,8 +18,6 @@ SOFT_WORD_TARGETS: Dict[str, Optional[int]] = {"default": 2000, "meta": None}
 
 CJK_CHARS_PER_WORD = 1.7
 
-EVIDENCE_SNIPPET = 70
-
 ERROR_REPO_ROOT = "error: repo root not found"
 
 CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
@@ -103,7 +101,6 @@ class Finding(NamedTuple):
     fix: str = ""
 
     def location(self) -> str:
-        """返回 `file:line` 前缀（缺字段则尽量短），供报告行拼接。"""
         if self.file and self.line:
             return f"{self.file}:{self.line}  "
         if self.file:
@@ -111,7 +108,6 @@ class Finding(NamedTuple):
         return ""
 
     def to_dict(self) -> Dict[str, str]:
-        """转成 JSON 友好的 dict（六个字段齐全）。"""
         return {
             "rule": self.rule,
             "level": self.level,
@@ -123,7 +119,6 @@ class Finding(NamedTuple):
 
 
 def format_findings(findings: List[Finding], show_rule: bool = False) -> List[str]:
-    """把 Finding 列表渲染成一行一条的人类可读文本；show_rule 时在等级后带 [RULE]。"""
     out = []
     for f in findings:
         head = f"{f.level} [{f.rule}]: " if show_rule else f"{f.level}: "
@@ -138,7 +133,6 @@ KEBAB_NAME_RE = re.compile(r"^[a-z0-9-]+$")
 
 
 def discover_skill_dirs(repo_root: Path, require_parseable: bool = False) -> List[Path]:
-    """列出 repo 根下含 SKILL.md 的目录；require_parseable 时只留 name 可解析且合规的。"""
     dirs: List[Path] = []
     if not repo_root.is_dir():
         return dirs
@@ -246,16 +240,16 @@ def parse_skill_md(skill_path: Path) -> Tuple[str, str, str]:
     return name, description, content
 
 
-# 条目 = (H2 标题（不含 `## ` 前缀）, 允许省略该节的 tier 集）；空集 = 各 tier 必填；本清单须与 SSOT assets/skill-template.md 一致（verify 查漂移，以模板为准）
+# 条目 = (H2 标题（不含 `## ` 前缀）, 允许省略该节的 tier 集)；空集 = 各 tier 必填；本清单须与 SSOT assets/skill-template.md 一致（verify 查漂移，以模板为准）
 CANONICAL_BODY_SECTIONS = (
     ("输入与输出", frozenset()),
-    ("执行原则", frozenset({"reference"})),
-    ("工作流", frozenset({"reference"})),
-    ("参考样例", frozenset({"default", "reference", "meta"})),
+    ("执行原则", frozenset()),
+    ("工作流", frozenset()),
+    ("参考样例", frozenset({"default", "meta"})),
 )
 
 
-SKILL_TIERS = ("default", "reference", "meta")
+SKILL_TIERS = ("default", "meta")
 
 
 def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
@@ -270,30 +264,16 @@ def skill_tier(skill_path: Path, override: Optional[str] = None) -> str:
     return tier if tier in SKILL_TIERS else "default"
 
 
-# "哪些 md 属于本 skill"的唯一口径：按用途给枚举子集，消费者的覆盖范围与 --audit 宣告都从这里产出，不手抄清单
-# prose = 文风检查（入口 + 参考资料）；links = 链接解析（顶层 md + ref/tools，assets 骨架拷进新目录后相对路径变化，不查）；
-# toc = 全树目录扫描；audit = 原则校验精读宣告清单
-_MD_SCOPE_SUBDIRS = {
-    "prose": ("ref", "assets"),
-    "links": ("ref", "tools"),
-    "toc": None,
-    "audit": ("ref", "tools", "assets", "eval"),
-}
-
-# prose 只扫 SKILL.md；links / toc / audit 扫顶层全部 *.md
-_MD_SCOPE_TOP_ALL = frozenset({"links", "toc", "audit"})
+# "哪些 md 属于本 skill"的唯一口径：links = 链接解析（顶层 md + ref/tools，assets 骨架拷进新目录后相对路径变化，不查）；
+# toc = 全树目录扫描；消费者不手抄清单
+_MD_SCOPE_SUBDIRS = {"links": ("ref", "tools"), "toc": None}
 
 
-def skill_markdown_files(skill_dir: Path, scope: str = "prose") -> List[Path]:
-    """按用途口径列出 skill 的 md 文件。"""
+def skill_markdown_files(skill_dir: Path, scope: str = "links") -> List[Path]:
     subdirs = _MD_SCOPE_SUBDIRS[scope]
     if subdirs is None:
         return sorted(skill_dir.rglob("*.md"))
-    if scope in _MD_SCOPE_TOP_ALL:
-        files = sorted(skill_dir.glob("*.md"))
-    else:
-        skill_md = skill_dir / "SKILL.md"
-        files = [skill_md] if skill_md.is_file() else []
+    files = sorted(skill_dir.glob("*.md"))
     for sub in subdirs:
         sub_root = skill_dir / sub
         if sub_root.is_dir():
@@ -301,7 +281,7 @@ def skill_markdown_files(skill_dir: Path, scope: str = "prose") -> List[Path]:
     return files
 
 
-def iter_skill_texts(skill_dir: Path, scope: str = "prose"):
+def iter_skill_texts(skill_dir: Path, scope: str = "links"):
     """按用途口径产出 (md 路径, 相对路径, 全文)：枚举与 rel 口径单点，剔不剔围栏归消费者。"""
     for md in skill_markdown_files(skill_dir, scope):
         yield md, str(md.relative_to(skill_dir)), md.read_text(encoding="utf-8")
@@ -312,51 +292,3 @@ SKILL_SOURCE_SUBDIRS = ("ref", "assets", "tools")
 
 # skill 顶层子目录白名单；其余顶层目录报 DIR-UNKNOWN ERROR（见 quick_validate.check_dir_naming）
 SKILL_SUBDIRS = ("ref", "tools", "tests", "assets", "eval")
-
-# 旧目录名 → 标准名；出现旧名报 DIR-LEGACY ERROR（见 quick_validate.check_dir_naming）
-LEGACY_SUBDIR_RENAMES = {"references": "ref", "scripts": "tools"}
-
-WITH_SKILL = "with_skill"
-WITHOUT_SKILL = "without_skill"
-OLD_SKILL = "old_skill"
-SIDES = (WITH_SKILL, WITHOUT_SKILL, OLD_SKILL)
-
-EVAL_DIR_PREFIX = "eval-"
-
-
-def eval_dir_name(eval_id: int) -> str:
-    """eval-<id> 用例目录名（写侧 eval_init 与读侧 eval_prep / eval_report 共用）。"""
-    return f"{EVAL_DIR_PREFIX}{eval_id}"
-
-
-def parse_eval_dir(name: str) -> Optional[int]:
-    """从 eval-<id> 目录名解析 id；不合规范返回 None。"""
-    try:
-        return int(name.split("-", 1)[1])
-    except ValueError:
-        return None
-
-
-def evals_contract_errors(data: object) -> List[str]:
-    """evals.json 公共不变量（evals 非空数组、id 整数且唯一、prompt 非空、expectations 非空）；返回错误描述列表。"""
-    evals = data.get("evals") if isinstance(data, dict) else None
-    if not isinstance(evals, list) or not evals:
-        return ["evals.json must be a JSON object with a non-empty `evals` array"]
-    errors: List[str] = []
-    seen = set()
-    for i, item in enumerate(evals):
-        if not isinstance(item, dict):
-            errors.append(f"evals[{i}] 不是对象：{item!r}")
-            continue
-        eval_id = item.get("id")
-        if not isinstance(eval_id, int):
-            errors.append(f"evals[{i}].id 必须是整数，got {eval_id!r}")
-        elif eval_id in seen:
-            errors.append(f"id={eval_id} 重复（workspace 的 eval-<id> 目录会互相覆盖）")
-        else:
-            seen.add(eval_id)
-        if not item.get("prompt"):
-            errors.append(f"evals[{i}] 缺非空 `prompt`")
-        if not isinstance(item.get("expectations"), list) or not item["expectations"]:
-            errors.append(f"evals[{i}] 缺非空 `expectations` 数组")
-    return errors

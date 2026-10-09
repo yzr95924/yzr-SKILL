@@ -6,10 +6,11 @@ the ones where a broken verifier is worse than the bugs it hunts:
   - the MISSING-vs-SKIP decision must come from structured state, never from
     substring-matching a human-readable message (rewording a message would then
     silently disarm --strict-tools);
-  - the --audit md list must come from the shared enumerator (assets walked,
-    templates kept, and only under --audit);
-  - the dependency advisory must stay scoped to the target in single-skill
-    mode and unscoped in repo mode.
+  - the template-sync check must fire only on drift against the canonical
+    section list (it gates the skeleton every new skill copies);
+  - the evals-skeleton check must fire on a desynced skill_name or a vanished
+    input file (silent rot: renames break eval assets without any consumer
+    noticing until a test run does).
 
 Run: python3 tests/smoke_test_verify.py  (from yzr-skill-creator/)
 Exit 0 = all green, 1 = regression.
@@ -29,51 +30,34 @@ from tools import verify  # noqa: E402
 
 SKILL_BODY = "---\nname: probe-skill\ndescription: 场景。触发：x。不适用：y\n---\n# t\n\n## 输入与输出\n\n正文\n"
 
+TEMPLATE_MATCHING = "# t\n\n## 输入与输出\n\n## 执行原则\n\n## 工作流\n\n## 参考样例\n"
+
 
 def make_skill(name: str = "probe-skill") -> Path:
     """本测试的夹具：建一个带固定正文的临时 skill 目录。"""
     return make_skill_dir({"SKILL.md": SKILL_BODY}, prefix="verify-smoke-", name=name)
 
 
-def with_dependencies(payload: dict, scope=None) -> List:
-    """Call verify._dependency_findings against a stubbed in-process scan."""
-    original = verify.check_skill_dependencies.scan
-    verify.check_skill_dependencies.scan = lambda root: payload
-    try:
-        return verify._dependency_findings(Path("/tmp"), scope)
-    finally:
-        verify.check_skill_dependencies.scan = original
-
-
-def case_dependency_advisory() -> None:
-    """A clean screen yields one INFO saying 零提及; never ERROR."""
-    empty = {"pairs": [], "one_way": [], "skill_count": 3, "repo_root": "/tmp"}
-    findings = with_dependencies(empty)
-    levels = [(f.rule, f.level) for f in findings]
-    expect(levels == [("CROSS-SKILL-MENTION", "INFO")], f"clean dependency screen: expected one INFO, got {levels}")
-    expect("零" in findings[0].evidence, "clean dependency screen: evidence should say 零提及")
+def error_rules(argv: List[str]) -> List[str]:
+    """跑 verify.main --json，返回 ERROR 级 findings 的 rule 列表。"""
+    rc, stdout = run_cli(verify.main, [*argv, "--json"])
+    payload = json.loads(stdout)
+    return [f["rule"] for f in payload["findings"] if f["level"] == "ERROR"]
 
 
 def case_tool_states() -> None:
     skill = make_skill()
-    run = verify.Run(
-        per_skill=[(skill, [])], tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING)], advisory=[]
-    )
+    run = verify.Run(per_skill=[(skill, [])], tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING)])
     expect(bool(verify._gate(run, strict_tools=True)), "strict-tools did not gate a MISSING tool")
     expect(not verify._gate(run, strict_tools=False), "non-strict run gated a MISSING tool")
 
     # The decision must not depend on message text (that was the old bug).
-    mute = verify.Run(
-        per_skill=[(skill, [])],
-        tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING, "")],
-        advisory=[],
-    )
+    mute = verify.Run(per_skill=[(skill, [])], tools=[verify.ToolResult("s", "markdownlint", verify.TOOL_MISSING, "")])
     expect(bool(verify._gate(mute, strict_tools=True)), "gate is reading message text: empty detail disarmed it")
 
     skip = verify.Run(
         per_skill=[(skill, [])],
         tools=[verify.ToolResult("s", "ruff", verify.TOOL_SKIP, "skill has no tools/ tests/")],
-        advisory=[],
     )
     expect(not verify._gate(skip, strict_tools=True), "SKIP (not applicable) was gated as if the tool were missing")
 
@@ -122,86 +106,63 @@ def case_run_tool_exec_guard() -> None:
     expect(rc == 127 and "definitely-missing-tool-xyz" in out, f"exec guard: rc={rc} out={out!r}")
 
 
-def case_dependency_screen_in_single_skill_mode() -> None:
-    """Single-skill mode carries the dependency advisory scoped to the target; repo mode unscoped; no root -> no screen."""
+def case_template_sync() -> None:
+    """Matching template is clean; a drifted one is a single TEMPLATE-SECTION-DRIFT ERROR."""
     skill = make_skill()
-    calls = []
-
-    def fake_dep(root, scope=None):
-        """记录调用参数的 _dependency_findings 替身。"""
-        calls.append((root, scope))
-        return []
-
-    def fake_checks(skill_dir, tier, root):
-        """空检查替身。"""
-        return [], []
-
-    original_dep = verify._dependency_findings
-    original_checks = verify.verify_skill
-    verify._dependency_findings = fake_dep
-    verify.verify_skill = fake_checks
-    try:
-        verify._run_checks([skill], "default", Path("/tmp"), False)
-        expect(
-            calls == [(Path("/tmp"), frozenset({"probe-skill"}))], f"single-skill mode screen call/scope wrong: {calls}"
-        )
-        calls.clear()
-        verify._run_checks([skill], "default", Path("/tmp"), True)
-        expect(calls == [(Path("/tmp"), None)], f"repo mode must not scope the screen: {calls}")
-        calls.clear()
-        verify._run_checks([skill], "default", None, False)
-        expect(not calls, "dependency screen ran without a repo root")
-    finally:
-        verify._dependency_findings = original_dep
-        verify.verify_skill = original_checks
-
-
-def case_dependency_scope_filter() -> None:
-    """Scoped screen keeps only edges touching the target; unscoped keeps all."""
-    payload = {
-        "pairs": [{"a": "other-a", "b": "other-b", "a_mentions_b": [], "b_mentions_a": []}],
-        "one_way": [
-            {"a": "probe-skill", "b": "other-a", "a_mentions_b": []},
-            {"a": "other-b", "b": "other-a", "a_mentions_b": []},
-        ],
-        "skill_count": 3,
-        "repo_root": "/tmp",
-    }
-    scoped = with_dependencies(payload, scope=frozenset({"probe-skill"}))
-    evidence = scoped[0].evidence if scoped else ""
-    expect(
-        "1 条单向提及" in evidence and "互提候选对" not in evidence,
-        f"scoped screen did not filter to the target edge: {evidence!r}",
-    )
-    expect("仅目标 skill 相关" in evidence, f"scoped screen evidence lacks the scope marker: {evidence!r}")
-    full = with_dependencies(payload)
-    evidence = full[0].evidence if full else ""
-    expect(
-        "1 组互提候选对" in evidence and "2 条单向提及" in evidence,
-        f"unscoped screen must keep every edge: {evidence!r}",
-    )
-
-
-def case_audit_scope_channel() -> None:
-    """--audit lists every shipped md (assets walked, templates kept); and only then."""
-    skill = make_skill()
-    (skill / "ref").mkdir()
-    (skill / "ref" / "guide.md").write_text("# g\n\n正文\n", encoding="utf-8")
-    (skill / "ref" / "skeleton-template.md").write_text("# t\n\n正文\n", encoding="utf-8")
     (skill / "assets").mkdir()
-    (skill / "assets" / "skill-template.md").write_text("# s\n\n正文\n", encoding="utf-8")
+    tpl = skill / "assets" / "skill-template.md"
+    tpl.write_text(TEMPLATE_MATCHING, encoding="utf-8")
+    expect(not verify._template_sync_findings(skill), "matching template reported drift")
+    tpl.write_text("# t\n\n## 输入与输出\n\n## 执行原则\n\n", encoding="utf-8")
+    findings = verify._template_sync_findings(skill)
+    expect(
+        len(findings) == 1 and findings[0].rule == "TEMPLATE-SECTION-DRIFT" and findings[0].level == "ERROR",
+        f"drifted template: expected one TEMPLATE-SECTION-DRIFT ERROR, got {findings!r}",
+    )
+    expect(
+        "参考样例" in findings[0].evidence, f"drift evidence should name the missing section: {findings[0].evidence}"
+    )
 
-    def audit_evidence(skill_dir: Path, *extra: str) -> str:
-        """跑 verify.main --json，取 AUDIT-SCOPE 的 evidence。"""
-        _, stdout = run_cli(verify.main, [str(skill_dir), "--json", *extra])
-        payload = json.loads(stdout)
-        return next((f["evidence"] for f in payload["findings"] if f["rule"] == "AUDIT-SCOPE"), "")
 
-    evidence = audit_evidence(skill, "--audit")
-    expect(bool(evidence), "--audit did not emit AUDIT-SCOPE")
-    for rel in ("SKILL.md", "ref/guide.md", "ref/skeleton-template.md", "assets/skill-template.md"):
-        expect(rel in evidence, f"audit list missing {rel}: {evidence!r}")
-    expect(not audit_evidence(skill), "AUDIT-SCOPE leaked without --audit")
+def case_evals_skeleton() -> None:
+    """evals.json: wrong skill_name and missing input file each raise ERROR; a healthy set stays clean."""
+    skill = make_skill()
+    eval_dir = skill / "eval"
+    eval_dir.mkdir()
+
+    def rules() -> List[str]:
+        return [r for r in error_rules([str(skill)]) if r.startswith("EVALS")]
+
+    (eval_dir / "evals.json").write_text(
+        json.dumps(
+            {"skill_name": "wrong-name", "evals": [{"id": 1, "prompt": "p", "expectations": ["e"]}]}, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+    expect(rules() == ["EVALS-JSON"], f"desynced skill_name: expected EVALS-JSON only, got {rules()}")
+
+    (eval_dir / "evals.json").write_text(
+        json.dumps(
+            {
+                "skill_name": "probe-skill",
+                "evals": [{"id": 1, "prompt": "p", "files": ["eval/none.pdf"], "expectations": ["e"]}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    expect(rules() == ["EVALS-INPUT-MISSING"], f"vanished input file: expected EVALS-INPUT-MISSING, got {rules()}")
+
+    (eval_dir / "evals.json").write_text(
+        json.dumps(
+            {"skill_name": "probe-skill", "evals": [{"id": 1, "prompt": "p", "expectations": ["e"]}]},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    expect(rules() == [], f"healthy evals.json produced findings: {rules()}")
+    (eval_dir / "evals.json").write_text("{not json", encoding="utf-8")
+    expect(rules() == ["EVALS-JSON"], f"unparseable evals.json: expected EVALS-JSON, got {rules()}")
 
 
 if __name__ == "__main__":

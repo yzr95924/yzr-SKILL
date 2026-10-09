@@ -1,5 +1,6 @@
 # 仓库内唯一的 Python 工具链配置。
-# 这里不发布 Python 包，仅为 ruff 提供 [tool.ruff.*] 配置入口。
+# 这里不发布 Python 包；主体是 ruff 的 [tool.ruff.*] 配置入口，另含一段供编辑器侧
+# pylint 与仓库风格对齐的 [tool.pylint] 配置（CI 不跑 pylint）。
 #
 # 与代码现状的对齐：
 # - 仓库脚本最低支持 Python 3.7（2026-07-01 起放弃 CentOS 7/3.6 兼容）。
@@ -40,3 +41,8 @@ known-first-party = ["tools"]
 # 默认：双引号、自动换行、保留 trailing comma 触发 magic line。
 quote-style = "double"
 indent-style = "space"
+
+# pylint 不在 CI / verify 里跑（强制 linter 是 ruff）；此段仅供编辑器侧 pylint
+# 与仓库风格对齐——AGENTS.md 禁写复述签名的 docstring，故关掉缺失类告警。
+[tool.pylint.messages_control]
+disable = ["missing-function-docstring", "missing-class-docstring"]

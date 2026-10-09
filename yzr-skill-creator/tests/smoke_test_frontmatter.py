@@ -146,7 +146,7 @@ def case_estimate_cases() -> None:
 def run_skill_tier_cases() -> None:
     """skill_tier precedence: override > metadata.tier > default; invalid falls back to default."""
     tier_cases = [
-        ("override-wins", ["name: t", "description: d", "metadata:", "  tier: meta"], "reference", "reference"),
+        ("override-wins", ["name: t", "description: d", "metadata:", "  tier: meta"], "default", "default"),
         ("metadata-read", ["name: t", "description: d", "metadata:", "  tier: meta"], None, "meta"),
         ("default-fallback", ["name: t", "description: d"], None, "default"),
         ("invalid-fallback", ["name: t", "description: d", "metadata:", "  tier: metta"], None, "default"),

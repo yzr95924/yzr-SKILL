@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Validate a skill's frontmatter, directory naming, body, and bundled-doc prose."""
+"""Validate a skill's frontmatter, directory naming, body structure, and bundled eval set."""
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -13,17 +14,14 @@ from tools.utils import (  # noqa: E402
     CANONICAL_BODY_SECTIONS,
     DESCRIPTION_MAX_CHARS,
     ERROR,
-    EVIDENCE_SNIPPET,
     INFO,
     KEBAB_NAME_RE,
-    LEGACY_SUBDIR_RENAMES,
     SKILL_SUBDIRS,
     SKILL_TIERS,
     SOFT_WORD_TARGETS,
     WARN,
     Finding,
     estimate_body_words,
-    find_code_spans,
     format_findings,
     frontmatter_span,
     h2_headings,
@@ -31,10 +29,9 @@ from tools.utils import (  # noqa: E402
     iter_unfenced_lines,
     json_text,
     load_frontmatter,
+    parse_skill_md,
     skill_tier,
 )
-
-WHEN_NOT_SECTION_RE = re.compile(r"^##\s+何时不使用")
 
 ALLOWED_PROPERTIES = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 
@@ -58,7 +55,6 @@ def _body(skill_path):
 
 
 def check_body_structure(skill_path, tier="default"):
-    """检查正文 H2 节：缺失、顺序、额外节，返回 Finding 列表。"""
     skill_path = Path(skill_path)
     if not (skill_path / "SKILL.md").exists():
         return [Finding(rule="BODY-STRUCTURE", level=ERROR, evidence="SKILL.md not found", file="SKILL.md")]
@@ -114,7 +110,6 @@ def _missing_section_findings(canonical, found, tier):
 
 
 def _order_findings(headings, canonical, canonical_found):
-    """检查已出现的规范节是否按 canonical 顺序排列。"""
     present_in_order = [h for h in headings if normalize_heading(h) in set(canonical_found)]
     if [normalize_heading(h) for h in present_in_order] == canonical_found:
         return []
@@ -162,31 +157,7 @@ def _extra_section_findings(headings, tier):
     ]
 
 
-def check_no_when_not_section(skill_path):
-    """检出已废除的 `## 何时不使用` 节。"""
-    skill_path = Path(skill_path)
-    body, offset = _body(skill_path)
-    if body is None:
-        return []
-    findings = []
-    for index, line in iter_unfenced_lines(body):
-        if not WHEN_NOT_SECTION_RE.match(line):
-            continue
-        findings.append(
-            Finding(
-                rule="WHEN-NOT-SECTION",
-                level=WARN,
-                evidence="正文含已废除的 `## 何时不使用` 节，selection 负例归 frontmatter description 的“不适用”槽"
-                "（口径见 ref/audit-workflow.md“判定清单”的“触发语不回正文”）",
-                file="SKILL.md",
-                line=str(offset + index),
-            )
-        )
-    return findings
-
-
 def check_description_format(skill_path):
-    """检查 description：含“触发：”与“不适用：”标记，且不以句号收尾。"""
     try:
         frontmatter = load_frontmatter(Path(skill_path))
     except (ValueError, OSError):
@@ -220,106 +191,14 @@ def check_description_format(skill_path):
     return findings
 
 
-_BLANK, _HEADING, _TABLE, _LIST, _QUOTE, _TEXT = range(6)
-
-_HEADING_LINE_RE = re.compile(r"^ {0,3}#{1,6}\s")
-_TABLE_LINE_RE = re.compile(r"^\s*\|")
-_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
-_QUOTE_LINE_RE = re.compile(r"^\s*>")
-
-# block 末行判定用；句号后只允许行尾修饰（粗体 / 引号 / 括号 / 反引号）
-_TRAILING_PERIOD_RE = re.compile(r"。[\s*_`\"'）)\]】”’]*$")
-
-
-def _line_kind(line):
-    """把 md 行粗分成 block 边界类型，供 block 末行判定。"""
-    stripped = line.strip()
-    if not stripped:
-        return _BLANK
-    if _HEADING_LINE_RE.match(line):
-        return _HEADING
-    if _TABLE_LINE_RE.match(line):
-        return _TABLE
-    if _LIST_ITEM_RE.match(line):
-        return _LIST
-    if _QUOTE_LINE_RE.match(line):
-        return _QUOTE
-    return _TEXT
-
-
-def _block_final_lines(pairs):
-    """返回 block 末行行号：段落 / 列表项 / 引用块的最后一行；标题与表格行自成 block。"""
-    finals = []
-    last = None
-    prev_kind = _BLANK
-    for lineno, line in pairs:
-        kind = _line_kind(line)
-        if kind == _BLANK:
-            if last is not None:
-                finals.append(last)
-                last = None
-        elif kind in (_HEADING, _TABLE):
-            if last is not None:
-                finals.append(last)
-                last = None
-            finals.append(lineno)
-        elif kind == _LIST:
-            if last is not None:
-                finals.append(last)
-            last = lineno
-        elif kind == _QUOTE:
-            if last is not None and prev_kind != _QUOTE:
-                finals.append(last)
-            last = lineno
-        else:
-            indented = line[:1] in (" ", "\t")
-            if last is not None and not indented and prev_kind != _TEXT:
-                finals.append(last)
-            last = lineno
-        prev_kind = kind
-    if last is not None:
-        finals.append(last)
-    return finals
-
-
-def check_no_trailing_period(skill_dir):
-    """扫 SKILL.md / ref/ / assets/：block 末行以「。」收尾报 ERROR（句中句号与折行续行不报）。"""
-    skill_dir = Path(skill_dir)
-    findings = []
-    for _md, rel, text in iter_skill_texts(skill_dir):
-        span = frontmatter_span(text)
-        cutoff = span[1] + 1 if span else 0
-        pairs = [(lineno, line) for lineno, line in iter_unfenced_lines(text) if lineno > cutoff]
-        finals = set(_block_final_lines(pairs))
-        for lineno, line in pairs:
-            if lineno not in finals:
-                continue
-            match = _TRAILING_PERIOD_RE.search(line)
-            if not match or any(start <= match.start() < end for start, end in find_code_spans(line)):
-                continue
-            findings.append(
-                Finding(
-                    rule="TRAILING-PERIOD",
-                    level=ERROR,
-                    evidence=f"block 末句号：{line.strip()[:EVIDENCE_SNIPPET]}",
-                    file=rel,
-                    line=str(lineno),
-                    fix="删去行末「。」；句中句号与折行续行保留",
-                )
-            )
-    return findings
-
-
 def check_no_toc(skill_path):
-    """扫描全部 md：手写目录节与连续页内锚点列表。"""
     skill_path = Path(skill_path)
-    ssot = "ref/audit-workflow.md“判定清单”的“参考文件禁手写目录”"
+    ssot = "agent 全量读入参考文件，手写目录只喂上下文"
     heading_re = re.compile(r"^##\s+(?:TOC|目录|参考文件)\s*$")
     anchor_re = re.compile(r"^\s*[-*]\s+\[[^\]]+\]\(#")
     findings = []
 
     def flag(rel, line_no, text):
-        """构造一条 HAND-TOC Finding。"""
         return Finding(rule="HAND-TOC", level=WARN, evidence=text, file=rel, line=str(line_no))
 
     def run_finding(rel, run_start, run_len):
@@ -352,7 +231,6 @@ def check_no_toc(skill_path):
 
 
 def check_body_length(skill_path, tier="default"):
-    """正文词数超软目标或硬上限时报 Finding。"""
     body, _offset = _body(skill_path)
     if body is None:
         return []
@@ -381,8 +259,61 @@ def check_body_length(skill_path, tier="default"):
     return []
 
 
+def check_evals_json(skill_path):
+    """eval/evals.json 骨架检查（存在才查）：可解析、skill_name 与 frontmatter 一致、声明的输入文件存在。"""
+    skill_path = Path(skill_path)
+    path = skill_path / "eval" / "evals.json"
+    if not path.is_file():
+        return []
+    where = "eval/evals.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as e:
+        return [Finding(rule="EVALS-JSON", level=ERROR, evidence=f"无法解析：{e}", file=where)]
+    if not isinstance(data, dict) or not isinstance(data.get("evals"), list) or not data["evals"]:
+        return [
+            Finding(
+                rule="EVALS-JSON",
+                level=ERROR,
+                evidence="须为含非空 `evals` 数组的 JSON 对象",
+                file=where,
+            )
+        ]
+    findings = []
+    try:
+        name = parse_skill_md(skill_path)[0]
+    except (ValueError, OSError):
+        name = ""
+    if name and data.get("skill_name") != name:
+        findings.append(
+            Finding(
+                rule="EVALS-JSON",
+                level=ERROR,
+                evidence=f"skill_name={data.get('skill_name')!r} 与 frontmatter name={name!r} 不符",
+                file=where,
+                fix="改名要同步评估集，否则测试 prompt 与产出对不上",
+            )
+        )
+    for item in data["evals"]:
+        if not isinstance(item, dict):
+            continue
+        for rel in item.get("files") or []:
+            if (skill_path / str(rel)).exists():
+                continue
+            findings.append(
+                Finding(
+                    rule="EVALS-INPUT-MISSING",
+                    level=ERROR,
+                    evidence=f"声明的输入文件不存在：{rel}",
+                    file=where,
+                    line=str(item.get("id", "")),
+                    fix="补文件 / 改相对路径，或从 files 里删掉",
+                )
+            )
+    return findings
+
+
 def _check_name(frontmatter):
-    """校验 name 字段，返回错误描述或 None。"""
     name = frontmatter.get("name", "")
     if not isinstance(name, str):
         return f"Name must be a string, got {type(name).__name__}"
@@ -399,7 +330,6 @@ def _check_name(frontmatter):
 
 
 def _check_description(frontmatter):
-    """校验 description 字段（类型、尖括号、长度），返回错误描述或 None。"""
     description = frontmatter.get("description", "")
     if not isinstance(description, str):
         return f"Description must be a string, got {type(description).__name__}"
@@ -416,7 +346,6 @@ def _check_description(frontmatter):
 
 
 def _check_compatibility(frontmatter):
-    """校验 compatibility 字段（类型、长度），返回错误描述或 None。"""
     compatibility = frontmatter.get("compatibility", "")
     if not compatibility:
         return None
@@ -431,7 +360,6 @@ def _check_compatibility(frontmatter):
 
 
 def validate_skill(skill_path):
-    """校验 frontmatter，返回 (是否通过, 消息)。"""
     skill_path = Path(skill_path)
 
     skill_md = skill_path / "SKILL.md"
@@ -490,24 +418,12 @@ def check_tier_metadata(skill_path):
 
 
 def check_dir_naming(skill_path):
-    """检出旧目录名（references/ / scripts/）与非规范顶层子目录，返回 Finding 列表。"""
     skill_path = Path(skill_path)
     findings = []
-    for legacy, standard in LEGACY_SUBDIR_RENAMES.items():
-        if (skill_path / legacy).is_dir():
-            findings.append(
-                Finding(
-                    rule="DIR-LEGACY",
-                    level=ERROR,
-                    evidence=f"目录 `{legacy}/` 不受支持，标准名为 `{standard}/`",
-                    file=f"{legacy}/",
-                    fix=f"重命名 {legacy}/ → {standard}/，并同步更新引用路径",
-                )
-            )
     for child in sorted(skill_path.iterdir()):
         if not child.is_dir() or child.name.startswith(".") or child.name == "node_modules":
             continue
-        if child.name in LEGACY_SUBDIR_RENAMES or child.name in SKILL_SUBDIRS:
+        if child.name in SKILL_SUBDIRS:
             continue
         findings.append(
             Finding(
@@ -530,11 +446,10 @@ def collect_findings(skill_dir, tier=None):
     findings = check_tier_metadata(skill_dir)
     findings += check_dir_naming(skill_dir)
     findings += check_body_structure(skill_dir, tier=resolved)
-    findings += check_no_when_not_section(skill_dir)
     findings += check_description_format(skill_dir)
     findings += check_no_toc(skill_dir)
-    findings += check_no_trailing_period(skill_dir)
     findings += check_body_length(skill_dir, tier=resolved)
+    findings += check_evals_json(skill_dir)
     return findings
 
 
@@ -542,7 +457,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, length, and trailing periods"
+        description="Validate a skill's frontmatter, directory naming, body structure, description format, TOC ban, length, and eval set skeleton"
     )
     parser.add_argument("skill_dir", help="Path to the skill directory")
     parser.add_argument(
@@ -552,7 +467,7 @@ if __name__ == "__main__":
         help="Override the skill's frontmatter metadata.tier (default: read from SKILL.md, fallback 'default')",
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of human-readable lines")
-    args = parser.parse_args()
+    args = parser.parse_args(argv=None)
 
     findings = collect_findings(args.skill_dir, args.tier)
     fatal = next((f for f in findings if f.rule == "FRONTMATTER"), None)
