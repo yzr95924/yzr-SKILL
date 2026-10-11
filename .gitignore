@@ -53,3 +53,5 @@ build/
 # 与 skill 同级，transient，可能包含大量 agent transcript，跑过后不入库——
 # 再走一轮即重建。
 *-workspace/
+
+bak/
