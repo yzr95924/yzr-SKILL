@@ -2,7 +2,7 @@
 
 契约点（破哪条挂哪条）：
   - new 生成的 SKILL.md 必须直接通过 check（形状派生自模板，出生即合规）；
-  - new 拒绝非 kebab 名与已存在目录，且不留半成品；
+  - new 拒绝非 kebab 名、超 64 字符名与已存在目录，且不留半成品；数字开头放行（对齐开放规范）；
   - check 必须抓到：frontmatter 多键、H2 缺 / 多 / 乱序、目录名与 name 值不一致、悬空引用名、
     死锚点、锚点链接文字非"章节"；
   - 指向本文件节 / 粗体条目 / 真实文件路径 / 合法锚点链接的引用不得误报；内联代码内的格式示例不查；
@@ -84,6 +84,10 @@ def main() -> int:
     r = run(["new", "Bad_Name", "--root", tmp])
     expect(r.returncode != 0, "new 应拒绝非 kebab 名")
     expect(not (tmp / "Bad_Name").exists(), "非法名不应留下目录")
+    r = run(["new", "a" * 65, "--root", tmp])
+    expect(r.returncode != 0, "new 应拒绝超 64 字符名")
+    r = run(["new", "2fa-helper", "--root", tmp])
+    expect(r.returncode == 0, f"数字开头应放行（开放规范）：{r.stdout}")
     r = run(["new", "fresh-skill", "--root", tmp])
     expect(r.returncode != 0, "new 应拒绝已存在目录")
 

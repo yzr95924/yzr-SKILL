@@ -25,7 +25,8 @@ SKILL_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_ROOT = SKILL_DIR.parent
 TEMPLATE = SKILL_DIR / "assets" / "skill-template.md"
 
-KEBAB_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+NAME_MAX_LEN = 64  # Agent Skills 开放规范上限
 NAME_SLOT_RE = re.compile(r"^name:\s*<skill-name>\s*$")
 FM_KEY_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$")
 H2_RE = re.compile(r"^##\s+(.*?)\s*$")
@@ -227,11 +228,16 @@ def cmd_check(argv: Sequence[str]) -> int:
 
 def cmd_new(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(prog="skeleton.py new", description="从模板生成新 skill 骨架")
-    parser.add_argument("name", help="kebab-case skill 名（=目录名=frontmatter name）")
+    parser.add_argument(
+        "name", help="kebab-case skill 名（小写字母/数字、连字符分词、≤64 字符，=目录名=frontmatter name）"
+    )
     parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="创建位置（默认仓库根）")
     args = parser.parse_args(argv)
+    if len(args.name) > NAME_MAX_LEN:
+        print(f"非法名 {args.name!r}：超过 {NAME_MAX_LEN} 字符（开放规范上限）", file=sys.stderr)
+        return 2
     if not KEBAB_RE.match(args.name):
-        print(f"非法名 {args.name!r}：须 kebab-case", file=sys.stderr)
+        print(f"非法名 {args.name!r}：须 kebab-case（小写字母/数字用连字符连接，如 my-skill）", file=sys.stderr)
         return 2
     if not TEMPLATE.is_file():
         print(f"模板不存在：{TEMPLATE}", file=sys.stderr)
