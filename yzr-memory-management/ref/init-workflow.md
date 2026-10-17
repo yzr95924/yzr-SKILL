@@ -4,7 +4,7 @@
 
 ## 提议内容（一次给全，确认后创建）
 
-1. `MEMORY/MEMORY.md`：跑 `python3 tools/memory_init.py <项目根>` 建骨架（绝对路径指向本 skill 安装处的脚本；索引已存在会拒绝不覆盖）
+1. `MEMORY/MEMORY.md`：从 `assets/memory-index-template.md` 的项目骨架节原样拷贝建索引；索引已存在则不动，已有记忆走 audit 入口
 2. AGENTS.md 引用段：一个二级标题 + 单行引入，样例：
 
    ```markdown
@@ -18,9 +18,9 @@
    MEMORY/ 骨架；llmw wiki 等实例的模板自带该行且文件 byte-owned 禁手改，即属此情形
 
 3. 首批条目：来源限于对话中用户已陈述的纠正 / 约定（项目现状只提供线索，证据绑定不了本轮就过不了闸 1），
-   真正够格的过五道闸（按[章节](capture-workflow.md#五道闸agent-自主写入的准入)执行）才提，没有就空着，不凑数
+   真正够格的过四道闸（按[章节](capture-workflow.md#四道闸agent-自主写入的准入)执行）才提，没有就空着，不凑数
 
 ## 边界
 
-单仓一份：寻址规则见[章节](capture-workflow.md#寻址)。项目已有别的记忆形态（内嵌记忆段 /
+寻址规则见[章节](capture-workflow.md#寻址)。项目已有别的记忆形态（内嵌记忆段 /
 memory-bank/ 等）不动它、沿用既有机制；lint 只认 canonical 格式，不为旧布局写第二套判据

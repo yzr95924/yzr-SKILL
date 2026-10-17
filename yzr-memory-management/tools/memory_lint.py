@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""检查项目 MEMORY/：索引一致性、frontmatter、预算水位、敏感串、悬空声明；只报告不改写。"""
+"""检查项目 MEMORY/：索引一致性、条目 scope、预算水位、敏感串、悬空声明；只报告不改写。"""
 
 import argparse
-import json
 import re
 import sys
-from datetime import date
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
@@ -18,13 +16,9 @@ INDEX_MAX_LINES = 200
 INDEX_MAX_BYTES = 25600
 BUDGET_HIGH_RATIO = 0.8
 ENTRY_MAX_LINES = 120
-DESCRIPTION_MAX_CHARS = 200
-VALID_TYPES = ("user", "feedback", "project", "reference")
-STALE_INFO_DAYS = 180
 
 ENTRY_LINK_RE = re.compile(r"^\s*-\s+\[(?P<title>[^\]]+)\]\((?P<slug>[^)\s/]+\.md)\)：")
 KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-MODIFIED_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # 契约：init 引用段模板自带的 <!-- 包裹注释行含 @MEMORY/MEMORY.md 字样，刻意不算声明
 MEMORY_REF_RE = re.compile(r"^@MEMORY/MEMORY\.md\b")
 SENSITIVE_RES = (
@@ -36,23 +30,13 @@ SENSITIVE_RES = (
 
 
 class Finding(NamedTuple):
-    """一条检查发现；渲染与 JSON 输出共用六个字段"""
+    """一条检查发现"""
 
     rule: str
     level: str
     evidence: str
     file: str = ""
     line: str = ""
-
-    def to_dict(self) -> Dict[str, str]:
-        """转 JSON 友好 dict"""
-        return {
-            "rule": self.rule,
-            "level": self.level,
-            "file": self.file,
-            "line": self.line,
-            "evidence": self.evidence,
-        }
 
 
 class Stats(NamedTuple):
@@ -61,10 +45,6 @@ class Stats(NamedTuple):
     index_lines: int
     index_budget_lines: int
     entry_count: int
-
-    def to_dict(self) -> Dict[str, int]:
-        """转 JSON 友好 dict"""
-        return self._asdict()
 
 
 class Snapshot(NamedTuple):
@@ -128,14 +108,6 @@ def parse_frontmatter(text: str) -> Optional[Dict]:
     return data
 
 
-def find_git_root(start: Path) -> Optional[Path]:
-    """从 start 向上找 git root（含 .git 的目录）；非 git 目录返回 None"""
-    for candidate in [start, *start.parents]:
-        if (candidate / ".git").exists():
-            return candidate
-    return None
-
-
 def declares_memory(agents_path: Path) -> bool:
     """AGENTS.md 是否存在 @MEMORY/MEMORY.md 声明行；读不动按无声明处理，不为壳文件损坏另立判据"""
     try:
@@ -145,18 +117,8 @@ def declares_memory(agents_path: Path) -> bool:
     return any(MEMORY_REF_RE.match(line.strip()) for line in text.splitlines())
 
 
-def discover_memory_root(start: Path) -> Optional[Path]:
-    """从 start 向上找含 MEMORY/ 的最近目录；start 本身是 MEMORY/ 时返回其父"""
-    for candidate in [start, *start.parents]:
-        if (candidate / MEMORY_DIR).is_dir():
-            return candidate
-        if candidate.name == MEMORY_DIR and candidate.is_dir():
-            return candidate.parent
-    return None
-
-
 def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int, str]]]:
-    """检查索引：预算水位、重复链接；返回 (findings, [(行号, slug)])"""
+    """检查索引：预算水位、头部残留、重复链接；返回 (findings, [(行号, slug)])"""
     findings: List[Finding] = []
     line_count = len(text.splitlines())
     if line_count > INDEX_MAX_LINES:
@@ -189,7 +151,22 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
         )
     slugs: List[Tuple[int, str]] = []
     seen: Dict[str, int] = {}
+    head_open = True
     for lineno, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if head_open and stripped and not stripped.startswith("#"):
+            head_open = False
+            if not stripped.startswith("-"):
+                findings.append(
+                    Finding(
+                        "INDEX-HEAD",
+                        "WARN",
+                        f"索引头部只允许标题与 ## 组名行，出现散文 / 规格抄件：{stripped[:40]}"
+                        "（格式规格在 skill 侧模板，项目不持副本）",
+                        file=rel,
+                        line=str(lineno),
+                    )
+                )
         match = ENTRY_LINK_RE.match(line)
         if match is None:
             continue
@@ -242,81 +219,23 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
                 file=rel,
             )
         )
-    fm = parse_frontmatter(text)
-    if fm is None:
-        findings.append(
-            Finding(
-                "FRONTMATTER-MISSING",
-                "ERROR",
-                "条目缺 --- 围栏的 frontmatter（三件套：name / description / metadata.type）",
-                file=rel,
-            )
-        )
-        return findings
-    findings += _frontmatter_findings(rel, stem, fm)
+    fm = parse_frontmatter(text) or {}
+    findings += _frontmatter_findings(rel, fm)
     return findings
 
 
-def _frontmatter_findings(rel: str, stem: str, fm: Dict) -> List[Finding]:
-    """检查 frontmatter 字段：name / description / type / scope / modified"""
-    findings: List[Finding] = []
-    name = str(fm.get("name", "") or "")
-    if not name:
-        findings.append(Finding("NAME-MISSING", "ERROR", "缺 name 字段", file=rel))
-    elif name != stem:
-        findings.append(Finding("NAME-MISMATCH", "ERROR", f"name={name!r} 与文件名 slug {stem!r} 不一致", file=rel))
-    description = str(fm.get("description", "") or "")
-    if not description:
-        findings.append(Finding("DESC-MISSING", "ERROR", "缺 description 字段", file=rel))
-    elif len(description) > DESCRIPTION_MAX_CHARS:
-        findings.append(
-            Finding(
-                "DESC-LONG",
-                "WARN",
-                f"description {len(description)} 字符，超 {DESCRIPTION_MAX_CHARS}——摘要该压缩了",
-                file=rel,
-            )
-        )
+def _frontmatter_findings(rel: str, fm: Dict) -> List[Finding]:
+    """检查条目 scope：事件驱动复核（scope × git 变更匹配）的预筛字段"""
+    # scope 兼容旧条目的 metadata.scope 嵌套写法，旧格式条目在新检查下保持零 finding
     metadata = fm.get("metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
-    entry_type = str(metadata.get("type", "") or "")
-    if not entry_type:
-        findings.append(
-            Finding("TYPE-MISSING", "ERROR", f"缺 metadata.type（四选一：{' / '.join(VALID_TYPES)}）", file=rel)
-        )
-    elif entry_type not in VALID_TYPES:
-        findings.append(
-            Finding("TYPE-INVALID", "ERROR", f"metadata.type={entry_type!r} 不在 {' / '.join(VALID_TYPES)}", file=rel)
-        )
-    if not str(metadata.get("scope", "") or ""):
-        findings.append(
+    scope = str(fm.get("scope", "") or "") or str(metadata.get("scope", "") or "")
+    if not scope:
+        return [
             Finding(
                 "SCOPE-MISSING",
                 "WARN",
-                "缺 metadata.scope——事件驱动复核（scope × git 变更匹配）会漏掉本条",
-                file=rel,
-            )
-        )
-    findings += _modified_findings(rel, str(metadata.get("modified", "") or ""))
-    return findings
-
-
-def _modified_findings(rel: str, modified: str) -> List[Finding]:
-    """检查 modified 的格式与新鲜度；STALE 只是参考信号，不作陈旧判决依据"""
-    if not modified:
-        return []
-    if not MODIFIED_RE.match(modified):
-        return [Finding("MODIFIED-FORMAT", "WARN", f"modified={modified!r} 不是 YYYY-MM-DD", file=rel)]
-    try:
-        age = (date.today() - date.fromisoformat(modified)).days
-    except ValueError:
-        return []
-    if age > STALE_INFO_DAYS:
-        return [
-            Finding(
-                "STALE",
-                "INFO",
-                f"modified 距今 {age} 天——仅参考信号，是否复核由事件驱动判据定",
+                "缺 scope（--- 围栏 frontmatter 内）——事件驱动复核会漏掉本条",
                 file=rel,
             )
         ]
@@ -413,37 +332,18 @@ def _render_text(memory_root: Path, findings: List[Finding], stats: Stats) -> No
     print(f"\n{counts['ERROR']} ERROR, {counts['WARN']} WARN, {counts['INFO']} INFO — {'FAIL' if errors else 'PASS'}")
 
 
-def _render_json(root: Optional[str], findings: List[Finding], stats: Optional[Stats], errors: int) -> None:
-    """两分支共用 JSON 渲染，键集恒定"""
-    print(
-        json.dumps(
-            {
-                "memory_root": root,
-                "findings": [f.to_dict() for f in findings],
-                "stats": stats.to_dict() if stats is not None else None,
-                "error_count": errors,
-                "ok": errors == 0,
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：定位 MEMORY/、读快照、跑检查、渲染、按 ERROR 定退出码"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("root", nargs="?", default=".", help="从该路径向上找 MEMORY/（默认 cwd）")
-    parser.add_argument("--json", action="store_true", help="输出 JSON 而非文本")
+    parser.add_argument("root", nargs="?", default=".", help="检查该目录下的 MEMORY/（默认 cwd）")
     args = parser.parse_args(argv)
 
     start = Path(args.root).resolve()
-    memory_root = discover_memory_root(start)
+    memory_root = start if (start / MEMORY_DIR).is_dir() else None
     snap: Optional[Snapshot] = None
     if memory_root is None:
         findings = [Finding("NO-MEMORY", "INFO", "未发现 MEMORY/ 目录——需要建立记忆体系时走 init 入口")]
-        git_root = find_git_root(start) or start
-        agents_path = git_root / AGENTS_NAME
+        agents_path = start / AGENTS_NAME
         if agents_path.is_file() and declares_memory(agents_path):
             findings.append(
                 Finding(
@@ -459,9 +359,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         findings = collect_findings(memory_root, snap)
     errors = sum(1 for f in findings if f.level == "ERROR")
     stats = memory_stats(snap) if snap is not None else None
-    if args.json:
-        _render_json(str(memory_root) if memory_root is not None else None, findings, stats, errors)
-    elif memory_root is None:
+    if memory_root is None:
         for f in findings:
             _print_finding(f)
     else:

@@ -37,8 +37,8 @@ for t in */tools/tests/smoke_test_*.py; do d=${t%/tools/tests/*}; (cd "$d" && py
 ```
 
 - 判据是 **0 finding**，不是"与上次输出一致"。
-- 存量债务：coding-review / memory-management / sys-design-doc / writing-review
-  四个 skill 带旧标准形状（metadata 键、多余 H2），过不了新 check，修形或放宽检查器待定；
+- 存量债务：coding-review / sys-design-doc / writing-review
+  三个 skill 带旧标准形状（metadata 键、多余 H2），过不了新 check，修形或放宽检查器待定；
   CI 第 1 步引用的 verify.py 已随旧 skill 删除，CI 骨架检查步断裂，ruff 暂无 CI 覆盖。
 
 ### Markdown lint

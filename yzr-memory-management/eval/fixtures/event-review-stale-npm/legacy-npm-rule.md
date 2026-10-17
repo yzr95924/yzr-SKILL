@@ -1,10 +1,5 @@
 ---
-name: legacy-npm-rule
-description: 全仓依赖安装走 npm，禁其它包管理器直装。
-metadata:
-  type: feedback
-  scope: 全仓依赖安装
-  modified: 2026-05-12
+scope: 全仓依赖安装
 ---
 
 # 装依赖走 npm

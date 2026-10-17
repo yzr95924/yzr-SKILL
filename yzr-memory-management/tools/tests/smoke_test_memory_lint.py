@@ -4,43 +4,37 @@
 The class of bug this pins: a linter that passes everything (silent rot) or
 fails on valid structures (blocks legit writes). Fixtures cover both
 directions: a canonical clean memory passes with zero findings, and a rotted
-one surfaces each rule it should catch (dead link, orphan, frontmatter
-violations, budget overflow, sensitive strings), plus the no-MEMORY case with
+one surfaces each rule it should catch (dead link, orphan, missing scope,
+budget overflow, sensitive strings, index-head residue), plus the no-MEMORY case with
 and without a dangling AGENTS.md declaration, the empty-index warning, and the
 entry-length boundary (120 lines pass, 121 warns without gating). It also pins
-the skill's own artifacts against lint: eval/files fixtures must pass with
+the skill's own artifacts against lint: eval/fixtures fixtures must pass with
 zero ERROR/WARN, assets template numbers must match lint constants, and the
 AGENTS.md sample in ref/init-workflow.md must stay recognizable by
-MEMORY_REF_RE (exactly one declaring line). The project skeleton is
-same-sourced from the template's skeleton block via memory_init.extract_skeleton,
-and memory_init itself is covered (creates fresh skeleton, refuses an
-existing index without touching it).
+MEMORY_REF_RE (exactly one declaring line). The project skeleton constant
+must appear in the template's skeleton block.
 
-Run: python3 tests/smoke_test_memory_lint.py  (from yzr-memory-management/)
+Run: python3 tools/tests/smoke_test_memory_lint.py  (from yzr-memory-management/)
 Exit 0 = all green, 1 = regression.
 """
 
 import contextlib
 import io
-import json
+import re
+import shutil
 import sys
 import tempfile
-from datetime import date
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools import memory_init  # noqa: E402
 from tools.memory_lint import (  # noqa: E402
     BUDGET_HIGH_RATIO,
-    DESCRIPTION_MAX_CHARS,
     ENTRY_MAX_LINES,
     INDEX_MAX_BYTES,
     INDEX_MAX_LINES,
     MEMORY_REF_RE,
-    VALID_TYPES,
     collect_findings,
-    discover_memory_root,
     main,
 )
 
@@ -72,16 +66,16 @@ def rules_in(output: str, rules) -> str:
     return ", ".join(r for r in rules if r in output)
 
 
-SKILL_DIR = Path(__file__).resolve().parent.parent
+SKILL_DIR = Path(__file__).resolve().parents[2]
 TEMPLATE = SKILL_DIR / "assets" / "memory-index-template.md"
+SKELETON = "# MEMORY/\n\n## 规则\n"
+FENCE_RE = re.compile(r"```markdown\n(.*?)```", re.DOTALL)
 
 
 def skill_file(rel: str) -> str:
     """读 skill 侧文件（assets 模板 / ref 工作流）"""
     return (SKILL_DIR / rel).read_text(encoding="utf-8")
 
-
-TODAY = date.today().isoformat()
 
 CLEAN_INDEX = """# MEMORY/
 
@@ -91,13 +85,8 @@ CLEAN_INDEX = """# MEMORY/
 - 金额一律 Decimal：结算相关计算禁 float
 """
 
-CLEAN_ENTRY = f"""---
-name: pkg-tool
-description: 本仓包管理用 uv，禁 npm/pip 直装。
-metadata:
-  type: feedback
-  scope: 全仓依赖安装
-  modified: {TODAY}
+CLEAN_ENTRY = """---
+scope: 全仓依赖安装
 ---
 
 # 包管理用 uv
@@ -120,22 +109,12 @@ ROTTED_INDEX_HEAD = """# MEMORY/
 
 
 def build_rotted(root: Path) -> None:
-    """造一个各坏一处的 MEMORY/：死链、孤儿、name 不符、type 非法、缺 scope、敏感串、超预算"""
+    """造一个各坏一处的 MEMORY/：死链、孤儿、缺 scope、敏感串、超预算"""
     body = [ROTTED_INDEX_HEAD] + [f"- 填充条目 {i}：占位事实" for i in range(210)]
     write(root / "MEMORY" / "MEMORY.md", "\n".join(body) + "\n")
     write(
         root / "MEMORY" / "pkg-tool.md",
-        (
-            "---\n"
-            "name: other-name\n"
-            "description: name 与文件名不一致。\n"
-            "metadata:\n"
-            "  type: diary\n"
-            f"  modified: {TODAY}\n"
-            "---\n\n# 条目\n\n- 正文\n\n```\n"
-            "password: abc123def456ghi789jkl\n"
-            "```\n"
-        ),
+        ("- 正文没有 frontmatter，scope 缺失\n\n```\npassword: abc123def456ghi789jkl\n```\n"),
     )
     write(root / "MEMORY" / "unlinked.md", CLEAN_ENTRY)
 
@@ -147,7 +126,6 @@ def main_test() -> None:
         write(clean_root / "MEMORY" / "MEMORY.md", CLEAN_INDEX)
         write(clean_root / "MEMORY" / "pkg-tool.md", CLEAN_ENTRY)
 
-        expect(discover_memory_root(clean_root) == clean_root.resolve(), "发现层应定位到含 MEMORY/ 的目录")
         findings = collect_findings(clean_root.resolve())
         expect(findings == [], f"干净夹具应零 finding，实际: {findings}")
         rc, out = run_cli([str(clean_root)])
@@ -164,7 +142,7 @@ def main_test() -> None:
         sub = clean_root / "sub" / "dir"
         sub.mkdir(parents=True, exist_ok=True)
         rc, out = run_cli([str(sub)])
-        expect(rc == 0 and "MEMORY root" in out, "从子目录跑应向上定位到 MEMORY/")
+        expect(rc == 0 and "NO-MEMORY" in out, "传子目录不向上找，应报 NO-MEMORY")
 
     with tempfile.TemporaryDirectory() as tmp:
         rotted_root = Path(tmp) / "rotted"
@@ -174,8 +152,6 @@ def main_test() -> None:
         want = (
             "DEAD-LINK",
             "ORPHAN",
-            "NAME-MISMATCH",
-            "TYPE-INVALID",
             "SCOPE-MISSING",
             "INDEX-BUDGET",
             "SENSITIVE",
@@ -184,20 +160,8 @@ def main_test() -> None:
         expect(len(hit.split(", ")) == len(want), f"应命中全部 {len(want)} 条规则，实命中: {hit or '无'}")
         expect("INDEX-BUDGET-HIGH" not in out, "已超上限时不应再报八成水位 WARN")
 
-        rc, out = run_cli([str(rotted_root), "--json"])
-        data = json.loads(out)
-        expect(rc == 1 and data["ok"] is False, "JSON 模式 ok 应为 False")
-        expect(data["stats"]["entry_count"] == 2, f"JSON 模式 stats 条目数应为 2，实际 {data['stats']}")
-        expect(
-            data["error_count"] == sum(1 for f in data["findings"] if f["level"] == "ERROR"),
-            "error_count 应与 findings 一致",
-        )
-
-        rules = {f["rule"] for f in data["findings"]}
-        expect(
-            {"DEAD-LINK", "INDEX-BUDGET", "NAME-MISMATCH", "TYPE-INVALID"} <= rules,
-            f"ERROR 级规则应齐全，实际: {rules}",
-        )
+        rules = {f.rule for f in collect_findings(rotted_root.resolve()) if f.level == "ERROR"}
+        expect({"DEAD-LINK", "INDEX-BUDGET"} <= rules, f"ERROR 级规则应齐全，实际: {rules}")
 
     with tempfile.TemporaryDirectory() as tmp:
         empty_root = Path(tmp) / "empty"
@@ -205,16 +169,8 @@ def main_test() -> None:
         rc, out = run_cli([str(empty_root)])
         expect(rc == 0 and "NO-MEMORY" in out, "无 MEMORY/ 且无声明应回 INFO 且退出 0")
         expect("DANGLING-REF" not in out, "无声明时不应误报悬空声明")
-        rc, out = run_cli([str(empty_root), "--json"])
-        data = json.loads(out)
-        expect(data["memory_root"] is None, "JSON 模式 memory_root 应为 null")
-        expect(
-            "stats" in data and data["stats"] is None and data["error_count"] == 0,
-            "无记忆根的 JSON 应与正常分支同键集（stats / error_count）",
-        )
 
-        # 声明悬空：AGENTS.md 有 @MEMORY 行但 MEMORY/ 不存在；.git 钉住 git root 使判据不依赖 tempdir 环境
-        write(empty_root / ".git", "")
+        # 声明悬空：AGENTS.md 有 @MEMORY 行但 MEMORY/ 不存在
         write(empty_root / AGENTS_MD, "## 跨会话记忆（索引）\n\n@MEMORY/MEMORY.md\n")
         rc, out = run_cli([str(empty_root)])
         expect(rc == 1 and "DANGLING-REF" in out, f"声明悬空应报 ERROR 且退出 1，实际 rc={rc}")
@@ -232,32 +188,22 @@ def main_test() -> None:
         write(blank_root / "MEMORY" / "MEMORY.md", "   \n\t\n")
         rc, out = run_cli([str(blank_root)])
         expect(rc == 0 and "INDEX-EMPTY" in out, f"空白索引应 WARN 且不改退出码，实际 rc={rc}")
-        skeleton = memory_init.extract_skeleton(TEMPLATE)
-        write(blank_root / "MEMORY" / "MEMORY.md", skeleton)
+        write(blank_root / "MEMORY" / "MEMORY.md", SKELETON)
         rc, out = run_cli([str(blank_root)])
         expect(rc == 0 and "INDEX-EMPTY" not in out, f"骨架零条目是合法首批，不应报 INDEX-EMPTY，实际: {out}")
         findings = collect_findings(blank_root.resolve())
         expect(findings == [], f"极简骨架本身应零 finding，实际: {findings}")
 
     with tempfile.TemporaryDirectory() as tmp:
-        init_root = Path(tmp) / "fresh"
-        init_root.mkdir()
-        buffer = io.StringIO()
-        with contextlib.redirect_stdout(buffer):
-            rc = memory_init.main([str(init_root)])
-        created = init_root / "MEMORY" / "MEMORY.md"
-        expect(rc == 0 and created.is_file(), f"init 应建骨架并退出 0，实际 rc={rc}: {buffer.getvalue()}")
-        expect(
-            created.read_text(encoding="utf-8") == memory_init.extract_skeleton(TEMPLATE),
-            "init 写入内容应与模板骨架一致",
+        head_root = Path(tmp) / "head"
+        write(
+            head_root / "MEMORY" / "MEMORY.md",
+            "# MEMORY/\n\n预算 ≤ 200 行，达八成先精简再写入。\n\n## 规则\n\n- 短条目：事实\n",
         )
-
-        created.write_text("既有索引\n", encoding="utf-8")
-        buffer = io.StringIO()
-        with contextlib.redirect_stderr(buffer):
-            rc = memory_init.main([str(init_root)])
-        expect(rc == 1, f"索引已存在应拒绝且退出 1，实际 rc={rc}: {buffer.getvalue()}")
-        expect(created.read_text(encoding="utf-8") == "既有索引\n", "拒绝路径不得动既有文件")
+        rc, out = run_cli([str(head_root)])
+        expect(rc == 0 and "INDEX-HEAD" in out, f"头部规格抄件应报 INDEX-HEAD WARN 且不改退出码，实际 rc={rc}: {out}")
+        head_hits = [f for f in collect_findings(head_root.resolve()) if f.rule == "INDEX-HEAD"]
+        expect(len(head_hits) == 1 and head_hits[0].level == "WARN", f"应恰一条 WARN，实际: {head_hits}")
 
     with tempfile.TemporaryDirectory() as tmp:
         broken_root = Path(tmp) / "broken"
@@ -296,29 +242,32 @@ def main_test() -> None:
         expect("ENTRY-LONG" in out, "文本模式应输出 ENTRY-LONG")
 
     with tempfile.TemporaryDirectory() as tmp:
-        eval_root = Path(tmp) / "eval-fixtures"
-        fixtures = sorted((SKILL_DIR / "eval" / "files").glob("*.md"))
-        expect(len(fixtures) > 0, "eval/files 下应有 .md 夹具")
-        lines = []
-        for fixture in fixtures:
-            write(eval_root / "MEMORY" / fixture.name, fixture.read_text(encoding="utf-8"))
-            lines.append(f"- [{fixture.stem}]({fixture.name})：eval 夹具")
-        write(eval_root / "MEMORY" / "MEMORY.md", memory_init.extract_skeleton(TEMPLATE) + "\n".join(lines) + "\n")
-        findings = [f for f in collect_findings(eval_root.resolve()) if f.level in ("ERROR", "WARN")]
-        expect(findings == [], f"eval 夹具须过现行契约（0 ERROR 0 WARN），实际: {findings}")
+        case_dirs = sorted(d for d in (SKILL_DIR / "eval" / "fixtures").iterdir() if d.is_dir())
+        expect(len(case_dirs) > 0, "eval/fixtures 下应有用例夹具目录")
+        for case_dir in case_dirs:
+            root = Path(tmp) / case_dir.name
+            if (case_dir / "MEMORY").is_dir():
+                shutil.copytree(case_dir, root)
+            else:
+                entries = sorted(case_dir.glob("*.md"))
+                expect(len(entries) > 0, f"{case_dir.name} 下应有 .md 条目夹具")
+                (root / "MEMORY").mkdir(parents=True)
+                lines = [f"- [{f.stem}]({f.name})：eval 夹具" for f in entries]
+                (root / "MEMORY" / "MEMORY.md").write_text(SKELETON + "\n".join(lines) + "\n", encoding="utf-8")
+                for f in entries:
+                    (root / "MEMORY" / f.name).write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+            findings = [f for f in collect_findings(root.resolve()) if f.level in ("ERROR", "WARN")]
+            expect(findings == [], f"夹具 {case_dir.name} 须过现行契约（0 ERROR 0 WARN），实际: {findings}")
 
     index_md = TEMPLATE.read_text(encoding="utf-8")
     entry_md = skill_file("assets/memory-entry-template.md")
     expect(f"≤ {INDEX_MAX_LINES} 行且 ≤ {INDEX_MAX_BYTES // 1024}KB" in index_md, "索引模板预算数值应与 lint 常量一致")
     expect("八成" in index_md and BUDGET_HIGH_RATIO == 0.8, "水位措辞（八成）应与 BUDGET_HIGH_RATIO 一致")
     expect(f"超 {ENTRY_MAX_LINES} 行" in entry_md, "条目模板长度阈值应与 lint 常量一致")
-    expect(f"≤ {DESCRIPTION_MAX_CHARS} 字符" in entry_md, "条目模板 description 上限应与 lint 常量一致")
-    for entry_type in VALID_TYPES:
-        expect(f"`{entry_type}`" in entry_md, f"条目模板应列 type 四选一之 {entry_type}")
-    expect("YYYY-MM-DD" in entry_md, "条目模板应钉 modified 格式 YYYY-MM-DD")
+    expect("scope" in entry_md, "条目模板应保留 scope 字段及其用途说明")
 
     init_md = skill_file("ref/init-workflow.md")
-    blocks = memory_init.FENCE_RE.findall(init_md)
+    blocks = FENCE_RE.findall(init_md)
     sample = next((b for b in blocks if "MEMORY/MEMORY.md" in b), None)
     expect(sample is not None, "init-workflow 应含 AGENTS.md 引用段样例（markdown 代码块）")
     declared = [ln for ln in sample.splitlines() if MEMORY_REF_RE.match(ln.strip())]
