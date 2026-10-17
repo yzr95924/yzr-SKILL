@@ -1,17 +1,8 @@
 """骨架机械层：new 生成骨架 / check 比对漂移。
 
 脚本零定义：形状事实（frontmatter 键、节名、顺序）一律从 assets/skill-template.md 解析；
-每节/每目录"装什么"的定义活在 SKILL.md 正文，本文件不携带。
-
-用法：
-    python3 tools/skeleton.py new <skill-name> [--root DIR]
-    python3 tools/skeleton.py check [skill-dir ...] [--root DIR]   # 不给目录则扫 root 下全部含 SKILL.md 的子目录
-
-house 加严备查：frontmatter"精确相等"严于开放规范（规范另有可选字段），放宽路径 = 必需键精确 + 可选键白名单；
-跨文件链接 / `<a id>` 显式锚 / 反引号路径存活未实现——无场景无实证，立项先给事故。
-
-Run: python3 tools/skeleton.py --help
-Exit: 0 = 绿；1 = 有 finding；2 = 用法/环境错误。
+每节/每目录"装什么"的定义活在 SKILL.md 正文，本文件不携带。frontmatter 键精确相等严于
+开放规范（放宽 = 必需键精确 + 可选键白名单）；跨文件链接 / 显式锚 / 反引号路径存活不查，无事故不立项。
 """
 
 import argparse
@@ -208,14 +199,7 @@ def check_one(skill_dir: Path, want_keys: List[str], want_heads: List[str]) -> L
     return findings
 
 
-def cmd_check(argv: Sequence[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="skeleton.py check",
-        description="比对 skill 与模板形状（frontmatter 键、H2 序列、目录名 = name）+ 引用名存活 + 锚点链接存活",
-    )
-    parser.add_argument("dirs", nargs="*", type=Path, help="显式 skill 目录；不给则扫 --root")
-    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="扫描根（默认仓库根）")
-    args = parser.parse_args(argv)
+def cmd_check(args: argparse.Namespace) -> int:
     if not TEMPLATE.is_file():
         print(f"模板不存在：{TEMPLATE}", file=sys.stderr)
         return 2
@@ -231,13 +215,7 @@ def cmd_check(argv: Sequence[str]) -> int:
     return 0 if total == 0 else 1
 
 
-def cmd_new(argv: Sequence[str]) -> int:
-    parser = argparse.ArgumentParser(prog="skeleton.py new", description="从模板生成新 skill 骨架")
-    parser.add_argument(
-        "name", help="kebab-case skill 名（小写字母/数字、连字符分词、≤64 字符，=目录名=frontmatter name）"
-    )
-    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="创建位置（默认仓库根）")
-    args = parser.parse_args(argv)
+def cmd_new(args: argparse.Namespace) -> int:
     if len(args.name) > NAME_MAX_LEN:
         print(f"非法名 {args.name!r}：超过 {NAME_MAX_LEN} 字符（开放规范上限）", file=sys.stderr)
         return 2
@@ -262,13 +240,32 @@ def cmd_new(argv: Sequence[str]) -> int:
     return 0
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="skeleton.py",
+        description="骨架机械层：new 生成骨架 / check 比对漂移。"
+        "退出码：0 = 绿 / 生成成功；1 = 有 finding；2 = 用法或环境错误。",
+    )
+    sub = parser.add_subparsers(metavar="command", required=True)
+    p_new = sub.add_parser("new", help="从模板生成新 skill 骨架")
+    p_new.add_argument(
+        "name", help="kebab-case skill 名（小写字母/数字、连字符分词、≤64 字符，=目录名=frontmatter name）"
+    )
+    p_new.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="创建位置（默认仓库根）")
+    p_new.set_defaults(handler=cmd_new)
+    p_check = sub.add_parser(
+        "check",
+        help="比对 skill 与模板形状（frontmatter 键、H2 序列、目录名 = name）+ 引用名存活 + 锚点链接存活",
+    )
+    p_check.add_argument("dirs", nargs="*", type=Path, help="显式 skill 目录；不给则扫 --root")
+    p_check.add_argument("--root", type=Path, default=DEFAULT_ROOT, help="扫描根（默认仓库根）")
+    p_check.set_defaults(handler=cmd_check)
+    return parser
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0].startswith("-"):
-        print(__doc__, file=sys.stderr)
-        return 2
-    handlers = {"new": cmd_new, "check": cmd_check}
-    return handlers[argv[0]](argv[1:])
+    args = build_parser().parse_args(argv)
+    return args.handler(args)
 
 
 if __name__ == "__main__":
