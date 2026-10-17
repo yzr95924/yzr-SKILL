@@ -137,9 +137,12 @@ def main() -> int:
     r = run(["check", make_skill(tmp, "ref-bad", ref_bad)])
     expect(r.returncode != 0, "check 应抓到悬空引用名")
     # 假阳性钉死：引号内"过"不当触发词；单字标点捕获不算引用名；真实文件路径引用放行；
-    # 内联代码内的格式示例（`[章节](#节名)`）不当真链接查
+    # 内联代码内的格式示例（`[章节](#节名)`）不当真链接查；- 开头旗标与含空格命令段不是名称引用
     fp = good("fp-skill").replace("原则内容。", '原则内容。\n\n推荐"逐条过"；"细化"适合发现少时。')
-    fp = fp.replace("步骤内容。", "步骤内容。\n\n按 `known.md` 执行。\n\n跨节引用写 `[章节](#节名)`。")
+    fp = fp.replace(
+        "步骤内容。",
+        "步骤内容。\n\n按 `known.md` 执行。\n\n跨节引用写 `[章节](#节名)`。\n\n参数见 `--help`，跑 `python3 x --help`。",
+    )
     d = make_skill(tmp, "fp-skill", fp)
     (d / "known.md").write_text("# x\n", encoding="utf-8")
     r = run(["check", d])

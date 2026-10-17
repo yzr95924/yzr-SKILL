@@ -8,8 +8,12 @@
     python3 tools/skeleton.py check [skill-dir ...] [--root DIR]   # 不给目录则扫 root 下全部含 SKILL.md 的子目录
 
 check 检查项：frontmatter 键与 H2 序列和模板精确相等；目录名 == name 值；引用名存活——
-正文"见/按/对照 + 引号或反引号"引用的名称必须能解析到本文件的节、小节或粗体清单项名（真实文件路径按存在性放行）；
+正文"见/按/对照 + 引号或反引号"引用的名称必须能解析到本文件的节、小节或粗体清单项名（真实文件路径按存在性放行；
+反引号内 `-` 开头的 CLI 旗标与含空格的命令片段不算名称引用）；
 锚点链接——正文 [文字](#锚点) 的文字固定"章节"、锚点须解析到本文件节 / 小节（内联代码与围栏内的示例不查）。
+
+house 加严备查：frontmatter"精确相等"严于开放规范（规范另有可选字段），放宽路径 = 必需键精确 + 可选键白名单；
+跨文件链接 / `<a id>` 显式锚 / 反引号路径存活未实现——无场景无实证，立项先给事故。
 
 Run: python3 tools/skeleton.py --help
 Exit: 0 = 绿；1 = 有 finding；2 = 用法/环境错误。
@@ -148,6 +152,9 @@ def check_ref_liveness(md: Path) -> List[str]:
             missing.add(ref)
     for m in REF_TICK_RE.finditer(body):
         ref = m.group(1)
+        # 反引号里 - 开头是 CLI 旗标、含空格是命令行片段，都不是名称引用
+        if ref.startswith("-") or " " in ref:
+            continue
         if is_ref_name(ref) and ref not in names and not (skill_root / ref).is_file():
             missing.add(ref)
     return [
