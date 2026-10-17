@@ -11,7 +11,7 @@ MEMORY_DIR = "MEMORY"
 INDEX_NAME = "MEMORY.md"
 AGENTS_NAME = "AGENTS.md"
 
-# 预算与阈值的机器面；md 侧 SSOT 在 assets/memory-{index,entry}-template.md
+# 预算与阈值的机器面；md 侧以 assets/memory-{index,entry}-template.md 为准
 INDEX_MAX_LINES = 200
 INDEX_MAX_BYTES = 25600
 BUDGET_HIGH_RATIO = 0.8
@@ -19,7 +19,7 @@ ENTRY_MAX_LINES = 120
 
 ENTRY_LINK_RE = re.compile(r"^\s*-\s+\[(?P<title>[^\]]+)\]\((?P<slug>[^)\s/]+\.md)\)：")
 KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-# 契约：init 引用段模板自带的 <!-- 包裹注释行含 @MEMORY/MEMORY.md 字样，刻意不算声明
+# 契约：初始化引用段模板自带的 <!-- 包裹注释行含 @MEMORY/MEMORY.md 字样，刻意不算声明
 MEMORY_REF_RE = re.compile(r"^@MEMORY/MEMORY\.md\b")
 SENSITIVE_RES = (
     re.compile(r"(?i)\b(?:api[_-]?key|secret|token|password)\b\s*[:=]\s*['\"]?[A-Za-z0-9_\-/+=]{16,}"),
@@ -335,22 +335,22 @@ def _render_text(memory_root: Path, findings: List[Finding], stats: Stats) -> No
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI 入口：定位 MEMORY/、读快照、跑检查、渲染、按 ERROR 定退出码"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("root", nargs="?", default=".", help="检查该目录下的 MEMORY/（默认 cwd）")
+    parser.add_argument("root", nargs="?", default=".", help="检查该目录下的 MEMORY/（默认当前目录）")
     args = parser.parse_args(argv)
 
     start = Path(args.root).resolve()
     memory_root = start if (start / MEMORY_DIR).is_dir() else None
     snap: Optional[Snapshot] = None
     if memory_root is None:
-        findings = [Finding("NO-MEMORY", "INFO", "未发现 MEMORY/ 目录——需要建立记忆体系时走 init 入口")]
+        findings = [Finding("NO-MEMORY", "INFO", "未发现 MEMORY/ 目录——需要建立记忆体系时走初始化入口")]
         agents_path = start / AGENTS_NAME
         if agents_path.is_file() and declares_memory(agents_path):
             findings.append(
                 Finding(
                     "DANGLING-REF",
                     "ERROR",
-                    f"{AGENTS_NAME} 声明了 @MEMORY/MEMORY.md 但 MEMORY/ 不存在——走 init 入口建骨架"
-                    "（AGENTS.md 引用段已存在，按 init 跳过条件免改）",
+                    f"{AGENTS_NAME} 声明了 @MEMORY/MEMORY.md 但 MEMORY/ 不存在——走初始化入口建骨架"
+                    "（AGENTS.md 引用段已存在，按初始化跳过条件免改）",
                     file=AGENTS_NAME,
                 )
             )
