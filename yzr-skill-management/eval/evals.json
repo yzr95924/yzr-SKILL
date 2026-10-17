@@ -1,0 +1,37 @@
+{
+  "skill_name": "yzr-skill-management",
+  "evals": [
+    {
+      "id": "audit-catches-drift",
+      "prompt": "审计 demo-note-taker 这个 skill 符不符合骨架标准",
+      "expectations": [
+        "跑 python3 yzr-skill-management/tools/skeleton.py check 对准 fixture 目录，不手写结论替代检查",
+        "报告指出 frontmatter 多出 metadata 键",
+        "报告指出引用名\"三步整理法\"无存活定义",
+        "每条发现附文件与原文引用",
+        "不修改 fixture 的任何文件",
+        "每条发现给处置去向"
+      ]
+    },
+    {
+      "id": "improve-description-keyword",
+      "prompt": "用户会说\"帮我记个笔记\"，让 demo-note-taker 也能被这类话触发，改一下它的 description",
+      "expectations": [
+        "description 关键词补上对应\"记笔记\"类真实请求的词，不写整句引号例句",
+        "frontmatter 键仍精确为 name + description，不新增键",
+        "改完跑 check 回绿",
+        "不改动 description 以外的节"
+      ]
+    },
+    {
+      "id": "create-no-autofill",
+      "prompt": "我想把每周五的周报整理做成一个 skill：把这周的 git log 和我随手记的日报合并成一份周报",
+      "expectations": [
+        "先交范围与候选清单，不直接产出完整正文",
+        "对素材未覆盖的决策点（周报存哪、什么格式、git log 怎么取、日报从哪来）以开放问题列出，不自行拍板",
+        "机械步骤（取 git log、合并文件）列 tools/ 候选并给代价理由，不发明复杂工具链",
+        "确认内容写入 outputs"
+      ]
+    }
+  ]
+}

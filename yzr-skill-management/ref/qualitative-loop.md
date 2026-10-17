@@ -22,8 +22,10 @@
 
 ## 触发测试（description 草案后）
 
-- judge subagent 只拿 name + description 与不带标注的 query 列表，逐条输出一行：编号 | 触发或不触发 | 一句话理由；
-  编排 agent 对照标注算对错。正例负例都要有，负例取相邻请求类型
+- judge subagent 只拿 name + description 与不带标注的 query 列表，判定回显 query 原文；
+  编排 agent 把判定转写成 verdicts 文件（形状见 `trigger_score.py --help`），跑
+  `python3 yzr-skill-management/tools/trigger_score.py <skill-dir> <verdicts-file>` 对账
+- 正例负例都要有，负例取相邻请求类型
 - 单 judge 属同模型自判，存在偏置；边缘误判升给人工复核，不加机械 A/B
 
 ## evals 格式
@@ -31,4 +33,5 @@
 - `eval/evals.json`：`{"skill_name", "evals": [{"id", "prompt", "expectations": [...]}]}`
   expectations 写成能堵死"自建等效路径"的硬判据（如"跑 tools/x.py，不手拼产物"），
   不写叙述式 expected_output、不留空转 files 字段；未实跑的用例加 `"status": "未实跑"` 标注，实跑后转正或删除
-- `eval/trigger_eval.json`：`[{"query", "should_trigger"}]`
+- `eval/trigger_eval.json`：`[{"query", "should_trigger"}]`，形状由 trigger_score.py 读取时校验；
+  未实跑的条目同 evals.json 加 `"status": "未实跑"` 标注
