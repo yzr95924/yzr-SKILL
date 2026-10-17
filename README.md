@@ -5,7 +5,7 @@
 
 ## SKILLs 名单
 
-- `yzr-skill-creator`（元）—— 创建 / 改进 / 评估 / 校验 skill 本身
+- `yzr-skill-management`（元）—— 创建 / 改进 / 审计 skill 本身，维护骨架标准
 - `yzr-coding-review` —— 代码 review（合理性审视 + 重构场景，语言中立，默认不改文件）
 - `yzr-writing-review` —— 文档 review（逻辑 / 结构 / 冗余 / AI 腔 / SSOT；确认后承接改写）
 - `yzr-md-to-html` —— 本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
@@ -31,4 +31,4 @@ python3 scripts/install-dev-deps.py
 
 - 参考 [Claude 官方指导](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
   与 [anthropics/skills 的 skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator)
-- 具体实现原则见 [`./yzr-skill-creator`](./yzr-skill-creator)
+- 骨架标准与实现原则见 [`./yzr-skill-management`](./yzr-skill-management)

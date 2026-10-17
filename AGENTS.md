@@ -7,17 +7,14 @@
 
 ## 仓库规约
 
-- 正文节名 / 顺序 / 可选性标准：`yzr-skill-creator/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）。
-  共享数值常量统一在 `yzr-skill-creator/tools/utils.py` 顶部定义，utils.py 已有的数值别处不重抄（文件局部常量允许定义在所在文件）。
+- 正文节名 / 顺序 / 可选性标准：`yzr-skill-management/assets/skill-template.md`（可拷贝骨架，agent 与检查器都只认它）。
 - 改 skill 一律改仓库源；vendor 副本（`~/.agents/skills/` 等）是 npx 派生物，会被覆盖，
   不读、不改、不对比。
 - Python：唯一工具链配置在根 `pyproject.toml`。UP021/UP022 在 ignore 里——subprocess 的
   `universal_newlines=True` / `stdout=PIPE` 旧写法是刻意的，别"修正"。
 - 注释只写代码表达不了的坑与契约，不复述代码。
-- Markdown：跨文件 / 跨节引用一律 markdown 链接。frontmatter 解析唯一实现
-  `yzr-skill-creator/tools/utils.py::frontmatter_span`，别再写解析器——该唯一性约束
-  skill-creator 工具链内部；独立分发的 skill 不能跨 skill import，自带轻量 frontmatter
-  解析属豁免（如 `yzr-memory-management/tools/memory_lint.py`）
+- Markdown：跨文件 / 跨节引用一律 markdown 链接。独立分发的 skill 不能跨 skill import，
+  自带轻量 frontmatter 解析属豁免（如 `yzr-memory-management/tools/memory_lint.py`）
 - `tests/` 仅供开发期 / CI，运行时 agent 不读；eval 工作区 `<skill>-workspace/` 与 skill 同级
   且已 gitignore。
 
@@ -28,20 +25,21 @@
 ### 校验 skill
 
 ```bash
-# 全仓总入口（= CI 第 1 步）
-python3 yzr-skill-creator/tools/verify.py --repo-root . --strict-tools
+# 全仓总入口
+python3 yzr-skill-management/tools/skeleton.py check
 
 # 单 skill
-python3 yzr-skill-creator/tools/verify.py <skill-dir>
+python3 yzr-skill-management/tools/skeleton.py check <skill-dir>
 
-# 冒烟（= CI 第 3 步；每个在各自 skill 目录下跑）
+# 冒烟（tests/ 为存量位置，tools/tests/ 为新约定，两处都跑；各自 skill 目录下执行）
 for t in */tests/smoke_test_*.py; do d=${t%/tests/*}; (cd "$d" && python3 "tests/$(basename "$t")") || exit 1; done
+for t in */tools/tests/smoke_test_*.py; do d=${t%/tools/tests/*}; (cd "$d" && python3 "tools/tests/$(basename "$t")") || exit 1; done
 ```
 
-- 判据是 **0 ERROR / 0 gate failure**，不是"与上次输出一致"；WARN / INFO 不挂 CI。
-- `--strict-tools` 下工具 MISSING 直接判失败；CI 装的是 unpinned 最新版（ruff / markdownlint-cli），
-  本地旧版绿不算数。
-- 新增 skill / 新增冒烟都不用改 CI（verify 自动枚举 + glob 循环）。
+- 判据是 **0 finding**，不是"与上次输出一致"。
+- 存量债务（2026-10-17 记）：coding-review / memory-management / sys-design-doc / writing-review
+  四个 skill 带旧标准形状（metadata 键、多余 H2），过不了新 check，修形或放宽检查器待定；
+  CI 第 1 步引用的 verify.py 已随旧 skill 删除，CI 骨架检查步断裂，ruff 暂无 CI 覆盖。
 
 ### Markdown lint
 
@@ -50,9 +48,9 @@ markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'   # 仓库级�
 markdownlint '**/*.md'                                              # 全仓
 ```
 
-必须在仓库根跑（或 `-c .markdownlint.jsonc`）——否则配置找不到、行宽退回默认 80 成批误报；
-verify 内部已钉死 cwd 与 config。中文行"超限部分无空格"会被 markdownlint 默认豁免，但别依赖
-豁免，一律折到 120 内（工具版本漂移翻过车）。
+必须在仓库根跑（或 `-c .markdownlint.jsonc`）——否则配置找不到、行宽退回默认 80 成批误报。
+中文行"超限部分无空格"会被 markdownlint 默认豁免，但别依赖豁免，一律折到 120 内
+（工具版本漂移翻过车）。
 
 ### Python lint
 
@@ -61,7 +59,7 @@ ruff format <skill-dir>          # 应用格式化
 ruff check <skill-dir>           # lint（--fix 应用 safe 修复）
 ```
 
-verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproject.toml`。
+配置见根 `pyproject.toml`。
 
 ## 高层结构
 
@@ -74,13 +72,13 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 ├── pyproject.toml               # ruff 唯一配置（py37 + 120 列）
 ├── .markdownlint.jsonc          # MD013 放宽到 120；MD041 / MD060 关闭
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
-├── .github/workflows/ci.yml     # CI = verify --strict-tools + 仓库级 markdownlint + 冒烟循环
-└── yzr-*/                       # 各 skill 目录；yzr-skill-creator 内部：
-    ├── SKILL.md                 #   入口表（4 个入口）+ 执行原则（写作规则 = 审计清单）+ 定性测试循环
-    ├── tools/                   #   verify / quick_validate / check_anchor_health / desc_eval / utils
-    ├── tests/                   #   smoke_test_*（打桩冒烟）+ _fixtures.py（共享夹具）
-    ├── ref/                     #   {create,description}-workflow.md
-    └── assets/skill-template.md #   可拷贝的 SKILL.md 正文骨架
+├── .github/workflows/ci.yml     # CI = 仓库级 markdownlint + 冒烟循环（骨架检查步随 verify.py 删除，待重建）
+└── yzr-*/                       # 各 skill 目录；yzr-skill-management（元）内部：
+    ├── SKILL.md                 #   执行原则（设计 / 写作两小节）+ 工作流（创建 / 改进 / 审计）
+    ├── tools/                   #   skeleton.py（new 生成骨架 / check 比对漂移）+ tools/tests/ 冒烟
+    ├── ref/                     #   qualitative-loop.md（定性测试循环协议）
+    ├── assets/skill-template.md #   可拷贝的 SKILL.md 正文骨架
+    └── eval/                    #   trigger_eval.json（触发正负例）
 ```
 
 ## 跨会话记忆（索引）
@@ -89,10 +87,9 @@ verify 已自动跑 `ruff check` + `ruff format --check`，配置见根 `pyproje
 
 ## 注意事项
 
-- skill-creator 的触发评估零 LLM、零子进程：`tools/desc_eval.py`（prep / score / apply）只做机械半区；
-  judge 与行为性改进的定性测试 subagent 一律由编排 agent 用 harness subagent 会话内发起，
+- 定性测试的 judge 与行为性改进 subagent 一律由编排 agent 用 harness subagent 会话内发起，
   不起 `opencode run` 之类 CLI 子进程，也没有 A/B 数值管线（选型依据见 MEMORY/llm-worker-subagent.md）。
-- 创建 / 描述优化的执行细节在 `yzr-skill-creator/ref/{create,description}-workflow.md`；
-  改进（单点与定性循环）与原则校验的流程直接写在 `SKILL.md` 工作流节，入口表负责指路。
-- skill-creator 脚本两种入口都行（文件内 sys.path 引导）：
-  `python3 yzr-skill-creator/tools/x.py` 或 `cd yzr-skill-creator && python3 -m tools.x`。
+- 创建 / 改进 / 审计的流程写在 `yzr-skill-management/SKILL.md` 工作流节；定性测试循环协议在其
+  `ref/qualitative-loop.md`。
+- 骨架脚本两种入口都行：`python3 yzr-skill-management/tools/skeleton.py …` 或
+  `cd yzr-skill-management && python3 -m tools.skeleton …`。

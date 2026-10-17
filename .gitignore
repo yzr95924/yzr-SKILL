@@ -55,3 +55,4 @@ build/
 *-workspace/
 
 bak/
+.pytest_cache
