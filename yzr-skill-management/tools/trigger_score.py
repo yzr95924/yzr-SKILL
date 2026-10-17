@@ -1,7 +1,7 @@
 """触发评估计分：verdicts 文件对照 eval/trigger_eval.json。
 
 不收 LLM 原始输出解析，judge 的脏文本由编排 agent
-转写（desc_eval 的维护税教训）；按 query 逐字匹配，不按编号——编号会让指令
+转写（自由文本解析的维护税高）；按 query 逐字匹配，不按编号——编号会让指令
 拼装与对账耦合出顺序依赖
 """
 

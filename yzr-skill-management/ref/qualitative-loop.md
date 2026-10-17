@@ -1,5 +1,7 @@
 # 定性测试循环协议
 
+subagent 实跑有成本，每轮发起前问用户
+
 ## 工作区
 
 - `<skill-name>-workspace/test-<N>/case-<K>/{sandbox,outputs}`，与 skill 目录同级；逐用例独立沙箱，互不可见
