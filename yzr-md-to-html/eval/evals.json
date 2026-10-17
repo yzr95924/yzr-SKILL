@@ -4,55 +4,46 @@
     {
       "id": 1,
       "prompt": "帮我把项目根目录的 README.md 转成一个好看的 HTML，我想发给同事看",
-      "expected_output": "调用 tools/md_to_html.py README.md，生成同名 README.html",
-      "files": [],
       "expectations": [
-        "调用 tools/md_to_html.py（不自创 HTML）",
-        "输入为单个 .md 文件，输出为同名 .html 路径",
-        "告知用户产物路径（双击可浏览）"
+        "跑 tools/md_to_html.py 完成转换，不手拼 HTML、不用 md 库自建管线",
+        "汇报产物 .html 路径并说明双击即开",
+        "无公式无图表的文档不挂任何 CDN（脚本未打印联网通知）"
       ]
     },
     {
       "id": 2,
-      "prompt": "我这份设计文档 docs/architecture.md 里有 KaTeX 数学公式和 mermaid 流程图，导出成能直接打开看的 HTML",
-      "expected_output": "调用脚本转换，产物公式按需挂 KaTeX CDN、mermaid 默认转 ASCII 离线渲染（无需联网）；提醒含公式需联网加载 KaTeX",
-      "files": [],
+      "prompt": "这份设计文档 docs/architecture.md 里有数学公式和 mermaid 流程图，导出成能直接打开看的 HTML",
       "expectations": [
-        "调用 tools/md_to_html.py 转换",
-        "提到 mermaid 默认转 ASCII 离线渲染（不挂 Mermaid CDN）",
-        "提醒首次打开需联网加载 KaTeX CDN（公式部分）"
+        "跑 tools/md_to_html.py，产物为几十 KB 量级单文件（不得内联 mermaid 整库）",
+        "脚本打印的 KaTeX 联网通知与 gantt 回退通知（含文件与块号）原样转达",
+        "flowchart 块转为 ASCII 内嵌，产物无 Mermaid CDN 引用（gantt 除外）"
       ]
     },
     {
       "id": 3,
       "prompt": "把 notes/ 这个目录下的笔记全部转成 html",
-      "expected_output": "识别为目录输入，批量转换，每个 .md 生成同名 .html，汇报转换数量",
-      "files": [],
       "expectations": [
-        "识别为目录输入（而非单个文件）",
-        "调用脚本转换整个目录（传目录路径）",
-        "汇报转换数量"
+        "识别目录输入，一次调用脚本批量转换",
+        "汇报转换数量与逐篇路径",
+        "时序图（支持类型）转 ASCII 离线内嵌，不挂 CDN"
       ]
     },
     {
       "id": 4,
-      "prompt": "这个 notes/ 目录里有些 md 文件我不想带目录侧边栏，用 --no-toc 批量转一遍",
-      "expected_output": "目录输入 + --no-toc 参数，脚本批量转换且每份产物均无侧边栏目录",
-      "files": [],
+      "prompt": "把 empty-docs/ 目录整个转成 html（该目录可能没有 md）",
       "expectations": [
-        "使用 --no-toc 参数",
-        "目录输入下 --no-toc 同样生效（不被静默忽略）"
+        "目录下无 .md 时脚本非零退出，agent 如实转报错误",
+        "不静默跳过、不硬造空产物"
       ]
     },
     {
       "id": 5,
-      "prompt": "把 docs/ 目录转成 html，目录里可能一个 md 都没有",
-      "expected_output": "目录输入；若目录下无 .md，脚本报错（退出）并如实告知用户，不静默产出空结果",
-      "files": [],
+      "prompt": "把 notes/ 转成 html，但其中一篇转换失败了",
       "expectations": [
-        "先检查目录下是否有 .md 文件",
-        "无 .md 时如实报错并说明，不产出空结果"
-      ]
+        "成功篇目正常产出并汇报",
+        "失败篇目如实转报（含脚本原因），不静默跳过"
+      ],
+      "status": "未实跑，来自裸跑观察外推，首跑后转正或删除"
     }
   ]
 }
