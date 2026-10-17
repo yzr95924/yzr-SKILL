@@ -74,11 +74,11 @@ ruff check <skill-dir>           # lint（--fix 应用 safe 修复）
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
 ├── .github/workflows/ci.yml     # CI = 仓库级 markdownlint + 冒烟循环（骨架检查步随 verify.py 删除，待重建）
 └── yzr-*/                       # 各 skill 目录；yzr-skill-management（元）内部：
-    ├── SKILL.md                 #   执行原则（设计 / 写作两小节）+ 工作流（创建 / 改进 / 审计）
+    ├── SKILL.md                 #   执行原则（设计 / 写作两小节）+ 工作流（改进 / 审计 + 共享收口）
     ├── tools/                   #   skeleton.py（new 生成骨架 / check 比对漂移）+ tools/tests/ 冒烟
-    ├── ref/                     #   qualitative-loop.md（定性测试循环协议）
+    ├── ref/                     #   create.md（创建工作流）+ qualitative-loop.md（定性测试循环协议）
     ├── assets/skill-template.md #   可拷贝的 SKILL.md 正文骨架
-    └── eval/                    #   trigger_eval.json（触发正负例）
+    └── eval/                    #   evals.json（行为用例）+ trigger_eval.json（触发正负例）+ fixtures/（用例固定输入）
 ```
 
 ## 跨会话记忆（索引）
