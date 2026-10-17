@@ -3,11 +3,14 @@
   "evals": [
     {
       "id": "audit-catches-drift",
-      "prompt": "审计 demo-note-taker 这个 skill 符不符合骨架标准",
+      "prompt": "审计 demo-note-taker 这个 skill 符不符合标准",
       "expectations": [
         "跑 python3 yzr-skill-management/tools/skeleton.py check 对准 fixture 目录，不手写结论替代检查",
         "报告指出 frontmatter 多出 metadata 键",
         "报告指出引用名\"三步整理法\"无存活定义",
+        "报告指出\"→\"违反标点从简",
+        "报告按\"行文说人话\"指出 SSOT 与 workaround，各附中文改法",
+        "tools/build.py 这类字面引用不被当英文术语误报",
         "每条发现附文件与原文引用",
         "不修改 fixture 的任何文件",
         "每条发现给处置去向"

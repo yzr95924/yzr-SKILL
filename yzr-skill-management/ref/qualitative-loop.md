@@ -21,6 +21,7 @@ subagent 实跑有成本，每轮发起前问用户
   harness 加载的是安装快照（vendored 副本），不是仓库新文；不内联测到的是旧文
 - 用例要操作的固定输入（skill 目录、样例文件）存 `eval/fixtures/<用例 id>/`，跑前整个拷进沙箱再用；
   内容跟着 expectations 走，改一方同步另一方
+- 夹具按状态复用：新失败模式优先扩展现有同状态夹具与其 expectations，状态不兼容（如干净基线与蓄意腐化）才新立目录
 - 判定：对照 `eval/evals.json` 中该用例的 expectations 逐条过；发现弱断言（错误输出也会过的）
   同步收紧该用例的 expectations
 
