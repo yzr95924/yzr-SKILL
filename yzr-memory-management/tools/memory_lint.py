@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""检查项目 MEMORY/：索引一致性、条目 scope、预算水位、敏感串、悬空声明；只报告不改写。"""
+"""检查项目 MEMORY/：索引一致性、条目 scope、索引用量、敏感串、悬空声明；只报告不改写。"""
 
 import argparse
 import re
@@ -11,7 +11,7 @@ MEMORY_DIR = "MEMORY"
 INDEX_NAME = "MEMORY.md"
 AGENTS_NAME = "AGENTS.md"
 
-# 预算与阈值的机器面；md 侧以 assets/memory-{index,entry}-template.md 为准
+# 上限与阈值的具体数值；md 侧以 assets/memory-{index,entry}-template.md 为准
 INDEX_MAX_LINES = 200
 INDEX_MAX_BYTES = 25600
 BUDGET_HIGH_RATIO = 0.8
@@ -40,7 +40,7 @@ class Finding(NamedTuple):
 
 
 class Stats(NamedTuple):
-    """体检报告的机械数字面：索引水位与条目数，免人工计数"""
+    """检查结果里的统计数字：索引用量与条目数，免人工计数"""
 
     index_lines: int
     index_budget_lines: int
@@ -118,7 +118,7 @@ def declares_memory(agents_path: Path) -> bool:
 
 
 def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int, str]]]:
-    """检查索引：预算水位、头部残留、重复链接；返回 (findings, [(行号, slug)])"""
+    """检查索引：用量、头部残留、重复链接；返回 (findings, [(行号, slug)])"""
     findings: List[Finding] = []
     line_count = len(text.splitlines())
     if line_count > INDEX_MAX_LINES:
@@ -126,7 +126,7 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
             Finding(
                 "INDEX-BUDGET",
                 "ERROR",
-                f"索引 {line_count} 行，超上限 {INDEX_MAX_LINES} 行——先精简再写入（合并摘要 / 升格文件条目 / 复核最旧条目）",
+                f"索引 {line_count} 行，超上限 {INDEX_MAX_LINES} 行——先精简再写入（合并摘要 / 短条目改写成文件条目 / 复查最旧条目）",
                 file=rel,
             )
         )
@@ -135,7 +135,7 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
             Finding(
                 "INDEX-BUDGET-HIGH",
                 "WARN",
-                f"索引 {line_count} 行，已达上限 {INDEX_MAX_LINES} 行的八成——写入前先备精简案",
+                f"索引 {line_count} 行，已达上限 {INDEX_MAX_LINES} 行的八成——写入前先备精简方案",
                 file=rel,
             )
         )
@@ -161,7 +161,7 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
                     Finding(
                         "INDEX-HEAD",
                         "WARN",
-                        f"索引头部只允许标题与 ## 组名行，出现散文 / 规格抄件：{stripped[:40]}"
+                        f"索引头部只允许标题与 ## 组名行，发现说明文字 / 模板残留：{stripped[:40]}"
                         "（格式规格在 skill 侧模板，项目不持副本）",
                         file=rel,
                         line=str(lineno),
@@ -215,7 +215,7 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
             Finding(
                 "ENTRY-LONG",
                 "WARN",
-                f"条目 {entry_lines} 行，超 {ENTRY_MAX_LINES}——压缩或吸收进 docs / AGENTS.md 留指针（超长多为路由错误）",
+                f"条目 {entry_lines} 行，超 {ENTRY_MAX_LINES}——压缩或写进 docs / AGENTS.md、摘要里写明去处（超长多半是放错了位置）",
                 file=rel,
             )
         )
@@ -225,7 +225,7 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
 
 
 def _frontmatter_findings(rel: str, fm: Dict) -> List[Finding]:
-    """检查条目 scope：事件驱动复核（scope × git 变更匹配）的预筛字段"""
+    """检查条目 scope：变更检查（scope × git 变更匹配）的预筛字段"""
     # scope 兼容旧条目的 metadata.scope 嵌套写法，旧格式条目在新检查下保持零 finding
     metadata = fm.get("metadata")
     metadata = metadata if isinstance(metadata, dict) else {}
@@ -235,7 +235,7 @@ def _frontmatter_findings(rel: str, fm: Dict) -> List[Finding]:
             Finding(
                 "SCOPE-MISSING",
                 "WARN",
-                "缺 scope（--- 围栏 frontmatter 内）——事件驱动复核会漏掉本条",
+                "缺 scope（--- 围栏 frontmatter 内）——变更检查会漏掉本条",
                 file=rel,
             )
         ]
@@ -307,7 +307,7 @@ def collect_findings(memory_root: Path, snap: Optional[Snapshot] = None) -> List
 
 
 def memory_stats(snap: Snapshot) -> Stats:
-    """从快照汇总体检数字：索引行数（缺索引记 0）与条目数"""
+    """从快照汇总统计数字：索引行数（缺索引记 0）与条目数"""
     index_lines = len(snap.index_text.splitlines()) if snap.index_text is not None else 0
     return Stats(index_lines=index_lines, index_budget_lines=INDEX_MAX_LINES, entry_count=len(snap.entries))
 

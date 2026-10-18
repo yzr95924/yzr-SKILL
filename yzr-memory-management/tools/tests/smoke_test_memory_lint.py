@@ -103,13 +103,13 @@ ROTTED_INDEX_HEAD = """# MEMORY/
 ## 规则
 
 - [包管理用 uv](pkg-tool.md)：本仓装依赖走 uv
-- [旧规则](old-rule.md)：已被文档吸收但索引还挂着
+- [旧规则](old-rule.md)：已被文档覆盖但索引还挂着
 - 包管理用 uv：与第一条同主题，短条目重复
 """
 
 
 def build_rotted(root: Path) -> None:
-    """造一个各坏一处的 MEMORY/：死链、孤儿、缺 scope、敏感串、超预算"""
+    """造一个各坏一处的 MEMORY/：死链、孤儿、缺 scope、敏感串、超上限"""
     body = [ROTTED_INDEX_HEAD] + [f"- 填充条目 {i}：占位事实" for i in range(210)]
     write(root / "MEMORY" / "MEMORY.md", "\n".join(body) + "\n")
     write(
@@ -133,7 +133,7 @@ def main_test() -> None:
         expect("PASS" in out, "干净夹具应输出 PASS")
         expect(
             f"STATS 索引 {len(CLEAN_INDEX.splitlines())} / {INDEX_MAX_LINES} 行 · 条目 1 个" in out,
-            "文本模式应输出 STATS 体检数字",
+            "文本模式应输出 STATS 统计数字",
         )
         write(clean_root / AGENTS_MD, "## 跨会话记忆（索引）\n\n@MEMORY/MEMORY.md\n")
         findings = collect_findings(clean_root.resolve())
@@ -158,7 +158,7 @@ def main_test() -> None:
         )
         hit = rules_in(out, want)
         expect(len(hit.split(", ")) == len(want), f"应命中全部 {len(want)} 条规则，实命中: {hit or '无'}")
-        expect("INDEX-BUDGET-HIGH" not in out, "已超上限时不应再报八成水位 WARN")
+        expect("INDEX-BUDGET-HIGH" not in out, "已超上限时不应再报八成用量 WARN")
 
         rules = {f.rule for f in collect_findings(rotted_root.resolve()) if f.level == "ERROR"}
         expect({"DEAD-LINK", "INDEX-BUDGET"} <= rules, f"ERROR 级规则应齐全，实际: {rules}")
@@ -198,7 +198,7 @@ def main_test() -> None:
         head_root = Path(tmp) / "head"
         write(
             head_root / "MEMORY" / "MEMORY.md",
-            "# MEMORY/\n\n预算 ≤ 200 行，达八成先精简再写入。\n\n## 规则\n\n- 短条目：事实\n",
+            "# MEMORY/\n\n上限 ≤ 200 行，达八成先精简再写入。\n\n## 规则\n\n- 短条目：事实\n",
         )
         rc, out = run_cli([str(head_root)])
         expect(rc == 0 and "INDEX-HEAD" in out, f"头部规格抄件应报 INDEX-HEAD WARN 且不改退出码，实际 rc={rc}: {out}")
@@ -261,8 +261,8 @@ def main_test() -> None:
 
     index_md = TEMPLATE.read_text(encoding="utf-8")
     entry_md = skill_file("assets/memory-entry-template.md")
-    expect(f"≤ {INDEX_MAX_LINES} 行且 ≤ {INDEX_MAX_BYTES // 1024}KB" in index_md, "索引模板预算数值应与 lint 常量一致")
-    expect("八成" in index_md and BUDGET_HIGH_RATIO == 0.8, "水位措辞（八成）应与 BUDGET_HIGH_RATIO 一致")
+    expect(f"≤ {INDEX_MAX_LINES} 行且 ≤ {INDEX_MAX_BYTES // 1024}KB" in index_md, "索引模板上限数值应与 lint 常量一致")
+    expect("八成" in index_md and BUDGET_HIGH_RATIO == 0.8, "用量措辞（八成）应与 BUDGET_HIGH_RATIO 一致")
     expect(f"超 {ENTRY_MAX_LINES} 行" in entry_md, "条目模板长度阈值应与 lint 常量一致")
     expect("scope" in entry_md, "条目模板应保留 scope 字段及其用途说明")
 
