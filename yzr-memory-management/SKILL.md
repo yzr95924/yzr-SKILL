@@ -29,12 +29,12 @@ description: |
 
 ### 写入
 
-检查针对的是 **agent 自主写入**（批量沉淀、主动提议）；用户点名的单条"记一下"由用户本人把关，本流程只补合并检查与位置 / 格式判断。先 Read `ref/capture-workflow.md` 再动手
+检查针对的是 **agent 自主写入**（批量沉淀、主动提议）；用户点名的单条"记一下"由用户本人把关，本流程只补合并检查与位置 / 格式判断。先 Read `ref/capture.md` 再动手
 
 ### 清理
 
-先 Read `ref/audit-workflow.md` 再动手
+先 Read `ref/audit.md` 再动手
 
 ### 初始化
 
-不主动推销；用户点名、或写入流程发现项目还没有 MEMORY/ 时才提议。先 Read `ref/init-workflow.md` 再动手
+不主动推销；用户点名、或写入流程发现项目还没有 MEMORY/ 时才提议。先 Read `ref/init.md` 再动手

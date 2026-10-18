@@ -10,7 +10,7 @@ and without a dangling AGENTS.md declaration, the empty-index warning, and the
 entry-length boundary (120 lines pass, 121 warns without gating). It also pins
 the skill's own artifacts against lint: eval/fixtures fixtures must pass with
 zero ERROR/WARN, assets template numbers must match lint constants, and the
-AGENTS.md sample in ref/init-workflow.md must stay recognizable by
+AGENTS.md sample in ref/init.md must stay recognizable by
 MEMORY_REF_RE (exactly one declaring line). The project skeleton constant
 must appear in the template's skeleton block.
 
@@ -266,7 +266,7 @@ def main_test() -> None:
     expect(f"超 {ENTRY_MAX_LINES} 行" in entry_md, "条目模板长度阈值应与 lint 常量一致")
     expect("scope" in entry_md, "条目模板应保留 scope 字段及其用途说明")
 
-    init_md = skill_file("ref/init-workflow.md")
+    init_md = skill_file("ref/init.md")
     blocks = FENCE_RE.findall(init_md)
     sample = next((b for b in blocks if "MEMORY/MEMORY.md" in b), None)
     expect(sample is not None, "init-workflow 应含 AGENTS.md 引用段样例（markdown 代码块）")
