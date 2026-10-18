@@ -30,6 +30,8 @@ FULLWIDTH_FORM_RE = (
     "[\uff02-\uff07\uff0a-\uff0b\uff0d-\uff19\uff1c-\uff1e"
     "\uff20-\uff3a\uff3c\uff3e-\uff40\uff41-\uff5a\uff5c\uff5e\u3000]"
 )
+# CJK 邻接的半角双引号：中文行文引号用弯引号“”（U+201C/201D），半角 " 属混用；英文行文的 " 不邻 CJK 不收
+QUOTE_MIX_RE = rf"[{_CJK}]\"|\"[{_CJK}]"
 
 # 目录递归在 vendor / 产物目录处剪枝；显式点名的路径（文件或目录本身）不过滤
 DEFAULT_EXCLUDE_DIRS = {".git", "node_modules", "__pycache__", "site-packages", "venv", ".venv"}
@@ -54,6 +56,7 @@ PATTERNS = [
     Pattern("ARROW", "", "规则集\u201c装饰符号\u201d行", ARROW_RE),
     Pattern("EMOJI", "", "规则集\u201c装饰符号\u201d行", EMOJI_RE),
     Pattern("WIDTH-MIX", "", "规则集\u201c标点宽度\u201d行", WIDTH_MIX_RE),
+    Pattern("QUOTE-MIX", "", "规则集\u201c标点宽度\u201d行", QUOTE_MIX_RE),
     Pattern("FULLWIDTH-FORM", "", "规则集\u201c全角符号\u201d行", FULLWIDTH_FORM_RE),
 ]
 

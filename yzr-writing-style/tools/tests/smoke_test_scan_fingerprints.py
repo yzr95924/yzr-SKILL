@@ -249,6 +249,38 @@ def width_mix_negative_inside_fence():
 
 
 @case
+def quote_mix_positive_prose_hit():
+    text = '他说"走吧"就走了。\n'
+    hits = scan_text(text, "a.md")
+    expect(len(hits) == 1 and hits[0].pid == "QUOTE-MIX" and hits[0].count == 2, hits)
+
+
+@case
+def quote_mix_negative_curly_quotes():
+    # 中文行文的正确形态：弯引号不收
+    text = "他说\u201c走吧\u201d就走了。\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def quote_mix_negative_english_prose():
+    text = 'The "quick" fox runs.\n'
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def quote_mix_negative_inline_code():
+    text = '参数 `"--flag"` 照抄。\n'
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
+def quote_mix_negative_inside_fence():
+    text = '```bash\necho "hi" # 注释\n```\n'
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
 def fullwidth_form_positive_letters():
     text = "优先级Ａ级处理，状态为ＯＫ。\n"
     hits = scan_text(text, "a.md")
