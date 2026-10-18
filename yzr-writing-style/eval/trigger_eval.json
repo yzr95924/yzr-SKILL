@@ -1,0 +1,14 @@
+[
+  {"query": "帮我写一个 README 介绍这个项目", "should_trigger": true},
+  {"query": "审计一下这篇文档，看看风格有没有问题", "should_trigger": true},
+  {"query": "把这段会议记录整理成一份 wiki 页面", "should_trigger": true},
+  {"query": "用几个模型交叉评审一下这篇设计文档", "should_trigger": true},
+  {"query": "帮我给这个工具写一份使用说明文档", "should_trigger": true},
+  {"query": "帮我修一下这个登录超时的 bug", "should_trigger": false},
+  {"query": "这段 Python 代码为什么会死循环", "should_trigger": false},
+  {"query": "把这段话翻译成英文", "should_trigger": false},
+  {"query": "帮我核对这篇文档里的数据是否准确", "should_trigger": false},
+  {"query": "帮我重构这个函数，太长了", "should_trigger": false},
+  {"query": "帮我给这次改动写个 commit message", "should_trigger": false},
+  {"query": "帮我给这个函数补个注释，说明参数含义", "should_trigger": false}
+]
