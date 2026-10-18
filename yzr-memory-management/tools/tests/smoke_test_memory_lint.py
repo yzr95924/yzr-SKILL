@@ -6,10 +6,10 @@ fails on valid structures (blocks legit writes). Fixtures cover both
 directions: a canonical clean memory passes with zero findings, and a rotted
 one surfaces each rule it should catch (dead link, orphan, missing scope,
 budget overflow, sensitive strings, index-head residue), plus the no-MEMORY case with
-and without a dangling AGENTS.md declaration, the empty-index warning, and the
-entry-length boundary (120 lines pass, 121 warns without gating). It also pins
+and without a dangling AGENTS.md declaration, the empty-index finding, and the
+entry-length boundary (120 lines pass, 121 flags without gating). It also pins
 the skill's own artifacts against lint: eval/fixtures fixtures must pass with
-zero ERROR/WARN, assets template numbers must match lint constants, and the
+zero findings, assets template numbers must match lint constants, and the
 AGENTS.md sample in ref/init.md must stay recognizable by
 MEMORY_REF_RE (exactly one declaring line). The project skeleton constant
 must appear in the template's skeleton block.
@@ -92,10 +92,6 @@ scope: 全仓依赖安装
 # 包管理用 uv
 
 - 装依赖一律 uv，npm / pip 直装会被用户纠正
-
-## 关键证据
-
-2026-09 用户纠正过一次 npm install 的用法
 """
 
 ROTTED_INDEX_HEAD = """# MEMORY/
@@ -130,7 +126,7 @@ def main_test() -> None:
         expect(findings == [], f"干净夹具应零 finding，实际: {findings}")
         rc, out = run_cli([str(clean_root)])
         expect(rc == 0, f"干净夹具应退出 0，实际 {rc}")
-        expect("PASS" in out, "干净夹具应输出 PASS")
+        expect("clean" in out, "干净夹具应输出 clean")
         expect(
             f"STATS 索引 {len(CLEAN_INDEX.splitlines())} / {INDEX_MAX_LINES} 行 · 条目 1 个" in out,
             "文本模式应输出 STATS 统计数字",
@@ -158,23 +154,23 @@ def main_test() -> None:
         )
         hit = rules_in(out, want)
         expect(len(hit.split(", ")) == len(want), f"应命中全部 {len(want)} 条规则，实命中: {hit or '无'}")
-        expect("INDEX-BUDGET-HIGH" not in out, "已超上限时不应再报八成用量 WARN")
+        expect("INDEX-BUDGET-HIGH" not in out, "已超上限时不应再报八成用量提示")
 
-        rules = {f.rule for f in collect_findings(rotted_root.resolve()) if f.level == "ERROR"}
-        expect({"DEAD-LINK", "INDEX-BUDGET"} <= rules, f"ERROR 级规则应齐全，实际: {rules}")
+        rules = {f.rule for f in collect_findings(rotted_root.resolve())}
+        expect({"DEAD-LINK", "INDEX-BUDGET"} <= rules, f"关键规则应齐全，实际: {rules}")
 
     with tempfile.TemporaryDirectory() as tmp:
         empty_root = Path(tmp) / "empty"
         empty_root.mkdir(parents=True, exist_ok=True)
         rc, out = run_cli([str(empty_root)])
-        expect(rc == 0 and "NO-MEMORY" in out, "无 MEMORY/ 且无声明应回 INFO 且退出 0")
+        expect(rc == 0 and "NO-MEMORY" in out, "无 MEMORY/ 且无声明应回 NO-MEMORY 提示且退出 0")
         expect("DANGLING-REF" not in out, "无声明时不应误报悬空声明")
 
         # 声明悬空：AGENTS.md 有 @MEMORY 行但 MEMORY/ 不存在
         write(empty_root / AGENTS_MD, "## 跨会话记忆（索引）\n\n@MEMORY/MEMORY.md\n")
         rc, out = run_cli([str(empty_root)])
-        expect(rc == 1 and "DANGLING-REF" in out, f"声明悬空应报 ERROR 且退出 1，实际 rc={rc}")
-        expect("NO-MEMORY" in out, "悬空声明应与 NO-MEMORY INFO 并存")
+        expect(rc == 1 and "DANGLING-REF" in out, f"声明悬空应报出且退出 1，实际 rc={rc}")
+        expect("NO-MEMORY" in out, "悬空声明应与 NO-MEMORY 提示并存")
 
         write(
             empty_root / AGENTS_MD,
@@ -187,7 +183,7 @@ def main_test() -> None:
         blank_root = Path(tmp) / "blank"
         write(blank_root / "MEMORY" / "MEMORY.md", "   \n\t\n")
         rc, out = run_cli([str(blank_root)])
-        expect(rc == 0 and "INDEX-EMPTY" in out, f"空白索引应 WARN 且不改退出码，实际 rc={rc}")
+        expect(rc == 1 and "INDEX-EMPTY" in out, f"空白索引应报出且退出 1，实际 rc={rc}")
         write(blank_root / "MEMORY" / "MEMORY.md", SKELETON)
         rc, out = run_cli([str(blank_root)])
         expect(rc == 0 and "INDEX-EMPTY" not in out, f"骨架零条目是合法首批，不应报 INDEX-EMPTY，实际: {out}")
@@ -201,9 +197,9 @@ def main_test() -> None:
             "# MEMORY/\n\n上限 ≤ 200 行，达八成先精简再写入。\n\n## 规则\n\n- 短条目：事实\n",
         )
         rc, out = run_cli([str(head_root)])
-        expect(rc == 0 and "INDEX-HEAD" in out, f"头部规格抄件应报 INDEX-HEAD WARN 且不改退出码，实际 rc={rc}: {out}")
+        expect(rc == 1 and "INDEX-HEAD" in out, f"头部规格抄件应报 INDEX-HEAD 且退出 1，实际 rc={rc}: {out}")
         head_hits = [f for f in collect_findings(head_root.resolve()) if f.rule == "INDEX-HEAD"]
-        expect(len(head_hits) == 1 and head_hits[0].level == "WARN", f"应恰一条 WARN，实际: {head_hits}")
+        expect(len(head_hits) == 1, f"应恰一条 INDEX-HEAD，实际: {head_hits}")
 
     with tempfile.TemporaryDirectory() as tmp:
         broken_root = Path(tmp) / "broken"
@@ -237,8 +233,8 @@ def main_test() -> None:
         write(long_root / "MEMORY" / "pkg-tool.md", padded_entry(ENTRY_MAX_LINES + 1))
         rc, out = run_cli([str(long_root)])
         long_hits = [f for f in collect_findings(long_root.resolve()) if f.rule == "ENTRY-LONG"]
-        expect(rc == 0, f"ENTRY-LONG 是 WARN 不应改退出码，实际 {rc}")
-        expect(len(long_hits) == 1 and long_hits[0].level == "WARN", f"应恰好一条 WARN，实际: {long_hits}")
+        expect(rc == 1, f"超长条目是问题，应退出 1，实际 {rc}")
+        expect(len(long_hits) == 1, f"应恰好一条 ENTRY-LONG，实际: {long_hits}")
         expect("ENTRY-LONG" in out, "文本模式应输出 ENTRY-LONG")
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -256,8 +252,8 @@ def main_test() -> None:
                 (root / "MEMORY" / "MEMORY.md").write_text(SKELETON + "\n".join(lines) + "\n", encoding="utf-8")
                 for f in entries:
                     (root / "MEMORY" / f.name).write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
-            findings = [f for f in collect_findings(root.resolve()) if f.level in ("ERROR", "WARN")]
-            expect(findings == [], f"夹具 {case_dir.name} 须过现行契约（0 ERROR 0 WARN），实际: {findings}")
+            findings = collect_findings(root.resolve())
+            expect(findings == [], f"夹具 {case_dir.name} 须过现行契约（零问题），实际: {findings}")
 
     index_md = TEMPLATE.read_text(encoding="utf-8")
     entry_md = skill_file("assets/memory-entry-template.md")

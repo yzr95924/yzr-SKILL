@@ -18,7 +18,7 @@ MEMORY/ 只认当前目录一份：`./MEMORY/` 存在即用，不存在转初始
 ## 写到哪
 
 - 一句话事实：短条目（行格式见 `assets/memory-index-template.md`）
-- 需要展开为什么 / 边界 / 证据：`<slug>.md` 条目（骨架见 `assets/memory-entry-template.md`）
+- 需要展开为什么 / 边界：`<slug>.md` 条目（骨架见 `assets/memory-entry-template.md`）
 
 写入顺序：**先写条目文件，再在索引挂其链接行**。中断只留孤儿条目（清理时能查到），不留死链（更糟）
 
@@ -29,7 +29,7 @@ MEMORY/ 只认当前目录一份：`./MEMORY/` 存在即用，不存在转初始
 - 宁缺毋滥：一轮提议 0~3 条，提 0 条也是正常结果
 - 写前查索引用量：索引行数未达上限一半时免跑 lint 直接写入；接近上限才跑（以 lint 输出为准，命令见[章节](audit.md#lint-检查)）：
   报 `INDEX-BUDGET-HIGH` 时先给精简方案（合并摘要 / 短条目改写成文件条目 / 按 git 最后改动取最旧条目复查——排序只是选候选，判定仍走变更检查）再写入；
-  报 `INDEX-BUDGET`（ERROR）时转清理流程精简、回来再写
+  报 `INDEX-BUDGET` 时转清理流程精简、回来再写
 - 写入后交付说明提示：未 commit 前其他 worktree / 协作者看不到
 
 ## 批量沉淀（会话末）

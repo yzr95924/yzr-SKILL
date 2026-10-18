@@ -33,7 +33,6 @@ class Finding(NamedTuple):
     """一条检查发现"""
 
     rule: str
-    level: str
     evidence: str
     file: str = ""
     line: str = ""
@@ -66,7 +65,7 @@ def snapshot_memory(memory_root: Path) -> Snapshot:
             text: Optional[str] = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             text = None
-            read_errors.append(Finding("READ-ERROR", "ERROR", f"无法读取 {rel}: {exc}", file=rel))
+            read_errors.append(Finding("READ-ERROR", f"无法读取 {rel}: {exc}", file=rel))
         if path.name == INDEX_NAME:
             index_text = text
         else:
@@ -125,7 +124,6 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
         findings.append(
             Finding(
                 "INDEX-BUDGET",
-                "ERROR",
                 f"索引 {line_count} 行，超上限 {INDEX_MAX_LINES} 行——先精简再写入（合并摘要 / 短条目改写成文件条目 / 复查最旧条目）",
                 file=rel,
             )
@@ -134,7 +132,6 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
         findings.append(
             Finding(
                 "INDEX-BUDGET-HIGH",
-                "WARN",
                 f"索引 {line_count} 行，已达上限 {INDEX_MAX_LINES} 行的八成——写入前先备精简方案",
                 file=rel,
             )
@@ -144,7 +141,6 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
         findings.append(
             Finding(
                 "INDEX-BUDGET",
-                "ERROR",
                 f"索引 {byte_size} 字节，超上限 {INDEX_MAX_BYTES} 字节（25KB）",
                 file=rel,
             )
@@ -160,7 +156,6 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
                 findings.append(
                     Finding(
                         "INDEX-HEAD",
-                        "WARN",
                         f"索引头部只允许标题与 ## 组名行，发现说明文字 / 模板残留：{stripped[:40]}"
                         "（格式规格在 skill 侧模板，项目不持副本）",
                         file=rel,
@@ -176,7 +171,6 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
             findings.append(
                 Finding(
                     "DUP-INDEX-LINE",
-                    "WARN",
                     f"索引重复链接同一条目：{slug}（首见第 {seen[slug]} 行）——同主题应合并为一条",
                     file=rel,
                     line=str(lineno),
@@ -195,7 +189,6 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
         findings.append(
             Finding(
                 "SLUG-FORMAT",
-                "ERROR",
                 f"条目文件名 {name} 不是 kebab-case（小写字母 / 数字 / 连字符）",
                 file=rel,
             )
@@ -204,7 +197,6 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
         findings.append(
             Finding(
                 "ORPHAN",
-                "WARN",
                 "条目存在但索引没有指向它的链接——补索引行，或确认后删除本文件",
                 file=rel,
             )
@@ -214,7 +206,6 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
         findings.append(
             Finding(
                 "ENTRY-LONG",
-                "WARN",
                 f"条目 {entry_lines} 行，超 {ENTRY_MAX_LINES}——压缩或写进 docs / AGENTS.md、摘要里写明去处（超长多半是放错了位置）",
                 file=rel,
             )
@@ -234,7 +225,6 @@ def _frontmatter_findings(rel: str, fm: Dict) -> List[Finding]:
         return [
             Finding(
                 "SCOPE-MISSING",
-                "WARN",
                 "缺 scope（--- 围栏 frontmatter 内）——变更检查会漏掉本条",
                 file=rel,
             )
@@ -243,7 +233,7 @@ def _frontmatter_findings(rel: str, fm: Dict) -> List[Finding]:
 
 
 def _sensitive_findings(files: List[Tuple[str, str]]) -> List[Finding]:
-    """扫索引与条目里的疑似密钥 / token 字样（只报需人工复核，不判死刑）"""
+    """扫索引与条目里的疑似密钥 / token 字样（需人工复核）"""
     findings: List[Finding] = []
     for rel, text in files:
         for lineno, line in enumerate(text.splitlines(), 1):
@@ -251,7 +241,6 @@ def _sensitive_findings(files: List[Tuple[str, str]]) -> List[Finding]:
                 findings.append(
                     Finding(
                         "SENSITIVE",
-                        "WARN",
                         f"疑似密钥 / token 字样：{line.strip()[:60]}——密钥永不入记忆，人工复核后删除",
                         file=rel,
                         line=str(lineno),
@@ -271,7 +260,6 @@ def collect_findings(memory_root: Path, snap: Optional[Snapshot] = None) -> List
             findings.append(
                 Finding(
                     "INDEX-MISSING",
-                    "ERROR",
                     f"{MEMORY_DIR}/ 存在但缺索引 {INDEX_NAME}",
                     file=f"{MEMORY_DIR}/{INDEX_NAME}",
                 )
@@ -283,7 +271,6 @@ def collect_findings(memory_root: Path, snap: Optional[Snapshot] = None) -> List
         findings.append(
             Finding(
                 "INDEX-EMPTY",
-                "WARN",
                 f"{index_rel} 为空白文件——可从 assets/memory-index-template.md 重建（git 可恢复）",
                 file=index_rel,
             )
@@ -293,9 +280,7 @@ def collect_findings(memory_root: Path, snap: Optional[Snapshot] = None) -> List
     linked = {slug for _, slug in slugs}
     for lineno, slug in slugs:
         if slug not in snap.entries:
-            findings.append(
-                Finding("DEAD-LINK", "ERROR", f"索引指向的条目不存在：{slug}", file=index_rel, line=str(lineno))
-            )
+            findings.append(Finding("DEAD-LINK", f"索引指向的条目不存在：{slug}", file=index_rel, line=str(lineno)))
     for name, text in snap.entries.items():
         if text is not None:
             findings += _entry_findings(f"{MEMORY_DIR}/{name}", name, text, name in linked)
@@ -315,7 +300,7 @@ def memory_stats(snap: Snapshot) -> Stats:
 def _print_finding(finding: Finding) -> None:
     """单条 finding 的一行渲染，两分支共用"""
     loc = f"{finding.file}:{finding.line}  " if finding.file else ""
-    print(f"{finding.level}: {finding.rule}  {loc}{finding.evidence}")
+    print(f"{finding.rule}  {loc}{finding.evidence}")
 
 
 def _render_text(memory_root: Path, findings: List[Finding], stats: Stats) -> None:
@@ -327,44 +312,34 @@ def _render_text(memory_root: Path, findings: List[Finding], stats: Stats) -> No
     else:
         print("  clean")
     print(f"STATS 索引 {stats.index_lines} / {stats.index_budget_lines} 行 · 条目 {stats.entry_count} 个")
-    counts = {lvl: sum(1 for f in findings if f.level == lvl) for lvl in ("ERROR", "WARN", "INFO")}
-    errors = counts["ERROR"]
-    print(f"\n{counts['ERROR']} ERROR, {counts['WARN']} WARN, {counts['INFO']} INFO — {'FAIL' if errors else 'PASS'}")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：定位 MEMORY/、读快照、跑检查、渲染、按 ERROR 定退出码"""
+    """CLI 入口：定位 MEMORY/、读快照、跑检查、渲染；有问题退出 1"""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("root", nargs="?", default=".", help="检查该目录下的 MEMORY/（默认当前目录）")
     args = parser.parse_args(argv)
 
     start = Path(args.root).resolve()
     memory_root = start if (start / MEMORY_DIR).is_dir() else None
-    snap: Optional[Snapshot] = None
     if memory_root is None:
-        findings = [Finding("NO-MEMORY", "INFO", "未发现 MEMORY/ 目录——需要建立记忆体系时走初始化入口")]
+        print("NO-MEMORY: 未发现 MEMORY/ 目录——需要建立记忆体系时走初始化入口")
         agents_path = start / AGENTS_NAME
         if agents_path.is_file() and declares_memory(agents_path):
-            findings.append(
+            _print_finding(
                 Finding(
                     "DANGLING-REF",
-                    "ERROR",
                     f"{AGENTS_NAME} 声明了 @MEMORY/MEMORY.md 但 MEMORY/ 不存在——走初始化入口建骨架"
                     "（AGENTS.md 引用段已存在，按初始化跳过条件免改）",
                     file=AGENTS_NAME,
                 )
             )
-    else:
-        snap = snapshot_memory(memory_root)
-        findings = collect_findings(memory_root, snap)
-    errors = sum(1 for f in findings if f.level == "ERROR")
-    stats = memory_stats(snap) if snap is not None else None
-    if memory_root is None:
-        for f in findings:
-            _print_finding(f)
-    else:
-        _render_text(memory_root, findings, stats)
-    return 1 if errors else 0
+            return 1
+        return 0
+    snap = snapshot_memory(memory_root)
+    findings = collect_findings(memory_root, snap)
+    _render_text(memory_root, findings, memory_stats(snap))
+    return 1 if findings else 0
 
 
 if __name__ == "__main__":
