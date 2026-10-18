@@ -17,7 +17,7 @@ subagent 实跑有成本，每轮发起前问用户
 
 ## 行为测试（起草后）
 
-- **正文必须内联**：把新正文与其引用的 ref 文件全文贴进指令，并加一行"忽略你技能清单里的同名 skill"。
+- **正文必须内联**：把新正文与其引用的 ref 文件全文贴进指令，并加一行“忽略你技能清单里的同名 skill”。
   harness 加载的是安装快照（vendored 副本），不是仓库新文；不内联测到的是旧文
 - 用例要操作的固定输入（skill 目录、样例文件）存 `eval/fixtures/<用例 id>/`，跑前整个拷进沙箱再用；
   内容跟着 expectations 走，改一方同步另一方
@@ -36,7 +36,7 @@ subagent 实跑有成本，每轮发起前问用户
 ## evals 格式
 
 - `eval/evals.json`：`{"skill_name", "evals": [{"id", "prompt", "expectations": [...]}]}`
-  expectations 写成能堵死"自建等效路径"的硬判据（如"跑 tools/x.py，不手拼产物"），
+  expectations 写成能堵死“自建等效路径”的硬判据（如“跑 tools/x.py，不手拼产物”），
   不写叙述式 expected_output、不留空转 files 字段；未实跑的用例加 `"status": "未实跑"` 标注，实跑后转正或删除
 - `eval/trigger_eval.json`：`[{"query", "should_trigger"}]`，形状由 trigger_score.py 读取时校验；
   未实跑的条目同 evals.json 加 `"status": "未实跑"` 标注

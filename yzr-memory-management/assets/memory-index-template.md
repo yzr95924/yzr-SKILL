@@ -2,7 +2,7 @@
 
 # MEMORY/ 索引格式规格
 
-跨会话"为什么 + 边界规则"的索引；正文在同级 `<slug>.md`，按需 Read。AGENTS.md 用单行
+跨会话“为什么 + 边界规则”的索引；正文在同级 `<slug>.md`，按需 Read。AGENTS.md 用单行
 `@MEMORY/MEMORY.md` 引入：宿主自动展开时索引常驻上下文，不展开时由引用段里的
 注释提示用 Read 读取
 

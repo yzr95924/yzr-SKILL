@@ -1,13 +1,13 @@
 # yzr 个人 SKILLs
 
-个人自定义 AI skills 合集，经 npx 分发；本仓同时是"造 skill"的元仓。
+个人自定义 AI skills 合集，经 npx 分发；本仓同时是“造 skill”的元仓。
 仓库规约与常用命令见 [AGENTS.md](./AGENTS.md)（项目上下文单一真源）。
 
 ## SKILLs 名单
 
 - `yzr-skill-management`（元）—— 创建 / 改进 / 审计 skill 本身，维护骨架标准
 - `yzr-coding-review` —— 代码 review（合理性审视 + 重构场景，语言中立，默认不改文件）
-- `yzr-writing-review` —— 文档 review（逻辑 / 结构 / 冗余 / AI 腔 / SSOT；确认后承接改写）
+- `yzr-writing-style` —— 公共写作风格规则集（写作时遵循 + 审计时当标尺；多模型交叉评审）
 - `yzr-md-to-html` —— 本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
 - `yzr-sys-design-doc` —— 系统设计文档写作（full / lite 两档 + 实施任务书）
 - `yzr-memory-management` —— 项目记忆管理（MEMORY/ 沉淀 · 体检 · 防腐化防膨胀）

@@ -16,9 +16,9 @@
    裸跑记录是正文规则的出处
 3. 跑 `python3 yzr-skill-management/tools/skeleton.py new <name>` 生成骨架；重做场景跳过 new（目录已存在），
    原位替换正文，tools / assets 沿用为默认。frontmatter 按模板槽位填，
-   description 按"description 写法"；正文按"节内容边界"填写，**每写一段就与用户确认一段**
+   description 按“description 写法”；正文按“节内容边界”填写，**每写一段就与用户确认一段**
    （一段 = 一节或节内若干条；用户显式授权可豁免：分段写完一次性整体交审，返工与取证记录照记）。
-   素材里抽出的 tools/ 候选此时逐条定夺：按"机械活脚本化"算代价账。
+   素材里抽出的 tools/ 候选此时逐条定夺：按“机械活脚本化”算代价账。
    context 节省乘使用频率，是否高于脚本行数 + 冒烟维护成本；决定留在正文里的，记一句为什么
 4. 定性测试：先读 `ref/qualitative-loop.md`。用例 prompt 用用户真实会说的话，从裸跑的 2-3 条
    起步，先交用户确认再跑；每条带客观可核验的期望，写入 `eval/evals.json`。subagent 实跑：

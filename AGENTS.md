@@ -2,7 +2,7 @@
 
 ## 项目定位
 
-个人自定义 AI skills 合集：每个 `yzr-*/` 子目录是一个独立 skill，经 npx 分发；本仓同时是"造 skill"
+个人自定义 AI skills 合集：每个 `yzr-*/` 子目录是一个独立 skill，经 npx 分发；本仓同时是“造 skill”
 的元仓。skill 名单与简介见 [README.md](./README.md)，此处不另立副本。
 
 ## 仓库规约
@@ -11,7 +11,7 @@
 - 改 skill 一律改仓库源；vendor 副本（`~/.agents/skills/` 等）是 npx 派生物，会被覆盖，
   不读、不改、不对比。
 - Python：唯一工具链配置在根 `pyproject.toml`。UP021/UP022 在 ignore 里——subprocess 的
-  `universal_newlines=True` / `stdout=PIPE` 旧写法是刻意的，别"修正"。
+  `universal_newlines=True` / `stdout=PIPE` 旧写法是刻意的，别“修正”。
 - 注释只写代码表达不了的坑与契约，不复述代码。
 - Markdown：跨文件 / 跨节引用一律 markdown 链接。独立分发的 skill 不能跨 skill import，
   自带轻量 frontmatter 解析属豁免（如 `yzr-memory-management/tools/memory_lint.py`）
@@ -36,9 +36,9 @@ for t in */tests/smoke_test_*.py; do d=${t%/tests/*}; (cd "$d" && python3 "tests
 for t in */tools/tests/smoke_test_*.py; do d=${t%/tools/tests/*}; (cd "$d" && python3 "tools/tests/$(basename "$t")") || exit 1; done
 ```
 
-- 判据是 **0 finding**，不是"与上次输出一致"。
-- 存量债务：coding-review / sys-design-doc / writing-review
-  三个 skill 带旧标准形状（metadata 键、多余 H2），过不了新 check，修形或放宽检查器待定；
+- 判据是 **0 finding**，不是“与上次输出一致”。
+- 存量债务：coding-review / sys-design-doc
+  两个 skill 带旧标准形状（metadata 键、多余 H2），过不了新 check，修形或放宽检查器待定；
   CI 第 1 步引用的 verify.py 已随旧 skill 删除，CI 骨架检查步断裂，ruff 暂无 CI 覆盖。
 
 ### Markdown lint
@@ -49,7 +49,7 @@ markdownlint '**/*.md'                                              # 全仓
 ```
 
 必须在仓库根跑（或 `-c .markdownlint.jsonc`）——否则配置找不到、行宽退回默认 80 成批误报。
-中文行"超限部分无空格"会被 markdownlint 默认豁免，但别依赖豁免，一律折到 120 内
+中文行“超限部分无空格”会被 markdownlint 默认豁免，但别依赖豁免，一律折到 120 内
 （工具版本漂移翻过车）。
 
 ### Python lint
