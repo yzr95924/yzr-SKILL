@@ -15,4 +15,4 @@ scope: 约束对象（目录 / 文件 / 决策点）
 - 文件名：kebab-case（小写字母 / 数字 / 连字符），否则 lint 报 SLUG-FORMAT
 - `scope`：条目约束的目录 / 文件 / 决策点；变更检查靠它匹配 git 变更，缺失 lint 报 SCOPE-MISSING
 - 摘要：条目摘要以索引行那句话为准，条目不另设 description
-- 新鲜度：以 git log 为准，不设 modified 字段
+- 新鲜度：不设 modified 字段

@@ -124,7 +124,7 @@ def _index_findings(rel: str, text: str) -> Tuple[List[Finding], List[Tuple[int,
         findings.append(
             Finding(
                 "INDEX-BUDGET",
-                f"索引 {line_count} 行，超上限 {INDEX_MAX_LINES} 行——先精简再写入（合并摘要 / 短条目改写成文件条目 / 复查最旧条目）",
+                f"索引 {line_count} 行，超上限 {INDEX_MAX_LINES} 行——先精简再写入",
                 file=rel,
             )
         )
@@ -206,7 +206,7 @@ def _entry_findings(rel: str, name: str, text: str, linked: bool) -> List[Findin
         findings.append(
             Finding(
                 "ENTRY-LONG",
-                f"条目 {entry_lines} 行，超 {ENTRY_MAX_LINES}——压缩或写进 docs / AGENTS.md、摘要里写明去处（超长多半是放错了位置）",
+                f"条目 {entry_lines} 行，超 {ENTRY_MAX_LINES}——多半该写进 docs / AGENTS.md",
                 file=rel,
             )
         )
