@@ -144,8 +144,16 @@ def run(paths: List[str]) -> List[Hit]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI 入口：打印候选（--json 机器可读）；命中不是门禁退 0，路径缺失大声失败退 1。"""
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    """CLI 入口：打印候选（--json 机器可读）。"""
+    epilog = (
+        "退出码：0 = 扫描完成（命中不是门禁），1 = 路径缺失。\n"
+        "输入：markdown 文件或目录；目录递归只收 .md，在 .git / node_modules 等 vendor 目录处剪枝。\n"
+        "豁免：代码围栏、行内代码、markdown 链接目标不计命中；非 UTF-8 文件跳过并告警。\n"
+        "元提及（讨论符号本身的行）有意上报，由调用方豁免。"
+    )
+    parser = argparse.ArgumentParser(
+        description=__doc__.splitlines()[0], epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("paths", nargs="+", help="要扫描的 markdown 文件或目录")
     parser.add_argument("--json", action="store_true", dest="as_json", help="机器可读输出")
     args = parser.parse_args(argv)
