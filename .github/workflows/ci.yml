@@ -44,7 +44,9 @@ jobs:
       - name: smoke tests
         # glob 循环，两代目录约定各一个：tests/（存量）与 tools/tests/（现行，见 AGENTS.md）。
         # 冒烟在各自 skill 目录下运行（cwd 约定见各文件头注）。
+        # nullglob：某代目录约定无匹配时跳过循环；否则 bash 把字面量传进循环，cd 失败误杀 job。
         run: |
+          shopt -s nullglob
           for t in */tests/smoke_test_*.py; do
             d=${t%/tests/*}
             (cd "$d" && python "tests/$(basename "$t")") || exit 1
