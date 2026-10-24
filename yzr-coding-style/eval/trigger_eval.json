@@ -1,0 +1,17 @@
+[
+  {"query": "帮我给订单服务加一个 CSV 导出功能", "should_trigger": true},
+  {"query": "这个 NPE 帮我修一下", "should_trigger": true},
+  {"query": "这个变量名不清楚，帮我改一下", "should_trigger": true},
+  {"query": "把这个 80 行的函数拆成校验、计价、通知三个函数", "should_trigger": true},
+  {"query": "补一组覆盖 parser 边界情况的单元测试", "should_trigger": true},
+  {"query": "这个查询太慢了，帮我改代码优化一下", "should_trigger": true},
+  {"query": "review 一下我刚写完的支付模块，看看代码有没有问题", "should_trigger": true},
+  {"query": "让几个模型交叉评审一下这个模块的代码", "should_trigger": true},
+  {"query": "只在第 42 行加上 `if (x == null) return;`，其他都别动", "should_trigger": false},
+  {"query": "把 data1 全部替换成 user_data，别的都不要动", "should_trigger": false},
+  {"query": "review 这个查询有没有性能问题", "should_trigger": false},
+  {"query": "解释一下 parse_order 这个函数是干嘛的", "should_trigger": false},
+  {"query": "给项目配一套 ruff 和 mypy 的 lint 规则", "should_trigger": false},
+  {"query": "叫三个模型各写一版 parse_order() 实现，评评哪版最好", "should_trigger": false},
+  {"query": "帮我修一下 README 里的错别字", "should_trigger": false}
+]
