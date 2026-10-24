@@ -75,6 +75,12 @@ def negative_inside_fence():
 
 
 @case
+def negative_inside_tilde_fence():
+    text = "~~~bash\ngrep foo —— bar\n~~~\n"
+    expect(scan_text(text, "a.md") == [])
+
+
+@case
 def positive_after_fence_resumes():
     text = "```python\n# " + DASH + "\n```\n" + "正文" + DASH + "继续。\n"
     hits = scan_text(text, "a.md")

@@ -60,7 +60,7 @@ PATTERNS = [
     Pattern("FULLWIDTH-FORM", "", "规则集\u201c全角符号\u201d行", FULLWIDTH_FORM_RE),
 ]
 
-FENCE = re.compile(r"^\s*```")
+FENCE = re.compile(r"^\s*(?:```|~~~)")
 # 行内代码段：先双反引号后单反引号
 CODE_SPANS = (re.compile(r"``[^`\n]+``"), re.compile(r"`[^`\n]*`"))
 # markdown 链接目标 ](...) 与行内代码同理非行文标点：中文标题锚 / file:line 式坐标不该计入命中

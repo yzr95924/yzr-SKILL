@@ -5,6 +5,7 @@
   {"query": "用几个模型交叉评审一下这篇设计文档", "should_trigger": true},
   {"query": "帮我给这个工具写一份使用说明文档", "should_trigger": true},
   {"query": "帮我修一下这个登录超时的 bug", "should_trigger": false},
+  {"query": "用几个模型交叉评审这个登录超时的代码问题", "should_trigger": false},
   {"query": "这段 Python 代码为什么会死循环", "should_trigger": false},
   {"query": "把这段话翻译成英文", "should_trigger": false},
   {"query": "帮我核对这篇文档里的数据是否准确", "should_trigger": false},
