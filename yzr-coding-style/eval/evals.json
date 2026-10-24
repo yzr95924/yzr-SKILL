@@ -1,0 +1,58 @@
+{
+  "skill_name": "yzr-coding-style",
+  "evals": [
+    {
+      "id": "review-basic",
+      "prompt": "review 一下 orders.py，看看代码有没有问题",
+      "expectations": [
+        "orders.py 未被修改，沙箱内源文件与夹具一致",
+        "报告完整出现在最终回复中；未写入被审代码所在目录（outputs 留存属运行通道）",
+        "回复开头有 2-4 句理解复述，讲清代码在做什么、结构怎么走",
+        "每条发现附规则名、位置与建议",
+        "except: pass 被发现并映射到 错误处理",
+        "0.06 被发现并映射到 魔法值",
+        "data1 被发现并映射到 命名与签名",
+        "累计、写审计、通知多语义段问题被发现，映射到 函数粒度 或 职责与归属",
+        "return total - tax * 100 的计算错误被识别为疑似正确性问题：只单列一行指引专项、未展开修法、未映射规则名"
+      ]
+    },
+    {
+      "id": "review-diff",
+      "prompt": "review 一下 change.diff，对应源码在 parser.py，看看这次改动有没有问题",
+      "expectations": [
+        "发现只落在 change.diff 新增的 parse_line 内；未改动区域的 legacy_check 死代码未进发现清单",
+        "发现包含 parse_line 与既有 parse_row 的重复（重复代码），未把两函数说成各自独立",
+        "发现包含 csv_v2 裸字面量（魔法值）",
+        "每条发现附规则名、位置与建议",
+        "最终回复中的巡检报告以 2-4 句理解复述开头，先复述再给结论",
+        "parser.py 未被修改；报告完整出现在最终回复中，未写入被审代码所在目录（outputs 留存属运行通道）"
+      ]
+    },
+    {
+      "id": "multi-model-plan",
+      "prompt": "多模型交叉评审一下下面这段代码。先列出你要用的模型名单和执行流程，先不要真的开始评审：\n\ndef process(order):\n    total = 0\n    for item in order.items:\n        total = total + item.price * item.qty\n    tax = total * 0.06\n    if total <= 0:\n        raise ValueError('bad order')\n    return total - tax",
+      "expectations": [
+        "给出默认名单三个模型 ID：yzr-dashscope/qwen3.8-flash、yzr-dashscope/deepseek-v4.1-flash、yzr-zai/glm-5.3-flash",
+        "未反问用户要用哪些模型",
+        "回复中不含任何具体评审发现条目（未绕开编排单模型开审）",
+        "说明发起前逐票校验模型可发现且 active，失效停下报告相近候选，不静默替换、不静默减票",
+        "说明粘贴代码先写成快照文件；lint 与数值阈值计数由编排者执行并落盘，各票共享",
+        "说明一票一模型、一条消息并行发起、票间唯一差异是 model、编排者不亲自出发现"
+      ]
+    },
+    {
+      "id": "multi-model-merge",
+      "prompt": "多模型评审进行到合并阶段。被审对象为材料清单内的 parser.py，逐票输出均已按契约核对有效，三份评审员输出如下（A=yzr-dashscope/deepseek-v4.1-flash，B=yzr-zai/glm-5.3-flash，C=yzr-dashscope/qwen3.8-flash），请按多模型合并规则给出合并报告。不要重跑评审，也不要运行任何工具：\n\nA：\n复述：parser.py 读取订单行，逐行校验后累计金额并通知，单函数贯穿。\n- parser.py:12 | 函数粒度 | process() 内嵌 3 个语义段（校验 / 累计 / 通知） | 抽 validate_order() 与 calc_total()\n- parser.py:31 | 魔法值 | 0.06 裸字面量承载税率业务含义 | 提为 TAX_RATE 常量\n- parser.py:31 | 重复代码 | 31-36 与 48-53 两段近似 | 抽 validate_row() 公共，差异参数化\n- parser.py:44 | 职责与归属 | notify 属订单逻辑泄漏进解析器 | 把通知搬出 parser\n- parser.py:50 | （目录外）建议先补单元测试 | 改动无安全网 | 补测试再重构\n\nB：\n复述：订单 CSV 的解析、校验与金额计算，核心在 process()。\n- parser.py:12 | 函数粒度 | process() 过长且含多个语义段 | 抽具名函数\n- parser.py:31 | 魔法值 | 0.06 裸现 | 提常量\n- parser.py:44 | 函数粒度 | 薄包装，函数体与名字一样清晰 | 内联\n- parser.py:19 | 边界与校验 | CSV 外部输入直接进核心逻辑无空值检查 | 入口校验\n\nC：\n复述：这段代码是通知服务，核心是把订单发给下游系统，重构应从通知层入手。\n- parser.py:19 | 边界与校验 | 输入未校验 | 补校验",
+      "expectations": [
+        "C 因理解复述跑偏（把订单解析说成通知服务）被降权：发现不计入共识，结论写明降权原因",
+        "未擅自重跑 C，重跑只作为选项征询用户",
+        "parser.py:12 函数粒度归并为一条，标来源【A+B】",
+        "parser.py:31 魔法值归并为一条【A+B】；A 的 parser.py:31 重复代码未与魔法值互并，按单票保留标【仅 A】",
+        "parser.py:19 边界与校验只计 B 一票，标【仅 B】，未升共识",
+        "parser.py:44 A（职责搬出）与 B（内联）互斥处置单列分歧交用户，未擅自二选一",
+        "A 的 parser.py:50 补单元测试未进发现清单（映射不到规则集）",
+        "共识发现排在单票之前；编排者未新增自己的评审发现"
+      ]
+    }
+  ]
+}

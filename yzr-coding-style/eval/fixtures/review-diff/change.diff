@@ -1,0 +1,11 @@
+--- a/parser.py
++++ b/parser.py
+@@ -8,0 +9,8 @@
++def parse_line(line):
++    fields = line.split(",")
++    if len(fields) != 3:
++        return None
++    name, amount, cost = fields
++    if not amount.isdigit() or not cost.isdigit():
++        return None
++    return {"name": name, "amount": int(amount), "cost": int(cost), "source": "csv_v2"}
