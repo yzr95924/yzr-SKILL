@@ -84,4 +84,4 @@ description: |
 1. 跑 `python3 yzr-skill-management/tools/skeleton.py check <skill-dir>`；目标 skill 有 tools/ 时加跑冒烟，失败一并列入报告
 2. 精读 skill 目录全部文件，结构项对照[章节](#设计原则)、文字项对照[章节](#写作原则)逐条给结论，每条附文件与原文引用为证据；对照直陈时，加粗名与标题名逐个检验
 3. 报告每条有处置与去向，未处置不得收工：违反项附改法建议，修复经用户点头后走改进；“删行测试”不过的
-   列入待删候选；纯文字质量转 yzr-writing-review，tools/ 代码与脚本转 yzr-coding-review
+   列入待删候选；纯文字质量转 yzr-writing-style，tools/ 代码与脚本转 yzr-coding-style

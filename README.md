@@ -6,7 +6,7 @@
 ## SKILLs 名单
 
 - `yzr-skill-management`（元）—— 创建 / 改进 / 审计 skill 本身，维护骨架标准
-- `yzr-coding-review` —— 代码 review（合理性审视 + 重构场景，语言中立，默认不改文件）
+- `yzr-coding-style` —— 公共代码风格规则集（写代码时遵循 + 巡检时当标尺；多模型交叉评审）
 - `yzr-writing-style` —— 公共写作风格规则集（写作时遵循 + 审计时当标尺；多模型交叉评审）
 - `yzr-md-to-html` —— 本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
 - `yzr-sys-design-doc` —— 系统设计文档写作（full / lite 两档 + 实施任务书）
