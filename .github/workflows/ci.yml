@@ -11,7 +11,7 @@
 # （2026-08-18，斩断历史），本 CI 不再覆盖——它们由 CLI 仓 fixtures-smoke 守护。
 #
 # 检查项走 yzr-skill-management 的 skeleton.py check（形状比对 + 引用名 / 锚点存活）。
-# skill 显式列出当前达标的两个：四个未迁移老 skill 全仓查会 FAIL（迁移债已记录），
+# skill 显式列出当前达标的三项：全仓查会 FAIL 的只剩 sys-design-doc（迁移债已记录），
 # 迁完并入清单、恢复"新增 skill 不改 CI"；冒烟按 glob 循环，新增冒烟不必改本文件。
 
 name: CI
@@ -38,7 +38,7 @@ jobs:
       - name: install markdownlint
         run: npm install -g markdownlint-cli
       - name: skeleton check (shape + ref/anchor liveness, compliant skills)
-        run: python yzr-skill-management/tools/skeleton.py check yzr-skill-management yzr-md-to-html
+        run: python yzr-skill-management/tools/skeleton.py check yzr-skill-management yzr-md-to-html yzr-coding-style
       - name: markdownlint repo-level docs (README / AGENTS / MEMORY)
         run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
       - name: smoke tests
