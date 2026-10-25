@@ -2,7 +2,8 @@
 
 脚本零定义：形状事实（frontmatter 键、节名、顺序）一律从 assets/skill-template.md 解析；
 每节/每目录"装什么"的定义活在 SKILL.md 正文，本文件不携带。frontmatter 键精确相等严于
-开放规范（放宽 = 必需键精确 + 可选键白名单）；跨文件链接 / 显式锚 / 反引号路径存活不查，无事故不立项。
+开放规范（放宽 = 必需键精确 + 可选键白名单）；锚点链接查 SKILL.md 与 ref/*.md，同文件查存活
+与链接文字，跨文件只查链接文字（目标存活归 CLI / 契约域）；反引号路径存活不查，无事故不立项。
 """
 
 import argparse
@@ -26,7 +27,7 @@ BOLD_ITEM_RE = re.compile(r"^-\s*\*\*(.+?)\*\*")
 REF_RE = re.compile(r"(?:见|按照|按|对照)[ \t]*([“\"])([^”\"]{1,40})[”\"]")
 REF_TICK_RE = re.compile(r"(?:见|按照|按)[ \t]*`([^`]{1,40})`")
 REF_NOISE_RE = re.compile(r"[；，。、：！？;:]")
-LINK_RE = re.compile(r"\[([^\]]+)\]\(#([^)]+)\)")
+LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s#]*)#([^)\s]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`]*`")
 ANCHOR_LINK_LABEL = "章节"
 
@@ -150,7 +151,8 @@ def check_ref_liveness(md: Path) -> List[str]:
 
 
 def check_anchor_links(md: Path) -> List[str]:
-    """正文 [文字](#锚点) 链接：文字固定"章节"、锚点须解析到本文件 H2/H3（GitHub slug）；内联代码与围栏内不查。"""
+    """[文字](路径#锚点)：链接文字固定"章节"；同文件锚点还须解析到本文件 H2/H3（GitHub
+    slug），跨文件只查文字、目标存活归 CLI / 契约域。内联代码与围栏内不查。"""
     try:
         lines = md.read_text(encoding="utf-8").splitlines()
         _, body_lines = split_frontmatter(lines)
@@ -162,18 +164,29 @@ def check_anchor_links(md: Path) -> List[str]:
     bad: List[str] = []
     seen = set()
     for m in LINK_RE.finditer(text):
-        label, anchor = m.group(1), m.group(2)
-        if anchor not in slugs:
+        label, path, anchor = m.group(1), m.group(2), m.group(3)
+        if path.startswith(("http://", "https://", "mailto:")):
+            continue
+        dest = f"{path}#{anchor}" if path else f"#{anchor}"
+        if not path and anchor not in slugs:
             key = ("dead", anchor)
             if key not in seen:
                 seen.add(key)
                 bad.append(f"死锚点 #{anchor}（本文件节 / 小节的 slug 均不含它）")
         elif label != ANCHOR_LINK_LABEL:
-            key = ("label", label, anchor)
+            key = ("label", label, dest)
             if key not in seen:
                 seen.add(key)
-                bad.append(f'锚点链接文字须为"{ANCHOR_LINK_LABEL}"，实为"{label}"（目标 #{anchor}）')
+                bad.append(f'锚点链接文字须为"{ANCHOR_LINK_LABEL}"，实为"{label}"（目标 {dest}）')
     return bad
+
+
+def prose_docs(skill_dir: Path) -> List[Path]:
+    docs = [skill_dir / "SKILL.md"]
+    ref = skill_dir / "ref"
+    if ref.is_dir():
+        docs += sorted(ref.rglob("*.md"))
+    return docs
 
 
 def discover_skill_dirs(root: Path) -> List[Path]:
@@ -195,7 +208,11 @@ def check_one(skill_dir: Path, want_keys: List[str], want_heads: List[str]) -> L
     if values.get("name") != skill_dir.name:
         findings.append(f"目录名 {skill_dir.name!r} ≠ frontmatter name {values.get('name')!r}")
     findings += check_ref_liveness(md)
-    findings += check_anchor_links(md)
+    for doc in prose_docs(skill_dir):
+        for finding in check_anchor_links(doc):
+            if doc != md:
+                finding = f"{doc.relative_to(skill_dir)}：{finding}"
+            findings.append(finding)
     return findings
 
 

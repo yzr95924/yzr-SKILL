@@ -4,7 +4,8 @@
   - new 生成的 SKILL.md 必须直接通过 check（形状派生自模板，出生即合规）；
   - new 拒绝非 kebab 名、超 64 字符名与已存在目录，且不留半成品；数字开头放行（对齐开放规范）；
   - check 必须抓到：frontmatter 多键、H2 缺 / 多 / 乱序、目录名与 name 值不一致、悬空引用名、
-    死锚点、锚点链接文字非"章节"；
+    死锚点、锚点链接文字非"章节"；锚点链接扫 SKILL.md 与 ref/*.md（同文件查存活与文字，
+    跨文件只查文字、目标存活不属骨架域）；
   - 指向本文件节 / 粗体条目 / 真实文件路径 / 合法锚点链接的引用不得误报；内联代码内的格式示例不查；
   - 围栏代码块内的 `## x` 不得计为节（现存 skill 的样例块是真实形状）。
 
@@ -59,6 +60,14 @@ def make_skill(root: Path, dirname: str, content: str) -> Path:
 def good(name: str) -> str:
     """GOOD 骨架换名，使目录名与 frontmatter name 一致（隔离各用例的唯一变量）。"""
     return GOOD.replace("name: demo-skill", f"name: {name}")
+
+
+def make_ref_skill(root: Path, dirname: str, body: str) -> Path:
+    d = make_skill(root, dirname, good(dirname))
+    (d / "ref").mkdir()
+    (d / "ref" / "other.md").write_text("# Other\n\n## 目标节\n\n内容。\n", encoding="utf-8")
+    (d / "ref" / "detail.md").write_text("# Detail\n\n## 小节\n\n" + body, encoding="utf-8")
+    return d
 
 
 def run(args):
@@ -158,6 +167,18 @@ def main() -> int:
     link_label = good("link-label").replace("原则内容。", "原则内容。\n\n见[流程](#工作流)。")
     r = run(["check", make_skill(tmp, "link-label", link_label)])
     expect(r.returncode != 0, 'check 应抓到非"章节"的锚点链接文字')
+
+    # ref/ 内的锚点链接：同文件查存活与文字，跨文件只查文字、目标存活不属骨架域
+    r = run(["check", make_ref_skill(tmp, "reflink-ok", "见[章节](#小节)，另见[章节](other.md#目标节)。")])
+    expect(r.returncode == 0, f"ref/ 合法锚点链接应过 check：{r.stdout}")
+    r = run(["check", make_ref_skill(tmp, "reflink-dead", "见[章节](#不存在的节)。")])
+    expect(r.returncode != 0, "check 应抓到 ref/ 同文件死锚点")
+    r = run(["check", make_ref_skill(tmp, "reflink-label", "见[细则](#小节)。")])
+    expect(r.returncode != 0, "check 应抓到 ref/ 同文件非章节文字")
+    r = run(["check", make_ref_skill(tmp, "reflink-cross-label", "见[细则](other.md#目标节)。")])
+    expect(r.returncode != 0, "check 应抓到 ref/ 跨文件非章节文字")
+    r = run(["check", make_ref_skill(tmp, "reflink-cross-missing", "见[章节](missing.md#目标节)。")])
+    expect(r.returncode == 0, f"ref/ 跨文件目标存活不应误报：{r.stdout}")
 
     if FAILURES:
         print(f"\n{len(FAILURES)} case(s) FAILED")
