@@ -2,7 +2,7 @@
 
 ## 提议内容（一次给全，确认后创建）
 
-1. `MEMORY/MEMORY.md`：从 `assets/memory-index-template.md` 的项目骨架节原样拷贝建索引；索引已存在则不动，已有记忆走清理流程
+1. `MEMORY/MEMORY.md`：从 `assets/memory-index-template.md` 的项目骨架节原样拷贝建索引；索引已存在则不动，已有记忆走[章节](../SKILL.md#清理)
 2. AGENTS.md 引用段：一个二级标题 + 单行引入，样例：
 
    ```markdown

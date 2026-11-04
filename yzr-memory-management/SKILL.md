@@ -38,4 +38,4 @@ description: |
 
 ### 初始化
 
-不主动推销；用户点名、或写入流程发现项目还没有 MEMORY/ 时才提议。先 Read `ref/init.md` 再动手
+不主动推销；用户点名、或走[章节](#写入)发现项目还没有 MEMORY/ 时才提议。先 Read `ref/init.md` 再动手
