@@ -9,7 +9,7 @@
 - `yzr-coding-style` —— 公共代码风格规则集（写代码时遵循 + 巡检时当标尺；多模型交叉评审）
 - `yzr-writing-style` —— 公共写作风格规则集（写作时遵循 + 审计时当标尺；多模型交叉评审）
 - `yzr-md-to-html` —— 本地 md 转自包含 HTML（深色主题 + 侧边栏 + 公式 / mermaid）
-- `yzr-sys-design-doc` —— 系统设计文档写作（full / lite 两档 + 实施任务书）
+- `yzr-feature-doc` —— 功能 / 特性过程文档（设计、实现方案、测试、trace 分析、灰度方案、决策日志）
 - `yzr-memory-management` —— 项目记忆管理（MEMORY/ 沉淀 · 体检 · 防腐化防膨胀）
 
 ## 提示词模板
