@@ -1,0 +1,38 @@
+[
+    {
+        "query": "帮我把这个功能的设计思路落成一份设计文档",
+        "should_trigger": true
+    },
+    {
+        "query": "给优惠券到期提醒这个功能写一份测试文档",
+        "should_trigger": true
+    },
+    {
+        "query": "线上下单接口偶发超时，把这次 trace 排查整理成分析文档",
+        "should_trigger": true
+    },
+    {
+        "query": "这个改动下周要灰度上线，帮我写一份灰度方案",
+        "should_trigger": true
+    },
+    {
+        "query": "把这次放弃自建改用云函数的决策记到决策日志里",
+        "should_trigger": true
+    },
+    {
+        "query": "帮我写一份这个产品下季度的 PRD",
+        "should_trigger": false
+    },
+    {
+        "query": "别写文档了，直接把这个 bug 修掉",
+        "should_trigger": false
+    },
+    {
+        "query": "给这个开源项目补一份 README",
+        "should_trigger": false
+    },
+    {
+        "query": "把这周的项目动态整理后归档到团队 wiki",
+        "should_trigger": false
+    }
+]
