@@ -53,6 +53,27 @@
         "A 的 parser.py:50 补单元测试未进发现清单（映射不到规则集）",
         "共识发现排在单票之前；编排者未新增自己的评审发现"
       ]
+    },
+    {
+      "id": "write-test-comments",
+      "prompt": "给 discount.py 的 calc_discount 补单元测试，写到 test_discount.py",
+      "expectations": [
+        "test_discount.py 中每个测试用例开头都有 Goal / Case / Checks 三行注释，顺序为 Goal、Case、Checks",
+        "Goal 写测试目的，Case 写场景或输入，Checks 写主要预期结果且与断言一致",
+        "三行之外没有复述测试步骤或逐条断言的额外注释",
+        "calc_discount 函数本身未加 Goal / Case / Checks",
+        "测试可直接运行并通过"
+      ]
+    },
+    {
+      "id": "review-test-comments",
+      "prompt": "review 一下 test_discount.py，重点看测试注释",
+      "expectations": [
+        "test_silver_discount 缺少 Goal / Case / Checks 三行注释被映射到 测试注释",
+        "test_gold_discount 的 Steps 行被指出为冗余，建议删去",
+        "calc_discount 函数未被要求补测试注释",
+        "每条发现附规则名、位置与建议，位置能定位到对应测试函数或注释行"
+      ]
     }
   ]
 }
