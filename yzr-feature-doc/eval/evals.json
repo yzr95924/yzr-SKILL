@@ -5,45 +5,32 @@
             "id": "audit-design-doc",
             "prompt": "帮我审计一下 design-doc.md 这份设计文档，告诉我哪里有问题、应该怎么改",
             "expectations": [
-                "读取沙箱内 yzr-feature-doc/assets/template-design.md 对照审计，报告至少引用一条只存在于模板注释、不存在于 skill 正文的规则作为判据（如：没有其他备选时写无其他备选、表结构细节放实现文档）",
-                "指出问题定义节未成文，占位语句（这节还没写，等评审会后补充）不是待确认用法",
-                "指出备选方案、可服务性、可测试性等空节既无内容也无无或待确认标注",
-                "指出影响与兼容节的 TODO 应写待确认",
+                "先读 ref/design.md，再读其链接的 assets/template-design.md；判据至少引用一条只存在于类型指导中的规则，如没有其他备选时写无其他备选",
+                "指出问题定义节未成文，备选方案、可服务性、可测试性等空节既无内容也无无或待确认标注",
+                "指出影响与兼容节的 TODO 应写待确认，ALTER TABLE 表结构细节应放实现文档",
                 "指出重试一定能成功、肯定没问题是无依据断言，推断被写成了事实",
-                "指出 ALTER TABLE 表结构细节应放实现文档",
-                "指出模板 HTML 注释被复制进了文档正文",
-                "不把正确的安全与合规节的无误报为问题",
-                "每条问题附原文位置与修改建议",
-                "design-doc.md 内容逐字不变，审计不改原文件",
-                "文档存在缺陷，结论不得整体通过",
-                "审计产物只走对话与 outputs/，不在沙箱根目录新建 decision-log.md 之类为流程自记的杂散文件"
+                "design-doc.md 内容逐字不变，审计不改原文件，结论不得整体通过"
             ]
         },
         {
-            "id": "create-decision-log",
-            "prompt": "把我们这轮消息队列选型的决策记到 decision-log.md 里。背景：现在的自建 Redis 队列这一年丢了 3 次消息，每次都要人工对账补偿。这次对比了 Kafka 和 RabbitMQ：Kafka 顺序写磁盘吞吐高，单机能扛 50 万 msg/s，支持消息重放，但要额外运维 ZK 集群，团队没人熟；RabbitMQ 部署简单、团队用过，但单机吞吐只有 1 万 msg/s 左右，扛不住我们大促峰值 5 万 msg/s。最后定了用 Kafka，理由是大促峰值 5 万 msg/s 只有 Kafka 扛得住，重放能力还能把人工补偿变成自动重放。影响范围还没梳理，后面补。",
+            "id": "create-test-report-summary",
+            "prompt": "把以下汇总整理成测试报告的测试范围表，写入 bitmap-art-test-report.md，先只写这一部分。功能测试 / Bitmap ART 索引正确性验证 / UT / https://example.com/ut / PASS；功能测试 / Bitmap ART 索引正确性验证 / ST / https://example.com/st / PASS；功能测试 / Huffman 编解码与 DFA 差分 / UT / 覆盖单符号零位编码、典型与随机频率分布、1 万符号、起始位 0～7、快表全部 256 种首字节，以及随机位流逐步对拍 / 待确认；兼容性测试 / 持久化与消息结构兼容性 / SKIP，原因是本次修改不涉及持久化落盘结构和消息结构体变更；性能测试 / 开启 Bitmap ART 后性能对比 / E2E / https://example.com/perf / PASS；黑盒故障注入 / 每日回归 failover / E2E / https://example.com/failover / PASS。",
             "expectations": [
-                "新条目编号 D002，追加到 decision-log.md 末尾；D001 的全部字段逐字保留不删改",
-                "条目结构对照 template-decision-log.md：标题为 D002 决策标题，字段为日期、背景、决策、理由、影响、关联文档",
-                "日期填实际日期，不保留模板占位符 YYYY-MM-DD",
-                "事实转写不走样：决策是用 Kafka；大促峰值 5 万 msg/s；Kafka 单机 50 万 msg/s；RabbitMQ 单机约 1 万 msg/s；过去一年丢 3 次消息",
-                "影响写待确认（素材明说影响范围还没梳理），不擅自补写影响范围",
-                "关联文档素材未提及，写待确认，不写无，不编造具体文档名或链接",
-                "Kafka 与 RabbitMQ 的对比压缩成关键取舍，不整段照抄素材中的对比原文",
-                "成文前加载 yzr-writing-style，产物落文件按其工作流跑 tools/scan_fingerprints.py 机检，非豁免命中清零才交付",
-                "只改 decision-log.md，产物留在沙箱内"
+                "先读 ref/test-report.md，再读其链接的 assets/template-test.md",
+                "汇总表保留六条记录，每行五列，列头与模板一致，不出现残缺行",
+                "第一列逐行为功能测试、兼容性测试、性能测试、黑盒故障注入，第三列只能是素材给出的 UT / ST / E2E，两列不得对调；功能、边界、差分、roundtrip 等设计手段不得填入用例类型",
+                "Huffman 编解码与 DFA 差分的测试结果写待确认，不自行改成 PASS 或 SKIP",
+                "兼容性测试的 SKIP 原因写在汇总表后，全文不出现 N/A"
             ]
         },
         {
-            "id": "create-test-report",
-            "prompt": "把以下材料整理成测试报告，写入 bitmap-art-test-report.md。汇总：功能测试 / Bitmap ART 索引正确性验证 / UT / https://example.com/ut / PASS；功能测试 / Bitmap ART 索引正确性验证 / ST / https://example.com/st / PASS；兼容性测试 / 持久化与消息结构兼容性 / SKIP，原因是本次修改不涉及持久化落盘结构和消息结构体变更；性能测试 / 开启 Bitmap ART 后性能对比 / E2E / https://example.com/perf / PASS，这是自行设计用例；黑盒故障注入 / 每日回归 failover / E2E / https://example.com/failover / PASS，这是系统已有的每日回归任务。UT：BitmapArtTest.InsertAndLookup，场景是插入多个 key 后查询，主要检查点是查找结果与写入一致，验证逻辑是逐 key 调用 Find 并断言返回值。ST：DeltaMapSystemTest.SwitchEnabled，测试目的是验证特性开关开启后走 Bitmap ART 路径，流程是准备 DeltaMap 数据、开启开关、发起查询、检查执行日志，预期结果是查询走 Bitmap ART 路径且结果不变。自行设计 E2E：环境为独立双节点集群、默认流量、导入 1000 万行基准数据；步骤为开启开关、执行基准查询、对比开关前后耗时；观察点为查询耗时指标和引擎日志中的索引路径；运行结果为 https://example.com/perf-result。每日回归 E2E：任务名 daily-failover-regression，任务 ID 10086，绑定环境为回归集群，关键配置为每日凌晨自动执行；观察点为任务状态和 failover 恢复耗时；运行结果为 https://example.com/failover-result。",
+            "id": "create-design-doc-first-chapter",
+            "prompt": "把以下材料整理成设计文档，写入 order-retry-design.md。业务：订单支付成功后发货消息投递失败会自动重试 3 次，间隔 1 分钟。现状是群里用户反馈重试之后基本都恢复了，但没有系统化监控。目标是非交付成功消息 24 小时内自动补偿；非目标是不改动订单主流程。",
             "expectations": [
-                "测试范围表保留五条记录，测试结果按素材转写为 PASS 或 SKIP，不自行汇总或改写",
-                "兼容性测试不生成二级章节，SKIP 原因写在汇总表后，全文不出现 N/A",
-                "Bitmap ART 索引正确性验证只生成一个二级章节，UT 与 ST 分别使用模板约定的两种表格，且不保留未涉及的 E2E 小节",
-                "ST 测试流程按执行顺序编号，并在表格单元格内换行",
-                "性能对比作为自行设计 E2E，保留测试环境信息、操作步骤、预期观察点、运行结果四个小节",
-                "每日回归 failover 作为已有每日回归 E2E，不生成操作步骤小节，测试环境信息包含任务名、任务 ID 和绑定环境"
+                "先读 ref/design.md，再读其链接的 assets/template-design.md",
+                "首轮只成文问题定义一章并请求确认，不一次性输出或写入后续章节",
+                "问题定义写清现状、目标、非目标；材料未提及的约束写待确认",
+                "更新时间写当天日期，不保留 YYYY-MM-DD 占位符"
             ]
         }
     ]
