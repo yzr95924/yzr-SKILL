@@ -71,7 +71,7 @@ ruff check <skill-dir>           # lint（--fix 应用 safe 修复）
 ├── pyproject.toml               # ruff 唯一配置（py37 + 120 列）
 ├── .markdownlint.jsonc          # MD013 放宽到 120；MD041 / MD060 关闭
 ├── scripts/install-dev-deps.py  # 开发依赖安装（pyyaml / ruff / markdownlint-cli）
-├── .github/workflows/ci.yml     # CI = 仓库级 markdownlint + 冒烟循环（骨架检查步随 verify.py 删除，待重建）
+├── .github/workflows/ci.yml     # CI = 全 skill skeleton check + 仓库级 markdownlint + 冒烟循环
 └── yzr-*/                       # 各 skill 目录；yzr-skill-management（元）内部：
     ├── SKILL.md                 #   执行原则（设计 / 写作两小节）+ 工作流（改进 / 审计 + 共享末步）
     ├── tools/                   #   skeleton.py（new 生成骨架 / check 比对漂移）+ tools/tests/ 冒烟
