@@ -38,8 +38,8 @@ jobs:
         run: npm install -g markdownlint-cli
       - name: skeleton check (all skills, shape + ref/anchor liveness)
         run: python yzr-skill-management/tools/skeleton.py check
-      - name: markdownlint repo-level docs (README / AGENTS / MEMORY)
-        run: markdownlint 'README.md' 'AGENTS.md' 'CLAUDE.md' 'MEMORY/**/*.md'
+      - name: markdownlint all Markdown files
+        run: markdownlint '**/*.md'
       - name: smoke tests
         # glob 循环，两代目录约定各一个：tests/（存量）与 tools/tests/（现行，见 AGENTS.md）。
         # 冒烟在各自 skill 目录下运行（cwd 约定见各文件头注）。
