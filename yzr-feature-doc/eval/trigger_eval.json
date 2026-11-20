@@ -8,6 +8,10 @@
         "should_trigger": true
     },
     {
+        "query": "把 Bitmap ART 这轮测试材料整理成测试报告",
+        "should_trigger": true
+    },
+    {
         "query": "线上下单接口偶发超时，把这次 trace 排查整理成分析文档",
         "should_trigger": true
     },

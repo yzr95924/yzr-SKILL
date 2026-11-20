@@ -33,6 +33,18 @@
                 "成文前加载 yzr-writing-style，产物落文件按其工作流跑 tools/scan_fingerprints.py 机检，非豁免命中清零才交付",
                 "只改 decision-log.md，产物留在沙箱内"
             ]
+        },
+        {
+            "id": "create-test-report",
+            "prompt": "把以下材料整理成测试报告，写入 bitmap-art-test-report.md。汇总：功能测试 / Bitmap ART 索引正确性验证 / UT / https://example.com/ut / PASS；功能测试 / Bitmap ART 索引正确性验证 / ST / https://example.com/st / PASS；兼容性测试 / 持久化与消息结构兼容性 / SKIP，原因是本次修改不涉及持久化落盘结构和消息结构体变更；性能测试 / 开启 Bitmap ART 后性能对比 / E2E / https://example.com/perf / PASS，这是自行设计用例；黑盒故障注入 / 每日回归 failover / E2E / https://example.com/failover / PASS，这是系统已有的每日回归任务。UT：BitmapArtTest.InsertAndLookup，场景是插入多个 key 后查询，主要检查点是查找结果与写入一致，验证逻辑是逐 key 调用 Find 并断言返回值。ST：DeltaMapSystemTest.SwitchEnabled，测试目的是验证特性开关开启后走 Bitmap ART 路径，流程是准备 DeltaMap 数据、开启开关、发起查询、检查执行日志，预期结果是查询走 Bitmap ART 路径且结果不变。自行设计 E2E：环境为独立双节点集群、默认流量、导入 1000 万行基准数据；步骤为开启开关、执行基准查询、对比开关前后耗时；观察点为查询耗时指标和引擎日志中的索引路径；运行结果为 https://example.com/perf-result。每日回归 E2E：任务名 daily-failover-regression，任务 ID 10086，绑定环境为回归集群，关键配置为每日凌晨自动执行；观察点为任务状态和 failover 恢复耗时；运行结果为 https://example.com/failover-result。",
+            "expectations": [
+                "测试范围表保留五条记录，测试结果按素材转写为 PASS 或 SKIP，不自行汇总或改写",
+                "兼容性测试不生成二级章节，SKIP 原因写在汇总表后，全文不出现 N/A",
+                "Bitmap ART 索引正确性验证只生成一个二级章节，UT 与 ST 分别使用模板约定的两种表格，且不保留未涉及的 E2E 小节",
+                "ST 测试流程按执行顺序编号，并在表格单元格内换行",
+                "性能对比作为自行设计 E2E，保留测试环境信息、操作步骤、预期观察点、运行结果四个小节",
+                "每日回归 failover 作为已有每日回归 E2E，不生成操作步骤小节，测试环境信息包含任务名、任务 ID 和绑定环境"
+            ]
         }
     ]
 }
