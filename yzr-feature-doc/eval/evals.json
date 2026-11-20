@@ -46,6 +46,16 @@
             ]
         },
         {
+            "id": "create-python-full-report",
+            "prompt": "把 materials.md 中的测试材料一次性整理成完整测试报告，写入 notification-report.md，不需要逐章确认。",
+            "expectations": [
+                "先读 ref/test-report.md，再读其链接的 assets/template-test.md，并读取 materials.md",
+                "汇总表保留五列；pytest、notification-worker 测试程序、真实服务集成分别按 UT / ST / FT 归类，自设计用例保持 E2E；不得出现 gtest、Docker、每日回归、commit ID、分支或构建号，不虚构材料没有的环境或执行记录",
+                "FT 共享前置写在表格前，不在每条用例中重复；表格流程只写简短摘要，完整集成步骤只放测试详情链接",
+                "自设计 E2E 保留环境、操作步骤、预期观察点和运行结果；不生成未涉及用例类型的空小节"
+            ]
+        },
+        {
             "id": "create-design-doc-first-chapter",
             "prompt": "把以下材料整理成设计文档，写入 order-retry-design.md。业务：订单支付成功后发货消息投递失败会自动重试 3 次，间隔 1 分钟。现状是群里用户反馈重试之后基本都恢复了，但没有系统化监控。目标是非交付成功消息 24 小时内自动补偿；非目标是不改动订单主流程。",
             "expectations": [
