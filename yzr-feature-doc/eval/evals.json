@@ -24,6 +24,28 @@
             ]
         },
         {
+            "id": "classify-test-types",
+            "prompt": "把以下测试材料整理成测试报告的测试范围表，写入 compact-huffman-test-report.md，先只写这一部分。Compact Huffman coder 正确性与内存安全：本地 Debug 执行 28 个 UT，28/28 通过；同一组 UT 在 Release ASAN/LSAN 下执行，28/28 通过，无内存错误与泄漏。Compact Huffman 内存开销优化：E2E 对比优化前后，峰值 RSS 从 120 MB 降至 90 MB，结果 PASS。解码分配失败处理：UT 在分配调用处注入失败，返回错误码且无泄漏，结果 PASS。解码服务断网恢复：E2E 断网 30 秒后恢复，请求失败可重试，结果 PASS。解码吞吐对比：E2E 吞吐提升 20%，结果 PASS。",
+            "expectations": [
+                "先读 ref/test-report.md，再读其链接的 assets/template-test.md",
+                "正确性与内存安全的两组 UT 均归为功能测试，并合并为一行；测试详情保留 Debug 与 ASAN/LSAN 两次执行证据",
+                "内存开销优化归为内存开销测试，不写成内存测试",
+                "解码分配失败处理归为白盒故障注入，解码服务断网恢复归为黑盒故障注入；不得按 UT / E2E 反推注入类型",
+                "解码吞吐对比归为性能测试，不归为内存开销测试",
+                "材料中的六组测试结果都要有体现；合并同类执行时不得丢失执行证据"
+            ]
+        },
+        {
+            "id": "split-executions-by-result",
+            "prompt": "把以下测试材料整理成测试报告的测试范围表，写入 compact-huffman-test-report-fail.md，先只写这一部分。Compact Huffman coder 正确性与内存安全：本地 Debug 执行 28 个 UT，28/28 通过；同一组 UT 在 Release ASAN/LSAN 下执行，发现越界错误，结果 FAIL，错误详情见 https://example.com/asan-report。",
+            "expectations": [
+                "先读 ref/test-report.md，再读其链接的 assets/template-test.md",
+                "两次执行均归为功能测试，测试项均为 Compact Huffman coder 正确性与内存安全，用例类型均为 UT",
+                "两次执行结果不同，不得合并为一行；Debug 行写 PASS，ASAN/LSAN 行写 FAIL",
+                "Debug 行的测试详情保留 28/28 通过，ASAN/LSAN 行的测试详情保留越界错误和 https://example.com/asan-report"
+            ]
+        },
+        {
             "id": "create-design-doc-first-chapter",
             "prompt": "把以下材料整理成设计文档，写入 order-retry-design.md。业务：订单支付成功后发货消息投递失败会自动重试 3 次，间隔 1 分钟。现状是群里用户反馈重试之后基本都恢复了，但没有系统化监控。目标是非交付成功消息 24 小时内自动补偿；非目标是不改动订单主流程。",
             "expectations": [
