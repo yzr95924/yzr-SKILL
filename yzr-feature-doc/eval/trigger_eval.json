@@ -24,6 +24,14 @@
         "should_trigger": true
     },
     {
+        "query": "根据这段已实现代码和 UT 用例输出一份 SFMEA 分析文档",
+        "should_trigger": true
+    },
+    {
+        "query": "只检查这段代码的故障模式，不用写文档",
+        "should_trigger": false
+    },
+    {
         "query": "帮我写一份这个产品下季度的 PRD",
         "should_trigger": false
     },
