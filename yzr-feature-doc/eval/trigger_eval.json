@@ -46,5 +46,9 @@
     {
         "query": "把这周的项目动态整理后归档到团队 wiki",
         "should_trigger": false
+    },
+    {
+        "query": "帮我设计这批接口的测试用例，不用写测试报告",
+        "should_trigger": false
     }
 ]
