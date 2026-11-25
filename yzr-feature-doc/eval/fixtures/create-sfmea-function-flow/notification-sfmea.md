@@ -6,4 +6,6 @@
 其他异常直接置失败；整批处理后统一回写状态。分析范围包括 `notification_worker.py` 的
 `load_config`、`send_batch`，以及 `test_notification_worker.py` 的两个正常路径 UT。
 
+线上以 release 构建（python -O）运行，`assert` 等 debug 检查不生效。
+
 材料未提供 `Repository`、`Sender` 的真实实现和部署形态；相关判断按接口契约推断，无法确认处写“待确认”。

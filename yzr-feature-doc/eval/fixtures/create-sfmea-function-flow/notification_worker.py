@@ -25,6 +25,9 @@ def send_batch(repo, sender, config):
     if not pending:
         return 0
 
+    if __debug__:
+        assert config["retry_times"] > 0
+
     sent = 0
     for notification in pending:
         for _ in range(config["retry_times"]):
